@@ -1,0 +1,1006 @@
+<style>
+.z {color:gray}
+.s {cursor:hand}
+.b {font-weight:bold;cursor:hand}
+.bt {font-weight:bold;}
+th {background-color:silver}
+<?
+
+$mode = $_GET["mode"];
+if (!$mode) $mode = $_POST["mode"]; 
+    
+if ($mode){?>
+.mode {background-color:#efefef}
+<?}else{
+	$xlsfilename = "tazrim_mezumanim";
+}?>
+</style>
+<script>
+function showChn(ids){
+	ids1 = ids.replace(/-1/g,"").replace(/\,/g,"")
+	if (ids1){
+        document.FF.action = "rep_cheshbonit.php"
+        document.FF.ids.value = ids
+        openReport1("blank.htm")
+        document.FF.submit()
+	}
+}
+function showTakbul(ids){
+	ids1 = ids.replace(/-1/g,"").replace(/\,/g,"")
+	if (ids1){
+        document.FF.action = "rep_takbul.php"
+        document.FF.ids.value = ids
+        openReport1("blank.htm")
+        document.FF.submit()
+	}
+}
+
+function mov(e){
+	if(e.className=="mode s"||e.className=="s"||e.className=="b ") e.style.backgroundColor='yellow';
+}
+function mou(e){
+	e.style.backgroundColor='';
+}
+
+function openReport1(url){
+	var ss="";
+	s = window.open(url,'CHN','top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+	s.focus();
+}
+
+</script>
+<?php
+	$amlaMinArr = array();
+
+	$sugIska = array(
+		1=>"רגיל",
+		2=>"קרדיט",
+		3=>"מיידי",
+		4=>"מועדון",
+		6=>"מיוחד",
+		8=>"תשלומים",
+		9=>"מועדון תשלומים"
+	);
+
+	$company = array(
+		1=>"ישרא'",
+		2=>"כאל",
+		3=>"דיינרס",
+		4=>"אמקס",
+		5=>"JCB",
+		6=>"לאומי"
+	);
+
+	$companyAmla = array(
+		1=>"Isra",
+		2=>"Visa",
+		3=>"Diners",
+		4=>"AMEX",
+		5=>"Direct",
+		6=>"Leumi"
+	);
+
+
+	$matbea = array(
+		1 =>"שקל",
+		2 =>"דולר",
+		4 =>"הצמדה לדולר",
+		8 =>"הצמדה מדד"
+	);
+
+	$ishur = array(
+		0 =>'ללא אישור',
+		1 =>'שב"א',
+		2 =>'חברת אשראי',
+		3 =>'ידני'
+	);
+
+	$typeIska = array(
+		1=>'רגיל',
+		2=>'מאושרת',
+		3=>'מאולצת',
+		51=>'זיכוי רגיל',
+		52=>'ביטול',
+		53=>'זיכוי מאושר'
+	);
+
+
+	$simple=1;
+	if (!$mode){
+		$page_subtitle = "תזרים מזומנים ";
+	}
+	else{
+		$page_subtitle = " תקבולים ";
+		if ($mode=="visa"){$page_subtitle .="ויזה";}
+		if ($mode=="diners"){$page_subtitle .="דיינרס";}
+		if ($mode=="isra"){$page_subtitle .="ישראכרט";}
+		if ($mode=="visadiners"){$page_subtitle .="דיינרס+ויזה";}
+		if ($mode=="leumi"){$page_subtitle .=$lang["cc_leumicard"];}
+	}
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+
+	include("$config[template_path]/admin_top.html");
+
+
+	$amlaName = "Amla";
+	if ($mode=="isra")$amlaName.="Isra";
+if ($mode=="leumi")$amlaName.="Leumi";
+	if ($mode=="visa")$amlaName.="VisaDiners";
+	if ($mode=="diners")$amlaName.="VisaDiners";
+	if ($mode=="visadiners")$amlaName.="VisaDiners";
+	$amlaName .= "Minimum";
+	$amlaMin = $UserData->fields[$amlaName];
+
+
+	$modes = array(
+		"isra"=>$lang["isracard"],
+		"leumi"=>$lang["cc_leumicard"],
+		"visa"=>$lang["visa"],
+		"diners"=>$lang["diners"],
+		"visadiners"=>$lang["visa"]."+".$lang["diners"]
+	);
+
+	if ($_GET["sDate"] && $saction!="sendreport"){
+		$saction="go";
+	}
+
+	if (!$sDate){
+		$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+		$sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+		$eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+	}
+
+	$asDate = explode("/",$sDate);
+	$aeDate = explode("/",$eDate);
+
+	$startdate = mktime(23,59,59,$asDate[1],$asDate[0],$asDate[2]);
+	$enddate = mktime(23,59,59,$aeDate[1],$aeDate[0],$aeDate[2]);
+
+    $stocks = GetStocks(true);
+	?>
+	<script>
+	function PrintReport(){
+		document.getElementById("Query").style.display = "none";
+		window.print();
+		document.getElementById("Query").style.display = "";
+	}
+	</script>
+	<body>
+	<table cellpadding=5 border=0 width=100%>
+	<tr>
+	<form name=F method=post>
+	<input type=hidden name=mode value=<?=$mode?>>
+	<input type=hidden name=usr value=<?=$usr?>>
+	<input type=hidden name=rmodule value=<?=$rmodule?>>
+	<td nowrap>
+	<strong style='font-size:12pt'>
+	<?if (!$mode){?>
+		<?$reporttitle = $lang["report_tazrim"]?>
+	<?}else{?>
+		<?$reporttitle = $lang["report_tazrim_atidim"].$modes[$mode]?>
+	<?}?>
+	<?if ($usr){$reporttitle.="<br>".$username;}?>
+	<?=$reporttitle?>
+	</strong>
+	</td><td width=99% style='border:inset 1'>
+
+	<?=$lang["from"]?> <input size=6 id=sDate name=sDate value="<?=$sDate?>">
+	<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.sDate")'>
+
+	<?if (!$mode){?>
+		<?=$lang["to"]?> <input size=6 id=eDate name=eDate value="<?=$eDate?>">
+		<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.eDate")'>
+	<?}?>
+
+	<select name=stock>
+	<?FillStockList($stocks,$stock)?>
+	</select>
+
+	<input type=submit value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top" >
+	<?if ($saction=="go" || $saction=="sendreport"){
+		require("sendreport.php"); 
+	}?>
+	<input type=hidden name=saction value=go>
+	<input type=hidden name=reportbody value="">
+	<input type=hidden name=sendmode value="">
+
+	</td>
+	</form>
+	</tr>
+	</table>
+	<?
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+
+	echo "<div ><table id=REPORTTABLE dir=$dir border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+
+	if (!$mode){
+
+		$worksheet->set_column('A:H', 12);
+		$headings = array($lang["date"],$lang["cash"],$lang["cheque"],$lang["coupon"],"קבלות",$lang["isracard"],$lang["cc_leumicard"],$lang["visa"],$lang["diners"],"סה\"כ אשראי","תשלומים יוצאים",$lang['total']);
+		$worksheet->write_row('A'.($rrow++), $headings, $heading);
+		;
+
+		echo "<tr><th rowspan=2>".$lang["date"]."</th>";
+		echo "<th rowspan=2>&nbsp;".$lang["cash"]."&nbsp;</th>";
+		echo "<th rowspan=2>&nbsp;".$lang["cheque"]."&nbsp;</th>";
+		echo "<th rowspan=2>&nbsp;".$lang["coupon"]."&nbsp;</th>";
+        echo "<th rowspan=2>&nbsp;"."קבלות"."&nbsp;</th>";
+		echo "<th colspan=5>".$lang["creditcard"]."</th>";
+        echo "<th rowspan=2>&nbsp;"."תשלומים <br> יוצאים"."&nbsp;</th> ";
+		echo "<th rowspan=2>&nbsp;".$lang['total']."&nbsp;</th>";
+		echo "</tr>";
+		echo "<tr>";
+		/*
+
+		<th>&nbsp;IsraCard&nbsp;</th>
+		<th>&nbsp;Visa Kal&nbsp;</th>
+		<th>&nbsp;Diners&nbsp;</th>
+		<th>&nbsp;AMEX&nbsp;</th>
+		<th>&nbsp;JCB&nbsp;</th>
+		<th>&nbsp;Visa Leumi&nbsp;</th>
+		<th>&nbsp;Subtotal&nbsp;</th>
+		*/
+		echo "
+
+		<th>&nbsp;".((HasReportPermission("TAKBULIMISRA"))?"<a title='".$lang[report_tazrim_atidim].$lang[isracard]."' href='javascript:openReport1(\"rep_tazrim.php?mode=isra&usr=$usr&rmodule=$rmodule&sDate=$sDate\")'>":"").$lang[isracard]."</a>&nbsp;</th>
+		<th>&nbsp;".((HasReportPermission("TAKBULIMISRA"))?"<a title='".$lang[report_tazrim_atidim].$lang[cc_leumicard]."' href='javascript:openReport1(\"rep_tazrim.php?mode=leumi&usr=$usr&rmodule=$rmodule&sDate=$sDate\")'>":"").$lang[cc_leumicard]."</a>&nbsp;</th>
+		<th>&nbsp;".((HasReportPermission("TAKBULIMVIZA"))?"<a title='".$lang[report_tazrim_atidim].$lang[visa]."' href='javascript:openReport1(\"rep_tazrim.php?mode=visa&usr=$usr&rmodule=$rmodule&sDate=$sDate\")'>":"").$lang[visa]."</a>&nbsp;</th>
+		<th>&nbsp;".((HasReportPermission("TAKBULIMDINERS"))?"<a title='".$lang[report_tazrim_atidim].$lang[diners]."' href='javascript:openReport1(\"rep_tazrim.php?mode=diners&usr=$usr&rmodule=$rmodule&sDate=$sDate\")'>":"").$lang[diners]."</a>&nbsp;</th>
+		<th>&nbsp;".$lang['total']."&nbsp;</th>
+		";
+		echo"</tr>";
+	}
+	else{
+		echo "<tr><th width=15% nowrap>".$lang["date"]."</th>";
+		if ($mode=="visadiners"){
+			echo "<th >".$modes["visa"]."</th>";
+			echo "<th >".$modes["diners"]."</th>";
+			echo "<th >&nbsp;".$lang['total']."&nbsp;</th></tr>";
+		}
+		else
+		{
+			echo "<th colspan=2>".$modes[$mode]."</th></tr>";
+		}
+	}
+
+
+	$day = $startdate;
+	$total_cash = 0;
+	$total_cheque = 0;
+	$total_coupon = 0;
+	$total_cc_isra = 0;
+	$total_cc_leumi = 0;
+	$total_cc_kal = 0;
+	$total_cc_diners = 0;
+	$total_cc_amex = 0;
+	$total_cc_jcb = 0;
+	$total_cc_leumi = 0;
+	$total = 0;
+
+
+	if ($mode){
+                $qq = ($mode=="visadiners")?" ck.slika in ('visa','diners')":" ck.slika = '$mode'";
+                $rss = DBQuery("select group_concat(ct.code) as slikacards from $TABLE_CARDTYPES ct, cardtype_kupot ck where ct.id = ck.cardtype_id and $qq");
+                $ccompany = $rss->fields["slikacards"];
+                if (!$ccompany)$ccompany="-1";
+                
+		$sql = "select
+			UNIX_TIMESTAMP(max(date_add(trandate,INTERVAL NumPayments+1 MONTH))) as maxdate
+                        from
+                            transactions t, transactionpayments p
+                        where
+                            t.id = p.trans_id
+                            and t.user_id =  $userID
+                            and CompanyNum in ($ccompany)
+                        ";
+		$rs = DBQuery($sql);
+		$enddate = $rs->fields["maxdate"];
+	}
+
+    //echo "<!--ENDDAY: ".date("d/m/Y",$enddate)." $sql -->";
+
+	while ($day <= $enddate){
+		//get cash payments
+		$sqldate = date("Y-m-d",$day);
+		$operday = date("d/m/Y",$day);
+        $dayofweek = $days[date("w",$day)];
+		$cash = "";
+		$cheque = "";
+		$coupon = "";
+		$cc_isra = "";
+		$cc_leumi = "";
+		$cc_kal = "";
+        $kabala = "";
+        $payment = "";
+		$cc_diners = "";
+		$cc_amex = "";
+		$cc_jcb = "";
+		$cc_leumi = "";
+		$sqlmin_date = "";
+		$sqlmax_date = "";
+		$sqlmin_date30 = "";
+		$sqlmax_date30 = "";
+
+		$CashTrans = "";
+        $kabalaTrans = "";
+        $paymentTrans = "";
+		$ChequeTrans = "";
+		$CouponTrans = "";
+		$visaTrans = "";
+		$israTrans = "";
+		$leumiTrans = "";
+		$dinersTrans = "";
+
+		if ($mode && date("d",$day)==1){
+			echo "<tr><td bgcolor=lightgreen colspan=20><strong>".date("m/Y",$day)."</strong></td></tr>";
+		}
+
+		if (!$mode){
+
+
+            //Kabalot + Cheshbonit mas kabala
+            $sql = "select sum(dp.amount * (case when doc_type='MASZIKUI' then -1 else 1 end)) as amount,group_concat(dp.id) as docids  from document_payments dp, documents d
+            where dp.doc_id = d.id and d.user_id = $userID and doc_type in ('KABALA','MASKABALA','MASZIKUI','CHESHBONITPINKAS','KABALAPINKAS')
+            and (case when dp.checkdate is null or dp.checkdate='0000-00-00' then d.doc_date else dp.checkdate end) = '$sqldate'
+            ";
+            $rs = $conn->Execute($sql);
+			if ($rs === false){log_error($sql);}
+			$kabalaTrans = $rs->fields["docids"];
+            $kabala =  $rs->fields["amount"];
+
+            //Tashlumim yotzim
+            $sql = "select sum(dp.amount * (case when doc_type='BITULTASHLUM' then -1 else 1 end)) as amount,group_concat(dp.id) as docids  from document_payments dp, documents d
+            where dp.doc_id = d.id and d.user_id = $userID and doc_type in ('TASHLUM','BITULTASHLUM') 
+            and (case when dp.checkdate is null or dp.checkdate='0000-00-00' then d.doc_date else dp.checkdate end) = '$sqldate'
+            ";
+            $rs = $conn->Execute($sql);
+			if ($rs === false){log_error($sql);}
+            $paymentTrans = $rs->fields["docids"];
+            $payment =  $rs->fields["amount"];
+
+            //Tashlumim le sapakim
+            $sql = "select sum(sp.amount) as amount,group_concat(1000000+id) as docids  from supplierpayments sp
+            where sp.user_id = $userID and status=1
+            and (case when checkdate is null or checkdate='0000-00-00' then day else checkdate end) = '$sqldate'
+            ";
+            $rs = $conn->Execute($sql);
+			if ($rs === false){log_error($sql);}
+            $payment +=  $rs->fields["amount"];
+            if ($paymentTrans){
+                $paymentTrans.=",".$rs->fields["docids"];
+            }
+            else
+            {
+                 $paymentTrans=$rs->fields["docids"];
+            } 
+
+			//Cash
+
+			$q="";
+			if ($stock){
+				$q = " and t.stock_id = $stock";
+			}
+			
+
+			$sql = "select t.ID,
+			(case when IsRefund=1  or RefundMode=1
+			then
+					((CashSum - tChange) * -1)
+			else
+					(CashSum - tChange)
+			end)
+			as CashSum
+			from transactionpayments p, transactions t where t.ID = p.trans_id $q and t.tranDate = '".$sqldate."' and CashSum <> 0 and paymntcount>0 and t.user_id = $userID";
+			$rs = $conn->Execute($sql);
+			if ($rs === false){log_error($sql);}
+			if (!$rs->EOF){
+				$cash = sum($rs,"CashSum",&$CashTrans);
+			}
+
+			//Cheque
+
+			$sql = "select t.ID,(case when IsRefund=1  or RefundMode=1 then ChequeSum*-1 else ChequeSum end) as ChequeSum
+			from transactionpayments p, transactions t
+			where t.ID = p.trans_id $q
+			and p.PayDate = '".$sqldate."' and ChequeSum <> 0 and t.user_id = $userID";
+			$rs = $conn->Execute($sql);
+			if ($rs === false){log_error($sql);}
+			if (!$rs->EOF){
+				$cheque = sum($rs,"ChequeSum",&$ChequeTrans);
+			}
+
+			//Coupon
+
+			$sql = "select t.ID,(case when IsRefund=1  or RefundMode=1 then CouponSum*-1 else CouponSum end) as CouponSum
+			from transactionpayments p, transactions t
+			where t.ID = p.trans_id $q
+			and t.TranDate = '".$sqldate."' and CouponSum <> 0 
+			and p.IsRefundVoucher = 0 and p.IsChangingVoucher = 0 
+			and t.user_id = $userID";
+			$rs = DBQuery($sql);
+			if (!$rs->EOF){
+				$coupon = sum($rs,"CouponSum",&$CouponTrans);
+			}
+		}
+
+		//credit cards - credit (2) - for Yomi mode
+		if ($UserData->fields["IsraKreditMode"]=="R"){
+			$kredDays = ($UserData->fields["IsraKreditDays"])?$UserData->fields["IsraKreditDays"]:4;
+			$cred_date = date("Y/m/d",strtotime("-$kredDays day",$day));
+			$q="";
+			if ($stock){
+				$q = " and t.stock_id = $stock";
+			}
+			$sql = "
+			select t.ID,CompanyNum,(case when IsRefund=1  or RefundMode=1 then CreditCardSum*-1 else CreditCardSum end) as CreditCardSum
+			from transactionpayments p, transactions t
+			where t.ID = p.trans_id and p.CreditTerms = 2 and
+			t.TranDate = '$cred_date' $q
+			and t.user_id = $userID";// group by CompanyNum";
+			$rs = DBQuery($sql);
+			$cc=0;
+			while (!$rs->EOF){
+				$sum = ($rs->fields["CreditCardSum"])?$rs->fields["CreditCardSum"]:"";
+				$tid=$rs->fields["ID"];
+                                $slika = GetSlika($rs->fields["CompanyNum"]);
+                                $ccvarName = "cc_".$slika;
+                                $transvarName = $slika."Trans";
+                                $$ccvarName += $sum;if ($sum){$$transvarName.=",".$tid;}
+				$cc++;
+				$rs->MoveNext();
+			}
+		}
+
+
+
+
+
+		//credit cards
+		//type= CreditTerms-1(3,4,6,9)
+		//Ragil 1 payment from 1 to 15 day of month -> second day of month
+		//Ragil 1 payment from 16 to 31 day of month -> eight day of month
+		//Isracard group (CompanyNum=1,4,5) - only for $isramode==2;
+		$zikuiday = date("d",$day);
+		if ($zikuiday==2 || $zikuiday==8 ||
+			(
+				$isramode==4 && ($zikuiday==1||$zikuiday==7||$zikuiday==14||$zikuiday==21)
+			)
+		   ){
+			$last_month = strtotime("-1 month",$day);
+			$last_month30 = strtotime("-2 month",$day);
+
+			if ($zikuiday==2){
+				$min_date = strtotime("-1 day",$last_month);
+				$max_date = strtotime("+13 day",$last_month);
+				$min_date30 = strtotime("-1 day",$last_month30);
+				$max_date30 = strtotime("+13 day",$last_month30);
+			}
+			if ($zikuiday==8){
+				$min_date = strtotime("+8 day",$last_month);
+				$max_date = strtotime("-8 day",$day);
+				$min_date30 = strtotime("+8 day",$last_month30);
+				$max_date30 = strtotime("-1 month -8 day",$day);
+			}
+			//isracard 4 zikuim
+			if ($zikuiday==1){//s 8  po 14 chislo pred mesyaca
+				$min_date = strtotime("+7 day",$last_month);
+				$max_date = strtotime("+13 day",$last_month);
+				$min_date30 = strtotime("+7 day",$last_month30);
+				$max_date30 = strtotime("+13 day",$last_month30);
+			}
+			if ($zikuiday==7){//s 15  po 19 chislo pred mesyaca
+				$min_date = strtotime("+8 day",$last_month);
+				$max_date = strtotime("+12 day",$last_month);
+				$min_date30 = strtotime("+8 day",$last_month30);
+				$max_date30 = strtotime("+12 day",$last_month30);
+			}
+			if ($zikuiday==14){//s 20  po konec pred mesyaca
+				$min_date = strtotime("+6 day",$last_month);
+				$max_date = strtotime("-14 day",$day);
+				$min_date30 = strtotime("+6 day",$last_month30);
+				$max_date30 = strtotime("-1 month -14 day",$day);
+			}
+			if ($zikuiday==21){//s 1 po 7 etogo mesyaca
+				$min_date = strtotime("-20 day",$day);
+				$max_date = strtotime("-14 day",$day);
+				$min_date30 = strtotime("-1 month -20 day",$day);
+				$max_date30 = strtotime("-1 month -14 day",$day);
+			}
+
+
+			$sqlmin_date = date("Y/m/d",$min_date);
+			$sqlmax_date = date("Y/m/d",$max_date);
+			$sqlmin_date30 = date("Y/m/d",$min_date30);
+			$sqlmax_date30 = date("Y/m/d",$max_date30);
+
+			$q="";
+			if ($stock){
+				$q = " and t.stock_id = $stock";
+			}
+
+			$isramodesql = "";
+			//count Isracard group (1,4,5) in (1,7,14,21 day) only for maslul isracard=4
+			if ($isramode==4 && ($zikuiday==1||$zikuiday==7||$zikuiday==14||$zikuiday==21)){
+				$isramodesql = " and p.CompanyNum in (1,4,5) "; //isracard
+			}
+			if ($isramode==4 && ($zikuiday==2||$zikuiday==8)){
+				$isramodesql = " and p.CompanyNum not in (1,4,5) "; //isracard
+			}
+
+			//Include also Israkard credit for Kredit mode = "Maslulim" (not "yomi")
+			$inclCredit = "";
+			if ($mode=="isra" && $UserData->fields["IsraKreditMode"]=="M"){
+				$inclCredit  = ",2";
+			}
+
+
+			$sql = "
+			select t.ID,CompanyNum,(case when IsRefund=1  or RefundMode=1 then CreditCardSum*-1 else CreditCardSum end) as CreditCardSum
+			from transactionpayments p, transactions t
+			where t.ID = p.trans_id and p.CreditTerms in (1,3,4,6,9 $inclCredit) and
+			t.TranDate BETWEEN '$sqlmin_date' and '$sqlmax_date'
+			and t.user_id = $userID $q $isramodesql";
+			//	group by CompanyNum ";
+			$rs = $conn->Execute($sql);
+			if ($rs === false){log_error($sql);}
+			$cc=0;
+			while (!$rs->EOF){
+				$sum = ($rs->fields["CreditCardSum"])?$rs->fields["CreditCardSum"]:"";
+				$tid=$rs->fields["ID"];
+                                $slika = GetSlika($rs->fields["CompanyNum"]);
+                                $ccvarName = "cc_".$slika;
+                                $transvarName = $slika."Trans";
+                                $$ccvarName += $sum;if ($sum){$$transvarName.=",".$tid;}
+				$cc++;
+				$rs->MoveNext();
+			}
+
+			//+30 payment also is here //-1??
+			$sql = "
+			select t.ID,CompanyNum,(case when IsRefund=1  or RefundMode=1 then CreditCardSum*-1 else CreditCardSum end) as CreditCardSum
+			from transactionpayments p, transactions t
+			where t.ID = p.trans_id and p.CreditTerms = -1 and
+			t.TranDate BETWEEN '$sqlmin_date30' and '$sqlmax_date30'  $q $isramodesql
+			and t.user_id = $userID";// group by CompanyNum";
+			$rs = $conn->Execute($sql);
+			if ($rs === false){log_error($sql);}
+			$cc=0;
+			while (!$rs->EOF){
+				$sum = ($rs->fields["CreditCardSum"])?$rs->fields["CreditCardSum"]:"";
+				$tid=$rs->fields["ID"];
+                                $slika = GetSlika($rs->fields["CompanyNum"]);
+                                $ccvarName = "cc_".$slika;
+                                $transvarName = $slika."Trans";
+                                $$ccvarName += $sum;if ($sum){$$transvarName.=",".$tid;}
+				$cc++;
+				$rs->MoveNext();
+			}
+
+			//credit cards - tashlumim also is here (8)
+			$q=""; 
+			if ($stock){
+				$q = " and t.stock_id = $stock";
+			}
+			$s = "";
+			if ($zikuiday==2) {$s = "1 and 15";$i=1 ;$b="";}
+			if ($zikuiday==8) {$s = "16 and 31";$i=1;$b="";}
+
+			if ($zikuiday==21) {$s = "1 and 7";$i=1;$b="";}
+			if ($zikuiday==14) {$s = "20 and 31";$i=1;$b="";}
+			if ($zikuiday==7) {$s = "15 and 19";$i=1;$b="";}
+			if ($zikuiday==1) {$s = "8 and 14";$i=1;$b="";}
+
+			$sql = "
+			select t.ID,CompanyNum,(case when IsRefund=1 or RefundMode=1 then
+				(case when '$sqldate' BETWEEN adddate(trandate,interval 0 month) and adddate(trandate,interval 1 month) then FirstPayment else OtherPayment end)
+				*-1 else
+				(case when '$sqldate' BETWEEN adddate(trandate,interval 0 month) and adddate(trandate,interval 1 month) then FirstPayment else OtherPayment end)
+				end) as CreditCardSum
+			from transactionpayments p, transactions t
+			where t.ID = p.trans_id and p.CreditTerms = 8 and
+			EXTRACT(YEAR_MONTH from '$sqldate')  
+			BETWEEN EXTRACT(YEAR_MONTH from trandate)+$i and 
+            EXTRACT(YEAR_MONTH from trandate) + NumPayments $b 
+			and EXTRACT(DAY from trandate) BETWEEN ".$s.
+			" and t.user_id = $userID
+			$q $isramodesql";
+			//group by CompanyNum";
+			$rs = $conn->Execute($sql);
+			if ($rs === false){log_error($sql);}
+			$cc=0;
+			while (!$rs->EOF)
+                        {
+        			$sum = ($rs->fields["CreditCardSum"])?$rs->fields["CreditCardSum"]:"";
+				$tid=$rs->fields["ID"];
+                                $slika = GetSlika($rs->fields["CompanyNum"]);
+                                $ccvarName = "cc_".$slika;
+                                $transvarName = $slika."Trans";
+                                $$ccvarName += $sum;if ($sum){$$transvarName.=",".$tid;}
+                                $cc++;
+				$rs->MoveNext();
+			}
+
+		}
+
+		//end of zikuidays
+
+
+		if (!$mode ||
+			($mode=="isra" && ($cc_isra || ($isramode==2 && date("d",$day)==2)))||
+			($mode=="visa" && ($cc_kal || date("d",$day)==8))||
+				($mode=="leumi" && ($cc_kal || date("d",$day)==8))||
+			($mode=="diners" && ($cc_diners || date("d",$day)==8))||
+			($mode=="visadiners" && ($cc_diners||$cc_kal||date("d",$day)==8))
+		){
+
+			$israTrans = substr($israTrans,1);
+			$visaTrans = substr($visaTrans,1);
+			$leumiTrans = substr($leumiTrans,1);
+			$dinersTrans = substr($dinersTrans,1);
+
+			$cc = $cc_isra + $cc_kal + $cc_diners + $cc_amex + $cc_jcb + $cc_leumi;
+
+			$CCTrans = (($israTrans)?$israTrans:-1) .",".
+					   (($visaTrans)?$visaTrans:-1) .",".
+				(($leumiTrans)?$leumiTrans:-1) .",".
+					   (($dinersTrans)?$dinersTrans:-1);
+
+			$Total = $cash  + $cheque + $cc + $coupon + $kabala - $payment;
+
+			$TotalTrans = (($CCTrans)?$CCTrans:-1) .",".
+						  (($ChequeTrans)?$ChequeTrans:-1) .",".
+						  (($CouponTrans)?$CouponTrans:-1) .",".
+						  (($CashTrans)?$CashTrans:-1);
+
+			$total_cash +=$cash;
+			$total_cheque +=$cheque;
+            $total_kabala += $kabala;
+            $total_payment += $payment;
+			$total_coupon +=$coupon;
+			$total_cc_isra +=$cc_isra;
+			$total_cc_kal += $cc_kal;
+			$total_cc_diners += $cc_diners;
+			$total_cc_amex += $cc_amex;
+			$total_cc_jcb += $cc_jcb;
+			$total_cc_leumi+= $cc_leumi;
+			$total += $Total;
+			$total_cc += $cc;
+			//results
+			//$sqlmin_date30 $sqlmax_date30
+
+            
+			echo "
+			<tr align=right>
+				<td class='mode'>$operday $dayofweek</td>";
+				$ids="";
+				if (!$mode){
+					echo"
+					<td class=".((!$cash)?"z":"s")." ".((HasReportPermission("CHESHBONIT")?" onmouseover='mov(this)' onmouseout='mou(this)' title='לחץ לפרוט חשבוניות' onclick='showChn(\"$CashTrans\")' ":"")).">&nbsp;".number_format($cash,2)."&nbsp;</td>
+					<td class=".((!$cheque)?"z":"s")." ".((HasReportPermission("CHESHBONIT")?" onmouseover='mov(this)' onmouseout='mou(this)' title='לחץ לפרוט חשבוניות'  onclick='showChn(\"$ChequeTrans\")' ":"")).">&nbsp;".number_format($cheque,2)."&nbsp;</td>
+					<td class=".((!$coupon)?"z":"s")." ".((HasReportPermission("CHESHBONIT")?" onmouseover='mov(this)' onmouseout='mou(this)' title='לחץ לפרוט חשבוניות'  onclick='showChn(\"$CouponTrans\")' ":"")).">&nbsp;".number_format($coupon,2)."&nbsp;</td>
+					<td class=".((!$kabala)?"z":"s")." ".((HasDocumentPermission("KABALA")&&HasDocumentPermission("MASKABALA")?" onmouseover='mov(this)' onmouseout='mou(this)' title='לחץ לפרוט חשבוניות'  onclick='showTakbul(\"$kabalaTrans\")' ":"")).">&nbsp;".number_format($kabala,2)."&nbsp;</td>
+					";
+				}
+				if ($mode=="isra"||!$mode){
+					echo "<td class='mode ".((!$cc_isra)?"z":"s")."' ".((HasReportPermission("CHESHBONIT")?" onmouseover='mov(this)' onmouseout='mou(this)' title='לחץ לפרוט חשבוניות' onclick='showChn(\"$israTrans\")' ":"")).">&nbsp;".($mode?'סה"כ לתאריך: ':"")."<span dir=ltr>".number_format($cc_isra,2)."</span></td>";
+					$ids=$israTrans;
+				}
+			if ($mode=="leumi"||!$mode){
+				echo "<td class='mode ".((!$cc_leumi)?"z":"s")."' ".((HasReportPermission("CHESHBONIT")?" onmouseover='mov(this)' onmouseout='mou(this)' title='".$lang["click_to_pay_details"]."' onclick='showChn(\"$leumiTrans\")' ":"")).">&nbsp;".($mode?($lang["total_for_date"].': '):"")."<span dir=ltr>".number_format($cc_leumi,2)."&nbsp;</span></td>";
+				$ids=$leumiTrans;
+			}
+				if ($mode=="visa"||$mode=="visadiners"||!$mode){
+					echo "<td class='mode ".((!$cc_kal)?"z":"s")."' ".((HasReportPermission("CHESHBONIT")?" onmouseover='mov(this)' onmouseout='mou(this)' title='לחץ לפרוט חשבוניות'  onclick='showChn(\"$visaTrans\")' ":"")).">&nbsp;".($mode?'סה"כ לתאריך: ':"")."<span dir=ltr>".number_format($cc_kal,2)."</td>";
+					if ($mode=="visa")$ids=$visaTrans;
+				}
+				if ($mode=="diners"||$mode=="visadiners"||!$mode){
+					echo "<td class='mode ".((!$cc_diners)?"z":"s")."' ".((HasReportPermission("CHESHBONIT")?" onmouseover='mov(this)' title='לחץ לפרוט חשבוניות'  onmouseout='mou(this)'  onclick='showChn(\"$dinersTrans\")' ":"")).">&nbsp;".($mode?'סה"כ לתאריך: ':"")."<span dir=ltr>".number_format($cc_diners,2)."</td>";
+					if ($mode=="diners")$ids=$dinersTrans;
+				}
+				if ($mode=="visadiners")$ids=$visaTrans.(($visaTrans&&$dinersTrans)?",":"").$dinersTrans;
+				/*
+				<td class=".((!$cc_amex)?"z":"").">&nbsp;".number_format($cc_amex,2)."&nbsp;</td>
+				<td class=".((!$cc_jcb)?"z":"").">&nbsp;".number_format($cc_jcb,2)."&nbsp;</td>
+				<td class=".((!$cc_leumi)?"z":"").">&nbsp;".number_format($cc_leumi,2)."&nbsp;</td>
+				*/
+				if(!$mode){
+					echo"
+					<td class='".((!$cc)?"z":"s")."' ".((HasReportPermission("CHESHBONIT")?" onmouseover='mov(this)' onmouseout='mou(this)' title='לחץ לפרוט חשבוניות' onclick='showChn(\"$CCTrans\")' ":"")).">&nbsp;".number_format($cc,2)."&nbsp;</td>
+   					<td class='".((!$payment)?"z":"s")."' ".((HasDocumentPermission("TASHLUM")?" onmouseover='mov(this)' onmouseout='mou(this)' title='לחץ לפרוט חשבוניות' onclick='showTakbul(\"$paymentTrans\")' ":"")).">&nbsp;".number_format($payment,2)."&nbsp;</td>
+					<td class='b ".((!$Total)?"z":"")."' ".((HasReportPermission("CHESHBONIT")?" onmouseover='mov(this)' onmouseout='mou(this)' title='לחץ לפרוט חשבוניות' onclick='showChn(\"$TotalTrans\")' ":"")).">&nbsp;".number_format($Total,2)."&nbsp;</td>
+					";
+				}
+				if($mode=="visadiners"){
+					echo"<td class=mode></td>";
+				}
+			echo "</tr>";
+
+			if (!$mode){
+				$b=$body;
+				$f=$numformat;
+				$worksheet->write("A".$rrow,$operday,$b);
+				$worksheet->write("B".$rrow,$cash,$b);
+				$worksheet->write("C".$rrow,$cheque,$f);
+				$worksheet->write("D".$rrow,$coupon,$f);
+                $worksheet->write("E".$rrow,$kabala,$f);
+				$worksheet->write("F".$rrow,$cc_isra,$f);
+				$worksheet->write("G".$rrow,$cc_leumi,$f);
+				$worksheet->write("H".$rrow,$cc_kal,$b);
+				$worksheet->write("I".$rrow,$cc_diners,$f);
+				$worksheet->write("J".$rrow,$cc,$f);
+                $worksheet->write("K".$rrow,$payment,$f);
+				$worksheet->write("L".$rrow,$Total,$f);
+				$rrow++;
+			}
+
+			//perut for cards
+			if ($mode &&
+					(
+						$ids ||
+						(($mode=="isra")&&date("d",$day)==2) ||
+						(($mode=="visa"||$mode=="leumi"||$mode=="diners"||$mode=="visadiners")&&date("d",$day)==8)
+					)
+				){
+				if(!$ids)$ids = "-1";
+				echo "<tr><td colspan=6>";
+
+				$sql = "select ID,(case when IsRefund=1 or RefundMode=1 then 1 else 0 end) as IsRefund, TranDate,unix_timestamp(TranDate) TranDay,
+                PERIOD_DIFF(extract(YEAR_MONTH from '$sqldate'),extract(YEAR_MONTH from trandate)) as dateinterval
+                from transactions t where id in ($ids)";
+				$transData = $conn->Execute($sql);
+				if ($transData === false){log_error($sql);}
+				echo "<table width=100% bordercolor=silver border=1 style='border-collapse:collapse'>
+				<tr>
+				<td Width=10%>תאריך עסקה</td>
+				<td Width=10%>סכום עסקה</td>
+				<td Width=10%>סכום תשלום</td>
+				<td Width=15% style='color:red'>עמלות אשראי</td>
+				<td Width=10%>חברת אשראי</td>
+				<td Width=10%>מס' כרטיס</td>
+				<td Width=10%>תוקף</td>
+				<td Width=15%>סוג עסקה</td>
+				<td Width=15%>תשלום</td>
+				</tr>
+				";
+				$iskaBrutto = 0;
+				$totalAmlaDay = 0;
+				while (!$transData->EOF)
+                {
+					$transid = $transData->fields["ID"];
+					switch ($mode){
+						case "isra":$ccCond =" and CompanyNum in (1,4,5) ";break;
+						case "visa":$ccCond =" and CompanyNum in (2,6) ";break;
+						case "visadiners":$ccCond =" and CompanyNum in (2,6,3) ";break;
+					}
+					$payments = $conn->Execute("select p.*, vat from transactionpayments p, transactions t where t.id = p.trans_id and t.id = $transid $ccCond order by p.id");
+					while (!$payments->EOF)
+                    {
+                        $dayd = strtotime($transData->fields["TranDate"]);  
+                        $dayofweek = $days[date("w",$dayd)];
+						echo "<tr ".(($transData->fields["IsRefund"]==1)?"style=color:red":"").">
+								<td width=10% nowrap>".DateFromSQL($transData->fields["TranDate"])." ".$dayofweek."</td>
+								<td width=10% valign=top><span dir=ltr>".(($transData->fields["IsRefund"]==1)?"-":"").number_format($payments->fields["CreditCardSum"],2)."</span></td>";
+								if ($payments->fields["NumPayments"])
+								{
+									//$paynum = floor((($day-$transData->fields["TranDay"])/(60*60*24)) / 30) + 1;
+									$paynum = $transData->fields["dateinterval"];
+                                    //if ($paynum > $payments->fields["NumPayments"]){$paynum=$payments->fields["NumPayments"];}
+									$fName = ($paynum==1)?"FirstPayment":"OtherPayment";
+								}else{
+									$fName = "CreditCardSum";
+								}
+								echo "<td width=10% valign=top><span dir=ltr>".(($transData->fields["IsRefund"]==1)?"-":"").number_format($payments->fields[$fName],2) . "</span></td>";
+								if ($transData->fields["IsRefund"]==1){
+									$iskaBrutto-=$payments->fields[$fName];
+								}
+								else{
+									$iskaBrutto+=$payments->fields[$fName];
+								}
+
+
+								$amlaName = "Amla";
+								if ($companyAmla[$payments->fields["CompanyNum"]]){
+									$amlaName.=$companyAmla[$payments->fields["CompanyNum"]];
+								}
+								else{
+									if ($mode=="isra")$amlaName.="Isra";
+									if ($mode=="visa")$amlaName.="VisaDiners";
+							if ($mode=="leumi")$amlaName.="Leumi";
+									if ($mode=="diners")$amlaName.="VisaDiners";
+									if ($mode=="visadiners")$amlaName.="VisaDiners";
+								}
+								if ($payments->fields["CreditTerms"]==8){
+									$amlaName.="Payments";
+								}
+								else{
+									$amlaName.="Ragil";
+								}
+								$amla = ($payments->fields[$fName]*$UserData->fields[$amlaName]/100) * (1+$payments->fields["vat"]/100);
+								$totalAmla += $amla;
+								$totalAmlaDay += $amla;
+								echo "<td width=15% valign=top nowrap>".
+									"<span style='color:red'>".number_format($amla,2)."</span>".
+									" <nobr>(".number_format($UserData->fields[$amlaName],2)."%+מע\"מ)</nobr>".
+								"</td>";
+
+								echo"<td width=10% valign=top>". $company[$payments->fields["CompanyNum"]]."</td>
+								<td width=10% valign=top>*******".substr($payments->fields["CardNum"],strlen($payments->fields["CardNum"])-min(4,strlen($payments->fields["CardNum"])))."</td>
+								<td width=10% valign=top>". substr($payments->fields["ExpDate"],0,strlen($payments->fields["ExpDate"])-2)."/".substr($payments->fields["ExpDate"],strlen($payments->fields["ExpDate"])-2)."</td>
+								<td width=15% valign=top>". $sugIska[$payments->fields["CreditTerms"]]."</td>";
+								if ($payments->fields["NumPayments"])
+								{
+                                    $paynum = $transData->fields["dateinterval"];
+									//$paynum = floor((($day-$transData->fields["TranDay"])/(60*60*24)) / 30);
+									//if ($paynum > $payments->fields["NumPayments"]){$paynum=$payments->fields["NumPayments"];}
+									echo "<td width=15% valign=top nowrap>".$paynum." מתוך ". $payments->fields["NumPayments"] . "</td>";
+								}
+								else
+								{
+									echo "<td width=15% valign=top nowrap>&nbsp;</td>";
+								}
+						echo "</tr>";
+						$payments->MoveNext();
+					}
+					$transData->MoveNext();
+				}
+				//fictive amla minimum
+				if (
+					(($mode=="isra")&&date("d",$day)=="2") ||
+						(($mode=="visadiners"||$mode=="leumi"||$mode=="visa"||$mode=="diners")&&date("d",$day)=="8")
+				   ){
+					$prevm = date("m",$day)-2;
+					if ($prevm >= date("m",$startdate)){
+						if (!isset($amlaMinArr[$prevm])){$amlaMinArr[$prevm]=0;}
+						if ($amlaMinArr[$prevm]<$amlaMin){
+							$adiff = $amlaMinArr[$prevm]-$amlaMin;
+							echo "
+							<TR style='color:red'>
+								<TD width=10%>".date("d/m/Y",$day)."</TD>
+								<td width=10%><span dir=ltr>".number_format($adiff,2)."</span></td>
+								<td width=10%><span dir=ltr>".number_format($adiff,2)."</span></td>
+								<td  width=70% colspan=6>הפרש עמלה עבור חודש ".(date("m/Y",strtotime("-2 months",$day)))."</td>
+							</TR>";
+							$iskaBrutto+=$adiff;
+							$total_cc_isra +=$adiff;
+							$total_cc_leumi +=$adiff;
+							$total_cc_kal += $adiff;
+							$total_cc_diners += $adiff;
+						}
+					}
+				}
+				//end fictive amla minimum
+				echo "<tr>
+				<td colspan=2><strong>סה\"כ ".date("d/m/Y",$day)."</strong></td>
+				<td><strong dir=ltr>".number_format($iskaBrutto,2)."</strong></td>
+				<td style=color:red><strong dir=ltr>".number_format($totalAmlaDay,2)."</strong></td>
+				<td colspan=10><strong>סכום נטו: <span dir=ltr>".number_format($iskaBrutto-$totalAmlaDay,2)."</span></strong></td></tr>";
+				echo "</table>";
+				echo "</td></tr>";
+			}
+
+		}
+
+        $day= strtotime("+1 day",$day);
+		//$day += (60*60*24);
+        echo "<!--DAY $day ".date("d/m/Y",$day)."-->";
+
+		//month ended
+		if ($mode && (date("d",$day)==1 || $day>=$enddate)){
+			echo "<tr><td colspan=20><b>
+			סה\"כ עבור
+			".date("m/Y",($day-(60*60*24)))."
+			עמלות:
+			".number_format($totalAmla,2)."
+			,עמלה מינימלית:
+			".number_format($amlaMin,2)." ";
+			$amlaMinArr[date("m",$day)-1] = $totalAmla;
+			echo "</b></td></td></tr>";
+			$totalAmla = 0;
+		}
+
+
+	}
+	echo "
+	<tr>
+		<td class=mode><b>".$lang['total']."</b></td>";
+		if (!$mode){
+			echo "<td class=bt>&nbsp;".number_format($total_cash,2)."&nbsp;</td>";
+			echo "<td class=bt>&nbsp;".number_format($total_cheque,2)."&nbsp;</td>";
+			echo "<td class=bt>&nbsp;".number_format($total_coupon,2)."&nbsp;</td>";
+            echo "<td class=bt>&nbsp;".number_format($total_kabala,2)."&nbsp;</td>";
+		}
+		if ($mode=="isra"||!$mode){
+			echo "<td class='mode bt'>&nbsp;<span dir=ltr>".number_format($total_cc_isra,2)."</span>&nbsp;</td>";
+	}
+	if ($mode=="leumi"||!$mode){
+		echo "<td class='mode bt'>&nbsp;<span dir=ltr>".number_format($total_cc_leumi,2)."</span>&nbsp;</td>";
+		}
+		if ($mode=="visa"||$mode=="visadiners"||!$mode){
+			echo "<td class='mode bt'>&nbsp;<span dir=ltr>".number_format($total_cc_kal,2)."</span>&nbsp;</td>";
+		}
+		if ($mode=="diners"||$mode=="visadiners"||!$mode){
+			echo "<td class='mode bt'>&nbsp;<span dir=ltr>".number_format($total_cc_diners,2)."</span>&nbsp;</td>";
+		}
+		/*
+		<td class=b>&nbsp;".number_format($total_cc_amex,2)."&nbsp;</td>
+		<td class=b>&nbsp;".number_format($total_cc_jcb,2)."&nbsp;</td>
+		<td class=b>&nbsp;".number_format($total_cc_leumi,2)."&nbsp;</td>
+		*/
+		if (!$mode){
+			echo"
+ 			<td class=bt>&nbsp;".number_format($total_cc,2)."&nbsp;</td>
+            <td class=bt>&nbsp;".number_format($total_payment,2)."&nbsp;</td>
+			<td class=bt>&nbsp;".number_format($total,2)."&nbsp;</td>
+			";
+		}
+		if ($mode=="visadiners"){
+			echo"
+			<td class='mode bt'>&nbsp;<span dir=ltr>".number_format($total_cc_kal+$total_cc_diners,2)."&nbsp;</span></td>
+			";
+		}
+	echo "</tr>";
+	echo "</table>";
+
+	if (!$mode){
+		$worksheet->write("A".($rrow),"סה\"כ",$numformatb);
+		$worksheet->write("B".($rrow),$total_cash,$numformatb);
+		$worksheet->write("C".($rrow),$total_cheque,$numformatb);
+		$worksheet->write("D".($rrow),$total_coupon,$numformatb);
+        $worksheet->write("E".($rrow),$total_kabala,$numformatb);
+		$worksheet->write("F".($rrow),$total_cc_isra,$numformatb);
+		$worksheet->write("G".($rrow),$total_cc_leumi,$numformatb);
+		$worksheet->write("H".($rrow),$total_cc_kal,$numformatb);
+		$worksheet->write("I".($rrow),$total_cc_diners,$numformatb);
+		$worksheet->write("J".($rrow),$total_cc,$numformatb);
+        $worksheet->write("K".($rrow),$total_payment,$numformatb);
+		$worksheet->write("L".($rrow),$total,$numformatb);
+	}
+
+	}
+
+	if (!$mode){
+		$workbook->close();
+		copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+        unlink($fname);
+	}
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+
+
+	function sum($rs,$field,&$ids){
+		$s=0;
+		$ids="";
+		$rs->MoveFirst();
+		while(!$rs->EOF){
+			$s+=$rs->fields[$field];
+			if (!strpos(" ".$ids,",".$rs->fields["ID"])){
+				$ids.=",".$rs->fields["ID"];
+			}
+			$rs->MoveNext();
+		}
+		$ids = substr($ids,1);
+		return $s;
+	}
+
+        function GetSlika($companyNum){
+            global $TABLE_CARDTYPES;
+            $rss = DBQuery("select slika from cardtype_kupot ck, $TABLE_CARDTYPES ct where ck.cardtype_id = ct.id and ct.code = ".$companyNum);
+            return $rss->fields["slika"];
+        }
+
+?>
+
+<form name=FF method=post target=CHN >
+<input type=hidden name=ids>
+<input type=hidden name=simple value=1>
+<input type=hidden name=usr value="<?=$usr?>">
+<input type=hidden name=rmodule value="<?=$rmodule?>">
+</form>

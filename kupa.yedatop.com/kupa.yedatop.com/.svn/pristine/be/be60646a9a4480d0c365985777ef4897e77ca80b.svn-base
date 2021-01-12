@@ -1,0 +1,209 @@
+<?
+session_start();
+ini_set("max_execution_time",1000);
+
+$simple=1;
+$page_subtitle = "הפקת קבצים";
+
+include("include/common.php");
+include("include/business_functions.php");
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+if ($forceAllCodes || $noForceAllCodes || $doSfiratFile || $forceAllCodesNow)
+{
+	
+	if ($forceAllCodesNow)
+	{
+		$sql = "update $TABLE_USERDATA set forceallcodes = 1 where office_user_id = $userID";
+		DBQuery($sql);
+		$sql = "update $TABLE_LISTINGSSTOCKS set ForceAllCodes = 1 where status=1 and runscript=1 and terminalid <> '' and terminalid is not null and user_id = $userID";   
+		DBQuery($sql);
+		$params = empty($CLUBDAT) ? "" : "&CLUBDAT={$CLUBDAT}";
+		echo "<script>window.open('import_trans.php?action=upload&forceNowMode=1{$params}','','top=300,left=200,width=800,height=300,scrollbars=yes');window.location='makefiles.php';</script>";
+	}
+	
+	if ($forceAllCodes || $noForceAllCodes)
+	{
+		$f=($forceAllCodes)?1:0;
+		$sql = "update $TABLE_USERDATA set forceallcodes = $f where office_user_id = $userID";
+		DBQuery($sql);
+		$sql = "update $TABLE_LISTINGSSTOCKS set ForceAllCodes = $f where status=1 and runscript=1 and terminalid <> '' and terminalid is not null and user_id = $userID";   
+		DBQuery($sql);
+		echo "<script>window.location='makefiles.php?success=1'</script>";
+	}
+	
+	if ($doSfiratFile)
+	{
+		$rootdir = $GOCONFIG->transactions_path;
+		$userdir = $rootdir.$username;
+		$inventardir = $userdir ."/inventar";
+		$inventarbackupdir = $inventardir ."/backup";
+		$filename = $inventardir."/pluinv";
+		
+		if (!file_exists($userdir))
+		{
+			$old_umask = umask(000);
+			mkdir($userdir,0777);
+			umask($oldumask);
+		}
+		if (!file_exists($inventardir))
+		{
+			$old_umask = umask(000);
+			mkdir($inventardir,0777);
+			umask($oldumask);
+		}
+		if (!file_exists($inventarbackupdir))
+		{
+			$old_umask = umask(000);
+			mkdir($inventarbackupdir,0777);
+			umask($oldumask);
+		}
+		
+		$sql = "select l.title, barcode from listingsDB l where l.active  = 'yes'  and l.user_id = $userID";
+		$rss = $conn->Execute($sql);
+		if ($rss === false){log_error($sql);}
+		
+		$cnt=0;
+		while (!$rss->EOF)
+		{
+			$content.=putValue(0,4);
+			$content.=str_pad(substr($rss->fields["barcode"],0,13),13,chr(0),STR_PAD_RIGHT);
+			$content.=decodeToDOSHeb(str_replace("'","",substr($rss->fields["title"],0,15)),16);
+			$rss->MoveNext();
+			$cnt++;
+		}
+		
+		if ($cnt)
+		{
+			
+			$plufile = fopen($filename,"w");
+			if (!$plufile)
+			{
+				echo "\n<font color=red>ERROR</font> - Cannot create file $filename";flush();
+				die();
+			}
+			else
+			{
+				fwrite($plufile,$content);
+				fclose($plufile);
+				$old_umask = umask(000);
+				chmod($plufile,0777);
+				umask($oldumask);
+				copy($filename,$inventarbackupdir."/".basename($filename).date("YmdHis"));
+			}
+		}
+		else
+		{
+			echo "<hr>File $fname was not created: no suitable records found";flush();
+			die();
+		}
+		echo "<script>window.location='makefiles.php?cnt=$cnt'</script>";
+		
+	}
+	
+	exit();
+}
+
+$sql = "select * from $TABLE_USERDATA where office_user_id = $userID";   
+$rs=$conn->Execute($sql); 
+    ?>
+    <form method=post>
+    <center>
+
+    <table>
+
+        <tr>
+            <td>
+            <br>
+                <fieldset style='width:400;height:50;'>
+                    <TABle><tr>
+                    <td valign=top><img vspace=20 src='<?=$imgPath?>box_out.gif'></td>
+                    <td>
+                    <center>
+                   
+                      <input type=submit style='width:300;padding:0;margin:20 20' name="forceAllCodesNow" class=button value="לשלוח כל הפריטים לקופות באופן מיידי"> 
+					  <input type="checkbox" name="CLUBDAT" checked value="1" id="clubdat"><label for="clubdat">club.dat<label>
+    
+                    </center>
+                    </td>
+                    </tr>
+                    </table>
+                </fieldset>
+            </td>
+        </tr>	
+	
+        <tr>
+            <td>
+            <br>
+                <fieldset style='width:400;height:50;'>
+                    <TABle><tr>
+                    <td valign=top><img vspace=20 src='<?=$imgPath?>box_out.gif'></td>
+                    <td>
+                    <center>
+                    
+<? if(!$rs->Fields("ForceAllCodes"))
+{
+                        ?>
+                      <input type=submit style='width:300;padding:0;margin:20 20' name="forceAllCodes" class=button value="לשלוח כל הפריטים לקופות בשידור הקרוב (חד פעמי)"> 
+    
+                      מצב הנוכחי: <b style=color:red>לא ישלחו כל הפריטים בשידור הקרוב</b>
+	<?
+}
+else
+{
+                        ?>
+                        <input type=submit style='width:300; margin:20 20' name="noForceAllCodes" class=button value="לא לשלוח כל הפריטים לקופות בשידור הקרוב"> 
+
+                        מצב הנוכחי: <b style=color:green>כל הפריטים ישלחו לקופות בשידור הקרוב</b>
+	<?
+}
+
+                    ?>
+                    
+                    </center>
+                    </td>
+                    </tr>
+                    </table>
+                </fieldset>
+            </td>
+        </tr>
+        
+        <?if ($sfiratMlaiEnabled){?>
+        <tr>
+            <td>
+            <br>
+                <fieldset style='width:400;height:50;'>
+                    <TABle width=100%><tr>
+                    <td><img src='<?=$imgPath?>box_preferences.gif'></td>
+                    <td>
+                    <center>
+                    <input type=submit style='width:300; margin:30 20' name="doSfiratFile" class=button value="ליצור קובץ ספירת מלאי"> 
+                    <?if ($cnt){?>
+                    <b style=color:green>
+                    הקובץ נוצר בהצלחה: <?=$cnt?> פריטים
+                    </b>
+                    <?}?>
+                    
+                    </center>
+                    </td>
+                    </tr>
+                    </table>
+                    
+                </fieldset>
+            </td>
+        </tr>
+        <?}?>
+    </table>
+
+    </center>
+    </form>
+<?
+
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+
+    ?>

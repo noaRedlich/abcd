@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="1258" BillId="368" ClientId="1">
+  <Products>
+    <Product Id="50014">
+      <Name>GUSPARO PERSIK      גוספרו אפר</Name>
+      <Barcode />
+      <SalePrice>5.5</SalePrice>
+      <SaledPrice>5.5</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="50013">
+      <Name>KUKURUZNIE PALOCHKI      במבה </Name>
+      <Barcode />
+      <SalePrice>55</SalePrice>
+      <SaledPrice>55</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="50010">
+      <Name>TEA EDWIN ASORTI ANGLIISKI 100</Name>
+      <Barcode />
+      <SalePrice>13.5</SalePrice>
+      <SaledPrice>13.5</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>74.00</Cash>
+  </Pay>
+</Bill>

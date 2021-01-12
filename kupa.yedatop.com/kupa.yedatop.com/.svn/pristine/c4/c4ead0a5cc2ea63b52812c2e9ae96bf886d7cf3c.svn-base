@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>listings_tree</main_table>
+	<add_label>להוסיף פריט</add_label>
+	<name>עץ פריטים</name>
+	<options>
+		<opt name="create_record" type="sometime"></opt>
+		<opt name="edit_record" type="sometime"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="view" type="always"></opt>
+		<opt name="delete_record" type="always"></opt> 
+	</options>
+	<view>
+    	<vcol name="listing_id" type="cross" cross="listingsDB" cross_field="ID" lookup_field="Title" ifnull="product_name" link="javascript:void(open('../edit_my_listings.php?simple=1&amp;edit=[listing_id]','listing','width=450,height=500,top='+(window.parent.screenTop+5)+',left='+(window.parent.screenLeft+20)))">שם פריט</vcol>
+      <vcol name="cost" type="sql" value="select round(cost,2) as result from listingsDB where id = [listing_id]">עלות</vcol>
+      <vcol name="price" type="sql" value="select round(saleprice,2) as result from listingsDB where id = [listing_id]">מחיר</vcol>
+      <vcol name="quantity">כמות</vcol>
+			<vcol name="discount" >% הנחה </vcol>
+      <vcol name="totalrow2" type="sql" value="select round(cost*[quantity],3) as result from listingsDB where id = [listing_id] ">סה''כ עלות</vcol>
+      <vcol name="totalrow1" type="sql" value="select round(saleprice*[quantity]*(100-[discount])/100,3) as result from listingsDB where id = [listing_id] ">סה''כ מחיר</vcol>
+	</view>  
+	<edit>
+    	<ecol tab="3" name="master_id" type="cross" cross="listingsDB" cross_field="ID" lookup_field="Title" >פריט</ecol>
+    	<ecol name="listing_id" type="cross_more" url="/modules/stock/product_select.php?notree=1" dialogwidth="600" dialogheight="500" cross="listingsDB" cross_field="id" lookup_field="title" >פריט</ecol>
+			<ecol name="quantity" type="string" >כמות</ecol>
+			<ecol name="discount" type="string" >אחוז הנחה</ecol>
+			<ecol name="comment" type="text" >הערות</ecol>
+			<ecol name="SortOrder" type="string" >מיקום</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="SortOrder"></opt>
+		<opt name="sum" val="totalrow1,totalrow2"></opt>
+		<opt name="post_edit_action" val="update listingsDB set treeupdated = unix_timestamp() where id = (select master_id from listings_tree where id = {record_id})"></opt>
+		<opt name="post_del_action" val="update listingsDB set treeupdated = unix_timestamp() where id = (select master_id from listings_tree where id = {record_id})"></opt>
+	</sql_actions>
+</xml>

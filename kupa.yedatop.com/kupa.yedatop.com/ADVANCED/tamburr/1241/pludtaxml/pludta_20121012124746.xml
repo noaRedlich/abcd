@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="54842" isWeight="0" isDeleted="0" title="סיפון אמריקאי בודד &quot;2 חוליות" category="0" saleprice="75" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1329143216">
+  </Product>
+  <Product barcode="7290013390202" isWeight="0" isDeleted="0" title="דבק מגע פסטיק שפ'" category="0" saleprice="4.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="422" isWeight="0" isDeleted="0" title="דבק פיקס לבן 109" category="0" saleprice="35" cost="" stockQuantity="-67" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="7290004116590" isWeight="0" isDeleted="0" title="קלסימו 5 ק&quot;ג" category="0" saleprice="28.9" cost="" stockQuantity="-126" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="7290006547279" isWeight="0" isDeleted="0" title="כרית ניקוי" category="0" saleprice="1.5" cost="" stockQuantity="-20" minStockQuantity="" lastUpdated="1326886228">
+  </Product>
+  <Product barcode="3916" isWeight="0" isDeleted="0" title="ספייסרים 3 מ&quot;מ 250 יח'" category="0" saleprice="11.9" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1326886231">
+  </Product>
+  <Product barcode="56216" isWeight="0" isDeleted="0" title="חומצת מלח 30% 4 ליטר" category="0" saleprice="26.9" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+  <Product barcode="7290004116583" isWeight="0" isDeleted="0" title="קלסימו 1 ק&quot;ג" category="0" saleprice="12.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="116" isWeight="0" isDeleted="0" title="חומצת מלח 30% 1 ליטר" category="0" saleprice="9.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="4837" isWeight="0" isDeleted="0" title="אקונומיקה ריחנית 4 ל' JOHONSON CLEAN" category="0" saleprice="14.5" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="80925" isWeight="0" isDeleted="0" title="נייר טואלט טישו אביבית 48 גל'" category="0" saleprice="39" cost="" stockQuantity="-14" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+</Products>

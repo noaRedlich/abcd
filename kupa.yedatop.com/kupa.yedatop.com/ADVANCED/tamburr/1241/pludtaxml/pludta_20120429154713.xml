@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="7290004116590" isWeight="0" isDeleted="0" title="קלסימו 5 ק&quot;ג" category="0" saleprice="28.9" cost="" stockQuantity="-69" minStockQuantity="" lastUpdated="1329143212">
+  </Product>
+  <Product barcode="114" isWeight="0" isDeleted="0" title="מסקינג טיים מעוז" category="0" saleprice="6.9" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1329143210">
+  </Product>
+  <Product barcode="7290103655211" isWeight="0" isDeleted="0" title="מחסום 11/4 לכיור רחצה ליפסקי" category="0" saleprice="32.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1329143212">
+  </Product>
+  <Product barcode="4250266803129" isWeight="0" isDeleted="0" title="ברז ניל 1/2-3/8" category="0" saleprice="26.5" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1329143215">
+  </Product>
+  <Product barcode="31727" isWeight="0" isDeleted="0" title="ברז זווית עם יציאה למדיח" category="0" saleprice="43.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143213">
+  </Product>
+  <Product barcode="52210" isWeight="0" isDeleted="0" title="ברז כביסה מיני" category="0" saleprice="19.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143216">
+  </Product>
+  <Product barcode="54966" isWeight="0" isDeleted="0" title="סיפון אמריקאי בודד+מדיח &quot;2 חוליות" category="0" saleprice="105" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143216">
+  </Product>
+  <Product barcode="321" isWeight="0" isDeleted="0" title="מאריך נחושת 15-&quot;1/2" category="0" saleprice="6.5" cost="" stockQuantity="-8" minStockQuantity="" lastUpdated="1329143213">
+  </Product>
+  <Product barcode="320" isWeight="0" isDeleted="0" title="מאריך נחושת 10-&quot;1/2" category="0" saleprice="5.5" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1329143213">
+  </Product>
+  <Product barcode="3038" isWeight="0" isDeleted="0" title="מאריך גמיש לניל מתכת 3/8-3/8 30 ס&quot;מ" category="0" saleprice="15.5" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1329143213">
+  </Product>
+  <Product barcode="419" isWeight="0" isDeleted="0" title="שק יוטה 45X58" category="0" saleprice="0.95" cost="" stockQuantity="-612" minStockQuantity="" lastUpdated="1329143215">
+  </Product>
+  <Product barcode="73819" isWeight="0" isDeleted="0" title="פטיש 1 ק&quot;ג" category="0" saleprice="38" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143218">
+  </Product>
+  <Product barcode="4011890073605" isWeight="0" isDeleted="0" title="דיסק ברזל 4.5  1/8 רודיוס" category="0" saleprice="7.3" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1329143211">
+  </Product>
+  <Product barcode="111" isWeight="0" isDeleted="0" title="סלוטייפ חום TESA PVC 50/66 4124" category="0" saleprice="12" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1329143210">
+  </Product>
+  <Product barcode="80925" isWeight="0" isDeleted="0" title="נייר טואלט טישו אביבית 48 גל'" category="0" saleprice="39" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1329143219">
+  </Product>
+</Products>

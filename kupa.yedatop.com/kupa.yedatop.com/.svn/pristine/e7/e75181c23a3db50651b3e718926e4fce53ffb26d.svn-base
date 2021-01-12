@@ -1,0 +1,140 @@
+<?php
+$noheader=1;
+include("include/common.php");
+
+if(!loginCheck('User'))exit;
+
+$docids = explode(",",$docid);
+$documentID = $docids[0];
+
+$docRS = DBQuery("select s.id,use_print_activex,printer_name from documents d, $TABLE_LISTINGSSTOCKS s where s.id = d.stock_id and d.id = $documentID");
+$useActiveX = $docRS->fields["use_print_activex"];
+$printerName = $docRS->fields["printer_name"];
+if ($status)
+{
+	?>
+	<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=<?=$charset;?>">
+	<link rel=stylesheet href="<?php echo $config[template_url] ?>/style.css" type="text/css">
+	</head>
+	<body scroll=no style='background-color:buttonface'>
+	<table width=100% height=100%><tr><td align=center>
+	<b><?=$lang["sending".$status]?></b>
+	</td></tr>
+	
+	<?if ($status==2){?>
+	<tr><td align=center>
+	<input type=button onclick='top.close()' value="<?=$lang["close_button"]?>" class=button style='background-image:url(<?=$imgPath?>back.gif)' >
+	</td></tr>
+	<?}?>
+	
+	
+	</table> 
+
+
+	</body>
+	<?
+	exit;
+}
+if ($action!="show" && !$status)
+{
+	$rows="";
+	$cnt=1;
+	$frames = "";
+	$docids = explode(",",$docid);
+	foreach($docids as $documentID)
+	{
+		for($i=1;$i<=$numcopy;$i++)
+		{
+			$rows.=",1";
+			$frames.="<frame NORESIZE style='display:none' border=0 name=d".($cnt++)." frameborder=0 src='printhtmldoc.php?title2=$title2&format=$format&form=$form&hidePrice=$hidePrice&itra=$itra&action=show&docid=".$documentID."'></frame>";
+		}
+	}
+	
+	?>
+	
+	<head><title><?=$lang["prinitng"]?></title></head>
+
+	<script>
+	function onFormLoad()
+	{
+		<?if (!$useActiveX){?>
+		window.print();
+		<?}?>
+		close();
+	} 
+	</script>
+	
+	<frameset id=FRAMESET frameborder=0  framespacing=0 rows="400<?=$rows?>" onload="onFormLoad()"> 
+	<?=$frames?>
+	</frameset>
+	<?
+	
+	exit;
+}
+
+if ($action=="show")
+{
+	
+	
+	if ($UserData->fields["DocPrintLanguage"]!=""&&$UserData->fields["DocPrintLanguage"]!="current")
+	{
+		include($config['basepath'].'/include/language/'.$UserData->fields["DocPrintLanguage"].'.php');
+	}
+	
+	//include("$config[template_path]/admin_top.html");
+	require("include/printhtml.php");
+	require("include/printhtmltemplate.php");
+	
+	$docid = $_GET["docid"];
+	switch ($_GET["format"])
+	{
+		case 1:
+			$doc = new ThermalHTMLDocumentWriter($docid);
+			break; 
+		case 2:
+			$doc = new TemplateHTMLDocumentWriter($docid);
+			break;
+	}
+		
+	 
+	echo "<html>
+			<head>
+			<meta http-equiv='content-type' content='text/html; charset=".$def_charset."'>
+			<style>".$doc->StyleSheet()."</style>
+			</head>"; 
+	echo "<body>";
+	echo "<div dir='$dir'>";
+	
+	$doc->PrintDocument();
+	
+	if (!$toprint && $useActiveX)
+	{
+		echo 
+		"
+		<object id='printhtml' 
+		classid='CLSID:A03BAFE4-EA60-4DC4-A1B0-305AE39923A2'
+		width='10' height='10'
+		CODEBASE='https://www.vcx.co.il/applets/powerjs.cab#Version=1.0.0.8'></object>
+		<script>  
+			try{
+				var pthtml = document.getElementById('printhtml');
+				pthtml.PrinterName = '".str_replace("'","\\'",$printerName)."'
+				pthtml.PrintUrl = window.location.href+'&toprint=1';
+				pthtml.LicenseKey = 'glebby@gmail.com/3843444B2F665A45615758567A364B7979444A7332413D3D';
+				pthtml.Header = '';
+				pthtml.Footer = '';
+				pthtml.PrintHTML();
+			}
+			catch(e)
+			{
+				alert('".$lang["security_warn"]."')
+			}
+		</script>	
+		";
+	}
+	
+	echo "</body></html>";
+}
+
+?>

@@ -1,0 +1,134 @@
+<?php
+	$simple=1;
+	global $action, $id, $lang, $conn, $config;
+
+	$page_subtitle = "מחולל תשלומים";
+	
+
+	include("include/common.php");
+	if(!loginCheck('User'))exit;
+
+
+	include("$config[template_path]/admin_top.html");
+
+    $sql = "select id, name from kupot where Status=1 and user_id = $userID order by sortorder, binary name";
+    $kupot = DBQuery($sql); 
+	
+
+	?>
+
+	<style>	
+	<?if ($cashbox){?>
+	body
+	{
+		background-color:transparent
+	}
+	.button {height:50;padding:5 10;margin-left:20;font-weight:bold;background-position: left middle}
+	<?}?>
+	</style>
+	<table align=center style='border-collapse:collapse' border=0>	<form name=F>
+	<tr><td align=left>סכום סה"כ: </td><td> <input size=10 name=sum></td></tr>
+	<tr><td align=left>מספר תשלומים: </td><td> <input size=10 name=payments></td></tr>
+	<tr><td align=left>סכום תשלום ראשון: </td><td> <input size=10 name=sum1></td></tr>
+	<tr><td align=left>תאריך פרעון שיק ראשון: </td><td> <input size=10 name=date>
+		<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.date")'>
+
+	</td></tr>
+	<tr><td align=left>מס' שיק\שובר ראשון: </td><td> <input size=10 name=chequenumber></td></tr>
+	<tr><td align=left>מס' בנק: </td><td> <input size=10 name=bank></td></tr>
+	<tr><td align=left>מס' סניף: </td><td> <input size=10 name=snif></td></tr>
+	<tr><td align=left>מס' חשבון: </td><td> <input size=10 name=account></td></tr>	</form>
+	<tr  style='display:<?=$cashbox?"none":""?>'><td align=left><?=$lang["kupa"]?>: </td><td>
+        	<select id=kupa>
+            <option value="">
+        	<?
+            $kupot->MoveFirst();
+            while(!$kupot->EOF){?>
+        		<option value="<?=$kupot->fields["id"]?>"><?=$kupot->fields["name"]?>
+        		<?$kupot->MoveNext();
+        	}?>
+        	</select>
+    </td></tr>	</form>
+	</table>
+	<center>
+	<hr>
+	<input type=button value='<?=$cashbox?$lang["submit"]:$lang["generate_payments"]?>' onclick='generate()' class=button style='background-image:url(<?=$imgPath?>ok.gif)'>
+	<input type=button value='<?=$lang["close_button"]?>' onclick='closeForm()'  class=button style='background-image:url(<?=$imgPath?>back.gif)'>
+	</center>
+	
+	<script>
+	function closeForm()
+	{
+		<?if ($cashbox){?>
+		window.parent.closeCurrentPaymentWindow()
+		<?}else{?>
+		window.close()
+		<?}?>
+	}
+	function generate(){
+		if (isNaN(parseFloat(document.F.sum.value)) || parseFloat(document.F.sum.value)<=0 ){
+			alert("<?=$lang["enter_total_amt"]?>");
+			return;
+		}
+		if (isNaN(parseFloat(document.F.payments.value))){
+			alert("<?=$lang["enter_num_payments"]?>");
+			return;
+		}
+		if (isNaN(parseFloat(document.F.sum1.value))){
+			document.F.sum1.value=0;
+		}
+		if (parseFloat(document.F.sum1.value)>parseFloat(document.F.sum.value) )
+		{
+			alert("<?=$lang["amt_first_error"]?>");
+			return;
+		}
+		s=document.F.sum.value + "|";	
+		s+=document.F.payments.value + "|";	
+		s+=document.F.date.value + "|";	
+		s+=document.F.chequenumber.value + "|";	
+		s+=document.F.bank.value + "|";	
+		s+=document.F.snif.value + "|";	
+		s+=document.F.account.value+"|";
+		s+=document.F.sum1.value+"|";
+		s+=document.getElementById("kupa").value;
+		<?if ($cashbox){?>
+		closeForm();
+		window.parent.processChequeData(document.F.sum.value,s);
+		<?}else{?>
+		window.returnValue=s;
+		window.close();
+		<?}?>
+	}
+
+	<?if ($amt){?>
+	document.F.sum.value = "<?=$amt?>"; 
+	<?}?>
+	
+	if (document.F.payments.value=="")document.F.payments.value=1;
+	
+	document.F.sum.focus();
+	document.F.sum.select();
+	
+	<?if($cashbox){?>
+	function ReadKeys()
+	{
+		if (event.keyCode==13)
+		{
+			generate();
+			return;
+		}
+		else if (event.keyCode == 27) 
+		{
+			closeForm()
+			return;
+		}
+	}
+	document.onkeypress = ReadKeys
+	<?}?>
+	
+	</script>
+
+	<?php
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

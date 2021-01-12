@@ -1,0 +1,139 @@
+<?php
+$rs = q("select course, updated from $main_db.currencies where code='USD' and user_id = 1");
+$rs = f($rs);  
+$lastupdated = $rs["updated"];
+if (time() - $lastupdated > 3600)
+{
+	$file = @fopen("http://www.bankisrael.gov.il/heb.shearim/currency.php","r");
+	$content = fread($file,30000);
+	$Nodes = array();
+	$data = $content;
+	$count = 0;
+	$pos = 0;
+	// Goes throw XML file and creates an array of all <XML_TAG> tags.
+	$last_update = GetElementByName($data,"<LAST_UPDATE>","</LAST_UPDATE>");
+	while ($node = GetElementByName($data, "<CURRENCY>", "</CURRENCY>")) 
+	{
+		$Nodes[$count] = $node;
+		$count++;
+		$data = substr($data, $pos);
+	}
+	// Gets infomation from tag siblings.
+	for ($i=0; $i<$count; $i++) 
+	{
+		$code = GetElementByName($Nodes[$i], "<CURRENCYCODE>", "</CURRENCYCODE>");
+		if(strtoupper($code)=="USD")
+		{
+			$rate = GetElementByName($Nodes[$i], "<RATE>", "</RATE>");
+			if (floatval($rate))
+			{
+				q("update $main_db.currencies set course = ".floatval($rate).",course_date = '".addslashes($last_update)."',updated = unix_timestamp() where code='USD' and user_id = 1");
+				//echo $rate." ".$last_update;
+				break;
+			}
+		}
+	}
+}
+else
+{
+	$rate = $rs["course"];
+}
+	
+
+if ($amtnis)
+{
+	$amtusd = round($amtnis/$rate);
+}
+
+?>
+
+<style>
+.p td 
+{
+font-size:10pt !important
+}
+.list
+{
+margin-top:5px;
+margin-bottom:5px;
+margin-right:15px;
+}
+.list li
+{
+ margin-bottom:3px;
+}
+</style>
+
+<?if (!defined("SAFE_MODE"))die();?>
+
+<form method="post">
+<div style="padding:10px">
+	<h1>תשלום עבור תוכנה</h1>
+	<table  class="p"> 
+		<tr valign="top">
+			<td nowrap ><b>1.</b></td>
+			<td>
+				<b>תשלום בכרטיס אשראי</b> - טל. 072-2125599
+			</td>
+		</tr>
+		<tr><td colspan="2"><br></td></tr>
+		<tr valign="top">
+			<td nowrap ><b>2.</b></td>
+			<td>
+				<b>תשלום באמצעות הוראת קבע</b> - טל. 072-2125599
+			</td>
+		</tr>
+		<tr><td colspan="2"><br></td></tr>		
+		<tr valign="top"> 
+			<td nowrap ><b>3.</b></td>
+			<td>
+				<b>תשלום בשליחת שקים</b>
+				<p>
+					(יש אופציה לשלוח שקים דחויים מראש: 1, 3, 6, 12) לכתובת ת.ד. 765, נתניה, מיקוד 42107 לכבוד מלאיטק תוכנות בע"מ
+				</p>
+			</td>
+		</tr>
+		<tr><td colspan="2"><br></td></tr>
+		<tr valign="top">
+			<td nowrap ><b>4.</b></td>
+			<td>
+				<b>הפקדה לחשבון</b>
+				<p>
+				בהפקדת כסף בכול סניפי הדואר ישראל לחשבון 8280696 לכבוד מלאיטק תוכנות בע"מ 
+				</p>
+			</td>
+		</tr>		
+		<tr><td colspan="2"><br></td></tr>
+		<tr valign="top">
+			<td nowrap ><b>5.</b></td>
+			<td>
+				<b>תשלום בעברה בנקאית</b>
+				<p>
+				בעברה בנקאית לחשבון בנק (בנק 09 , סניף 001, חשבון 8280696) לכבוד מלאיטק תוכנות בע"מ
+				</p>
+			</td>
+		</tr>	 
+		<tr>
+		<td colspan="2"><br><b>טלפון לבירורים: 072-2125599</b></td>
+		</tr>		
+	</table> 
+</div>
+</form>
+
+<?
+function GetElementByName ($xml, $start, $end) {
+	global $pos;
+	$startpos = strpos($xml, $start);
+	if ($startpos === false) {
+		return false;
+	}
+	$endpos = strpos($xml, $end);
+	$endpos = $endpos+strlen($end); 
+	$pos = $endpos;
+	$endpos = $endpos-$startpos;
+	$endpos = $endpos - strlen($end);
+	$tag = substr ($xml, $startpos, $endpos);
+	$tag = substr ($tag, strlen($start));
+	return $tag;
+}
+?>

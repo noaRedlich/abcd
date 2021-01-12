@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="8711595058797" isWeight="0" isDeleted="0" title="סופר 7 שקוף" category="0" saleprice="28.8" cost="" stockQuantity="-58" minStockQuantity="" lastUpdated="1381738394">
+  </Product>
+  <Product barcode="1304" isWeight="0" isDeleted="0" title="סיליקון לבן / שקוף אמריקן איגל" category="0" saleprice="10.9" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1381738410">
+  </Product>
+  <Product barcode="51623" isWeight="0" isDeleted="0" title="רולר פרלון פס צהוב &quot;9 פאר" category="0" saleprice="46.9" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1381738399">
+  </Product>
+  <Product barcode="16297" isWeight="0" isDeleted="0" title="נרות לאקדח דבק חם 10 יח'" category="0" saleprice="11.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1381738415">
+  </Product>
+  <Product barcode="7290013390233" isWeight="0" isDeleted="0" title="דבק דו צדדי" category="0" saleprice="7.8" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1381738395">
+  </Product>
+  <Product barcode="4011890009314" isWeight="0" isDeleted="0" title="דיסק בטון 4.5  1/8 רודיוס" category="0" saleprice="7.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1381738394">
+  </Product>
+  <Product barcode="7296166389476" isWeight="0" isDeleted="0" title="דיסק דק &quot;4.5 לברזל גמל" category="0" saleprice="8.5" cost="0.000" stockQuantity="-21" minStockQuantity="" lastUpdated="1381738406">
+  </Product>
+  <Product barcode="7296166396849" isWeight="0" isDeleted="0" title="דיסק &quot;4.5 לברזל גמל" category="0" saleprice="7.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1381738406">
+  </Product>
+  <Product barcode="162771" isWeight="0" isDeleted="0" title="כיור רחצה 50 לבן" category="0" saleprice="149" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1381738415">
+  </Product>
+</Products>

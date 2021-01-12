@@ -1,0 +1,40 @@
+<?
+$productRS=DBQuery("select * from listingsDB where id = $edit");
+$tree=$productRS->Fields("is_tree");
+
+$pricelistsRS=DBQuery("select * from pricelists where status=1 and user_id = $userID order by sortorder, binary name");
+$hasPriceLists = !$pricelistsRS->EOF;
+?>
+
+<table width=100%>
+<?if ($mode!="basket"){?>
+<tr>
+<td align=center colspan=8 bgcolor="#000099" style=color:white><b><?=$productRS->fields["BarCode"]?> - <?=$edit_title?></b></td>
+</tr> 
+<?}?>
+<tr>
+<?if ($mode!="basket"){?>                                                                                                                                      
+<td class=buttonmenu<?=(basename($PHP_SELF)=="edit_my_listings.php"||basename($PHP_SELF)=="index.php")?"selected":""?> align=center><a href="edit_my_listings.php?simple=1&edit=<?=$edit?>"><?if (HasActionPermission("EDITLISTING")){?>כללי<?}else{?>כללי<?}?></a></td>
+<td class=buttonmenu<?=(basename($PHP_SELF)=="attributes.php")?"selected":""?> align=center><a href="attributes.php?simple=1&edit=<?=$edit?>">מאפיינים</a></td>
+<td class=buttonmenu<?=(basename($PHP_SELF)=="discount.php")?"selected":""?> align=center><a href="discount.php?simple=1&edit=<?=$edit?>">מבצעים</a></td>
+<td class=buttonmenu<?=(basename($PHP_SELF)=="product_pricelist.php")?"selected":""?> align=center><a <?if($tree || !$hasPriceLists || !$UserData->Fields("MlaitekProEnabled")){ echo"disabled";}else{?>  href="product_pricelist.php?simple=1&edit=<?=$edit?>" <?}?>>מחירונים</a></td>
+<td class=buttonmenu<?=(basename($PHP_SELF)=="tree.php")?"selected":""?> align=center><a <?if (!$tree){?>disabled<?} else {?> href="tree.php?simple=1&edit=<?=$edit?>" <?}?>>עץ מוצר</td>
+
+	<?if ($workmode!="B"){?>		
+	<td class=buttonmenu<?=(basename($PHP_SELF)=="quant_listings.php")?"selected":""?> align=center><a <?if ($tree){?>disabled<?} else {?> href="quant_listings.php?simple=1&edit=<?=$edit?>"<?}?>> כמויות ומחירים</a></td>
+	    <?if (HasActionPermission("MOVELISTING")){?>
+        <td class=buttonmenu<?=(basename($PHP_SELF)=="move_listings.php")?"selected":""?> align=center><a <?if ($tree){?>disabled<?} else {?> href="move_listings.php?simple=1&edit=<?=$edit?>"<?}?>>תזוזה</a></td>
+	    <?}?>
+    <?}?>
+<?}?>
+
+
+
+<?if ($mode!="basket"){?>
+<td class=buttonmenu<?=(basename($PHP_SELF)=="history.php")?"selected":""?> align=center><a href="history.php?simple=1&edit=<?=$edit?>">הסטוריה</a></td>
+<?}?>
+</tr></table>
+
+<script>
+document.title = "<?=str_replace('"','\"',$productRS->fields["BarCode"])?> - <?=str_replace('"','\"',$edit_title)?>";
+</script>

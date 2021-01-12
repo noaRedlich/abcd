@@ -1,0 +1,181 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="1258" BillId="335" ClientId="1">
+  <Products>
+    <Product Id="10001">
+      <Name>SPIRT 96.6% 1 L       כהל 96.6</Name>
+      <Barcode />
+      <SalePrice>54</SalePrice>
+      <SaledPrice>54</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10004">
+      <Name>VODKA MOROZOV PSHENICHNAYA 0.7</Name>
+      <Barcode />
+      <SalePrice>30</SalePrice>
+      <SaledPrice>30</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10007">
+      <Name>VODKA TAMADA 0.7 L       וודקה</Name>
+      <Barcode />
+      <SalePrice>32</SalePrice>
+      <SaledPrice>32</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10010">
+      <Name>VODKA STANDART 1 L       וודקה</Name>
+      <Barcode />
+      <SalePrice>30</SalePrice>
+      <SaledPrice>30</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10010">
+      <Name>VODKA STANDART 1 L       וודקה</Name>
+      <Barcode />
+      <SalePrice>30</SalePrice>
+      <SaledPrice>30</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10013">
+      <Name>VODKA DANSKA 0.5 L        וודק</Name>
+      <Barcode />
+      <SalePrice>39</SalePrice>
+      <SaledPrice>39</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10014">
+      <Name>VODKA JERUSALEM LION 100 GR   </Name>
+      <Barcode />
+      <SalePrice>6</SalePrice>
+      <SaledPrice>6</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10011">
+      <Name>VODKA RUSSKAYA 1 L       וודקה</Name>
+      <Barcode />
+      <SalePrice>23</SalePrice>
+      <SaledPrice>23</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10012">
+      <Name>VODKA RUSSKAYA 0.7 L       ווד</Name>
+      <Barcode />
+      <SalePrice>19</SalePrice>
+      <SaledPrice>19</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10015">
+      <Name>VODKA IMPERATOR 100 GR     ווד</Name>
+      <Barcode />
+      <SalePrice>6</SalePrice>
+      <SaledPrice>6</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10009">
+      <Name>VODKA STARKA AURORA 0.7 L     </Name>
+      <Barcode />
+      <SalePrice>30</SalePrice>
+      <SaledPrice>30</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10008">
+      <Name>VODKA IMPERATOR 0.7 L      ווד</Name>
+      <Barcode />
+      <SalePrice>30</SalePrice>
+      <SaledPrice>30</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10005">
+      <Name>VODKA MOROZOV BEREZA 0.7 L   ו</Name>
+      <Barcode />
+      <SalePrice>30</SalePrice>
+      <SaledPrice>30</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10006">
+      <Name>VODKA MOROZOV PERTZOVAYA 0.7 L</Name>
+      <Barcode />
+      <SalePrice>30</SalePrice>
+      <SaledPrice>30</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10003">
+      <Name>VODKA MOROZOV PREMIUM 0.7 L   </Name>
+      <Barcode />
+      <SalePrice>30</SalePrice>
+      <SaledPrice>30</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10002">
+      <Name>SPIRT 96.6% 0.7 L        כהל 9</Name>
+      <Barcode>788558666767</Barcode>
+      <SalePrice>45</SalePrice>
+      <SaledPrice>45</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10016">
+      <Name>VODKA STAKANCHIKI PERTZOVAYA 1</Name>
+      <Barcode />
+      <SalePrice>3.3</SalePrice>
+      <SaledPrice>3.3</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10017">
+      <Name>VODKA STAKANCHIKI LEV 100 GR  </Name>
+      <Barcode />
+      <SalePrice>3.3</SalePrice>
+      <SaledPrice>3.3</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10018">
+      <Name>BRENDY STAKANCHIKI--AIST-- 100</Name>
+      <Barcode />
+      <SalePrice>3.6</SalePrice>
+      <SaledPrice>3.6</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>474.20</Cash>
+  </Pay>
+</Bill>

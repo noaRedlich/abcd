@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="505" isWeight="0" isDeleted="0" title="אוגן לתושבת כפול 150 מ&quot;מ SP" category="0" saleprice="6.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1329143215">
+  </Product>
+  <Product barcode="90019" isWeight="0" isDeleted="0" title="SP תושבת בודדת 16-1/2 לחיצה" category="0" saleprice="26.7" cost="" stockQuantity="-29" minStockQuantity="" lastUpdated="1329143220">
+  </Product>
+  <Product barcode="90114" isWeight="0" isDeleted="0" title="SP זווית הברגה חיצונית 16-1/2 לחיצה" category="0" saleprice="19.2" cost="" stockQuantity="-14" minStockQuantity="" lastUpdated="1329143220">
+  </Product>
+  <Product barcode="91514" isWeight="0" isDeleted="0" title="SP זווית הברגה פנימית 16-1/2 לחצה" category="0" saleprice="20.3" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1329143220">
+  </Product>
+  <Product barcode="90212" isWeight="0" isDeleted="0" title="SP מחבר הברגה חיצונית 16-1/2 לחיצה" category="0" saleprice="17.7" cost="" stockQuantity="-19" minStockQuantity="" lastUpdated="1329143220">
+  </Product>
+  <Product barcode="711" isWeight="0" isDeleted="0" title="קופסה 3 מקום לקיר רגיל" category="0" saleprice="4" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1329143218">
+  </Product>
+  <Product barcode="8011564549920" isWeight="0" isDeleted="0" title="לחצן מואר גוויס" category="0" saleprice="27.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143212">
+  </Product>
+  <Product barcode="68423" isWeight="0" isDeleted="0" title="גליל ניילון פאר 2X50" category="0" saleprice="46" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143217">
+  </Product>
+  <Product barcode="7290006882110" isWeight="0" isDeleted="0" title="צינור למקלח מתכת שרשורי 1.5 מ'" category="0" saleprice="39.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143211">
+  </Product>
+  <Product barcode="114" isWeight="0" isDeleted="0" title="מסקינג טיים מעוז" category="0" saleprice="6.9" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1329143210">
+  </Product>
+  <Product barcode="91821" isWeight="0" isDeleted="0" title="SP הסתעפות T 1/2-16-16 לחיצה" category="0" saleprice="30" cost="" stockQuantity="-10" minStockQuantity="" lastUpdated="1329143220">
+  </Product>
+  <Product barcode="90114" isWeight="0" isDeleted="0" title="SP זווית הברגה חיצונית 16-1/2 לחיצה" category="0" saleprice="19.2" cost="" stockQuantity="-14" minStockQuantity="" lastUpdated="1329143220">
+  </Product>
+</Products>

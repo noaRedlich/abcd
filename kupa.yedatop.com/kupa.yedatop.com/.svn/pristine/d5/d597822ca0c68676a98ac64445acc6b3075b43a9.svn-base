@@ -1,0 +1,92 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+require("../Group-Office.php");
+require($GO_CONFIG->class_path.'filesystem.class.inc');
+$fs = new filesystem();
+
+$GO_SECURITY->authenticate(true);
+require($GO_LANGUAGE->get_language_file('modules_config'));
+
+//echo($GO_CONFIG->module_path);
+$modules = $fs->get_folders($GO_CONFIG->module_path);
+if ($REQUEST_METHOD == 'POST')
+{
+    //echo implode(",",$selected_modules);
+	for ($i=0;$i<count($modules);$i++)
+	{
+		//$modules[$i]['path'] = str_replace("\\","/",$modules[$i]['path']);
+		
+		//echo $modules[$i]['path']."<br>";
+		if (in_array($modules[$i]['path'],$selected_modules))
+		{
+			if (!$GO_MODULES->is_registered_module($modules[$i]['path']))
+			{
+				$module_id = $modules[$i]['name'];
+				$path = str_replace($GO_CONFIG->root_path,'',$modules[$i]['path']);
+				if (substr($path, -1) != $GO_CONFIG->slash)
+				{
+					$path .= $GO_CONFIG->slash;
+				}
+				
+				$acl_read = $GO_SECURITY->get_new_acl('Module read: '.$module_id);
+				$acl_write = $GO_SECURITY->get_new_acl('Module write: '.$module_id);
+
+				if ($acl_read > 0 && $acl_write > 0)
+				{
+					if ($GO_SECURITY->add_group_to_acl($GO_SECURITY->group_root,$acl_write) && $GO_SECURITY->add_group_to_acl($GO_SECURITY->group_root,$acl_read))
+					{
+						if($GO_MODULES->add_module($module_id, $path, $acl_read, $acl_write))
+						{
+							$feedback = '<p class="Success">'.$strSaveSuccess.'</p>';
+							$table_tabindex=0;
+						}else
+						{
+							$feedback = '<p class="Error">'.$strSaveError.'</p>';
+						}
+					}else
+					{
+						$GO_SECURITY->delete_acl($acl_read);
+						$GO_SECURITY->delete_acl($acl_write);
+						$feedback = '<p class="Error">'.$strAclError.'</p>';
+					}
+				}else
+				{
+					$feedback = '<p class="Error">'.$strAclError.'</p>';
+				}
+			}
+		}else
+		{
+			if ($GO_MODULES->is_registered_module($modules[$i]['path']))
+			{
+				$GO_MODULES->delete_module($modules[$i]['name']);
+			}
+		}
+	}
+}
+
+if (isset($delete_module))
+{
+	$GO_MODULES->delete_module($delete_module);
+}
+
+$page_title = $menu_modules;
+require($GO_THEME->theme_path."header.inc");
+
+
+echo '<table border="0" cellpadding="10" cellspacing="0"><tr><td>';
+echo '<form method="post" name="module" action="'.$PHP_SELF.'">';
+
+$table_docs[] = "modules.inc";
+$table_title = $menu_modules;
+$table_width = "600";
+$table_height = "300";
+require($GO_CONFIG->control_path."html_table.inc");
+echo '</form></td></tr></table>';
+require($GO_THEME->theme_path."footer.inc");
+?>

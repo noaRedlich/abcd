@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="8358" isWeight="0" isDeleted="0" title="נוזל רצפות פרימיום 4 ל' ג'ונסון קלין" category="0" saleprice="17.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1381738403">
+  </Product>
+  <Product barcode="83414" isWeight="0" isDeleted="0" title="נוזל כלים 4 ל' ג'ונסון קלין" category="0" saleprice="28" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1381738403">
+  </Product>
+  <Product barcode="8967" isWeight="0" isDeleted="0" title="מנקה ומחטא אסלות" category="0" saleprice="9.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1381738404">
+  </Product>
+  <Product barcode="15749" isWeight="0" isDeleted="0" title="שקיות אשפה  שחורות" category="0" saleprice="15" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1381738414">
+  </Product>
+</Products>

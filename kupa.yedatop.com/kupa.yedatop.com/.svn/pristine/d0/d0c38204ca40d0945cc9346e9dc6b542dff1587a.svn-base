@@ -1,0 +1,257 @@
+<?
+		function InputRecord($act)
+		{
+			global $id, $name_heb, $name_eng,$name_rus,$description_eng,$description_rus,$description_heb;
+
+			echo "
+				<table border=0 cellspacing=1 cellpadding=0 bgcolor=C0C0C0>
+				<td>
+				<form action=main.php?action=".(!$act ? "create" : "update&id=$id")." method=post>
+						<table border=0 cellspacing=4 cellpadding=4 bgcolor=F0F0F0 width=400>
+						<tr>
+							<td colspan=2>
+								<font size=3><b>Add answer:</b></font>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<u>Question eng</u>:
+							</td>
+							<td>
+								<input type=text name=name_eng value='$name_eng'>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<u>Question rus</u>:
+							</td>
+							<td>
+								<input type=text name=name_rus value='$name_rus'>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<u>Question heb</u>:
+							</td>
+							<td>
+								<input type=text name=name_heb value='$name_heb'>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<u>Topic</u>:
+							</td>
+							<td>
+						";
+
+				 GetSelect();
+
+				 echo "	</td>
+						</tr>
+						<tr>
+							<td>
+								<u>Answer eng</u>:
+							</td>
+							<td>
+								<textarea name=description_eng rows=7 size=60>$description_eng</textarea>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<u>Answer rus</u>:
+							</td>
+							<td>
+								<textarea name=description_rus rows=7 size=60>$description_rus</textarea>
+							</td>
+						</tr>
+						<tr>
+							<td>
+								<u>Answer heb</u>:
+							</td>
+							<td>
+								<textarea name=description_heb rows=7 size=60>$description_heb</textarea>
+							</td>
+						</tr>
+						<tr>
+							<td></td>
+							<td>
+								<input type=submit value='Submit answer'>
+							</td>
+						</tr>
+						</table>
+				</td>
+				</form>
+				</table>
+				<br>
+				<hr noshade size=1>
+				<br>
+			";
+		}  //  InputRecord
+
+
+		function GetSelect()
+		{
+			global $faq_topic_id;
+
+			$rTopics = q("SELECT id, name_eng FROM dt_faq ORDER BY id");
+
+			echo "
+				<select name=faq_topic_id>
+			";
+
+			$i = 0;
+			while($fTopic = f($rTopics))
+			{
+				$select = "";
+				if(!$i && $faq_topic_id == "")
+				{
+					$faq_topic_id = $fTopic[ id ];
+				}
+
+				if($faq_topic_id == $fTopic[ id ])
+				{
+					$select = " selected";
+				}
+				echo "<option value='$fTopic[id]'$select>$fTopic[name_eng]</option>\n";
+				$i++;
+			}
+			echo "
+				</select>
+			";
+		}  //  GetSelect
+
+		function MainView()
+		{
+			global $faq_topic_id;
+
+			echo "
+				<table border=0 width=100%>
+				<form action='main.php' method=post>
+				<td width=50%>Select FAQ topic:
+			";
+
+		 GetSelect();
+
+		 echo "
+				&nbsp;<input type=submit value='Select'>
+		 		</td>
+				<td width=50% align=right>
+					[ <a href='main.php?action=add_answer&faq_topic_id=$faq_topic_id'>Add answer</a> ]
+				</td>
+				</form>
+				</table>
+			";
+
+		 $sql = "
+			SELECT *
+			FROM dt_faq_answers
+			WHERE faq_topic_id='$faq_topic_id' ORDER BY id
+		 ";
+
+		 $rAnswers = q($sql);
+
+		 echo "
+			<br>
+			<table border=0 cellspacing=1 cellpadding=0 width=100%>
+			<tr bgcolor=DFDFDF height=20>
+				<td align=center width=2%>
+					&nbsp;#&nbsp;
+				</td>
+				<td>
+					&nbsp;&nbsp;Question
+				</td>
+				<td align=center width=10%>
+					&nbsp;Options&nbsp;
+				</td>
+			</tr>
+		 ";
+
+		 $i = 0;
+
+		 if(e($rAnswers))
+		 {
+				echo "
+					<tr bgcolor=F0F0F0 height=100>
+						<td colspan=6 align=center>
+							There are no answers for this topic. Please click <b>Add answer</b> to create new one.
+						</td>
+					</tr>
+				";
+		 }
+		 else
+		 {
+				 while($fAnswer = f($rAnswers))
+				 {
+						$i++;
+
+						echo "
+							<tr bgcolor=F0F0F0>
+								<td align=center width=2%>
+									&nbsp;$i.&nbsp;
+								</td>
+								<td>
+									&nbsp;&nbsp;$fAnswer[name_eng]
+								</td>
+								<td align=center width=10% nowrap>
+									&nbsp;[ <a href=main.php?faq_topic_id=$faq_topic_id&id=$fAnswer[id]&action=modify>Edit</a> ] &nbsp; [ <a href=main.php?faq_topic_id=$faq_topic_id&id=$fAnswer[id]&action=delete>Delete</a> ]&nbsp;
+								</td>
+							</tr>
+						";
+				 }
+		}
+
+		echo "
+			<tr bgcolor=DFDFDF height=20>
+				<td colspan=6>
+					&nbsp;&nbsp;Total ".nr($rAnswers)." product(s).
+				</td>
+			</tr>
+			</table>
+		 ";
+		}  //  MainView
+
+		if($action == update && $id != "")
+		{
+			q("UPDATE dt_faq_answers SET name_eng='$name_eng',name_heb='$name_heb',name_rus='$name_rus' WHERE id='$id'");
+			q("UPDATE dt_faq_answers SET description_eng='$description_eng',description_rus='$description_rus',description_heb='$description_heb' WHERE id='$id'");
+			q("UPDATE dt_faq_answers SET faq_topic_id='$faq_topic_id' WHERE id='$id'");
+		}
+
+		if($action == create)
+		{
+			$sql = "
+				INSERT INTO dt_faq_answers
+				(name_eng, name_rus, name_heb, description_eng, description_rus, description_heb, faq_topic_id) VALUES
+				('$name_eng','$name_rus','$name_heb', '$description_eng','$description_rus','$description_heb', '$faq_topic_id')
+			";
+
+			q($sql);
+		}
+
+		if($action == delete && $id != "")
+		{
+			q("DELETE FROM dt_faq_answers WHERE id='$id'");
+		}
+
+		if($action == modify)
+		{
+			$fAnswer = f(q("SELECT * FROM dt_faq_answers WHERE id='$id'"));
+
+			$name_eng = $fAnswer[ name_eng ];
+			$name_rus = $fAnswer[ name_rus ];
+			$name_heb = $fAnswer[ name_heb ];
+			$description_eng = $fAnswer[ description_eng ];
+			$description_rus = $fAnswer[ description_rus ];
+			$description_heb = $fAnswer[ description_heb ];
+			$faq_topic_id = $fAnswer[ faq_topic_id ];
+
+			InputRecord(1);
+		}
+
+		if($action == add_answer)
+		{
+			InputRecord(0);
+		}
+
+		MainView();
+?>

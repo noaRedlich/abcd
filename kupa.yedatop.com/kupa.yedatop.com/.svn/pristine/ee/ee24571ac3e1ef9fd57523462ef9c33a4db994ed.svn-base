@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+  <main_table>attribute_values</main_table>
+  <name>אפשרויות</name>
+  <options>
+    <opt name="create_record" type="sometime"></opt>
+    <opt name="edit_record" type="sometime"></opt>
+    <opt name="search" type="none"></opt>
+    <opt name="view" type="always"></opt>
+    <opt name="delete_record" type="always"></opt>
+  </options>
+  <view>
+    <vcol name="id" >ID</vcol>
+    <vcol name="SortOrder" >מיקום</vcol>
+    <vcol name="name" >כותרת</vcol>
+    <vcol name="code">קוד</vcol>
+    <vcol name="status" type="yes_no">פעיל</vcol>
+  </view>
+  <edit>
+    <ecol tab="3" name="attribute_id" type="cross" cross="attributes" cross_field="id" lookup_field="name" >מאפייו</ecol>
+    <ecol name="name" type="string" >כותרת</ecol>
+    <ecol name="code" type="string" format="integer">קוד</ecol>
+    <ecol name="SortOrder" type="string" >מיקום</ecol>
+    <ecol name="status" type="yes_no" defaultvalue="1">פעיל</ecol>
+  </edit>
+  <sql_actions>
+    <opt name="order" val="SortOrder"></opt>
+  </sql_actions> 
+</xml>

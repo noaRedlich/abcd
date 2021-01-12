@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>attributes</main_table>
+	<name>מאפייני פריט</name>
+	<add_label>מאפיין חדש</add_label>
+	<options>
+		<opt name="create_record" type="sometime"></opt>
+		<opt name="edit_record" type="sometime"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="view" type="always"></opt>
+		<opt name="delete_record" type="always"></opt>
+	</options>
+	<view>
+    <vcol name="id" >ID</vcol>     
+		<vcol name="SortOrder" >מיקום</vcol>
+    <vcol name="name">שם</vcol>
+		<vcol name="type" type="enum">סוג מאפיין
+            <enum val="STRING">טקסט חופשי</enum>
+            <enum val="VLIST">רשימת אפשרויות</enum>
+		</vcol>
+    <vcol name="category_id" type="cross" cross="listingsCategories" cross_field="ID" lookup_field="CategoryName" >מחלקה</vcol>
+    <vcol name="status" type="yes_no">פעיל</vcol>
+	</view>
+	<edit>
+		<ecol tab="1" name="name" ismandatory="yes" type="string">שם מאפיין</ecol>
+    <ecol tab="1" name="type" type="enum">סוג מאפיין 
+            <enum val="STRING">טקסט חופשי</enum>
+            <enum val="VLIST">רשימת אפשרויות</enum>
+		</ecol>
+			<ecol tab="2" name="attribute_values"  type="cross_parent" service="attribute_values" cross_field="attribute_id" ></ecol>
+			<ecol tab="1" name="category_id" type="cross" cross="listingsCategories" cross_field="ID" lookup_field="CategoryName" >מחלקה|יש להשאיר ריק אם אין יחס למחלקה</ecol>
+
+			<ecol tab="1" name="status" type="yes_no" defaultvalue="Yes">פעיל</ecol>
+			<ecol tab="1" name="SortOrder" type="string">מיקום</ecol>
+      <ecol tab="1" name="code_length" type="string" format="integer">מספר תווים בברקוד</ecol>
+  </edit>
+	<sql_actions>
+		<opt name="order" val="SortOrder"></opt>
+	</sql_actions>
+	<tabs>
+        <tab index="1" name="כללי"></tab>
+        <tab index="2" name="אפשרויות" disableoncreate="Yes"></tab>
+    </tabs>
+</xml>

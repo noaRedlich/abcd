@@ -1,0 +1,97 @@
+<?
+$page_subtitle = "ספקים";
+
+$simple=1;
+$page_subtitle = "ספקים";
+include("include/common.php");
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+$sql = "select s.ID,SupplierName,round(sum(final_cost*quantity),2) as Purchases from
+listingsSuppliers s
+left outer join purchases p on s.id = p.supplier_id  and p.deleted = 0
+where status = 1 and isSupplier=1 and user_id = $userID group by s.id, suppliername
+order by binary supplierName ";
+$suppliers = DBQuery($sql);
+
+?>
+
+<table width=100% height=485 border=0>
+<tr>
+<td colspan=2>
+<div style='border:inset 2;overflow:auto;width:100%;height:100%'>
+<table bgcolor=white width=100% border=1 cellspacing=0 cellpadding=3 style=border-collapse:collapse>
+<tr style='color:white;background-color:darkblue'>
+<th>ספק</th>
+<th width=1%>קניות</th>
+<th width=1%>תשלומים</th>
+<th width=1%>יתרה</th>
+<th width=1%>פעולות</th>
+</tr>
+<?
+$suppliers->MoveFirst();
+while (!$suppliers->EOF)
+{
+	$sql = "select round(sum(amount*(case when hov=1 then -1 else 1 end)),2) as amt from supplierpayments where supplier_id = ".$suppliers->fields['ID']." and status=1";
+	$pmt = $conn->Execute($sql);
+	if ($pmt === false){log_error($sql);die();}
+	$purchases+=$suppliers->fields['Purchases'];
+	$payments+=$pmt->fields['amt'];
+	$total=$suppliers->fields['Purchases']-$pmt->fields['amt'];
+	$TOTAL+=$total;
+	echo " 
+	<tr>
+		<td class=\"row3_1 \">";
+        if (HasActionPermission("PREFERENCES")){
+            echo "<a  href=# onclick=wopen1('cp/main.php?service=suppliers&bd_event=edit_record&record_id=".$suppliers->fields['ID']."','tools')>";
+        }
+        echo $suppliers->fields['SupplierName'];
+        if (HasActionPermission("PREFERENCES")){
+                echo "</a>";
+        }        
+        echo "</td>
+		<td nowrap class=\"row3_1 \" style=color:red><span dir=ltr>".number_format($suppliers->fields['Purchases'],2)."</span></td>
+		<td nowrap class=\"row3_1 \" style=color:blue><span dir=ltr>".number_format($pmt->fields['amt'],2)."</span></td>
+		<td nowrap class=\"row3_1 \" ><span dir=ltr>".number_format($total,2)."</span></td>
+		<td nowrap class=\"row3_1 \" align=center>";
+        if (HasReportPermission("KNIYALESAPAK")){
+			echo "<a onclick='event.cancelBubble=true;s=openReport(\"rep_suppliers.php?sid=".$suppliers->fields['ID']."\");try{s.focus()}catch(e){};event.cancelBubble=true;' ><img  style='cursor:hand' src='".$imgPath."table_view.gif' width=16 height=16 alt='דו\"ח קניות ותשלומים' border=0></a>";
+        }
+        echo " ";
+        if (HasActionPermission("TASHLUMLESAPAK")){
+			echo "<a onclick='event.cancelBubble=true' href=\"javascript:s=open('supplier_payment.php?sid=".$suppliers->fields['ID']."','payment','top=110,left=50,width=800,height=370');s.focus();\"><img  style='cursor:hand' src='".$imgPath."money_envelope.gif' width=16 height=16 alt='תשלום לספק' border=0></a>";
+        }
+		echo "</td>
+    </tr>";
+	$suppliers->MoveNext();
+	$issupplier=true;
+	
+}
+echo "<tr>
+		<td><strong>סה\"כ</strong></td>
+		<td nowrap class=\"row3_1 \" style=color:red><b >".number_format($purchases,2)."</td>
+		<td nowrap class=\"row3_1 \" style=color:blue><b>".number_format($payments,2)."</td>
+		<td nowrap class=\"row3_1 \" ><b>".number_format($TOTAL,2)."</td>
+		<td>&nbsp;</td>
+	</tr>
+";
+?>
+</table>
+</div>
+</td>
+</tr>
+<tr style=height:1%>
+<td width=1% nowrap>
+<?
+if (HasActionPermission("PREFERENCES")){
+    echo "<a style='color:black;font-size:8pt' href=# onclick=wopen1('cp/main.php?service=suppliers&bd_event=create_record&simple=1','tools')><img src=".$imgPath."businessman_add.png width=16 height=16 align=absmiddle hspace=3 border=0>".$lang[admin_menu_add_a_supplier]."</a>";
+}    
+?>
+</td>
+<td width=99% align=left><input type=button value='סגור' class=button style='background-image:url(<?=$imgPath?>back.gif)' onclick='window.close()'></td>
+
+</tr>
+</table>
+</body>
+</html>

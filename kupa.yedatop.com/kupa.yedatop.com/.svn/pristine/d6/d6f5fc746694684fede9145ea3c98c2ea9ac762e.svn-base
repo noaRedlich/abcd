@@ -1,0 +1,474 @@
+<?
+
+class Document
+{
+    var $doctype;
+    var $stockid;
+    var $clientid;
+    var $id;
+    var $metric;
+    var $rate;
+    var $currencyid;
+    var $productcount;
+    var $paymentcount; 
+    var $sourcestockid; 
+    var $targetstockid; 
+    var $comment;
+    var $asmachta;
+    var $inheritFrom;
+    var $docstatus;
+    var $movestock;
+    var $movereserved;
+    var $moveordered;
+    var $number;
+    var $UpdateStock;
+    var $billingid;
+    var $isinternal;
+    var $ispayment;
+	var $stockdate;
+	var $logProductHistory;
+	var $vat;
+	var $rawData;
+	var $clientname;
+	var $clientphone;
+	var $clientemail;
+	var $clientaddress;
+	var $clientzehut;
+
+     
+    function Document($type,$stockid="",$clientid="")
+    {
+        global $config,$userID,$officeUserID,$conn,$TABLE_DOCUMENT_TYPE,$TABLE_LISTINGSSTOCKS;
+        $this->doctype = $type;
+        $this->stockid = $stockid;
+        $this->clientid = $clientid;
+        $this->productcount=0;
+        $this->paymentcount=0;
+        $this->logProductHistory=true;
+		$this->vat = $config["VAT"];
+		
+
+		$doc = DBQuery("select dt.*,
+		(case when ifnull(dtc.movestock,'0')='1' then '-' else dt.move_stock end) as dmove_stock
+		from $TABLE_DOCUMENT_TYPE dt 
+		left outer join document_type_counters dtc
+		on dt.id = doc_type_id 
+		where dt.id = '$type'");  
+		$usermetricRS = DBQuery("select metric from document_type_counters where doc_type_id = '$type' and user_id = $userID");
+         
+		if($this->stockid)
+		{
+			$stockrs = DBQuery("select VatFree from $TABLE_LISTINGSSTOCKS where id = ".$this->stockid);
+			if ($stockrs->fields["VatFree"])$this->vat=0;
+		}
+				
+        $this->metric = ($usermetricRS->Fields("metric"))?$usermetricRS->Fields("metric"):$doc->Fields("metric");
+        $this->isinternal = $doc->Fields("is_internal");
+		if ($clientid!="" && !$this->isinternal)
+		{
+			$clData = DBQuery("select SupplierName, BusinessNum from listingsSuppliers where id = $clientid");
+			$this->clientname = $clData->fields["SupplierName"];
+			$this->clientzehut = $clData->fields["BusinessNum"];
+		}
+        $this->movestock = $doc->Fields("dmove_stock");
+        $this->movereserved = $doc->Fields("move_reserved");
+        $this->moveordered = $doc->Fields("move_ordered");
+        $this->ispayment = $doc->Fields("is_payment");
+        //assume NIS as currency
+        $sql = "select id,course from currencies where user_id = $userID and is_default = 1";
+        $currency = $conn->Execute($sql);
+        if ($currency === false) {log_error($sql);}
+        $this->rate = 1;
+        $this->currencyid = $currency->fields["id"];
+        if (!$this->currencyid)
+        {
+             $this->currencyid = InitializeUserCurrency($userID);
+        }
+    }
+    
+    function Create($status)
+    {
+        global $config,$userID,$officeUserID,$conn, $STATUS_ACTIVE, $STATUS_CLOSED,$STATUS_DRAFT;
+ 
+        $this->docstatus = ($status)?$status:$STATUS_CLOSED;
+        $this->number = setDocNumber($this->doctype);
+		
+	
+        $sql = "insert into documents 
+        (vat, doc_type, doc_status, doc_date, created, modified, doc_number, user_id, amount, stock_id, 
+        comment,comment1,office_user_id,client_id, source_stock_id, target_stock_id,billing_id,
+		client_name,client_phone,client_address,client_email,client_businessnum,raw_data)
+        values ('".$this->vat."','".$this->doctype."','".$this->docstatus."','".date("Y-m-d")."', unix_timestamp(), unix_timestamp(), ".$this->number.", $userID, 0,'".$this->stockid."', 
+        '".addslashes($this->asmachta)."','".addslashes($this->comment)."',$officeUserID,'".$this->clientid."','".$this->sourcestockid."','".$this->targetstockid."','".$this->billingid."',
+		'".addslashes($this->clientname)."','".addslashes($this->clientphone)."','".addslashes($this->clientaddress)."','".addslashes($this->clientemail)."','".addslashes($this->clientzehut)."','".addslashes($this->rawData)."')";
+        $doc = $conn->Execute($sql); 
+     	if ($doc === false) {die( $conn->ErrorMsg()."<br>".$sql); }
+        $this->id = $conn->Insert_ID();
+
+        if (!$this->isinternal)
+        {
+            //set default values for agent and payment conditions
+            DBQuery("update documents d set agent_id = (select AgentID from listingsSuppliers s where s.id = d.client_id) where id = ".$this->id);
+            $payRS = DBQuery("select PaymentTypeId from listingsSuppliers s where s.id = ".$this->clientid);
+            $dpaymenttype =  $payRS->Fields("PaymentTypeId");  
+            if ($dpaymenttype)
+            { 
+                DBQuery("update documents d set payment_type_id = $dpaymenttype where id = ".$this->id);
+            
+                $sql = "select * from payment_type where id = $dpaymenttype";
+                $ptypes = DBQuery($sql);
+                if ($ptypes->fields["shotef"])
+                {
+                    $pdate = strtotime("+1 month");
+                    $pdate = mktime(0,0,0,date("m",$pdate),1,date("Y",$pdate));
+                    $pdate = strtotime("+".($ptypes->fields["numdays"]-1)." days",$pdate);
+                }
+                else
+                {
+                    $pdate = strtotime("+".$ptypes->fields["numdays"]." days");
+                }
+                $paymentdate = date("Y-m-d",$pdate);
+                DBQuery("update documents d set payment_date = '$paymentdate' where id = ".$this->id);
+
+            }
+        }
+        
+        if ($this->inheritFrom)
+        {
+            //copy fields from parent document
+            $sql = "select doc_type,stock_date,doc_date,amount,discount,client_name,client_address,client_phone,client_person,client_businessnum from documents where id = ".$this->inheritFrom;
+            $doc = DBQuery($sql); 
+			$parentDocType = $doc->fields["doc_type"];	
+			
+			$minus = "";
+			$isBitulSfira = false;
+			if ($parentDocType=="SFIRATMLAI" && $this->doctype=="SFIRATMLAI")
+			{
+				$minus = "-1*";
+				$isBitulSfira = true;
+			}
+								
+            $sql = "update documents set 
+                amount = ".$minus.$doc->Fields("amount").",
+                discount ='".$doc->Fields("discount")."', 
+                client_name ='".addslashes($doc->Fields("client_name"))."',
+                client_address ='".addslashes($doc->Fields("client_address"))."',
+                client_phone ='".addslashes($doc->Fields("client_phone"))."',
+                client_person ='".addslashes($doc->Fields("client_person"))."',
+				client_businessnum ='".addslashes($doc->Fields("client_businessnum"))."'";
+			if ($doc->Fields("stock_date")!=$doc->Fields("doc_date"))
+			{
+				$sql.=",stock_date ='".addslashes($doc->Fields("stock_date"))."' ";
+				$this->stockdate = DateFromSQL($doc->Fields("stock_date"));
+			}
+			$sql.=" where id = ".$this->id; 
+            $doc = DBQuery($sql); 
+
+            //close parent document
+            $sql = "update documents set closed_by = ".$this->id." where id = ".$this->inheritFrom;
+            $doc = $conn->Execute($sql); 
+     	    if ($doc === false) {die( $conn->ErrorMsg()."<br>".$sql); }
+            
+
+			
+            //copy products from parent document
+			$sql = "insert into document_products (doc_id, listing_id, sort_order, barcode, name, currency_price, currency_id, currency_rate, quantity, price, discount, quantity_change)
+					select ".$this->id.", listing_id, sort_order, barcode, name, currency_price, currency_id, currency_rate, quantity $minus quantity_change, price, discount, $minus quantity_change
+            from document_products where doc_id = ".$this->inheritFrom;
+			DBQuery($sql); 
+             
+            //copy payments from parent document
+            if ($this->ispayment)
+            {
+				$sql = "insert into document_payments (doc_id, sort_order, hov, Amount, checknumber, checkdate, checkbank, checksnif, checkaccount, payment_type, kupa_id)
+				select ".$this->id.", sort_order, hov, Amount, checknumber, checkdate, checkbank, checksnif, checkaccount, payment_type, kupa_id
+				from  document_payments where doc_id = ".$this->inheritFrom;
+				DBQuery($sql); 
+     		}
+                       
+            //move stock
+			if ($isBitulSfira)
+			{
+				$sql = "select quantity, listing_id from document_products where doc_id = ".$this->id;
+				$prs = DBQuery($sql);
+				while (!$prs->EOF)
+				{
+					//rollbak quantity
+					$sql = "update listingsStocksElements lse set quantity = ".$prs->fields["quantity"]." where listingid = ".$prs->fields["listing_id"]." and stockid = ".$this->stockid;
+					DBQuery($sql);
+					//save to history
+					$sql="insert into history (timestamp,datetime,type,listing_id,quantity_from,supplier_id,stock_id_from,stock_id_to) values(
+							unix_timestamp(),now(),'purchase',".$prs->fields["listing_id"].",'".$prs->fields["quantity"]."','-1','".$this->stockid."','".$this->stockid."')";
+					$res = DBQuery($sql); 
+										
+					$prs->MoveNext();
+				}
+			}
+			else
+			{
+				if ($this->UpdateStock && $this->docstatus != $STATUS_DRAFT)
+				{
+					$sql = "select id from document_products where doc_id = ".$this->id;
+					$products = DBQuery($sql); 
+					while (!$products->EOF)
+					{
+						$this->UpdateStockProduct($products->Fields("id"));
+						$products->MoveNext();
+					}
+				}        
+			}
+        }
+        
+    }
+	
+	function setAmount($amt)
+	{
+		$rs = DBQuery("update documents set amount = ".$amt." where id = ".$this->id);
+	} 
+	
+    
+    function AddItem($listingid,$quantity,$itempricebeforevat,$discount,$name,$barcode,$visible=true)
+    {
+        global $config,$userID,$officeUserID,$conn,$STATUS_DRAFT;
+        
+		$vat = $this->vat; 
+        if ($this->metric == "SalePrice")
+        {
+		    if ($this->stockid)
+            {
+			    $stk=" left outer join listingsStocksElements lse on lse.listingid = l.id and lse.stockid = ".$this->stockid;
+			    $stkselect = "lse.quantity as prevQuantity, ifnull(lse.saleprice,l.saleprice)  as currency_price ";
+		    }            
+		    else
+            {
+			    $stkselect = "0 as prevQuantity, l.".($this->metric)."  as currency_price ";
+		    }
+        }
+        else
+        {
+            if ($this->stockid)
+            {
+                $stk=" left outer join listingsStocksElements lse on lse.listingid = l.id and lse.stockid = ".$this->stockid;
+                $stkselect = "lse.quantity as prevQuantity, l.".($this->metric)." as currency_price ";
+            }
+            else
+            {
+                 $stkselect = "0 as prevQuantity, l.".($this->metric)."  as currency_price ";
+            }
+        }
+        
+        if ($listingid)
+        {
+            $sql = "select l.title,
+            barcode,
+            cost,
+            $stkselect
+            from listingsDB l $stk
+            where l.id = $listingid";
+            $product = DBQuery($sql);
+			if(floatval($itempricebeforevat)==0)
+			{
+				$saleprice =  $product->fields["currency_price"]/(1+$vat/100);
+			}
+			else
+			{
+				$saleprice = $itempricebeforevat;
+			}
+            $pbarcode = addslashes($product->fields["barcode"]);
+            $pname = addslashes($product->fields["title"]);
+            $prevQuantity = ($product->fields["prevQuantity"]);
+            $pquantity = $quantity - $prevQuantity;
+            $costbeforevat = $product->fields["cost"]/(1+$vat/100);
+			if (floatval($itempricebeforevat)==0)
+			{ 
+				$pprice = $product->fields["currency_price"] * $quantity;
+			}
+			else
+			{
+				$pprice = $itempricebeforevat*(1+$vat/100) * $quantity;
+			}
+        }
+        else
+        {
+            $pname = addslashes($name);
+            $barcode = addslashes($barcode);
+            $saleprice = $itempricebeforevat;
+            $pprice = $itempricebeforevat*(1+$vat/100) * $quantity;
+            $pquantity = 0;
+        }
+        
+        $pprice = $pprice * (100-$discount) / 100;
+
+        //create document_product record
+        $vis = ($visible)?1:0;
+        $sql = "insert into document_products(doc_id, listing_id, sort_order, barcode, name, discount,
+         currency_price, currency_id, currency_rate, quantity,quantity_change, price, cost,visible)
+        values (".$this->id.",'$listingid',".$this->productcount.",'$pbarcode','$pname','$discount',
+         '$saleprice',".$this->currencyid.",".$this->rate.",$quantity,$pquantity,$pprice,'$costbeforevat',$vis)";  
+        if ($conn->Execute($sql)===false)
+        {                        
+    		die( $conn->ErrorMsg()."<br>".$sql);
+    	};
+        $docproductid = $conn->Insert_ID();
+        
+        //update total
+        if ($visible)
+        {
+            $sql = "update documents set amount = amount + $pprice where id = ".$this->id;
+            DBQuery($sql);
+        }
+
+        //move stock
+        if ($this->UpdateStock && $this->docstatus != $STATUS_DRAFT)
+        {
+           $this->UpdateStockProduct($docproductid);
+        } 
+        
+        $this->productcount++;
+    }
+                       
+    
+    function AddPayment($amount,$paymenttype,$kupa,$date,$bank,$snif,$account)
+    {
+        global $conn,$userID;
+        $this->paymentcount++;
+        
+        if (!$date)
+        {
+            $sql = "select * from payment_type where id = (select paymenttypeid from listingsSuppliers where id = ".$this->clientid.")";
+            $ptypes = $conn->Execute($sql);
+            if ($ptypes === false){log_error($sql);}
+            if ($ptypes->fields["shotef"])
+            {
+                $pdate = strtotime("+1 month");
+                $pdate = mktime(0,0,0,date("m",$pdate),1,date("Y",$pdate));
+                $pdate = strtotime("+".($ptypes->fields["numdays"]-1)." days",$pdate);
+            }
+            else
+            {
+                $pdate = strtotime("+".$ptypes->fields["numdays"]." days");
+            }
+            $date = date("Y-m-d",$pdate);
+        }
+        
+        $sql = "insert into document_payments
+        (doc_id, sort_order, Amount, payment_type, kupa_id, checkdate,checkbank,checksnif,checkaccount)
+        values (".$this->id.",".$this->paymentcount.",'$amount','$paymenttype','$kupa','$date','$bank','$snif','$account')";
+        DBQuery($sql);
+    }                      
+    
+    function UpdateStockProduct($doclistingid)
+    {
+        global $workmode,$conn,$userID;
+
+        $sql = "select * from document_products where id = ".$doclistingid;
+        $prodrs = $conn->Execute($sql);if ($prodrs === false){log_error($sql);}
+        $quantity = $prodrs->Fields("quantity");
+        $price = $prodrs->Fields("currency_price");
+        $listingid = $prodrs->Fields("listing_id");
+		$pdate = ($this->stockdate)?$this->stockdate:date("d/m/Y");	
+        if ($this->movestock=="+" && ($this->stockid||$workmode=="B") && $listingid)
+        {
+            //purchase
+            //get purchase group 
+            $sql = "select max(group_id) as group_id from purchases where supplier_id = '".$this->clientid."'";
+            $groupRS = $conn->Execute($sql);if ($groupRS === false){log_error($sql);}
+            $groupid = $groupRS->fields["group_id"]+1;
+            purchaseProduct($listingid,$quantity,$this->clientid,$this->stockid,$price,0,$workmode,$pdate,1,$this->number,$groupid,$this->id,$this->logProductHistory);
+        }
+        elseif($this->movestock=="-" && ($this->stockid||$workmode=="B") && $listingid)
+        {
+            //sell
+            sellProduct($listingid,$quantity,$this->clientid,$this->stockid,$workmode,DateToSQL($pdate),$price);
+        }
+
+        //move ordered quantity
+        if ($this->moveordered  && $listingid)
+        {
+            $sql = "update listingsDB set ordered = ordered $moveordered ".$quantity." where id = ".$listingid;
+            $newproduct = $conn->Execute($sql);if ($newproduct === false){die($sql);}
+        }
+        //move reserved quantity
+        if ($this->movereserved && $listingid)
+        {
+            $sql = "update listingsDB set reserved = reserved $movereserved ".$quantity." where id = ".$listingid;
+            $newproduct = $conn->Execute($sql);if ($newproduct === false){die($sql);}
+        }
+    }
+    
+    
+}
+
+
+class ExistingDocument extends Document
+{
+    function ExistingDocument($docid)
+    {
+        
+        
+        global $conn,$TABLE_DOCUMENT_TYPE,$userID;
+        $this->id = $docid;
+        $sql = "select * from $TABLE_DOCUMENT_TYPE where id = (select doc_type from documents where id = $docid)";
+        $doc = DBQuery($sql); 
+        $this->metric = $doc->Fields("metric");
+        $this->movestock = $doc->Fields("move_stock");
+        $this->movereserved = $doc->Fields("move_reserved");
+        $this->moveordered = $doc->Fields("move_ordered");
+        $this->doctype = $doc->Fields("id");
+		
+		$sql = "select * from documents where id = $docid";
+		$doc = DBQuery($sql); 
+		$this->sourcestockid = $doc->Fields("source_stock_id");
+		$this->targetstockid = $doc->Fields("target_stock_id");
+        
+        //assume NIS as currency
+        $sql = "select id,course from currencies where user_id = $userID and is_default = 1";
+		$currency = DBQuery($sql);
+        $this->rate = 1;
+        $this->currencyid = $currency->fields["id"];
+        if (!$this->currencyid)
+        {
+             $this->currencyid = InitializeUserCurrency($userID);
+        }
+        
+        $products = DBQuery("select count(*) as cnt from document_products where doc_id = ".$this->id);
+        $this->productcount=$products->Fields("cnt");
+        
+    }
+    
+    function RollbackReservedAndOrderedProducts()
+    {
+        global $conn;
+        $sql = "select listing_id, quantity from document_products where doc_id = ".$this->id;
+        $products = $conn->Execute($sql); 
+     	if ($products === false) {die( $conn->ErrorMsg()."<br>".$sql); }
+        while (!$products->EOF)
+        {
+            $listingid = $products->Fields("listing_id");
+            $quantity = $products->Fields("quantity");
+            //rollback ordered quantity
+            if ($this->moveordered && $listingid)
+            {
+                $rollbackordered = ($this->moveordered=="+")?"-":"+";
+                $sql = "update listingsDB set ordered = ordered $rollbackordered ".$quantity." where id = ".$listingid;
+                $newproduct = $conn->Execute($sql);if ($newproduct === false){die($sql);}
+            }
+            //rollback reserved quantity
+            if ($this->movereserved && $listingid)
+            {
+                $rollbackreserved = ($this->movereserved=="+")?"-":"+";
+                $sql = "update listingsDB set reserved = reserved $rollbackreserved ".$quantity." where id = ".$listingid;
+                $newproduct = $conn->Execute($sql);if ($newproduct === false){die($sql);}
+            }
+			//rollback movement
+			if ($this->doctype=="HAAVARATPRITIM" && $listingid)
+			{
+				moveProduct($listingid,$quantity,$this->targetstockid,$this->sourcestockid,"αιθεμ");
+			}			
+            $products->MoveNext();
+        }
+    }
+    
+}
+
+?>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xml>
+	<main_table>profile</main_table>
+	<name>פרופילים</name>
+	<options>
+		<opt name="create_record" type="sometimes"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt> 
+	</options>
+	<view>
+		<vcol name="name" >שם</vcol>
+		<vcol name="description" >תאור</vcol>
+	</view>
+	<edit>
+		<ecol name="name" type="string">שם</ecol>
+		<ecol name="description" type="string">תאור</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="name"></opt>
+	</sql_actions>
+</xml>

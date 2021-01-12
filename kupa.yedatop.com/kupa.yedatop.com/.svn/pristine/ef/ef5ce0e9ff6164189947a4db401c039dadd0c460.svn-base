@@ -1,0 +1,27 @@
+<?php
+$noheader=1;
+include("include/common.php");
+$TERM="";
+//command line interface support
+for($i=0;$i<$argc;$i++)
+{                                                           
+    $arg = explode("=",$argv[$i]);
+    if(strtoupper($arg[0])=="TERM")
+    {
+         $TERM = $arg[1];
+    }
+}
+
+if (!$TERM)
+{
+    die("No TERM parameter specified! Use: ".basename($PHP_SELF)."?TERM=terminalid");
+}
+
+$sql = "insert into translog (stock_id, time_stamp, day, is_trans) 
+        select id,unix_timestamp(),now(), 0 
+        from $TABLE_LISTINGSSTOCKS where terminalid = '$TERM'";
+$logrs = $conn->Execute($sql);
+if ($logrs === false){log_error($sql);}
+
+echo "Record logged succesfully.";
+?>

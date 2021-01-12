@@ -1,0 +1,333 @@
+<?php
+
+ob_start();
+require "excelparser.php";
+$simple = 1;
+$page_subtitle = "יבוא ויצוא";
+
+include("include/common.php");
+if (!loginCheck('User')
+    )exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+if ($action != "do") {
+    ob_end_flush();
+    echo
+    "<pre dir=rtl>
+פורמט קובץ EXCEL:
+-------------------
+<span style=color:red><b>A:</b></span> ברקוד (חובה)
+<span style=color:red><b>B:</b></span> שם פריט (חובה)
+<span style=color:red><b>C:</b></span> מחיר מכירה בש\"ח (חובה לפריטים חדשים)
+D: מספר מחלקה (ID)
+E: מספר ספק (ID)
+F: עלות
+G: מספר זר
+H: מספר סידורי
+I: מספר חליפי
+J: כמות מינימלית
+K: כמות מקסימלית
+L: מיקום
+";
+
+    exit;
+}
+ob_end_clean();
+print"
+<head>
+<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+<style>body{background-color:buttonface}</style>
+</head>
+<body><pre dir=rtl>";
+
+$excel_file = $_FILES['impfile'];
+if ($excel_file) {
+    $excel_file = $excel_file['tmp_name'];
+}
+
+if ($excel_file == '')
+    die("<center><b style=color:red>יש לבחור קובץ");
+
+
+$fh = @fopen($excel_file, 'rb');
+if (!$fh)
+    die("יש לבחור קובץ");
+if (filesize($excel_file) == 0)
+    die("יש לבחור קובץ");
+
+$fc = fread($fh, filesize($excel_file));
+@fclose($fh);
+if (strlen($fc) < filesize($excel_file))
+    die("<pre dir=ltr>Cannot read file");
+
+$exc = new ExcelFileParser;
+if ($exc->ParseFromFile($excel_file) > 0)
+    die("This is not an Excel file or file stored in Excel < 5.0");
+//$res = $exc->ParseFromString($fc);
+switch ($res) {
+    case 0: break;
+    case 1: die("Can't open file");
+    case 2: die("File too small to be an Excel file");
+    case 3: die("Error reading file header");
+    case 4: die("Error reading file");
+    case 5: die("This is not an Excel file or file stored in Excel < 5.0");
+    case 6: die("File corrupted");
+    case 7: die("No Excel data found in file");
+    case 8: die("Unsupported file version");
+
+    default:
+        die("Unknown error");
+}
+
+if (count($exc->worksheet['name']) < 1)
+    die("No worksheets in Excel file.");
+
+$codes = "";
+
+echo "<script>var scroller=window.setInterval('document.body.scrollTop=document.body.scrollHeight','200');</script>";
+for ($worksheet = 0; $worksheet < count($exc->worksheet['name']); $worksheet++) {
+
+    if ($exc->worksheet['unicode'][$worksheet]) {
+        $wname = uc2html($exc->worksheet['name'][$worksheet]);
+    } else {
+        $wname = $exc->worksheet['name'][$worksheet];
+    }
+
+
+    print "<span style='color:blue' >גיליון: " . $wname . "</span>\n";
+    flush();
+    $ws = $exc->worksheet['data'][$worksheet];
+
+    if (is_array($ws) && isset($ws['max_row']) && isset($ws['max_col'])) {
+        if ($ws['max_col'] < 1) {
+            echo("Invalid format.<br>Number of columns is less then 2.");
+            continue;
+        }
+        if ($ws['max_row'] < 0) {
+            echo("Invalid format.<br>No rows defined in document.");
+            continue;
+        }
+        $data = $ws['cell'];
+        $cnt = 1;
+        foreach ($data as $i => $row) {
+            $barcode = trim(get($exc, $row[0]));
+            $name = trim(get($exc, $row[1]));
+            $price = trim(get($exc, $row[2]));
+            $category = trim(get($exc, $row[3]));
+            $supplier = trim(get($exc, $row[4]));
+            $cost = trim(get($exc, $row[5]));
+            $misparzar = trim(get($exc, $row[6]));
+            $misparsiduri = trim(get($exc, $row[7]));
+            $misparchalifi = trim(get($exc, $row[8]));
+            $minstock = trim(get($exc, $row[9]));
+            $maxstock = trim(get($exc, $row[10]));
+            $mikum = trim(get($exc, $row[11]));
+            $unit = 0;
+
+            $barcode = str_replace("\\", "", str_replace("'", "", $barcode));
+            $name = preg_replace("/&#([0-9]+)/", "&#\\1;", $name);
+            $barcode = preg_replace("/&#([0-9]+)/", "&#\\1;", $barcode);
+            $misparzar = preg_replace("/&#([0-9]+)/", "&#\\1;", $misparzar);
+            $misparsiduri = preg_replace("/&#([0-9]+)/", "&#\\1;", $misparsiduri);
+            $misparchalifi = preg_replace("/&#([0-9]+)/", "&#\\1;", $misparchalifi);
+
+            if ($translit) {
+                $name = ConvertFromUnicode($name, "ru");
+                $barcode = ConvertFromUnicode($barcode, "ru");
+                $name = strtoupper(transliterate($name));
+                $misparzar = ConvertFromUnicode($misparzar, "ru");
+                $misparsiduri = ConvertFromUnicode($misparsiduri, "ru");
+                $misparchalifi = ConvertFromUnicode($misparchalifi, "ru");
+            } else {
+                $name = ConvertFromUnicode($name, "he");
+                $barcode = ConvertFromUnicode($barcode, "he");
+                $misparzar = ConvertFromUnicode($misparzar, "he");
+                $misparsiduri = ConvertFromUnicode($misparsiduri, "he");
+                $misparchalifi = ConvertFromUnicode($misparchalifi, "he");
+            }
+            $name = addslashes(trim($name));
+
+            if (strpos($barcode, "E+")) {
+                echo "<span style='color:red' >ברקוד שגוי: $barcode, יש לפרמת שדה ברקוד כטקסט!</span>\n";
+                continue;
+            }
+            if ($barcode && $name && $name != "שם פריט") {
+                $warn = "";
+                if ($supplier) {
+                    $sql = "select ID from listingsSuppliers where user_id = $userID and id='$supplier'";
+                    $rs = DBQuery($sql);
+                    if ($rs->EOF) {
+                        $warn.="\n<span style='color:red' dir=rtl>ספק מספר $supplier לא נמצא</span>";
+                        $supplier = 0;
+                    }
+                }
+                if ($category) {
+                    $sql = "select ID from listingsCategories where user_id = $userID and id='$category'";
+                    $rs = DBQuery($sql);
+                    if ($rs->EOF) {
+                        $warn.="\n<span style='color:red' dir=rtl>מחלקה מספר $category לא נמצאת</span>";
+                        $category = 0;
+                    }
+                }
+
+                $psql = "select id as listing_id,SalePrice,Cost from listingsDB where user_id = $userID and Barcode='" . dbsafe(trim($barcode)) . "'";
+                $rs = DBQuery($psql);
+                $oldPrice = $rs->fields["SalePrice"];
+                $oldCost = $rs->fields["Cost"];
+
+                if ($rs->EOF) {
+                    if ($price) {
+                        if (!$category
+                            )$category = 0;
+                        if (!$supplier
+                            )$supplier = 0;
+
+                        $mikum = $mikum ? ("'$mikum'") : "null";
+                        $minstock = $minstock ? ("'$minstock'") : "null";
+                        $maxstock = $maxstock ? ("'$maxstock'") : "null";
+                        $cost = $cost ? ("'$cost'") : "null";
+
+                        $sql = "INSERT INTO listingsDB
+                        (user_ID, Title, creation_date, last_modified, active,lastinserted,
+                        BarCode,ProductGroup,
+                        MisparZar,MisparSiduri,MisparChalifi,StockMin,StockMax,Mikum,Sapak,
+                        Cost,Unit,SalePrice) 
+                        VALUES($userID, '" . dbsafe($name) . "',now(),unix_timestamp(),'yes',unix_timestamp(),
+                        '" . dbsafe(trim($barcode)) . "','" . dbsafe($category) . "',
+                        '" . dbsafe($misparzar) . "','" . dbsafe($misparsiduri) . "','" . dbsafe($misparchalifi) . "'," . dbsafe($minstock) . "," . dbsafe($maxstock) . "," . dbsafe($mikum) . ",'" . dbsafe($supplier) . "'," .
+                                dbsafe($cost) . ",'" . dbsafe($unit) . "','" . dbsafe($price) . "')";
+                        DBQuery($sql);
+                        $listingID = $conn->Insert_ID();
+
+                        echo "$cnt. פריט חדש: " . $barcode . " " . $name . " " . $warn . "\n";
+                        flush();
+                    }
+                    else {
+                        echo "$cnt. <span style='color:red' >שגיה: חוסר מחיר מכירה לפריט $barcode.</span>\n";
+                    }
+                } else {
+
+                    $sql = "UPDATE listingsDB SET titleupdated = unix_timestamp() where ID = " . $rs->fields["listing_id"] . " AND user_ID = $userID and title <> '" . dbsafe($name) . "' ";
+                    $prl = $conn->Execute($sql);
+                    if ($prl === false) {
+                        log_error($sql);
+                    }
+
+                    $usql = "UPDATE listingsDB SET id=id ";
+
+                    if ($price != "") {
+                        $sql = "UPDATE listingsDB SET priceupdated = unix_timestamp() where ID = " . $rs->fields["listing_id"] . " AND user_ID = $userID and SalePrice <> '" . dbsafe($price) . "' ";
+                        DBQuery($sql);
+
+                        $usql .= ",SalePrice='$price' ";
+
+                        $sql = "UPDATE listingsStocksElements set saleprice = null where listingid = " . $rs->fields["listing_id"];
+                        DBQuery($sql);
+                    }
+
+                    if ($supplier != "") {
+                        $usql .= ",Sapak='" . dbsafe($supplier) . "' ";
+                    }
+                    if ($category != "") {
+                        $usql .= ",ProductGroup='" . dbsafe($category) . "' ";
+                    }
+                    if ($cost != "") {
+                        $usql .= ",Cost='" . floatval($cost) . "' ";
+                    }
+                    if ($misparzar != "") {
+                        $usql .= ",MisparZar='" . dbsafe($misparzar) . "' ";
+                    }
+                    if ($misparsiduri != "") {
+                        $usql .= ",MisparSiduri='" . dbsafe($misparsiduri) . "' ";
+                    }
+                    if ($misparchalifi != "") {
+                        $usql .= ",MisparChalifi='" . dbsafe($misparchalifi) . "' ";
+                    }
+                    if ($minstock != "") {
+                        $usql .= ",StockMin='" . dbsafe($minstock) . "' ";
+                    }
+                    if ($maxstock != "") {
+                        $usql .= ",StockMax='" . dbsafe($maxstock) . "' ";
+                    }
+                    if ($mikum != "") {
+                        $usql .= ",Mikum='" . dbsafe($mikum) . "' ";
+                    }
+
+                    $usql.=",title='" . dbsafe($name) . "',lastupdated = unix_timestamp() where id=" . $rs->fields["listing_id"];
+
+                    DBQuery($usql);
+
+
+                    $newPrice = $price;
+                    if (floatval($oldPrice) != floatval($newPrice)) {
+                        $sql = "insert into history (timestamp,datetime,type,listing_id,saleprice_from,saleprice_to,note) values
+								(unix_timestamp(),now(),'adjustment'," . $rs->fields["listing_id"] . ",'" . dbsafe($oldPrice) . "','" . dbsafe($newPrice) . "','עדכון מקובץ EXCEL פריטים')";
+                        DBQuery($sql);
+                    }
+
+                    $newCost = $cost;
+                    if (floatval($oldCost) != floatval($newCost)) {
+                        //save to history
+                        $sql = "insert into history (timestamp,datetime,type,listing_id,cost_from,cost,note) values(
+								unix_timestamp(),now(),'cost','" . $rs->fields["listing_id"] . "','" . dbsafe($oldCost) . "','" . dbsafe($cost) . "','עדכון מקובץ EXCEL פריטים')";
+                        DBQuery($sql);
+                    }
+
+                    echo "$cnt. פריט עודכן: " . $barcode . " " . $name . " " . $warn . "\n";
+                    flush();
+                }
+            } elseif ($name != "שם פריט") {
+                echo "$cnt. <span style='color:red' >שורה שגויה: חוסר ברקוד או שם פריט</span>\n";
+            }
+            $cnt++;
+        }
+        flush();
+    }
+}
+echo "<span style=color:green>סוף הקובץ</span>
+<script>window.clearInterval(scroller);document.body.scrollTop=document.body.scrollHeight;</script>
+";
+?>
+
+
+<?
+
+function uc2html($str) {
+    $ret = '';
+    for ($i = 0; $i < strlen($str) / 2; $i++) {
+        $charcode = ord($str[$i * 2]) + 256 * ord($str[$i * 2 + 1]);
+        $ret .= '&#' . $charcode;
+    }
+    return $ret;
+}
+
+function get($exc, $data) {
+    switch ($data['type']) {
+        // string
+        case 0:
+            $ind = $data['data'];
+            if ($exc->sst[unicode][$ind])
+                return uc2html($exc->sst['data'][$ind]);
+            else
+                return $exc->sst['data'][$ind];
+
+        // integer
+        case 1:
+            return (integer) $data['data'];
+
+        // float
+        case 2:
+            return (float) $data['data'];
+
+        case 3:
+            return gmdate("m-d-Y", $exc->xls2tstamp($data[data]));
+
+        default:
+            return '';
+    }
+}
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

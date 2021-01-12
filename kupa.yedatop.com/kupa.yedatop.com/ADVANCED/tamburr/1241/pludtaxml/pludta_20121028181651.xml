@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="10187" isWeight="0" isDeleted="0" title="כף בנאי 14 ידית עץ" category="0" saleprice="15.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668343">
+  </Product>
+  <Product barcode="5429" isWeight="0" isDeleted="0" title="גבס גשר 5 ק&quot;ג" category="0" saleprice="18.8" cost="" stockQuantity="-19" minStockQuantity="" lastUpdated="1339668337">
+  </Product>
+  <Product barcode="769127100153" isWeight="0" isDeleted="0" title="מברשת פולאר &quot;1.5" category="0" saleprice="7.5" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="164" isWeight="0" isDeleted="0" title="דלי 12 פיה" category="0" saleprice="15" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1326886227">
+  </Product>
+  <Product barcode="7290004116590" isWeight="0" isDeleted="0" title="קלסימו 5 ק&quot;ג" category="0" saleprice="28.9" cost="" stockQuantity="-151" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="7290102625895" isWeight="0" isDeleted="0" title="שפכטל טמבור &quot;4" category="0" saleprice="11.9" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="8711595058797" isWeight="0" isDeleted="0" title="סופר 7 שקוף" category="0" saleprice="28.8" cost="" stockQuantity="-41" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="98016" isWeight="0" isDeleted="0" title="שנאי אלקטרוני לספוט 60W" category="0" saleprice="29" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668343">
+  </Product>
+  <Product barcode="3904" isWeight="0" isDeleted="0" title="ספייסרים 2 מ&quot;מ 250 יח'" category="0" saleprice="7.5" cost="" stockQuantity="-9" minStockQuantity="" lastUpdated="1339668335">
+  </Product>
+  <Product barcode="7290100375471" isWeight="0" isDeleted="0" title="נורה הלוגן 1000W יונדאי" category="0" saleprice="16.9" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1339668333">
+  </Product>
+  <Product barcode="45499" isWeight="0" isDeleted="0" title="מאוורר עמוד איכותי &quot;16 HYUNDAI" category="0" saleprice="145" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="4891199001123" isWeight="0" isDeleted="0" title="סוללת כפתור GP CR2016" category="0" saleprice="8" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="7290001095911" isWeight="0" isDeleted="0" title="סט 5 קופסאות" category="0" saleprice="24.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="7290010408696" isWeight="0" isDeleted="0" title="נורה הלוגן 1000W יורולוקס" category="0" saleprice="12.9" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1339668341">
+  </Product>
+  <Product barcode="7290008049573" isWeight="0" isDeleted="0" title="פוליסיד טמבור 18 ליטר" category="0" saleprice="159" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668334">
+  </Product>
+  <Product barcode="4311536917301" isWeight="0" isDeleted="0" title="כפפות לניקוי MEDIUM" category="0" saleprice="3.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668335">
+  </Product>
+</Products>

@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="" BillId="210" ClientId="500452.00">
+  <Products>
+    <Product Id="83">
+      <Name>מרקים </Name>
+      <Barcode />
+      <SalePrice>51</SalePrice>
+      <SaledPrice>51</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>51</Cash>
+  </Pay>
+</Bill>

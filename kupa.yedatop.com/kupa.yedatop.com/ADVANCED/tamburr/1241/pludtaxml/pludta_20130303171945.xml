@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="29000760" isWeight="0" isDeleted="0" title="כף אשפה עם מוט" category="0" saleprice="14.5" cost="" stockQuantity="-14" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="83852" isWeight="0" isDeleted="0" title="גליל קרטון" category="0" saleprice="89" cost="" stockQuantity="-36" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="164" isWeight="0" isDeleted="0" title="דלי 12 פיה" category="0" saleprice="15" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="7484" isWeight="0" isDeleted="0" title="סחבות ריצפה זוג" category="0" saleprice="6.9" cost="" stockQuantity="-15" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="7290004116590" isWeight="0" isDeleted="0" title="קלסימו 5 ק&quot;ג" category="0" saleprice="28.9" cost="0.000" stockQuantity="-186" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="147" isWeight="0" isDeleted="0" title="סכין יפני רחב" category="0" saleprice="4.5" cost="" stockQuantity="-76" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="7296166389476" isWeight="0" isDeleted="0" title="דיסק דק &quot;4.5 לברזל גמל" category="0" saleprice="8.5" cost="0.000" stockQuantity="-12" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="419" isWeight="0" isDeleted="0" title="שק יוטה 45X58" category="0" saleprice="0.95" cost="0.000" stockQuantity="-1434" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="4887" isWeight="0" isDeleted="0" title="רביעיית מטליות מיקרופייבר" category="0" saleprice="10" cost="0.000" stockQuantity="-15" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="385" isWeight="0" isDeleted="0" title="טפלון סרט" category="0" saleprice="2" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="9486" isWeight="0" isDeleted="0" title="ניפל 50 אורך 50" category="0" saleprice="12" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="8850747502396" isWeight="0" isDeleted="0" title="ספריי צבע שחור בוסני" category="0" saleprice="15.5" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="7291021332529" isWeight="0" isDeleted="0" title="מנעול מספרים" category="0" saleprice="9.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="323" isWeight="0" isDeleted="0" title="מאריך נחושת 25-&quot;1/2" category="0" saleprice="8.5" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="111617" isWeight="0" isDeleted="0" title="סיפון אמריקאי בודד+יציאה למדיח" category="0" saleprice="35" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="52210" isWeight="0" isDeleted="0" title="ברז כביסה מיני" category="0" saleprice="19.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="49810" isWeight="0" isDeleted="0" title="ברז זוויתי ארוך 1/2-3/8" category="0" saleprice="19.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="198" isWeight="0" isDeleted="0" title="זווית 90 40X50 ליפסקי" category="0" saleprice="9.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="6506" isWeight="0" isDeleted="0" title="ברך 90 40X40 חוליות" category="0" saleprice="12" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="6453" isWeight="0" isDeleted="0" title="מכחול מס' 14" category="0" saleprice="5.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="60117" isWeight="0" isDeleted="0" title="ספריי זפת גומי" category="0" saleprice="32.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="228" isWeight="0" isDeleted="0" title="צינור גמיש לניאגרה 70 ס&quot;מ" category="0" saleprice="11.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="64741" isWeight="0" isDeleted="0" title="ברך אסלה פלא שרשורי" category="0" saleprice="69" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="50210" isWeight="0" isDeleted="0" title="ברז זוויתי ארוך 1/2-1/2" category="0" saleprice="19.9" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="874" isWeight="0" isDeleted="0" title="מעבר למיכל הדחה  3/8-1/2" category="0" saleprice="5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="1079125" isWeight="0" isDeleted="0" title="מכונת תיספורת פנסוניק ER-131" category="0" saleprice="199" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="2962" isWeight="0" isDeleted="0" title="כפפות בד בד" category="0" saleprice="4.5" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="51623" isWeight="0" isDeleted="0" title="רולר פרלון פס צהוב &quot;9 פאר" category="0" saleprice="46.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="38711" isWeight="0" isDeleted="0" title="סט  רולר פאר+מגש+ספוג 10 ס&quot;מ" category="0" saleprice="19.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="199" isWeight="0" isDeleted="0" title="זווית 90 32X32 ליפסקי" category="0" saleprice="8.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="12629" isWeight="0" isDeleted="0" title="מטלית ריצפה מיקרופייבר שקית" category="0" saleprice="12" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="8711595058797" isWeight="0" isDeleted="0" title="סופר 7 שקוף" category="0" saleprice="28.8" cost="" stockQuantity="-47" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="87821" isWeight="0" isDeleted="0" title="מברשת &quot;בומבה&quot; שיער &quot;3 טבעי פאר" category="0" saleprice="39" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="40612" isWeight="0" isDeleted="0" title="מנעול חבוי צילינדר ירדני" category="0" saleprice="24.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="13227" isWeight="0" isDeleted="0" title="סרט מדידה 5 מטר 25 מ&quot;מ" category="0" saleprice="15" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="51829" isWeight="0" isDeleted="0" title="מברשת &quot;בומבה&quot; שיער &quot;4 טבעי פאר" category="0" saleprice="47" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="18115" isWeight="0" isDeleted="0" title="צילינדר 61" category="0" saleprice="32.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="228" isWeight="0" isDeleted="0" title="צינור גמיש לניאגרה 70 ס&quot;מ" category="0" saleprice="11.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="103912" isWeight="0" isDeleted="0" title="אצטון 1 ליטר" category="0" saleprice="22" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="7290002997351" isWeight="0" isDeleted="0" title="נירוקיט לבן נירלט" category="0" saleprice="6.9" cost="" stockQuantity="-18" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="122812" isWeight="0" isDeleted="0" title="משוריות לג'קסו BOSCH" category="0" saleprice="27" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="112793" isWeight="0" isDeleted="0" title="כיסוי לרכב L" category="0" saleprice="220" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="73619" isWeight="0" isDeleted="0" title="מפתח צינורות 8" category="0" saleprice="34.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="67429" isWeight="0" isDeleted="0" title="סט אולר כוכב + חור" category="0" saleprice="59" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="99426" isWeight="0" isDeleted="0" title="סט אלן טקטיקס" category="0" saleprice="49" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="9335" isWeight="0" isDeleted="0" title="מקדח SDS 10X160" category="0" saleprice="13.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="7290002278306" isWeight="0" isDeleted="0" title="סקוצ' ברייט" category="0" saleprice="3" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="3039" isWeight="0" isDeleted="0" title="מאריך גמיש לניל מתכת 3/8-3/8 30 ס&quot;מ" category="0" saleprice="19" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="3008" isWeight="0" isDeleted="0" title="מאריך גמיש לניל מתכת 3/8-3/8 15 ס&quot;מ" category="0" saleprice="14.9" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="8850747219119" isWeight="0" isDeleted="0" title="דבק שפכטל+מרית 1/2 ק&quot;ג" category="0" saleprice="18.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="1273" isWeight="0" isDeleted="0" title="כבל חשמל 3X1.5 לבן לפי מטר" category="0" saleprice="5.5" cost="" stockQuantity="-9" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="763" isWeight="0" isDeleted="0" title="תעלה + מחסה 2 מטר 17X17" category="0" saleprice="8" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="8583" isWeight="0" isDeleted="0" title="קליפס 8 עגול" category="0" saleprice="8" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="7055" isWeight="0" isDeleted="0" title="שקע כוח N 1" category="0" saleprice="9.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="9858" isWeight="0" isDeleted="0" title="רב שקע  NB2 ע&quot;הט דק" category="0" saleprice="16" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="1037" isWeight="0" isDeleted="0" title="תקע כוח" category="0" saleprice="4.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="712" isWeight="0" isDeleted="0" title="מכסה פלסטיק לקופסא 70" category="0" saleprice="1.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="7454" isWeight="0" isDeleted="0" title="רובה אקרילית 1 ק&quot;ג מיסטר פיקס" category="0" saleprice="8.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="158" isWeight="0" isDeleted="0" title="פטיש 100 גרם" category="0" saleprice="12.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="5955" isWeight="0" isDeleted="0" title="ספריי לשחרור ברגים A.E" category="0" saleprice="10" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="52192" isWeight="0" isDeleted="0" title="מגהץ אדים 2000W קרמי HYUNDAI" category="0" saleprice="139" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="68715" isWeight="0" isDeleted="0" title="משור גבס פאר" category="0" saleprice="33" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="60616" isWeight="0" isDeleted="0" title="נייר גבס 150 מטר" category="0" saleprice="28" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="8118" isWeight="0" isDeleted="0" title="נייר מגבת שישייה" category="0" saleprice="10.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="114" isWeight="0" isDeleted="0" title="מסקינג טייפ מעוז" category="0" saleprice="6.9" cost="0.000" stockQuantity="-26" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="83852" isWeight="0" isDeleted="0" title="גליל קרטון" category="0" saleprice="89" cost="" stockQuantity="-36" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+</Products>

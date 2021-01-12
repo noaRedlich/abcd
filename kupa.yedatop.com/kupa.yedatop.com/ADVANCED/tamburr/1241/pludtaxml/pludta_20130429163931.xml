@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="4050300020303" isWeight="0" isDeleted="0" title="נורה OSRAM PL 4 PIN 26W" category="0" saleprice="23.9" cost="" stockQuantity="-9" minStockQuantity="" lastUpdated="1367235283">
+  </Product>
+  <Product barcode="823" isWeight="0" isDeleted="0" title="סטרטר 40W לפלוריסנט OSRAM" category="0" saleprice="3" cost="" stockQuantity="-40" minStockQuantity="" lastUpdated="1367235290">
+  </Product>
+  <Product barcode="7142" isWeight="0" isDeleted="0" title="בית מנורה" category="0" saleprice="4.9" cost="" stockQuantity="-10" minStockQuantity="" lastUpdated="1367235289">
+  </Product>
+</Products>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="7290011483098" isWeight="0" isDeleted="0" title="שקיות אוכל זוג" category="0" saleprice="9.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="7290000599304" isWeight="0" isDeleted="0" title="3 מטליות לניקוי כללי" category="0" saleprice="3.5" cost="" stockQuantity="-12" minStockQuantity="" lastUpdated="1372679856">
+  </Product>
+  <Product barcode="80925" isWeight="0" isDeleted="0" title="נייר טואלט טישו אביבית 48 גל'" category="0" saleprice="39" cost="0.000" stockQuantity="-28" minStockQuantity="" lastUpdated="1372679864">
+  </Product>
+  <Product barcode="8447" isWeight="0" isDeleted="0" title="חבק פלסטי 3.6X250" category="0" saleprice="13" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1372679864">
+  </Product>
+  <Product barcode="83315" isWeight="0" isDeleted="0" title="מבשם כביסה ג'ונסון קלין" category="0" saleprice="24.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1372679864">
+  </Product>
+  <Product barcode="7290001738177" isWeight="0" isDeleted="0" title="פומפה + מקל" category="0" saleprice="10" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1372679857">
+  </Product>
+  <Product barcode="9664" isWeight="0" isDeleted="0" title="מברשת מגהץ" category="0" saleprice="8.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1367235292">
+  </Product>
+  <Product barcode="23617" isWeight="0" isDeleted="0" title="מנעול תליה 40A" category="0" saleprice="29" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1367235278">
+  </Product>
+  <Product barcode="7290003680351" isWeight="0" isDeleted="0" title="סלסלה גדולה" category="0" saleprice="6.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1372679856">
+  </Product>
+  <Product barcode="9617" isWeight="0" isDeleted="0" title="קערה פלסטיק 36" category="0" saleprice="14" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1372679865">
+  </Product>
+  <Product barcode="9594" isWeight="0" isDeleted="0" title="קערה פלסטיק 26" category="0" saleprice="8" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1372679865">
+  </Product>
+  <Product barcode="7879" isWeight="0" isDeleted="0" title="ניקוי כללי ג'ונסון קלין 4 ל'" category="0" saleprice="18.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1372679863">
+  </Product>
+  <Product barcode="8118" isWeight="0" isDeleted="0" title="נייר מגבת שישייה" category="0" saleprice="10.9" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1372679864">
+  </Product>
+  <Product barcode="8699237890212" isWeight="0" isDeleted="0" title="צלחת גדולה צבעוני 25 יח'" category="0" saleprice="8.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="7290006547736" isWeight="0" isDeleted="0" title="כפפות חד פעמי 100 L" category="0" saleprice="25.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1372679856">
+  </Product>
+  <Product barcode="5879" isWeight="0" isDeleted="0" title="סבון ידיים ורוד 4 ל' JOHONSON CLEAN" category="0" saleprice="14.9" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1372679861">
+  </Product>
+  <Product barcode="7290001596517" isWeight="0" isDeleted="0" title="שקיות אשפה 60 יח'" category="0" saleprice="17.9" cost="" stockQuantity="-14" minStockQuantity="" lastUpdated="1372679861">
+  </Product>
+</Products>

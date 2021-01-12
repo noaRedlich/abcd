@@ -1,0 +1,1047 @@
+<?php
+    $mode = $_GET["mode"];
+    if (!$mode) $mode = $_POST["mode"]; 
+
+	$sugIska = array(
+		1=>"רגיל",
+		2=>"קרדיט",
+		3=>"מיידי",
+		4=>"מועדון",
+		6=>"מיוחד",
+		8=>"תשלומים",
+		9=>"מועדון תשלומים"
+	);
+	
+	$company = array(
+		1=>"ישרא'",
+		2=>"כאל", 
+		3=>"דיינרס",  
+		4=>"אמקס",
+		5=>"JCB",
+		6=>"לאומי"
+	);
+	
+	$matbea = array(
+		1 =>"שקל",
+		2 =>"דולר",
+		4 =>"הצמדה לדולר",
+		8 =>"הצמדה מדד"
+	);
+	
+	$ishur = array(
+		0 =>'ללא אישור',
+		1 =>'שב"א',
+		2 =>'חברת אשראי',
+		3 =>'ידני'	
+	);
+	
+	$typeIska = array(
+		1=>'רגיל',
+		2=>'מאושרת',
+		3=>'מאולצת',
+		51=>'זיכוי רגיל',
+		52=>'ביטול',
+		53=>'זיכוי מאושר'
+	);
+	
+	$simple=1;
+	$page_subtitle = "חשבוניות ";
+	
+	
+    
+	if (!$mode)
+    { 
+		include("include/common.php");
+        include("include/business_functions.php");
+		if (!loginCheck('User'))exit;
+		global $action, $id, $cur_page, $lang, $conn, $config;
+              
+        if ($assignid)
+        {
+            //assig product to transaction
+            
+            $assignids = explode(",",$assignid);
+            $listingIDS=explode(",",$assignproducts);
+            $nullProductRS = DBQuery("select id from listingsDB where barcode='0000000000000' and user_id = $userID");
+            $nullProductID = $nullProductRS->Fields("id"); 
+            
+            //update first product
+            
+            foreach($assignids as $compid)
+            {
+                
+                $arr = $listingIDS[0];
+                $arr = explode("|",$arr);
+                $listingID=$arr[0]; $Quantity=$arr[1];
+                
+                $comprs = DBQuery("select t.isrefund, refundmode, tranamount, t.id as trans_id , t.stock_id,(case when weigthFlag=1 then weightQty else StockAmount end) as stockamount from transactioncomponents tc, transactions t where t.id = tc.trans_id and tc.id = $compid and t.user_id = $userID");
+                if (!$comprs->EOF)
+                {            
+                    $OQuantity = $comprs->Fields("stockamount");
+                    $stockid = $comprs->Fields("stock_id");   
+                    $transid =  $comprs->Fields("trans_id");  
+                    $tranamount = $comprs->Fields("tranamount");  
+                    
+                    if (!$comprs->Fields("isrefund") && !$comprs->Fields("refundmode"))
+                    {
+                        //regular transaction
+                        UpdateQuantity($listingID,$stockid,-1*$Quantity);
+                        if ($nullProductID)
+                        {
+                            UpdateQuantity($nullProductID,$stockid,$OQuantity); 
+                        }
+                    }
+                    else
+                    {
+                        //refund
+                        UpdateQuantity($listingID,$stockid,$Quantity);
+                        if ($nullProductID)
+                        {
+                            UpdateQuantity($nullProductID,$stockid,-1*$OQuantity); 
+                        }
+                    }
+                    
+                    $total = 0;
+                    
+                    $sql = "select barcode,saleprice from listingsDB where id = $listingID";
+                    $prs = DBQuery($sql);
+                    $pbarcode = $prs->Fields("barcode");
+                    $psaleprice =  $prs->Fields("saleprice"); 
+                    
+                    $sql="update transactioncomponents tp set 
+                    listing_id=$listingID,stockamount=$Quantity,plucode='$pbarcode',
+                    CompAmount = $psaleprice*$Quantity where id = $compid 
+                    and exists (select id from transactions where id = tp.trans_id and user_id = $userID)";   
+		            DBQuery($sql);
+                    
+                    $total+= $psaleprice*$Quantity;
+                    
+                    //create other products
+                    for ($i=1;$i<count($listingIDS);$i++)
+                    {
+                        $arr = $listingIDS[$i];
+                        $arr = explode("|",$arr);
+                        $listingID=$arr[0]; $Quantity=$arr[1];
+
+                        $sql = "select barcode,saleprice from listingsDB where id = $listingID";
+                        $prs = DBQuery($sql);
+                        $psaleprice =  $prs->Fields("saleprice"); 
+                        
+                        $sql = "insert into transactioncomponents (trans_id, listing_id, CompAmount, PluCode, StockAmount)
+                        select $transid,id,saleprice*$Quantity,barcode,$Quantity from listingsDB where id = $listingID";
+                        DBQuery($sql);
+                        UpdateQuantity($listingID,$stockid,-1*$Quantity);
+                        $total+= $psaleprice*$Quantity;
+
+                    }
+                    
+                    //add difference as discount in sheqels
+                    if ($tranamount<$total)                                                          
+                    {
+                        $diff = $total-$tranamount;
+                        DBQuery("update transactions set tranamount= $total, trancashdiscount = $diff where id = $transid");
+                    }
+                }
+             }
+             
+ 
+	    }
+        
+		include("$config[template_path]/admin_top.html");
+	}
+    
+    
+    if(!IsPostBack() && $coupon!="")
+    {
+		$couponnum = $coupon;
+	}
+      
+	if ($coupon!=""  || (($_GET["sDate"] || $_GET["ids"] ||  $_POST["ids"]  || $mode) && $saction != "sendreport")){
+		$saction="go";
+	}
+	
+    if ($package){
+        $sql = "select group_concat(id) as ids from transactions where package_id = $package";
+		$idsData = $conn->Execute($sql);
+		if ($idsData === false){log_error($sql);}
+        $ids =  $idsData->Fields("ids");
+		$saction="go";
+    }    
+    
+	if ($ids){
+		$sDate = date("d/m/Y");
+		$eDate = $sDate;
+	}
+	
+	if (!$sDate){
+		$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+		$sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+		$eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+	}
+	
+	if($coupon!="")
+    {
+		$sDate=dateFromSQL($couponsdate);
+		$eDate=dateFromSQL($couponedate);
+	}
+
+	$asDate = explode("/",$sDate);
+	$aeDate = explode("/",$eDate);
+	
+	$startdate = mktime(23,59,59,$asDate[1],$asDate[0],$asDate[2]);
+	$enddate = mktime(23,59,59,$aeDate[1],$aeDate[0],$aeDate[2]);
+	$startDay = date("Y/m/d",$startdate);
+	$endDay = date("Y/m/d",$enddate);
+	
+	if ($toremove){
+		$sql = "delete from transactionpayments where trans_id = $toremove";
+		$s=$conn->Execute($sql);
+		if ($s === false){log_error($sql);}
+		$sql = "delete from transactioncomponents where trans_id = $toremove";
+		$s=$conn->Execute($sql);
+		if ($s === false){log_error($sql);}
+		$sql = "delete from transactions where id = $toremove";
+		$s=$conn->Execute($sql);
+		if ($s === false){log_error($sql);}
+	}
+    
+
+	
+	?>
+	
+    <style>
+    .z {color:gray}
+    .b {font-weight:bold}
+    th {background-color:silver}
+    </style>
+    
+	<?
+    if(!$mode){
+		$stocks = GetStocks(true);
+	?>
+		<script>
+		function PrintReport(){
+			document.getElementById("Query").style.display = "none";
+			window.print();
+			document.getElementById("Query").style.display = "";
+		}
+		</script>
+		<body>
+		<table cellpadding=5 border=0 width=100%>
+		<tr>
+		<form name=F method=post>
+		<input type=hidden name=usr value=<?=$usr?>>
+		<input type=hidden name=toremove value="">
+        <input type=hidden name=assignid value=""> 
+        <input type=hidden name=assignproducts value=""> 
+        <input type=hidden name=scrolltop value="">
+		<input type=hidden name=rmodule value=<?=$rmodule?>>
+		<?$reporttitle = $lang["report_cheshbonit"];
+		if ($coupon!=""){$reporttitle.="<br>שובר ".$coupon;}
+		?>
+		<?if ($usr){$reporttitle.="<br>".$username;}?>
+		<td nowrap>
+		<strong style='font-size:12pt'><?=$reporttitle?></strong>
+		</td><td width=99% style='border:inset 1'>
+		
+		<?if (!$ids){?>
+		
+		<?=$lang["from"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.sDate")'>
+ <?=$lang["to"]?> <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.eDate")'>
+ 
+		
+	
+		<select name=stock>
+		<?FillStockList($stocks,$stock);?>
+		</select>
+		
+		<?=$language["search_by_number"]?> <input name=number size=10 maxlength=10 value="<?=$number?>">
+		
+		<input type=submit value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top" >
+		<br>
+        ברקוד: <input size=12 name=barcode value="<?=$barcode?>"> 
+        אסמכטא: <input size=8 name=ackcode value="<?=$ackcode?>"> 
+        מספר לקוח: <input size=2 name=clientnum value="<?=$clientnum?>"> 
+        מספר עובד: <input size=2 name=workernum value="<?=$workernum?>"> 
+        מספר שובר: <input size=4 name=couponnum value="<?=$couponnum?>"> 
+		<br>
+        זיכוים: <input type=checkbox name=zikui <?=$zikui?"checked":""?>>
+        <?if ($UserData->fields["MlaitekProEnabled"]){?>
+        <select name=reptype>
+            <option value=0 <?=(!$reptype)?"selected":""?>>עסקאות קופה
+            <option value=1 <?=($reptype==1)?"selected":""?>>מסמכים
+            <option value=2 <?=($reptype==2)?"selected":""?>>כל העסקאות
+        </select>
+        <?}?>
+		<?}?>
+
+		<?if ($saction=="go" || $saction=="sendreport"){
+			require("sendreport.php");
+		}?>
+		<input type=hidden name=saction value=go>
+		<input type=hidden name=reportbody value="">
+		<input type=hidden name=sendmode value="">
+		</td>
+		</tr>
+		</table>
+	<?}?>
+	<?	
+	if ($saction=="sendreport")
+    {
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go")
+    {
+	
+	echo "<div ><table id=REPORTTABLE dir=$dir   width=100% border=0 cellpadding=2>";
+ 
+
+		$qq="";
+		if ($number)
+        {
+			$qq = " and journalNum * 10000 + tranNum = ".intval($number);
+		}
+		else
+        {
+            if ($sDate){
+			    $qq .= " and  ( ifnull(tranErechDate,trandate) >= '".DateToSQL($sDate)."' or trandate >= '".DateToSQL($sDate)."') ";
+                $dq .= " and  doc_date >= '".DateToSQL($sDate)."' ";    
+            }
+             if ($eDate){
+			    $qq .= " and  ( ifnull(tranErechDate,trandate) <= '".DateToSQL($eDate)."' or trandate <= '".DateToSQL($eDate)."') ";
+                $dq .= " and  doc_date <= '".DateToSQL($eDate)."' ";
+            }
+			if ($stock){
+				$qq.=" and t.stock_id=$stock";
+                $dq.=" and d.stock_id=$stock"; 
+			}
+			if($ackcode){
+				$qq.=" and t.ackcode='$ackcode' ";
+				$qd.=" and comment='$ackcode' ";
+			}
+            if ($barcode)
+            {
+                $qq.=" and exists(select id from transactioncomponents where trans_id = t.id and replace(plucode,char(0),'') = '".addslashes($barcode)."') ";
+                $dq.=" and exists(select id from document_products where doc_id = d.id and barcode = '".addslashes($barcode)."') ";
+            }
+            if ($clientnum)
+            {
+                $qq.=" and t.custid = ".intval($clientnum); 
+                $dq.=" and exists (select id from listingsSuppliers where id = d.client_id and clientnum = ".intval($clientnum).")";
+            }
+            if ($workernum)
+            {
+                $qq.=" and cashiernum = ".intval($workernum); 
+                $dq.=" and exists (select id from listingsSuppliers where id = d.client_id and workernum = ".intval($workernum).")";
+            } 
+			if ($couponnum!="")
+			{ 
+				$qq.=" and exists(select id from transactionpayments where trans_id = t.id and ((paymid=7 and custid='".addslashes($couponnum)."')or(paymid=3 and couponnumber = '".addslashes($couponnum)."'))) ";
+				$dq.=" and exists(select id from document_payments where doc_id = d.id and checknumber = '".addslashes($couponnum)."') ";
+			}
+            if ($zikui)
+            {
+                $qq.=" and isRefund=1 ";
+                $dq.=" and doc_type='MASZIKUI'";
+            }
+		}
+
+        $sql="";
+        if ($reptype==0||$reptype==2)
+        {
+            $sql .=  "select 
+                        1 as type, null as doctypeid, '' as doc_type, t.ID,t.TranDate,t.TranAmount,TranCashDiscount,TranDiscount,t.TranErechDate,
+                        IsRefund,IsDebtPayment,TranNum, 
+                        TranTime,is_manual,tChange,RefundMode, 
+                        cashiernum, t.custid, ls1.suppliername as  clientname, ls2.suppliername as workername,
+                        s.terminalid, s.stockname,p.journalNum,t.AckCode from transactions t
+                        inner join transactionpackages p on p.id = t.package_id
+                        inner join $TABLE_LISTINGSSTOCKS s on p.stock_id = s.id 
+                        left outer join listingsSuppliers ls1 on ls1.clientnum > 0 and ls1.clientnum = t.custid and ls1.user_id = $userID and (ls1.status=1 or not exists(select * from listingsSuppliers where user_id = $userID and clientnum = ls1.clientnum and status=1)) 
+                        left outer join listingsSuppliers ls2 on ls2.workernum > 0 and ls2.workernum = cashiernum and ls2.user_id = $userID and (ls2.status=1 or not exists(select * from listingsSuppliers where user_id = $userID and workernum = ls2.workernum and status=1))";
+        }
+         
+		if (!$ids)
+        { 
+            if ($reptype==0||$reptype==2)
+            {
+			        if ($coupon!="")
+                    {
+				        $sql .= " 
+					        where t.user_id = $userID 
+                            and exists (select id from transactionpayments pa where pa.trans_id=t.id and
+                             ((pa.CouponNumber = '$coupon' and paymid=3) or (pa.paymid=7 and pa.custid='$coupon') or (t.custid = '$coupon' and t.custid<>0))) $qq";
+			        }
+			        else 
+                    {
+				        $sql .= "where t.user_id = $userID $qq";
+			        }
+            }
+            
+            if ($reptype==2)
+            {
+                $sql.=" union all";
+            }
+            
+            //documents  
+            if ($reptype==1||$reptype==2)
+            {
+                $sql.="
+                select 2 as type, dt.id as doctypeid, dt.name as doc_type, d.ID,d.doc_date as TranDate, erech_date as TranErechDate,
+                d.amount*100/(100-ifnull(d.discount,0)) as TranAmount, 
+                0 as TranCashDiscount, d.discount as  TranDiscount,
+                (case when doc_type='MASZIKUI' then 1 else 0 end) as IsRefund, 0 as IsDebtPayment, doc_number as TranNum,
+                DATE_FORMAT(from_unixtime(created),'%H:%i') as TranTime,0 as is_manual, 0 as tChange, 0 as RefundMode,
+                0 as cashiernum, 0 as custid, '' as clientname, '' as workername,
+                s.terminalid, s.stockname, 0 as journalNum,'' as AckCode
+                from documents d 
+                inner join $TABLE_DOCUMENT_TYPE dt on dt.id = d.doc_type
+                left outer join $TABLE_LISTINGSSTOCKS s on d.stock_id = s.id 
+                where 
+                d.doc_type in ('CHESHBONIT','CHESHBONITPINKAS','MASKABALA','MASZIKUI') and
+                d.doc_status <> $STATUS_CANCELLED and d.user_id = $userID $dq      ";
+            }
+            
+            $sql.=" order by TranDate,TranTime, ID";                 
+
+            //end documents
+		}	
+		else
+        {
+            $ids = trim($ids);
+            if(substr($ids,strlen($ids)-1,1)==",")
+            {
+                $ids = substr($ids,0,strlen($ids)-1);
+            }
+			if($ids=="")$ids="-1";
+			$sql .= " where t.user_id = $userID and t.id in ($ids)";
+		}
+
+        //echo "<!--SQL:$sql-->";
+
+		$transData = DBQuery($sql);
+        $tranids = "-1";
+		while (!$transData->EOF)
+        {
+
+            
+			$zikui=($transData->fields["IsRefund"]==1||$transData->fields["IsDebtPayment"]==1);
+			$transid = $transData->fields["ID"];
+            $tranids.=",".$transid;
+			$chn_num = str_pad( ($transData->fields["journalNum"])*10000 +  $transData->fields["TranNum"] , 8,"0",PAD_LEFT);
+			echo "<tr>
+			<td>
+				<table width=100% border=1 bgcolor=white bordercolor=black style='border-collapse:collapse' cellpadding=2>
+				<tr bgcolor=".(($zikui || $transData->fields["RefundMode"])?"#ff7777":"silver").">
+				<td width=35%> ";
+				    if ($transData->fields["doc_type"])
+					{
+						if ($UserData->fields["MlaitekProEnabled"] && HasDocumentPermission($transData->fields["doctypeid"],"W"))
+						{
+							echo "<a href='javascript:openDocument(".$transData->fields["ID"].",\"".$transData->fields["doctypeid"]."\")'><u>";
+						}
+						echo $transData->fields["doc_type"];
+						if ($UserData->fields["MlaitekProEnabled"] && HasDocumentPermission($transData->fields["doctypeid"],"W"))
+						{
+							echo "</u></a>";
+						}
+					}
+					echo " #".$chn_num." תאריך: ".DateFromSQL($transData->fields["TranDate"])." ". $days[date("w",strtotime($transData->fields["TranDate"]))].", שעה: ".(substr($transData->fields["TranTime"],0,5));
+
+					if ($transData->fields["IsRefund"]==1)
+                    {
+						echo "(זיכוי)";
+					}
+					if ($transData->fields["IsDebtPayment"]==1)
+               {
+						echo "(תשלום בהקפה";
+
+					  echo "<span id='erechcont_$transid' style='".(($transData->fields["TranErechDate"])?"":"display:none")."'>, <b>" .$lang["erech_date"].": <span id='erechdate_$transid'>".DateFromSQL($transData->fields["TranErechDate"])."</span></b></span>";
+					  echo '<img align=absmiddle title="לשנות תאריך ערך" style="cursor:hand; margin:0px 3px" src="'.$imgPath.'calendar.png" onclick="setErechDate('.$transid.')">';
+					  echo ")";
+
+					}					
+                if ($transData->fields["cashiernum"] || $transData->fields["custid"])
+                {
+                    echo "<span style='font-size:8pt' dir=rtl><br>נמכר";
+                    if ($transData->fields["cashiernum"])
+                    {
+                        echo " מ";
+                        if ($transData->fields["workername"])
+                        {
+                            echo $transData->fields["workername"]." (".$transData->fields["cashiernum"].")";
+                        }
+                        else
+                        {
+                            echo "עובד מס' ".$transData->fields["cashiernum"];
+                        }
+                    }  
+                    if ($transData->fields["custid"])
+                    {
+                        echo " ל";
+                        if ($transData->fields["clientname"])
+                        {
+                            echo $transData->fields["clientname"]." (".$transData->fields["custid"].")";
+                        }
+                        else
+                        {
+                            echo "לקוח מס' ".$transData->fields["custid"];
+                        }
+                    } 
+                    echo " ";
+                }    
+                  
+				echo "</td>
+                <td nowrap width=20%>";
+                echo $transData->fields["terminalid"].", ".$transData->fields["stockname"];
+                echo "</td>
+				<td width=33%>
+					סכום עסקה: ".number_format($transData->fields["TranAmount"],2);
+				if ($transData->fields["TranDiscount"]||$transData->fields["TranCashDiscount"])	{
+					if ($transData->fields["TranDiscount"]>0){
+						$discount = $transData->fields["TranDiscount"];
+						echo " הנחה:".number_format($transData->fields["TranDiscount"])."%";
+						echo " סה\"כ:".number_format($transData->fields["TranAmount"] - ($transData->fields["TranAmount"]*$transData->fields["TranDiscount"]/100),2);
+					}
+					else{
+						$discount = $transData->fields["TranCashDiscount"];
+						echo " הנחה:".number_format($transData->fields["TranCashDiscount"],2)."";
+						echo " סה\"כ:".number_format($transData->fields["TranAmount"] - $transData->fields["TranCashDiscount"],2);
+					}
+				}
+				echo "</td><td nowrap width=12% align=center";
+				if ($transData->fields["is_manual"]==1){
+					echo " style='color:white;background-color:blue'>
+					<strong >הזנה ידנית</strong>
+					<strong style='color:yellow;cursor:hand;' onclick='remove(".$transData->fields["ID"].")'>x</strong>
+					";
+				}
+				else echo ">&nbsp;";
+				if ($transData->fields["RefundMode"]==1)
+				{
+					echo "<b>"."פתק זיכוי"."</b>";
+				}
+				elseif ($transData->fields["RefundMode"]==2)
+				{
+					echo "<b>"."שובר החלפה"."</b>";
+				}
+				echo "&nbsp;</td></tr><tr><td colspan=4>";
+				
+				//components
+                if ($transData->fields["type"]==1)
+                {
+                    $sql = "select c.ID,c.WeigthFlag,c.WeightQty,c.StockAmount,CompAmount,OtherDiscountFlag,
+                    PluCode,CompDiscount,CompCashDiscount,ClubDiscount,
+                    c.DiscountType,c.AmountPercentDiscount,c.SecondDiscFlag,c.SecondFreeFlag,
+                    l.Title,u.grams_rate,u.decimals
+                    from transactioncomponents c 
+                    left outer join listingsDB l on c.listing_id = l.id 
+                    left outer join $TABLE_UNITS u on u.id = unit
+                    where c.trans_id  = $transid and c.masterid = 0 order by c.id";
+                }
+                else
+                {
+                    $sql = "select dp.ID,0 as WeigthFlag,0 as WeightQty,dp.quantity as StockAmount, 
+                    price*100/(100-dp.discount) as CompAmount, 0 as OtherDiscountFlag, dp.barcode as PluCode,
+                    dp.discount as CompDiscount,0 as CompCashDiscount,0 as ClubDiscount,
+                    0 as DiscountType,0 as AmountPercentDiscount,
+                    0 as SecondDiscFlag,0 as SecondFreeFlag, dp.name as Title, u.grams_rate,u.decimals 
+                    from document_products dp
+                    inner join documents d on d.id = dp.doc_id
+                    left outer join listingsDB l on dp.listing_id = l.id 
+                    left outer join $TABLE_UNITS u on u.id = unit 
+                    where doc_id = $transid order by dp.id";
+                }
+				$components = DBQuery($sql);
+
+				if (!$components->EOF){
+					echo "
+                    <a id=NULLPRODUCT name=DUMMY style=display:none></a>
+                    <table width=100% border=1 bordercolor=silver style='border-collapse:collapse'>
+					<tr bgcolor=#efefef>
+						<td >ברקוד</td>
+						<td >שם מוצר</td>
+						<td >כמות</td>
+						<td >מחיר</td>
+						<td >סכום</td>
+						<td >הנחה</td>
+						<td >סה\"כ</td>
+					</tr>";
+					while (!$components->EOF)
+                    {
+                        if ($components->fields["grams_rate"])
+                        {
+                            if ($components->fields["WeigthFlag"])
+                            {
+                                $soldQuantity = $components->fields["WeightQty"] / $components->fields["grams_rate"];
+                            }
+                            else
+                            {
+                                $soldQuantity = $components->fields["StockAmount"];
+                            }
+                        }
+                        else
+                        {
+                            $soldQuantity = $components->fields["StockAmount"];
+                        }
+						echo "
+							<tr ".(($zikui)?"style=color:red":"").">
+								<td width=20% nowrap id=TD".$components->Fields("ID").">".((HasActionPermission("EDITLISTING") && str_replace("0","",trim($components->fields["PluCode"]))=="")?"<a title='שיוך עסקה לפריט' id=NULLPRODUCT".number_format($components->fields["CompAmount"],2,"_","")." href='javascript:assignProduct(".$components->Fields("ID").",\"".number_format($components->fields["CompAmount"],2,".","")."\",\"NULLPRODUCT".number_format($components->fields["CompAmount"],2,"_","")."\")'>":"").$components->fields["PluCode"]."</a></td>
+								<td width=20% nowrap>".$components->fields["Title"]."</td>
+								<td width=7% dir=ltr align=right>".number_format($soldQuantity,$components->fields["decimals"])."</td>
+                                <td width=8% dir=ltr align=right>".number_format($components->fields["CompAmount"]/abs($soldQuantity),2)."</td>
+								<td width=15% dir=ltr align=right>".number_format($components->fields["CompAmount"],2)."</td>
+								<td width=15%>";
+								$plus="";
+                                if ($components->fields["AmountPercentDiscount"]>0 && ($components->fields["DiscountType"]==1||$components->fields["SecondDiscFlag"]==1||$components->fields["OtherDiscountFlag"]==1||$components->fields["ClubDiscount"]==1))
+                                {
+                                    echo "".number_format($components->fields["AmountPercentDiscount"],0)."%";
+                                    if ($components->fields["SecondDiscFlag"])
+                                    {
+                                        echo " שני בהנחה ";
+                                    }
+                                    elseif ($components->fields["SecondFreeFlag"])
+                                    {
+                                        echo " שני חינם ";
+                                    }
+                                    elseif ($components->fields["OtherDiscountFlag"])
+                                    {
+                                        echo " אחר בהנחה ";
+                                    }
+                                    elseif ($components->fields["ClubDiscount"])
+                                    {
+                                        echo " מועדון ";
+                                    }
+									$total = $components->fields["CompAmount"] - ($components->fields["CompAmount"]*$components->fields["AmountPercentDiscount"]/100);
+									$plus="+";
+                                }
+								elseif ($components->fields["CompDiscount"]>0)
+                                {
+									$plus="+";
+									echo "".number_format($components->fields["CompDiscount"],0)."%";
+									$total = $components->fields["CompAmount"] - ($components->fields["CompAmount"]*$components->fields["CompDiscount"]/100);
+								}
+								elseif ($components->fields["CompCashDiscount"]>0)
+                                {
+									$plus="+";
+									echo "".number_format($components->fields["CompCashDiscount"],2)."";
+									$total = $components->fields["CompAmount"] - $components->fields["CompCashDiscount"];
+								}
+								else
+                                {
+									echo "";
+									$total = $components->fields["CompAmount"];
+                                    if ($components->fields["StockAmount"]<0)$total=$total*-1;
+								}
+								
+								//add transaction discount
+								if ($transData->fields["TranDiscount"]>0){
+									echo "<nobr> $plus ".$transData->fields["TranDiscount"]."% (עסקה)</nobr>";
+									$total = $total - ($total*$transData->fields["TranDiscount"]/100);
+								}
+								
+								elseif ($transData->fields["TranCashDiscount"]>0){
+									$TranDiscount = $transData->fields["TranCashDiscount"]*100/$transData->fields["TranAmount"];
+									echo "<nobr> $plus ".number_format($TranDiscount,2)."% (עסקה)</nobr>";
+									$total = $total - ($total*$TranDiscount/100);
+								}
+								
+								echo "</td>
+								<td width=15%><span dir=ltr>".number_format($total,2)."</span></td>
+								";
+							"</tr>
+						";
+						$components->MoveNext();
+					}
+					echo "</table><table><tr><td></td></tr></table>";
+				}
+				
+				//payments
+                if ($transData->fields["type"]==1)
+                {
+				    $sql = "select p.* from transactionpayments p where p.trans_id  = $transid order by id";
+				}
+                else
+                {
+                    $sql = "select 
+                    (case payment_type 
+                        when 0 then 2 
+                        when 1 then 1 
+                        when 2 then 5     
+                        when 3 then 30
+                        when 4 then 40 
+                        when 7 then 70 
+                        end ) as PaymID,
+                    amount as CashSum, amount as ChequeSum, amount as CreditCardSum,
+                    checknumber as ChequeNumber,checkdate as PayDate,checkbank as BankNo,
+                    checksnif as BankDeptNo,checkaccount as BankCntNo
+                    from document_payments where doc_id = $transid order by id
+                    ";  
+                }                                                                      
+                $payments = DBQuery($sql);
+                if (!$payments->EOF || $transData->fields["tChange"]!=0){
+					$noPayments = $payments->EOF;
+					echo "<table width=100% border=1 bordercolor=silver style='border-collapse:collapse'>
+					<tr bgcolor=#efefef>
+						<td width=20%>סוג תשלום</td>
+						<td width=15%>סכום</td>
+						<td width=65%>פרטי תשלום</td>
+					</tr>";
+					while (!$payments->EOF){
+						echo "<tr ".(($zikui)?"style=color:red":"").">";
+						switch($payments->fields["PaymID"]){
+                            case 30:
+								echo "<td valign=top>הוראה בנקאית</td>";
+								echo "<td valign=top>".number_format($payments->fields["CashSum"],2)."</td><td>&nbsp;</td>";
+								break;
+                            case 40:
+								echo "<td valign=top>הוראת קבע</td>";
+								echo "<td valign=top>".number_format($payments->fields["CashSum"],2)."</td><td>&nbsp;</td>";
+								break;
+							case 1:
+								echo "<td valign=top>מזומן</td>";
+								echo "<td valign=top>".number_format($payments->fields["CashSum"],2)."</td><td>&nbsp;</td>";
+								break;
+							case 2:
+								echo "<td valign=top>המחאה</td>";
+								echo "<td valign=top>".number_format($payments->fields["ChequeSum"],2)."</td>";
+								echo "<td>צ'ק מס' ".$payments->fields["ChequeNumber"].
+									", ".substr($payments->fields["PayDate"],0,10).
+									", חשבון ".$payments->fields["BankNo"]." / ".$payments->fields["BankDeptNo"]." / ".$payments->fields["BankCntNo"].
+									"</td>";
+								break;
+							case 3:
+								echo "<td valign=top>שובר</td>";
+								echo "<td valign=top>".number_format($payments->fields["CouponSum"],2)."</td>";
+								echo "<td> מס' שובר ".$payments->fields["CouponNumber"];
+								if ($payments->fields["IsRefundVoucher"])
+								{
+									echo "<span style='color:blue'> פתק זיכוי </span>";
+								}
+								if ($payments->fields["IsChangingVoucher"])
+								{
+									echo "<span style='color:blue'> שובר החלפה  </span>";
+								}
+								echo "</td>";
+								break;
+                           case 7:
+								echo "<td valign=top>הקפה</td>";
+								echo "<td valign=top>".number_format($payments->fields["HakafaSum"],2)."</td>";
+								echo "<td>מס' לקוח: ".$payments->fields["CustID"]."</td>";
+								break;
+							case 4:
+								echo "<td valign=top>מטבע זר</td>";
+								echo "<td valign=top>".number_format($payments->fields["FrnCurrSum"],2)."</td>";
+								echo "<td>: קוד מטבע";
+									switch($payments->fields["CurrencyID"]){
+										case "1": echo 'דולר ארה"ב';break;
+										case "2": echo 'פרנק שוויצרי';break;
+										case "5": echo 'לירה שטרלינג';break;
+										case "6": echo 'ין יפני';break;
+										case "8": echo 'דולר קנדי';break;
+										case "9": echo 'כתר שוודי';break;
+										case "10": echo 'כתר נורווגי';break;
+										case "11": echo 'כתר דני';break;
+										case "13": echo 'דולר אוסטרלי';break;
+										case "14": echo ' ראנד דרא"פ';break;
+										case "19": echo 'יורו';break;
+										case "20": echo 'דינר ירדני';break;
+										case "21": echo 'לירה לבנון';break;
+										case "22": echo 'לירה מצרית';break;
+										case "23": echo 'לירה טורקית';break;
+										case "25": echo 'לירה קפריסית';break;
+										case "26": echo 'דולר הונקונג';break;
+										case "27": echo 'דולר סינגפור';break;
+									}
+								echo ", שער ". number_format($payments->fields["TCourse"],2);
+								echo "</td>";
+								break;
+							case 5: 
+							case 8: 
+								echo "<td valign=top>כרטיס אשראי</td>";
+								echo "<td valign=top>".number_format($payments->fields["CreditCardSum"],2)."</td>";
+								echo "<td>";
+								echo " מס' כרטיס: ". "*******".substr($payments->fields["CardNum"],strlen($payments->fields["CardNum"])-4);
+								echo ". תוקף: ". substr($payments->fields["ExpDate"],0,strlen($payments->fields["ExpDate"])-2)."/".substr($payments->fields["ExpDate"],strlen($payments->fields["ExpDate"])-2);
+								echo ". חברה: ". $company[$payments->fields["CompanyNum"]];
+								echo ". תנאי עסקה: ". $sugIska[$payments->fields["CreditTerms"]];
+								echo "<br>";
+								echo "מטבע: ". $matbea[$payments->fields["Currency"]];
+								echo ". אישור: ". $ishur[$payments->fields["AuthorizCode"]];
+								if($transData->fields["AckCode"])
+								{
+									echo ". אסמכתא: ". $transData->fields["AckCode"];
+							    }
+								echo ". סוג עסקה: ". $typeIska[$payments->fields["TranType"]];
+								echo "<br>";
+								if ($payments->fields["NumPayments"]){
+									echo ". מס' תשלומים: ". $payments->fields["NumPayments"];
+								}
+								if ($payments->fields["FirstPayment"]){
+									echo ". תשלום ראשון: ".number_format($payments->fields["FirstPayment"],2)."";
+								}
+								if ($payments->fields["OtherPayment"]){
+									echo ". תשלומים אחרים: ".number_format($payments->fields["OtherPayment"],2)."";
+								}
+
+								echo "</td>";
+								break;
+						}
+						echo "</tr>";
+						
+						$payments->MoveNext();
+					}
+				
+					if ($transData->fields["tChange"]!=0){
+						$clr = "";$attn="";
+						if ($noPayments)$clr="style='background-color:orange'";
+						if ($noPayments) $attn=" - <B>לתשומת לבכם! אין תקבול בעיסקה ויש עודף</B>";
+						echo "<tr $clr><td colspan=10> עודף: ".number_format($transData->fields["tChange"],2)." $attn</td></tr>";
+					}
+					echo "</table>";
+				}	
+
+
+				echo "</td></tr>";
+
+				
+				echo "</table>
+			</td>
+			</tr>";
+			$transData->MoveNext();
+		}
+
+    //TOTALS   
+    if ($tranids!="-1")
+    {
+
+		$CashTrans = "";
+		$CouponTrans = "";
+		$ChequeTrans = "";
+		$CardTrans = "";   
+        $HakafaTrans = "";
+        
+        $query = " t.id in ($tranids)";
+        
+		$sql = "select t.ID,
+		(case when IsRefund=1  or RefundMode=1
+		then
+			(CashSum * -1)
+		else
+			CashSum
+		end)
+		as CashierSum
+		from transactionpayments p, transactions t where t.ID = p.trans_id 
+        and $query
+        and CashSum <> 0 and t.user_id = $userID";
+        //echo $sql;
+		$rs = $conn->Execute($sql);
+		if ($rs === false){log_error($sql);}
+		if (!$rs->EOF){
+			$cash = sum($rs,"CashierSum",&$CashTrans);
+		}
+
+        //Change of chash
+        if ($CashTrans!=""){
+            $sql = "select sum(tChange) as trChange from transactions t where id in ($CashTrans)";
+    		$rs = $conn->Execute($sql);
+    		if ($rs === false){log_error($sql);}
+            $change = $rs->fields["trChange"];
+            $cash = $cash - $change;
+        }
+
+  		//Coupon
+		
+		$sql = "select t.ID,(case when IsRefund=1  or RefundMode=1 then CouponSum*-1 else CouponSum end) as CouponSum
+		from transactionpayments p, transactions t where t.ID = p.trans_id 
+		and $query
+		and CouponSum <> 0 and t.user_id = $userID";
+		$rs = $conn->Execute($sql);
+		if ($rs === false){log_error($sql);}
+		if (!$rs->EOF){
+			$coupon = sum($rs,"CouponSum",&$CouponTrans);
+		}	
+
+		//Cheque
+
+		$sql = "select t.ID,(case when IsRefund=1  or RefundMode=1 then ChequeSum*-1 else ChequeSum end) as ChequeSum 
+		from transactionpayments p, transactions t where t.ID = p.trans_id 
+		and $query
+		and ChequeSum <> 0 and t.user_id = $userID";
+		$rs = $conn->Execute($sql);
+		if ($rs === false){log_error($sql);}
+		if (!$rs->EOF){	
+			$cheque = sum($rs,"ChequeSum",&$ChequeTrans);
+		}
+        
+        //Hakafa
+
+		$sql = "select t.ID,(case when IsRefund=1  or RefundMode=1 or IsDebtPayment=1 then HakafaSum*-1 else HakafaSum end) as HakafaSum 
+		from transactionpayments p, transactions t where t.ID = p.trans_id 
+		and $query
+		and HakafaSum <> 0 and t.user_id = $userID";
+		$rs = $conn->Execute($sql);
+		if ($rs === false){log_error($sql);}
+		if (!$rs->EOF){	
+			$hakafa = sum($rs,"HakafaSum",&$HakafaTrans);
+		}
+
+        //Cards
+		$cards = array();		
+        foreach($company as $companyid=>$name)
+        {
+
+		    $sql = "select t.ID,(case when  IsRefund=1  or RefundMode=1 then CreditCardSum*-1 else CreditCardSum end) 
+            as CreditCardSum from transactionpayments p, transactions t where t.ID = p.trans_id 
+            and $query 
+            and CreditCardSum <> 0 and CompanyNum = $companyid and  t.user_id = $userID";
+		    $rs = $conn->Execute($sql);
+		    if ($rs === false){log_error($sql);}
+		    if (!$rs->EOF){	
+			    $cards[$companyid] = sum($rs,"CreditCardSum",&$CardTrans[$companyid]);
+		    }	
+        }
+
+        
+        echo "<tr><td><table width=100% bgcolor=white border=1 bordercolor=black style='border-collapse:collapse'>";
+        echo '<tr><td>סה"כ מזומן</td><td><span dir=ltr><a href="javascript:wopen(\'rep_cheshbonit.php?usr='.$usr.'&ids='.$CashTrans.'\',\'\',800,500,true)">'.number_format($cash,2)."</a><span></td></tr>";
+        echo '<tr><td>סה"כ שיקים</td><td><span dir=ltr><a href="javascript:wopen(\'rep_cheshbonit.php?usr='.$usr.'&ids='.$ChequeTrans.'\',\'\',800,500,true)">'.number_format($cheque,2)."<span></td></tr>";
+        echo '<tr><td>סה"כ שוברים</td><td><span dir=ltr><a href="javascript:wopen(\'rep_cheshbonit.php?usr='.$usr.'&ids='.$CouponTrans.'\',\'\',800,500,true)">'.number_format($coupon,2)."<span></td></tr>";
+        echo '<tr><td>סה"כ הקפה</td><td><span dir=ltr><a href="javascript:wopen(\'rep_cheshbonit.php?usr='.$usr.'&ids='.$HakafaTrans.'\',\'\',800,500,true)">'.number_format($hakafa,2)."<span></td></tr>";
+        
+        echo '<tr><td colspan=2 bgcolor=blue height=2></td></tr>';
+        //1,4,5 - Isracard group
+        echo '<tr><td>סה"כ '.$company[1].'</td><td><span dir=ltr><a href="javascript:wopen(\'rep_cheshbonit.php?usr='.$usr.'&ids='.$CardTrans[1].'\',\'\',800,500,true)">'.number_format($cards[1],2)."<span></td></tr>";
+        echo '<tr><td>סה"כ '.$company[4].'</td><td><span dir=ltr><a href="javascript:wopen(\'rep_cheshbonit.php?usr='.$usr.'&ids='.$CardTrans[4].'\',\'\',800,500,true)">'.number_format($cards[4],2)."<span></td></tr>";
+        echo '<tr><td>סה"כ '.$company[5].'</td><td><span dir=ltr><a href="javascript:wopen(\'rep_cheshbonit.php?usr='.$usr.'&ids='.$CardTrans[5].'\',\'\',800,500,true)">'.number_format($cards[5],2)."<span></td></tr>";
+        echo '<tr><td colspan=2 bgcolor=blue height=2></td></tr>';
+        echo '<tr><td><b>סה"כ קבוצת ישרא\'</td><td><span dir=ltr><b>'.number_format($cards[1]+$cards[4]+$cards[5],2)."<span></td></tr>";
+        echo '<tr><td colspan=2 bgcolor=blue height=2></td></tr>';        
+        
+        //2,6 - Visa group
+        echo '<tr><td>סה"כ '.$company[2].'</td><td><span dir=ltr><a href="javascript:wopen(\'rep_cheshbonit.php?usr='.$usr.'&ids='.$CardTrans[2].'\',\'\',800,500,true)">'.number_format($cards[2],2)."<span></td></tr>";
+        echo '<tr><td>סה"כ '.$company[6].'</td><td><span dir=ltr><a href="javascript:wopen(\'rep_cheshbonit.php?usr='.$usr.'&ids='.$CardTrans[6].'\',\'\',800,500,true)">'.number_format($cards[6],2)."<span></td></tr>";
+
+        echo '<tr><td colspan=2 bgcolor=blue height=2></td></tr>';
+        echo '<tr><td><b>סה"כ קבוצת ויזה</td><td><span dir=ltr><b>'.number_format($cards[2]+$cards[6],2)."<span></td></tr>";
+        echo '<tr><td colspan=2 bgcolor=blue height=2></td></tr>';    
+        
+        //3 - Diners group
+        echo '<tr><td>סה"כ '.$company[3].'</td><td><span dir=ltr><a href="javascript:wopen(\'rep_cheshbonit.php?usr='.$usr.'&ids='.$CardTrans[3].'\',\'\',800,500,true)">'.number_format($cards[3],2)."<span></td></tr>";   
+                
+        echo '<tr><td colspan=2 bgcolor=blue height=2></td></tr>';
+        echo '<tr><td><b>סה"כ קבוצת  דיינרס</td><td><span dir=ltr><b>'.number_format($cards[3],2)."<span></td></tr>";
+        echo '<tr><td colspan=2 bgcolor=blue height=2></td></tr>';    
+         
+        $total = $cash +$cheque+$coupon+$hakafa;
+        foreach ($cards as $sum)
+        {
+            $total+=$sum;
+        }
+        
+        echo '<tr><td><b>סה"כ</b></td><td><span dir=ltr><b>'.number_format($total,2)."<span></td></tr>";        
+                
+        echo "</table></td></tr>";
+		
+    }
+    
+
+    
+	
+	echo "</table></div>";
+	
+	}
+	
+	?>
+	 </form>
+	<script>
+	function remove(id){
+		if (confirm("למחוק את החשבונית?")){
+			document.F.toremove.value = id;
+			document.F.submit();
+		}
+	}
+    function openDocument(id, type)
+    {
+		s=wopen('add_document.php?usr=<?=$usr?>&docid='+id+'&did='+type,'chn_doc',screen.availWidth-100,520,true,'no');try{s.focus()}catch(e){}
+    }
+
+	 function setErechDate(transid)	 {
+		s=wopen('seterechdate.php?transid='+transid,'erech',250,150,true,'no');try{s.focus()}catch(e){}
+	 }
+	 function confirmErechDate(date, transid){
+		 $("#erechdate_"+transid).text(date);
+		 $("#erechcont_"+transid).css("display",date?"":"none");
+	 }
+
+
+    function assignProduct(id,price,linkid)
+    {
+        s=showModalDialog('product_select.php?multiple=1&assignmode=1&dosearch=1&assignprice='+price+'&price='+price+'&usr=<?=$usr?>&rmodule=<?=$rmodule?>','','dialogWidth:600px;dialogHeight:500px;status:no;help:no');
+        if (typeof(s)!="undefined" && s!="")     
+        {
+
+            replaceall = false;
+            ids="";
+       
+            menabled=(document.all(linkid).length>1)?1:0;
+            replaceall = showModalDialog("assignlisting.php?price="+price+"&menabled="+menabled,'','dialogWidth:350px;dialogHeight:200px;center:yes')   
+
+            if (replaceall==1||replaceall==2)
+            {
+                if (replaceall==1)
+                {
+                  ids=","+id
+                }
+                else if (replaceall==2)
+                {
+                    for(i=0;i<document.all(linkid).length;i++)
+                    { 
+                        ids+=","+document.all(linkid)[i].parentElement.id.replace("TD",""); 
+                    } 
+                }
+                
+                ids = ids.substring(1);
+                document.F.assignid.value = ids;
+                document.F.assignproducts.value = s;
+                document.F.scrolltop.value = document.body.scrollTop;
+                document.F.submit();
+                                                                
+            }
+        }
+    }
+    
+    <?if ($scrolltop){?>
+    document.body.scrollTop = <?=$scrolltop?>
+    <?}?>
+    
+	</script>
+	<?
+	
+	if (!$mode){
+		include("$config[template_path]/admin_bottom.html");
+		$conn->Close(); // close the db connection
+	}
+    
+    
+    function sum($rs,$field,&$ids)
+    {
+	    $s=0;
+	    $ids="";
+	    $rs->MoveFirst();
+	    while(!$rs->EOF){
+		    $s+=$rs->fields[$field];
+		    if (!strpos(" ".$ids,",".$rs->fields["ID"])){
+			    $ids.=",".$rs->fields["ID"];
+		    }
+		    $rs->MoveNext();
+	    }
+	    $ids = substr($ids,1);
+	    return $s;
+	}
+?>

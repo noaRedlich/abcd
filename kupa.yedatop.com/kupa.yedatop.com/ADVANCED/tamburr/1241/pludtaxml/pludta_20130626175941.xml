@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="4891199027598" isWeight="0" isDeleted="0" title="סוללות רביעייה GP AA" category="0" saleprice="15" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1371543968">
+  </Product>
+  <Product barcode="4891199027659" isWeight="0" isDeleted="0" title="סוללות רביעייה GP AAA" category="0" saleprice="15" cost="0.000" stockQuantity="-2" minStockQuantity="" lastUpdated="1371543968">
+  </Product>
+  <Product barcode="55722" isWeight="0" isDeleted="0" title="סט ביטים מגנטי בינוני 5 ס&quot;מ SGEAR" category="0" saleprice="39.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1371543973">
+  </Product>
+  <Product barcode="67719" isWeight="0" isDeleted="0" title="מלחם חשמלי 30W" category="0" saleprice="45" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1371543975">
+  </Product>
+  <Product barcode="8711595028028" isWeight="0" isDeleted="0" title="סופר 7 לבן" category="0" saleprice="28.8" cost="" stockQuantity="-29" minStockQuantity="" lastUpdated="1371543967">
+  </Product>
+</Products>

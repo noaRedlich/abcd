@@ -1,0 +1,245 @@
+<?
+	session_start();
+
+	$simple=1;
+	$page_subtitle = ($zikui)?"זיכוי קניה":"קניה מספק";
+	$xlsfilename="Knia";
+	
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+	if ($saction != "sendreport"){
+		$saction="go";
+	}
+
+	$sql = "select ID,SupplierName from listingsSuppliers where id=$sid ";
+	$suppliers = $conn->Execute($sql);
+	if ($suppliers === false){log_error($sql);die();}
+	?>
+	<style>
+	.z {color:gray}
+	.b {font-weight:bold}
+	th {background-color:silver}
+	</style>
+	<script>
+	function PrintReport(){
+		document.getElementById("Query").style.display = "none";
+		window.print();
+		document.getElementById("Query").style.display = "";
+	}
+	
+	function openReport1(url){
+	var ss="";
+	s = window.open(url+'&simple=1','','top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+	s.focus();
+	}	
+	</script>
+	<body>
+	<table cellpadding=5 border=0 width=100%>
+	<tr>
+	<form name=F method=post action='rep_suppliers.php'>
+	<input type=hidden name=usr value=<?=$usr?>>
+	<input type=hidden name=rmodule value=<?=$rmodule?>>
+	<td nowrap>
+	<?$reporttitle = $page_subtitle;?>
+	<?if ($usr){$reporttitle.="<br>".$username;}?>
+	<strong style='font-size:12pt'><?=$reporttitle?></strong>
+	</td><td width=99% style='border:inset 1'>
+	
+	
+	<?if ($saction=="go" || $saction=="sendreport"){
+		require("sendreport.php");
+	}?>
+	<input type=hidden name=saction value=go>
+	<input type=hidden name=reportbody value="">
+	<input type=hidden name=sendmode value="">
+
+	</td>
+	</form>
+	</tr>
+	</table>
+	<?	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+	
+	if (!$sort){	
+
+		$q="";
+		if ($sid!=""){
+			$q=" and supplier_id = $sid ";
+		}
+
+		$report = array();
+		$sql = "
+		select
+        SalePrice as price,
+        barcode, p.quantity, cost_before_disc, total_discount, chn_num,
+		final_cost, title, vat from purchases p, listingsDB l
+        where
+		p.listing_id = l.ID and purchase_date='$sDate' and group_id = $gid
+		and p.supplier_id = $sid
+        and p.deleted = 0
+		and (p.chn_num = '$chn' ".(($chn=="")?" or p.chn_num is null":"")." )
+		and l.user_id = $userID
+		order by p.id
+		";
+		//echo $sql;
+		
+		$purchases = $conn->Execute($sql);
+		if ($purchases === false){log_error($sql);}
+		
+		$discount = $purchases->fields["total_discount"];
+		while (!$purchases->EOF){
+				$report[] = array(
+					"Title" => $purchases->fields["title"],
+					"BarCode" => $purchases->fields["barcode"],
+					"SalePrice" => $purchases->fields["price"],
+					"PreAmount" => $purchases->fields["cost_before_disc"],
+					"Discount" => $purchases->fields["total_discount"],
+					"Amount" => $purchases->fields["final_cost"],
+					"Quantity" => abs($purchases->fields["quantity"]),
+                    "Vat" => $purchases->fields["vat"]
+				);
+			$purchases->MoveNext();
+		}
+	}
+	else{ 
+
+		//Sort Mode
+	
+		$report = $_SESSION["REPORT"];
+		$report = aSortBySecondIndex($report,$sort,$desc);
+	}
+	//Output
+	
+	$cnt=0;
+
+	$url = $_SELF."?saction=go&sid=$sid&gid=$gid&chn=$chn&sDate=$sDate&desc=".((!$desc)?1:0);
+	
+	$worksheet->set_column('A:C', 25);
+	$headings = array('ברקוד','פריט','מחיר מחירה','עלות','כמות','סכום');
+	$worksheet->write_row('A'.($rrow++), $headings, $heading);
+	;
+
+	echo "<div ><table id=REPORTTABLE dir=$dir border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+	echo "
+	<tr>
+	<td bgcolor=lightyellow colspan=6>תאריך: <b>".DateFromSQL($sDate)."</b>";
+	if ($chn){ echo " חשבונית מס' <b>$chn</b>";}
+	echo " ספק: <b>".$suppliers->fields["SupplierName"]."</b>";
+	echo "</td>
+	</tr>
+	<tr valign=top>
+	<th><as href='$url&sort=BarCode'>ברקוד</a></th>
+	<th><as href='$url&sort=Title'>פריט</a></th>
+	<th width=10%><as href='$url&sort=SalePrice'>מחיר מחירה</a></th>
+	<th width=10%><as href='$url&sort=Amount'>עלות</a></th>
+	<th width=10%><as href='$url&sort=Quantity'>כמות</a></th>
+	<th width=10%><as href='$url&sort=Amount'>סכום</a></th>
+	</tr>
+	";
+	
+	$ID=$cnt;
+	foreach ($report as $row){
+        $amt = ((round($row["PreAmount"]-($row["PreAmount"]*$row["Discount"]/100)))==round($row["Amount"]))?$row["PreAmount"]*100/(100+$row["Vat"]):$row["PreAmount"];
+		$AMOUNT+= ($amt*$row["Quantity"]);
+        $AMOUNTVAT += ($row["Amount"]*$row["Quantity"]);
+		echo "
+		<tr id=tr$ID valign=top >
+		<td nowrap   >".($row["BarCode"])."</td>
+		<td nowrap   >".($row["Title"])."</td>
+		<td nowrap ><span dir=ltr>".number_format($row["SalePrice"],2)."</span></td>
+		<td nowrap ><span dir=ltr>".number_format($amt,2)."</span></td>
+		<td nowrap><span dir=ltr>".($row["Quantity"])."</span></td>
+		<td nowrap ><span dir=ltr>".number_format($amt*$row["Quantity"],2)."</span></td>
+		</tr>
+		";
+		
+		$ID++;
+		$b=$body;
+		$f=$numformat;
+		$worksheet->write("A".$rrow," ".$row["BarCode"],$b);
+		$worksheet->write("B".$rrow,$row["Title"],$b);
+		$worksheet->write("C".$rrow,$row["SalePrice"],$f);
+		$worksheet->write("D".$rrow,$row["PreAmount"],$f);
+		$worksheet->write("E".$rrow,$row["Quantity"],$f);
+		$worksheet->write("F".$rrow,$row["PreAmount"]*$row["Quantity"],$f);
+		$rrow++;
+
+ 	}
+	if ($discount){
+	echo "<tr>
+	<td colspan=5><b>סה\"כ לפני הנחה</b></td>
+	<td><strong dir=ltr>".number_format($AMOUNT,2)."</strong></td>
+	</tr>";
+	echo "<tr>
+		<td colspan=4><b>הנחה כללית</b></td>
+		<td><strong dir=ltr>".number_format($discount,2)."%</strong></td>
+		<td><strong dir=ltr>-".number_format($AMOUNT*$discount/100,2)."</strong></td>
+		</tr>";
+		$AMOUNT = $AMOUNT-($AMOUNT*$discount/100);
+	}
+	echo '<tr>
+	<td colspan=5><b> סה"כ לפני מע"מ</b></td>
+	<td><strong dir=ltr>'.number_format($AMOUNT,2)."</strong></td>
+	</tr>";
+
+	echo '<tr>
+	<td colspan=5><b>מע"מ</b></td>
+	<td><strong dir=ltr>'.number_format($AMOUNTVAT-$AMOUNT,2)."</strong></td>
+	</tr>";
+
+	echo "<tr>
+	<td colspan=5><b>סה\"כ</b></td>
+	<td><strong dir=ltr>".number_format($AMOUNTVAT,2)."</strong></td>
+	</tr>";
+
+
+	echo "</table></div>";
+	
+	}
+	
+	$worksheet->write("E".($rrow),' סה"כ לפני מע"מ',$numformatb);
+	$worksheet->write("F".($rrow),$AMOUNT,$numformatb);
+
+    $rrow++;
+
+	$worksheet->write("E".($rrow),'מע"מ',$numformatb);
+	$worksheet->write("F".($rrow),$AMOUNTVAT-$AMOUNT,$numformatb);
+
+    $rrow++;
+
+	$worksheet->write("E".($rrow),"סה\"כ",$numformatb);
+	$worksheet->write("F".($rrow),$AMOUNTVAT,$numformatb);
+
+	$workbook->close();
+	copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+    unlink($fname);
+
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+	
+	
+	function aSortBySecondIndex($multiArray, $secondIndex,$rew = false) {
+		while (list($firstIndex, ) = each($multiArray))
+		$indexMap[$firstIndex] = $multiArray[$firstIndex][$secondIndex];
+		if (!$rew)
+			asort($indexMap);
+		else 	
+			arsort($indexMap);
+		while (list($firstIndex, ) = each($indexMap))
+		if (is_numeric($firstIndex))
+		$sortedArray[] = $multiArray[$firstIndex];
+		else $sortedArray[$firstIndex] = $multiArray[$firstIndex];
+	return $sortedArray;
+
+
+}
+?>

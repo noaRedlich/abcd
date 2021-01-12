@@ -1,0 +1,269 @@
+<?
+session_start();
+ini_set("max_execution_time",1000);
+
+$simple=1;
+$page_subtitle = $lang["send_mail"];
+
+
+include("../stock/include/common.php");
+include("../stock/include/business_functions.php");
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+if (!IsPostBack())
+{
+	if (!$newid)
+	{
+		$date = date("Y-m-d");
+		$target = 1;
+		$visible = 1;
+		$type = "ARTICLE";
+	}
+	else{
+		$sql = "select * from $TABLE_NEWS where id = $newid";
+		$article = DBQuery($sql);
+		$subject = $article->fields["header"];
+		$visible = $article->fields["visible"];
+		$date = date("Y-m-d",$article->fields["posted"]);
+		$msg = $article->fields["content"];
+		$type = $article->fields["newtype"];
+		$msglang = $article->fields["language"];
+		$target = 3;
+	}
+}
+else
+{
+	$date  = $_POST["date"];
+}
+
+if($dosend)
+{
+	$posted = strtotime($date);
+	$visible = $visible?1:0;
+	if ($newid)
+	{
+		$sql = "update $TABLE_NEWS set
+			language='$msglang', 
+			header='".($subject)."',
+			content='".($rte1)."',
+			posted='$posted',
+			visible='$visible',
+			newtype='$type'
+			where id = $newid
+			";
+		DBQuery($sql);
+	}
+	else
+	{
+		$sql = "insert into $TABLE_NEWS (newtype,language, header,content,posted,visible) values
+			('$type','$msglang','".($subject)."','".($rte1)."',".$posted.",'".$visible."')";
+		DBQuery($sql);
+		$newid = $conn->Insert_ID();
+	}
+	
+	
+	$users = DBQuery("select office_user_id from $TABLE_USERDATA order by username");
+	while (!$users->EOF)
+	{
+		$send = false;
+		if ($target==1)
+		{
+			$send = true;	
+		}
+		elseif ($target==2)
+		{
+			$profilesids = implode(",",$profileid);
+			if (!$profilesids)$profilesids="-1";
+			$profiles = DBQuery("select profile_id from $TABLE_USERPROFILE where r=1 and userid = ".$users->fields["office_user_id"]." and profile_id in ($profilesids)");
+			$send = !$profiles->EOF;
+		}
+		elseif ($target==3)
+		{
+			$send = in_array($users->fields["office_user_id"],$userid);
+		}
+		
+		if ($send)
+		{
+			
+			$test = DBQuery("select * from $TABLE_NEWS_USERS where news_id = $newid and user_id = ".$users->fields["office_user_id"]);
+			if ($test->EOF)
+			{
+				$sql = ("insert into $TABLE_NEWS_USERS (user_id,news_id,posted) values (".$users->fields["office_user_id"].",$newid,unix_timestamp())");
+				DBQuery($sql);
+			}
+		}
+		else
+		{
+			DBQuery("delete from $TABLE_NEWS_USERS where news_id = $newid and user_id = ".$users->fields["office_user_id"]);
+		}
+		
+		$users->MoveNext();
+	}
+	
+	echo "<script>opener.location.reload();window.close()</script>";
+	exit;
+}
+
+    ?>
+    
+
+    
+    <script language="JavaScript" type="text/javascript" src="/rte/html2xhtml.js"></script>
+	<script language="JavaScript" type="text/javascript" src="/rte/richtext_compressed.js"></script>
+    <form method=post name=F onsubmit="return submitForm();">
+    <b><?=$lang["title"]?>:</b> <input size=40 name=subject value="<?=htmlspecialchars( $subject)?>">
+    <b><?=$lang["mail_lang"]?>:</b>
+    <select name=msglang>
+		<option value="Hebrew" <?=$msglang=="Hebrew"?"selected":""?>><?=$lang["hebrew"]?></option>
+		<option value="English" <?=$msglang=="English"?"selected":""?>><?=$lang["english"]?></option>
+		<option value="Russian" <?=$msglang=="Russian"?"selected":""?>><?=$lang["russian"]?></option>
+    </select>
+    &nbsp;
+    <b>פעיל </b>
+    <input type=checkbox value=1 name=visible <?=$visible?"checked":""?>>
+
+    &nbsp;
+    <b>תאריך: (yyyy-mm-dd)</b>
+    <input name=date value="<?=$date?>" size=6>
+	<br><b>סוג:</b>	
+	<select name="type">
+	<option value="ARTICLE" <?=$type=="ARTICLE"?"selected":""?>>חדשה</option>
+	<option value="ALERT" <?=$type=="ALERT"?"selected":""?>>אתראה</option>
+	</select>
+    <center>
+	<div  dir=ltr style='padding:5 0'>
+	<script>
+	initRTE("/rte/images/", "/rte/", "", true);
+	var rte1 = new richTextEditor('rte1');
+	rte1.toggleSrc = false;
+	rte1.cmdSpellcheck = false;
+	rte1.cmdCut=true;
+	rte1.cmdCut=true;
+	rte1.cmdCopy=true;
+	rte1.cmdPaste=true;
+	rte1.cmdUndo=true;
+	rte1.cmdFontSize=false;
+	rte1.cmdFontName=false;
+	rte1.cmdRedo=true;
+	rte1.toolbar1=false;
+	rte1.width="100%";
+	rte1.html = "<?=JSEncode($msg)?>";
+	rte1.build();
+	
+	
+	function submitForm() {
+	//make sure hidden and iframe values are in sync for all rtes before submitting form
+	updateRTEs();
+	if(document.F.subject.value=='')
+	{
+		alert("<?=$lang["pls_enter_subj"]?>");
+		return false;
+	}
+	if(document.F.rte1.value=='')
+	{
+		alert("<?=$lang["pls_enter_msg"]?>");
+		return false;
+	}
+	return true;
+	}
+	
+	
+	
+	function sendFailed(str)
+	{
+		document.all.divWait.style.display='none';
+		document.all.btnSend.disabled=false;
+		alert(str);	
+	}
+	
+	</script>
+	<span style='font-size:8pt'>Ctrl+LeftShift / Ctrl+RightShift <?=$lang["change_direction"]?></span>
+	</div>
+	</center>
+
+    <table cellpadding=5 width=100%>
+    <tr><td DIR=<?=$dir?> align=center>
+    <fieldset>
+    <legend>קהל יעד</legend>
+
+    <table width=100% height=180>
+    <tr valign=top>
+    <td width=1% nowrap>
+    <input type=radio name=target value=1  <?=$target==1?"checked":""?> onclick='changeTarget(1)'>כולם<br>
+    <input type=radio name=target value=2  <?=$target==2?"checked":""?> onclick='changeTarget(2)'>פרופילים<br>
+    <input type=radio name=target value=3  <?=$target==3?"checked":""?> onclick='changeTarget(3)'>משתמשים<br>
+    </td>
+    <td>
+		<div style='overflow:auto;width:100%;height:100%;border:inset 1'>
+			<table id=profiles>
+<?
+$profiles = DBQuery("select * from $TABLE_PROFILE order by name");
+while (!$profiles->EOF)
+{
+				?>
+				<tr>
+					<td><input type=checkbox name=profileid[] value=<?=$profiles->fields["id"]?>></td>
+					<td><?=$profiles->fields["name"]?></td>
+				</tr>
+				
+	<?
+	$profiles->MoveNext();
+}
+			?>
+			</table>
+			
+			<table id=users>
+<?
+$users = DBQuery("select office_user_id,UserName,news_id 
+		from $TABLE_USERDATA u left outer join $TABLE_NEWS_USERS nu on nu.user_id = u.office_user_id and news_id = '$newid' order by username");
+while (!$users->EOF)
+{
+				?>
+				<tr>
+					<td><input type=checkbox name=userid[] <?=$users->fields["news_id"]?"checked":""?> value=<?=$users->fields["office_user_id"]?>></td>
+					<td><?=$users->fields["UserName"]?></td>
+				</tr>
+				
+	<?
+	$users->MoveNext();
+}
+			?>
+			</table>
+			
+		</div>
+    </td>
+    </tr>
+    </table>
+        </fieldset>
+    <hr>
+    <input type=submit id=btnSend value="<?=$lang["submit"]?>" class=button style='background-image:url(<?=$imgPath?>/ok.gif)'>
+    <input type=button id=btnclose value="<?=$lang["close_button"]?>" class=button style='background-image:url(<?=$imgPath?>/back.gif)' onclick='if(document.all.btnSend.disabled||confirm("<?=$lang["close_window"]?>"))window.close()'>
+
+    </td></tr>
+    </table>
+
+    
+    <input type=hidden name=dosend value=1>
+    </form>
+    <script>
+    
+    function changeTarget(mode)
+    {
+		document.all.profiles.style.display = mode==2?"":"none";
+		document.all.users.style.display = mode==3?"":"none";
+    }
+    
+    document.F.subject.focus();
+    changeTarget(<?=$target?>);
+    </script>
+    <iframe style='display:none' src='blank.htm' name=send></iframe>
+<?
+
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+
+    ?>

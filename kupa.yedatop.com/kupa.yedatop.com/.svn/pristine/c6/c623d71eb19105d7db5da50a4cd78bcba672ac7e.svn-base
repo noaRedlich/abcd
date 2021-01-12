@@ -1,0 +1,94 @@
+<?
+	$simple=1;
+	$page_subtitle = "בחירה";
+
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+	$q = "";
+	if ($stock)
+	{
+		$q = "and stock_id = '".intval($stock)."'";
+	} 
+	$rs = DBQuery("select distinct p.id, journaldate, journalnum, stockname, (case when el.id is not null then 1 else 0 end) as exported from 
+	transactionpackages p
+	left outer join exporthashlog el on el.user_id = $userID and zids like concat('%,',p.id,',%') and code = '$logcode'
+	,$TABLE_LISTINGSSTOCKS s 
+	where p.stock_id = s.id and s.user_id = $userID $q 
+	order by journaldate desc,journalnum desc");
+	
+	$checked = explode(",",$zids);
+?>
+
+<table height=320px width=100%>
+
+<tr><td>
+	<div style='overflow-y:scroll;overflow-x:hidden;height:100%;width:100%;border:inset 1;background-color:white'>
+	<table width=100% border=1 style='border-collapse:collapse;' bordercolor=silver cellspacing=0>
+	<tr>
+		<th class=tablehead2>&nbsp;</th>
+		<th class=tablehead2 nowrap>מס' Z</th>
+		<th class=tablehead2>תאריך</th>
+		<th class=tablehead2>נקודה</th>
+		<th class=tablehead2>בוצע</th>
+	</tr>
+	<?while(!$rs->EOF){?>
+	<tr <?=($rs->fields["exported"])?"style='color:red'":""?>>
+		<td width=1%><input zedId="<?=$rs->fields["id"]?>" onclick='checkOK()' type=checkbox id=selector <?=(in_array($rs->fields["id"],$checked))?"checked":""?>></td>
+		<td width=1% nowrap>&nbsp;<?=$rs->fields["journalnum"]?>&nbsp;</td>
+		<td width=1% nowrap>&nbsp;<?=dateFromSQL($rs->fields["journaldate"])?>&nbsp;</td>
+		<td width=99%>&nbsp;<?=$rs->fields["stockname"]?>&nbsp;</td>
+		<td width=1%>&nbsp;<?=($rs->fields["exported"])?"כן":""?>&nbsp;</td>
+	</tr>	
+	<?$rs->MoveNext();}?>
+	</table>
+	</div>
+</td></tr>
+<tr style='height:1%'><td align=center>
+	<input type=button disabled id=btnOK value=אישור class=button style='background-image:url(<?=$imgPath?>ok.gif)'  onclick='selectZ()'>
+	<input type=button value=סגור class=button style='background-image:url(<?=$imgPath?>back.gif)' onclick='window.close()'>
+</td></tr>
+</table>
+
+<script>
+
+function checkOK()
+{
+	for(i=0;i<document.all("selector").length;i++)
+	{
+		if (document.all("selector")[i].checked)
+		{
+			document.all.btnOK.disabled = false;
+			return;
+		}
+	}
+	document.all.btnOK.disabled = true;
+	
+}
+
+function selectZ()
+{
+	var s = "";
+	for(i=0;i<document.all("selector").length;i++)
+	{
+		if (document.all("selector")[i].checked)
+		{
+			s+=","+document.all("selector")[i].zedId;
+		}
+	}	
+	if (s!="")
+	{
+		s = s.substring(1);
+	}
+	window.returnValue = s;
+	window.close();
+}
+
+checkOK();
+</script>
+
+<?
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

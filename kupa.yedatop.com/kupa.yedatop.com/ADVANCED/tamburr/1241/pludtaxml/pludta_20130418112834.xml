@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="4837" isWeight="0" isDeleted="0" title="אקונומיקה ריחנית 4 ל' JOHONSON CLEAN" category="0" saleprice="14.5" cost="0.000" stockQuantity="-14" minStockQuantity="" lastUpdated="1363512465">
+  </Product>
+  <Product barcode="1426" isWeight="0" isDeleted="0" title="ג'ל לניקוי אסלות זהר דליה" category="0" saleprice="11.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1363512477">
+  </Product>
+  <Product barcode="83414" isWeight="0" isDeleted="0" title="נוזל כלים 4 ל' ג'ונסון קלין" category="0" saleprice="28" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1363512469">
+  </Product>
+  <Product barcode="6256" isWeight="0" isDeleted="0" title="שקיות אשפה 25 יח' שחורות 85X75" category="0" saleprice="9.9" cost="" stockQuantity="-8" minStockQuantity="" lastUpdated="1363512467">
+  </Product>
+</Products>

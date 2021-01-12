@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="73029" isWeight="0" isDeleted="0" title="קומקום סגור 40" category="0" saleprice="40" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="78522" isWeight="0" isDeleted="0" title="מאסף מערכת B" category="0" saleprice="40" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="73330" isWeight="0" isDeleted="0" title="מחסום C 1X50 3X40" category="0" saleprice="43" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="200" isWeight="0" isDeleted="0" title="ברך 90 32X40 ש.ת. ליפסקי" category="0" saleprice="12.5" cost="" stockQuantity="-8" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="102410" isWeight="0" isDeleted="0" title="מסעף T 40" category="0" saleprice="19.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668343">
+  </Product>
+  <Product barcode="207" isWeight="0" isDeleted="0" title="ברך 90 40X40 ליפסקי" category="0" saleprice="8.9" cost="" stockQuantity="-11" minStockQuantity="" lastUpdated="1339668333">
+  </Product>
+  <Product barcode="209" isWeight="0" isDeleted="0" title="ברך 45 40X40 ליפסקי" category="0" saleprice="8.9" cost="" stockQuantity="-13" minStockQuantity="" lastUpdated="1339668333">
+  </Product>
+  <Product barcode="195" isWeight="0" isDeleted="0" title="ברך 45 50X50 ליפסקי" category="0" saleprice="8.9" cost="" stockQuantity="-10" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="207" isWeight="0" isDeleted="0" title="ברך 90 40X40 ליפסקי" category="0" saleprice="8.9" cost="" stockQuantity="-11" minStockQuantity="" lastUpdated="1339668333">
+  </Product>
+  <Product barcode="201" isWeight="0" isDeleted="0" title="ברך 90 50X50 ליפסקי" category="0" saleprice="8.9" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="422" isWeight="0" isDeleted="0" title="דבק פיקס לבן 109" category="0" saleprice="35" cost="" stockQuantity="-56" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="8850747502402" isWeight="0" isDeleted="0" title="ספריי צבע לבן בוסני" category="0" saleprice="15.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="769127100252" isWeight="0" isDeleted="0" title="מברשת פולאר &quot;2.5" category="0" saleprice="12.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="114" isWeight="0" isDeleted="0" title="מסקינג טייפ מעוז" category="0" saleprice="6.9" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="83722" isWeight="0" isDeleted="0" title="סיקפלקס אפור 11FC" category="0" saleprice="31.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668341">
+  </Product>
+  <Product barcode="91321" isWeight="0" isDeleted="0" title="SP הסתעפות לחיצה T 16-16-16" category="0" saleprice="30" cost="" stockQuantity="-20" minStockQuantity="" lastUpdated="1339668342">
+  </Product>
+  <Product barcode="14637" isWeight="0" isDeleted="0" title="פינה מישתנה 30 מטר" category="0" saleprice="51.9" cost="" stockQuantity="-9" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="31816" isWeight="0" isDeleted="0" title="ברז כדורי 3/4 פ.פ." category="0" saleprice="29.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668334">
+  </Product>
+  <Product barcode="90019" isWeight="0" isDeleted="0" title="SP תושבת בודדת 16-1/2 לחיצה" category="0" saleprice="26.7" cost="" stockQuantity="-48" minStockQuantity="" lastUpdated="1339668341">
+  </Product>
+  <Product barcode="78522" isWeight="0" isDeleted="0" title="מאסף מערכת B" category="0" saleprice="40" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="108115" isWeight="0" isDeleted="0" title="רקורד לשעון מים ־" category="0" saleprice="26" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668345">
+  </Product>
+  <Product barcode="200" isWeight="0" isDeleted="0" title="ברך 90 32X40 ש.ת. ליפסקי" category="0" saleprice="12.5" cost="" stockQuantity="-8" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="195" isWeight="0" isDeleted="0" title="ברך 45 50X50 ליפסקי" category="0" saleprice="8.9" cost="" stockQuantity="-10" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="209" isWeight="0" isDeleted="0" title="ברך 45 40X40 ליפסקי" category="0" saleprice="8.9" cost="" stockQuantity="-13" minStockQuantity="" lastUpdated="1339668333">
+  </Product>
+  <Product barcode="59913" isWeight="0" isDeleted="0" title="ספריי תיקון פנצ'ר" category="0" saleprice="22.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+  <Product barcode="6921296286838" isWeight="0" isDeleted="0" title="מטלית ריצפה מיקרופייבר" category="0" saleprice="10" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="86712" isWeight="0" isDeleted="0" title="ג'ילדה לבנה 50X50" category="0" saleprice="24" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668341">
+  </Product>
+  <Product barcode="8711595028028" isWeight="0" isDeleted="0" title="סופר 7 לבן" category="0" saleprice="28.8" cost="" stockQuantity="-15" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="90640" isWeight="0" isDeleted="0" title="דיסק יהלום &quot;4.5" category="0" saleprice="69" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668341">
+  </Product>
+  <Product barcode="56216" isWeight="0" isDeleted="0" title="חומצת מלח 30% 4 ליטר" category="0" saleprice="26.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+  <Product barcode="43025" isWeight="0" isDeleted="0" title="טיח גבס 791 30 ק&quot;ג" category="0" saleprice="40" cost="" stockQuantity="-12" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="58910" isWeight="0" isDeleted="0" title="מרכך כביסה 4 ליטר JOHONSON SOFT" category="0" saleprice="15.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+  <Product barcode="56117" isWeight="0" isDeleted="0" title="מגש לרולר ג'מבו" category="0" saleprice="29" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668337">
+  </Product>
+  <Product barcode="104413" isWeight="0" isDeleted="0" title="רולר פרלון פס צהוב" category="0" saleprice="35" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668344">
+  </Product>
+  <Product barcode="769127100030" isWeight="0" isDeleted="0" title="מברשת פולאר &quot;3" category="0" saleprice="14.8" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="7290001076118" isWeight="0" isDeleted="0" title="סופרקריל מט לבן 18 ליטר" category="0" saleprice="290" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1339668334">
+  </Product>
+  <Product barcode="7290002997351" isWeight="0" isDeleted="0" title="נירוקיט לבן נירלט" category="0" saleprice="6.9" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1339668333">
+  </Product>
+  <Product barcode="114020" isWeight="0" isDeleted="0" title="קל קר מים" category="0" saleprice="35" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1339668346">
+  </Product>
+  <Product barcode="3916" isWeight="0" isDeleted="0" title="ספייסרים 3 מ&quot;מ 250 יח'" category="0" saleprice="11.9" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1326886231">
+  </Product>
+  <Product barcode="7290004116590" isWeight="0" isDeleted="0" title="קלסימו 5 ק&quot;ג" category="0" saleprice="28.9" cost="" stockQuantity="-104" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+</Products>

@@ -1,0 +1,40 @@
+<?
+	$nLoggedAsRoot = 0;
+	$user = 0;
+
+	if(!isset($bd3Auth) || $bd3Auth == "")
+	{
+	 	//sysH100Error();
+		//if($GO_SECURITY->has_admin_permission($GO_SECURITY->user_id)){
+			$nLoggedAsRoot = 1;
+		//}
+	}
+	else
+	{
+	 	if($admin_id == $bd3Auth)
+		{
+		 	$user = 0;
+			$nLoggedAsRoot = 1;
+		}
+		else
+		{
+		 	//	Checking user key in the database
+
+			$rUsers = q("select * from webDate_bd_users where id='$bd3Auth'");
+
+			if(e($rUsers))
+			{
+				//sysH100Error();
+			}
+			else
+			{
+				$user = f($rUsers);
+
+				if($user[ admin_rights ])
+				{
+					$nLoggedAsRoot = 1;
+				}
+			}
+		}
+	}
+?>

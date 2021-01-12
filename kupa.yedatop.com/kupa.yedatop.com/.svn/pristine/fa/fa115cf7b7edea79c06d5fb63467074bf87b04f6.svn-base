@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>listingsStocks</main_table>
+	<name>ספקים</name>
+	<options>
+		<opt name="create_record" type="sometimes"></opt>
+		<opt name="search" type="sometimes"></opt>
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="always"></opt>
+	</options>
+	<view>
+		<vcol name="SortOrder" >מיקום</vcol>
+		<vcol name="StockName">שם</vcol>
+		<vcol name="TerminalID">קוד מסוף</vcol>
+		<vcol name="Version">גירסת תוכנה</vcol>
+		<vcol name="UpdateMode" type="enum">אופן עדקון 
+			<enum val="UZ">User default</enum>
+			<enum val="A">A</enum>
+			<enum val="U">U</enum>
+			<enum val="N">N</enum> 
+			<enum val="AD">AD</enum>
+			<enum val="UD">UD</enum>
+			<enum val="ND">ND</enum>
+		</vcol>
+		<vcol name="UpdateTime">זמן עדכון</vcol>
+		<vcol name="Status" type="yes_no">פעיל</vcol>
+		<vcol name="IsFactory" type="yes_no">נקודת יצור</vcol>
+		<vcol name="RunScript" type="yes_no">להריץ GETTRANS</vcol>
+	</view>
+	<edit>
+		<ecol name="StockName" type="string">שם נקודה</ecol>
+		<ecol name="SortOrder"  type="string">מיקום</ecol>
+		<ecol name="TerminalID"  type="string">קוד מסוף</ecol>
+		<ecol name="Version" type="enum">גירסת תוכנת קופה
+			<enum val="1">1 (ישנה)</enum>
+			<enum val="2">2 (חדשה)</enum>
+		</ecol>
+		<ecol name="TRNVersion" type="enum">גירסת תוכנת מסוף
+			<enum val="0">0 (אוטו)</enum>
+			<enum val="1">1 (ישנה)</enum>
+			<enum val="2">2 (חדשה)</enum>
+		</ecol>
+    <ecol name="AllowProceedTrans" type="enum">
+      לאפשר קליטה חוזרת של קבצי TRANS
+      <enum val="0">לא</enum>
+      <enum val="1">כן חד פעמי</enum>
+      <enum val="2">כן באופן קבוע</enum>
+      <enum val="3">User Default</enum>
+    </ecol>    
+    <ecol name="UpdateMode" type="enum">אופן עדקון מלאי מקופה
+			<enum val="UZ">User Default</enum>
+      <enum val="A">ALL</enum>
+      <enum val="U">UPDATE</enum>
+      <enum val="N">NONE</enum>
+      <enum val="A0K">ALL + Ack</enum>
+      <enum val="U0K">UPDATE + Ack</enum>
+      <enum val="N0K">NONE + Ack</enum>
+      <enum val="AD">ALL + OtherPlu + ExpDate</enum>
+      <enum val="UD">UPDATE + OtherPlu + ExpDate</enum>
+      <enum val="ND">NONE + OtherPlu + ExpDate</enum>
+      <enum val="ADK">ALL + OtherPlu + ExpDate + Ack</enum>
+      <enum val="UDK">UPDATE + OtherPlu + ExpDate + Ack</enum>
+      <enum val="NDK">NONE + OtherPlu + ExpDate + Ack</enum>
+    </ecol>
+    <ecol name="SendExistingOnly" type="enum">
+      לשלוח לקופה רק פריטים שישנם במלאי בנקודה זו
+      <enum val="0">No</enum>
+      <enum val="1">Yes</enum>
+    </ecol>
+    <ecol name="UpdateTime"   type="string">זמן עדכון</ecol>
+		<ecol name="clientKey"   type="string">מפתח לקוח חשבשבת</ecol>
+    <ecol name="mechirotKey"   type="string">מפתח חשבון מכירות</ecol>
+		<ecol name="VatFree" type="enum">פטור ממע''מ 
+			<enum val="0">No</enum>
+			<enum val="1">Yes</enum>
+		</ecol>
+		<ecol name="Status" type="yes_no">פעיל</ecol>
+		<ecol name="IsFactory" type="enum">נקודת יצור
+			<enum val="0">No</enum>
+			<enum val="1">Yes</enum>
+		</ecol>
+		<ecol name="RunScript" type="yes_no">להריץ GETTRANS</ecol>
+    <ecol name="GatewayCode"   type="string">קוד GATEWAY לשליחת עיסקאות בכרטיס אשראי</ecol>
+    <ecol name="ContactPerson"   type="string">איש קשר</ecol>
+		<ecol name="Phone"   type="string">טלפון</ecol>
+		<ecol name="Address"   type="text">כתובת</ecol>
+    <ecol name="print_format" type="enum">
+      פורמט הדפסה
+      <enum val="0">A4 PDF</enum>
+      <enum val="1">מדפסת טרמי 8 מ''מ</enum>
+    </ecol>
+    <ecol name="use_print_activex" type="yes_no">הדפסה ישירה למדפסת (לא רלוונטי ל-PDF)</ecol>
+    <ecol name="printer_name" type="string">שם מדפסת ב-Windows</ecol>
+  </edit>
+	<sql_actions>
+		<opt name="order" val="SortOrder,StockName"></opt>
+		<opt name="search_by" val="StockName,TerminalID"></opt>
+	</sql_actions>
+</xml> 

@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="1258" BillId="361" ClientId="1">
+  <Products>
+    <Product Id="872">
+      <Name>פריט hhh לדוגמה</Name>
+      <Barcode>1377723241200</Barcode>
+      <SalePrice>69</SalePrice>
+      <SaledPrice>69</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="873">
+      <Name>מעודכן פריט לדוגמה</Name>
+      <Barcode>1300023241200</Barcode>
+      <SalePrice>56</SalePrice>
+      <SaledPrice>56</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="874">
+      <Name>2פריט לדוגמה</Name>
+      <Barcode>1300023241268</Barcode>
+      <SalePrice>47</SalePrice>
+      <SaledPrice>47</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10001">
+      <Name>SPIRT 96.6% 1 L       כהל 96.6</Name>
+      <Barcode />
+      <SalePrice>50</SalePrice>
+      <SaledPrice>50</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>26.64</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>195.36</Cash>
+  </Pay>
+</Bill>

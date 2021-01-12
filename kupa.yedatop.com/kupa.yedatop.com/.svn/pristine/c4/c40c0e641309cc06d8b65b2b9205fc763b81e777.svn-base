@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+  <main_table>listingsStocks</main_table>
+  <name>ספקים</name>
+  <options>
+    <opt name="create_record" type="none"></opt>
+    <opt name="search" type="sometimes"></opt>
+    <opt name="main_view" type="always"></opt>
+    <opt name="delete_record" type="none"></opt>
+    <opt name="multiselection" type="always"></opt>
+    <opt name="multioperation" type="nullstock"></opt>
+  </options>
+  <view>
+    <vcol name="SortOrder" >מיקום</vcol>
+    <vcol name="StockName">שם</vcol>
+    <vcol name="TerminalID">קוד מסוף</vcol>
+    <vcol name="pricelist_id" type="cross" cross="pricelists" cross_field="id" lookup_field="name" >מחירון</vcol>
+    <vcol name="Status" type="yes_no">פעיל</vcol>
+  </view>
+  <edit>
+    <ecol name="StockName" type="string">שם נקודה</ecol>
+    <ecol name="SortOrder"  type="string">מיקום</ecol>
+    <ecol name="clientKey"   type="string">מפתח לקוח חשבשבת</ecol>
+    <ecol name="mechirotKey"   type="string">מפתח חשבון מכירות</ecol>
+    <ecol name="pricelist_id" type="cross" cross="pricelists" cross_field="id" lookup_field="name" >מחירון</ecol>
+    <ecol name="VatFree" type="yes_no">פטור ממע''מ</ecol>
+    <ecol name="ContactPerson"   type="string">איש קשר</ecol>
+    <ecol name="Phone"   type="string">טלפון</ecol>
+    <ecol name="Address"   type="text">כתובת</ecol>
+    <ecol name="print_format" type="enum">
+      פורמט הדפסה
+      <enum val="0">A4 PDF</enum>
+      <enum val="1">מדפסת טרמי 8 מ''מ</enum> 
+    </ecol>
+    <ecol name="use_print_activex" type="yes_no">הדפסה ישירה למדפסת (לא רלוונטי ל-PDF)</ecol>
+    <ecol name="printer_name" type="string">שם מדפסת ב-Windows</ecol>
+  </edit>
+  <sql_actions>
+    <opt name="order" val="SortOrder,StockName"></opt>
+    <opt name="search_by" val="StockName,TerminalID"></opt>
+  </sql_actions>
+</xml>

@@ -1,0 +1,233 @@
+<?php
+ 	$page_subtitle = "מבצעים";
+	$noheader=1;
+    $simple=1;
+	include("include/common.php");
+    include("include/business_functions.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+
+    $mayEdit = HasActionPermission("EDITLISTING");
+    $disabled = (!$mayEdit)?"disabled":"";
+    ?>
+
+
+    <?
+	$sql_edit = make_db_safe($edit);
+
+    
+    if ($doSave)
+    {
+        DBQuery("delete from listingsPrice where listing_id=$sql_edit and  pricelist_id = '$pricelist'");
+        if ($pricemode)
+        {
+            DBQuery("insert into listingsPrice (listing_id, pricelist_id, mode, percent, saleprice)
+            values
+            ($sql_edit,$pricelist,$pricemode,'$percent','$saleprice')
+            ");
+        }
+        DBQuery("update listingsDB set lastupdated = unix_timestamp() where id = $sql_edit");
+
+        $success = "המחירון נשמר בהצלחה";
+    }
+
+	// first, grab the listings's main info
+	$sql = "SELECT l.ID, l.title, SALEPRICE, COST
+	    FROM listingsDB l
+	    WHERE ((l.ID = $sql_edit) AND (l.user_ID = '$userID'))";
+
+	$recordSet = $conn->Execute($sql);
+	if ($recordSet === false){log_error($sql);}
+
+	$num_records = $recordSet->RecordCount();
+
+	// collect up the main DB's various fields
+	$listing_ID = make_db_unsafe ($recordSet->Fields("ID"));
+	$edit_title = make_db_unsafe ($recordSet->Fields("title"));
+       
+          
+	require($GO_THEME->theme_path."simple_header.inc");
+	include("$config[template_path]/admin_top.html");
+	?>
+
+	<form name="F" action="<?php echo "$PHP_SELF";?>" method="post">
+    <input type=hidden name=edit value="<?=$edit?>">                
+    <input type=hidden name=edit_title value="<?=$edit_title?>">                
+	<table width=100% height=480 cellpadding=0 cellspacing=0>
+	<TR><TD align=center>
+		<?include("productmenu.php")?>
+	</td></td>
+    
+    <?
+    if (!$pricelist) 
+    {      
+        $pricelist = $pricelistsRS->Fields("id");
+    }
+    
+    $selectedPricelist = DBQuery("select p.*,p1.name as base_name from pricelists p
+    left outer join pricelists p1 on p1.id = p.base_pricelist_id
+    where p.id = '$pricelist'");                                    
+     
+    $sql="select * from listingsPrice where listing_id = $sql_edit and pricelist_id = '$pricelist'";
+    $rs = DBQuery($sql);
+    
+    if ($selectedPricelist->Fields("basemetric")=="PRICELIST")
+    {
+        $baseTarif = GetPriceByPricelist($sql_edit,$selectedPricelist->Fields("base_pricelist_id"));
+    }
+    else
+    {
+        $baseTarif = $recordSet->Fields($selectedPricelist->Fields("basemetric"));
+    }
+    
+    $listprice = $baseTarif  * $selectedPricelist->Fields("percent")/100;
+
+    ?>
+    
+    <script>
+      
+            function reloadParent(){
+                var delim = (window.opener.location.href.indexOf("?")>-1)?"&":"?";
+                try{
+                    window.opener.location=window.opener.location.href+delim+'nofocus=1'
+                }
+                catch(e){}
+            }                                   
+            
+            function changeForm(mode){
+                <?if ($mayEdit){?>
+                document.F.percent.disabled = mode!=1;
+                document.F.saleprice.disabled = mode!=2;
+                if (mode!=1)
+                {
+                    document.F.percent.value = document.F.result1.value = "";
+                }
+                if (mode!=2)
+                {
+                    document.F.saleprice.value  = "";
+                }
+                <?}?>
+            }
+            
+            function recalcTarif()
+            {
+                s = document.F.basetariff.value * document.F.percent.value/100
+                s = s.toFixed(<?=$selectedPricelist->Fields("roundprice")?>);
+                document.F.result1.value = s
+            }
+            
+      </script>
+    
+	<TR><TD align=center style='padding:5px'><b>
+			<?
+			if ($doSave && $message){
+				echo "<p style=color:red>$message</p>";
+            }
+			elseif ($doSave && $success){
+				echo "<p style=color:green>$success</p>";
+            }
+            else{
+                echo "<p> &nbsp;</p>";  
+            }
+			?>
+	</TD></TR>
+	<tr style='height:100%'><td valign=top>
+    <table width=100%>
+          <tr>
+            <td width=1%>מחירון:</td>
+            <?$price?>
+            <td>
+                <select name=pricelist onchange='document.F.submit()'>
+                    <?while (!$pricelistsRS->EOF){?>
+                    <option value="<?=$pricelistsRS->Fields("id")?>" <?=$pricelist==$pricelistsRS->Fields("id")?"selected":""?>><?=$pricelistsRS->Fields("name")?>
+                    <?$pricelistsRS->MoveNext();}?>
+                </select>
+                  <span style='color:blue'>
+                  <?=$selectedPricelist->Fields("percent")?>% 
+                  <?
+                  if ($selectedPricelist->Fields("basemetric")=="PRICELIST")
+                  {
+                    echo "ממחירון ".$selectedPricelist->Fields("base_name");
+                  }
+                  else
+                  {
+                    echo $selectedPricelist->Fields("basemetric")=="SALEPRICE"?"ממחיר מכירה":"מעלות פריט";
+                  }
+                  ?>
+
+                  </span>
+            </td>  
+          </tr>
+          <tr><td colspan=4>
+          <hr><b>
+          מחיר פריט במחירון הנבחר:
+          </td></tr>
+          <tr>
+            <td colspan=4>
+            <table>
+            <tr>
+                <td>
+                    <input type=radio <?if (!$mayEdit){?>disabled<?}?> onclick='changeForm(0)' name=pricemode value=0 <?=!$rs->Fields("mode")?"checked":""?>>
+                </td>
+                <td>לפי מחירון:</td>
+                <td></td>
+                <td><input size=8 disabled value="<?=number_format($listprice,$selectedPricelist->Fields("roundprice"),".","")?>"></td>
+            </tr>
+            <tr>
+                <td>
+                    <input type=radio <?if (!$mayEdit){?>disabled<?}?> name=pricemode onclick='changeForm(1);document.F.percent.value=100;recalcTarif();document.F.percent.focus()' value=1 <?=$rs->Fields("mode")==1?"checked":""?>>
+                </td>
+                <td>אחוז מסוים:</td>
+                <td><input size=6 name=percent onkeyup='recalcTarif()' value="<?=$rs->Fields("mode")==1?$rs->Fields("percent"):""?>" onchange='recalcTarif()'>
+                <input type=hidden name=basetariff value="<?=number_format($baseTarif,$selectedPricelist->Fields("roundprice"),".","")?>"></td>
+                <td><input size=8 name=result1 disabled></td>
+            </tr>
+            <tr>
+                <td>
+                    <input type=radio <?if (!$mayEdit){?>disabled<?}?> name=pricemode onclick='changeForm(2);document.F.saleprice.value=document.F.basetariff.value;document.F.saleprice.focus()' value=2 <?=$rs->Fields("mode")==2?"checked":""?>>
+                </td>
+                <td>מחיר מקובע:</td>
+                <td></td>
+                <td><input size=8 name=saleprice value="<?=$rs->Fields("mode")==2?$rs->Fields("saleprice"):""?>"></td> 
+            </tr>
+            </table>
+            <hr>
+                <span style=color:blue;font-size:8pt>
+                  <?
+                  if ($selectedPricelist->Fields("basemetric")=="PRICELIST")
+                  {
+                    echo "מחיר פריט לפי מחירון בסיסי";    
+                  }
+                  else
+                  {
+                    echo $selectedPricelist->Fields("basemetric")=="SALEPRICE"?"מחיר מכירה בסיסי":"עלות בסיסית";
+                    echo " של הפריט =";
+                  }
+                  ?>
+                  <?=number_format($baseTarif,$selectedPricelist->Fields("roundprice"),".","")?> 
+            </td>
+          </tr>
+
+     </table>
+    
+	</td></tr>
+	<tr style='height:1%'><td align=center>
+        <?if ($mayEdit){?>
+        <input type="submit" value='אישור' name=doSave class=button style='background-image:url(<?=$imgPath?>ok.gif)'>
+        <?}?>
+        <input type="button" value='סגור' class=button style='background-image:url(<?=$imgPath?>back.gif)' onclick='window.close()'>
+	</td></tr>
+	</form>
+</table>
+
+<script>
+   changeForm(<?=$rs->Fields("mode")?>)
+   <?if ($rs->Fields("mode")==1){?>
+   recalcTarif();
+   <?}?>
+</script>
+
+<?php
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

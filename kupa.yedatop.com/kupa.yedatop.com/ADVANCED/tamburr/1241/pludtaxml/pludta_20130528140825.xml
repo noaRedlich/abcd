@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="4891199107627" isWeight="0" isDeleted="0" title="סוללות 8 יח' GP AA" category="0" saleprice="19.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1367235298">
+  </Product>
+  <Product barcode="8531" isWeight="0" isDeleted="0" title="דמי לגוויס" category="0" saleprice="2.5" cost="" stockQuantity="-10" minStockQuantity="" lastUpdated="1367235290">
+  </Product>
+  <Product barcode="2962" isWeight="0" isDeleted="0" title="כפפות בד בד" category="0" saleprice="5" cost="" stockQuantity="-8" minStockQuantity="" lastUpdated="1367235280">
+  </Product>
+  <Product barcode="1227" isWeight="0" isDeleted="0" title="דיבל 6" category="0" saleprice="6" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1367235296">
+  </Product>
+  <Product barcode="7290012803352" isWeight="0" isDeleted="0" title="רייד קוטל מעופפים" category="0" saleprice="21.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1367235296">
+  </Product>
+  <Product barcode="70411" isWeight="0" isDeleted="0" title="שקע כוח מוגן מים NW1" category="0" saleprice="19.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1367235288">
+  </Product>
+  <Product barcode="7291044034974" isWeight="0" isDeleted="0" title="מנורה חסכונית  HYUNDAI ECO E27 26W" category="0" saleprice="12.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1367235298">
+  </Product>
+</Products>

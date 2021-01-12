@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="1001" isWeight="0" isDeleted="0" title="vodka abs" category="1" saleprice="116" cost="0.000" stockQuantity="1" minStockQuantity="" lastUpdated="1323763924">
+  </Product>
+</Products>

@@ -1,0 +1,541 @@
+<?php
+
+$simple=1;
+
+$page_subtitle = "יצירת פריטים";
+
+require("include/common.php"); 
+require("include/business_functions.php");
+require("include/document.php");
+require("include/product.php");
+if(!loginCheck('User'))exit;
+
+$atsql = "select a.id, a.name, a.code_length, a.type,la.value,la.id as laid,
+        group_concat(av.name  order by av.sortorder separator '|') as vals,
+        group_concat(av.id order by av.sortorder separator '|' ) as valids,
+        group_concat(av.code order by av.sortorder separator '|' ) as codes
+        from attributes a 
+        left outer join listing_attributes la on la.attribute_id = a.id and listing_id = '$currentId'
+        left outer join attribute_values av on av.attribute_id = a.id and av.status = 1
+        where a.user_id = $userID and a.status=1 
+        and (category_id = 0 or category_id  = '$category')
+        group by a.id, la.value order by a.sortorder,av.sortorder";
+
+$attrs = DBQuery($atsql);		
+$stocks = GetStocks(false);
+
+if (!IsPostBack())
+{
+    $currentIndex = 0;
+}
+
+if ($doStart)
+{
+    $stage=1;
+}
+if ($doReset)
+{
+    $stage=0;
+    $currentIndex = 0;
+    $pproducts = 0;
+}
+
+if ($doLoadTemplate)
+{
+    $trs = DBQuery("select * from attmaster_templates where id = $template");
+    $pproducts = $trs->fields["array"];
+    $doctype = $trs->fields["doc_type"];
+    $stock = $trs->fields["stock_id"];
+    $supplier = $trs->fields["supplier_id"];
+    $category = $trs->fields["category"];
+    $productname = $trs->fields["product_name"];
+}
+
+if($doDeleteTemplate)
+{
+    DBQuery("delete from attmaster_templates where id = $template");
+}
+
+if ($pproducts)
+{
+    eval('$products = '.stripslashes($pproducts).';');
+
+
+    if ($doSaveTemplate)
+    {
+        $templateProducts = array();
+        foreach($products as $index=>$product)
+        {
+            $templateProducts[$index] = $product;
+            $templateProducts[$index]["qty"] = "";
+        }
+        $sql = "delete from attmaster_templates where name = '".addslashes($templatename)."'";
+        DBQuery($sql);
+        $sql = "insert into attmaster_templates (name, product_name, category, supplier_id, stock_id, doc_type, array) values
+				('".addslashes($templatename)."','".addslashes($productname)."','".$category."','".$supplier."','".$stock."','".$doctype."','".addslashes(var_export($templateProducts,true))."')";
+        DBQuery($sql);
+    }
+
+    if ($doNext || $doSave || ($doChangeIndex && $products[$oldIndex]["saved"]))
+    {
+        $products[$oldIndex] = array(
+            "name"=>$pname,
+            "namedirty"=>$namedirty,
+            "barcode"=>$barcode,
+            "qty"=>$qty,
+            "cost"=>$cost,
+            "price"=>$price,
+            "saved"=>true,
+            "attrs"=>array()
+        );
+
+        while(!$attrs->EOF)
+        {
+            $products[$oldIndex]["attrs"][$attrs->Fields("id")] = $_POST["ATTR_".$attrs->Fields("id")];
+            $attrs->MoveNext();
+
+        }
+        $attrs->MoveFirst();
+    }
+    
+    if ($doDelete)
+    {
+        unset($products[$currentIndex]);
+        $pbuff = array();
+        foreach($products as $key=>$product)
+        {
+            $pbuff[] = 	$product;
+        }
+        $products = $pbuff;
+        $currentIndex = $currentIndex == 0 ? 0 : ($currentIndex-1);
+    }
+
+    if ($doFinish)
+    {
+        $doc = new Document($doctype,$stock, $supplier);
+        $doc->Create($STATUS_ACTIVE);
+        foreach($products as $index=>$product)
+        {
+            if ($product["saved"])
+            {
+                $pid = Product::GetIdByBarcode($product["barcode"]);
+                if (!$pid)
+                {
+                    $newItem = new Product($product["name"],$product["barcode"],$product["price"]);
+                    $newItem->cost = $product["cost"];
+                    $newItem->category = $category;
+                    $newItem->attributes = $product["attrs"];
+                    $newItem->Create(false);
+                    $pid = $newItem->id;
+                }
+                $doc->AddItem($pid,$product["qty"]);
+            }
+        }
+        $stage = 2;
+    }
+
+
+}
+else
+{
+    $products = array(
+        "0"=>array(
+        "name"=>"פריט 1",
+        "namedirty"=>0
+        )
+    );
+}
+
+if ($doNext)
+{
+    $currentIndex++;
+    if ($currentIndex==count($products))
+    {
+        $products[$currentIndex] =
+            array(
+            "name"=>"פריט ".(count($products)+1),
+            "namedirty"=>0
+        );
+    }
+}
+
+//echo $currentIndex;
+//echo "<hr>";
+//print_r("<textarea dir=ltr cols=80 rows=10>".var_export($products,true)."</textarea>");
+
+include($config["template_path"]."/admin_top.html");
+$cats = DBQuery("select * from listingsCategories where user_ID = $userID and Status=1 order by binary CategoryName");
+$suppliers = DBQuery("select * from listingsSuppliers where Status=1 and isSupplier=1 and user_id = $userID order by binary SupplierName");
+
+$enabled = true;
+
+$idx = ($currentIndex==count($products)-1)?$currentIndex-1:$currentIndex;
+
+$pname = $products[$idx]["name"];	
+$barcode = $products[$idx]["barcode"];	
+$qty = $products[$idx]["qty"];	
+$cost = $products[$idx]["cost"];	
+$price = $products[$idx]["price"];	
+$namedirty = $products[$idx]["namedirty"];	
+while(!$attrs->EOF)
+{
+    $_POST["ATTR_".$attrs->Fields("id")] = 	$products[$idx]["attrs"][$attrs->Fields("id")];
+    $attrs->MoveNext();
+}
+$attrs->MoveFirst();	
+
+$barcodes = "";
+foreach ($products as $product)
+{
+                                    $barcodes.=",'".$product["barcode"]."'";
+}
+if ($barcodes!="")$barcodes=substr($barcodes,1);
+
+$templatesRS = DBQuery("select name,id from attmaster_templates order by binary name");
+
+?>
+<form method="post" name=F onsubmit="enableAll()" >
+    <input type="hidden" name="stage" value="<?=$stage?>">
+    <input type="hidden" name="doReset" >
+    <input type="hidden" name="currentIndex" value="<?=$currentIndex?>">
+    <textarea style="display:none" name="pproducts" ><?=var_export($products,true)?></textarea>
+    <table height="100%" width="100%">
+        <tr style="height:1%"><td colspan="2">
+
+
+                <table border="0" width="100%">
+                    <tr>
+                        <td align="left"><b>נקודת מכירה:</b></td>
+                        <td>
+                            <select name=stock <?=$stage?"disabled":""?>>
+<?FillStockList($stocks,$stock);?>
+                            </select>
+                        </td>
+                        <td align="left"><b>סוג פעולה:</b></td>
+                        <td>
+                            <select ismandatory="true"  name=doctype <?=$stage?"disabled":""?>>
+                                <option value="KNIYA" <?$doctype=="KNIYA"||!$doctype?"selected":""?>>קניה</option>
+                                <option value="KNISALEMLAI" <?$doctype=="KNISALEMLAI"?"selected":""?>>כניסה למלאי</option>
+                            </select>
+                        </td>
+                        <td colspan="3" align="left">
+                            <a href=# onclick="parent.wopen1('cp/main.php?service=attributes&cid=1','tools')"><u>הגדרת מאפיינים</u></a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align="left"><b>מחלקה:</b></td>
+                        <td>
+                            <select ismandatory="true"  name=category <?=$stage?"disabled":""?>>
+                                <option value="">
+<?FillCategoriesList($category);?>
+                            </select>
+                        </td>
+                        <td align="left"><b>ספק:</b></td>
+                        <td>
+                            <select ismandatory="true"  name=supplier <?=$stage?"disabled":""?>>
+                                <option value="">
+<?while(!$suppliers->EOF)
+                    {?>
+                                <option value="<?=$suppliers->fields["ID"]?>" <?=($supplier==$suppliers->fields["ID"])?"selected":""?>><?=$suppliers->fields["SupplierName"]?>
+    <?$suppliers->MoveNext();}?>
+                            </select>
+                        </td>
+
+                        <td align="left"><b>שם פריט כללי:</b></td>
+                        <td><input ismandatory="true"  <?=$stage?"disabled":""?> name="productname" id="productname" value="<?=str_replace('"','&quot;',$productname)?>" style="width:200px"></td>
+                            <?if (!$stage)
+{?>
+                        <td>&nbsp;<input type="submit" name="doStart" value="התחל" onclick="if (!validateForm())return false;" ></td>
+<?}else
+{?>
+                        <td>&nbsp;<input  type="button" value="בטל" onclick="if (confirm('להצור תעליך ולחזור למצב התחלתי?')){document.F.doReset.value=1;document.F.submit();}" ></td>
+<?}?>
+                    </tr>
+                </table>
+
+            </td>
+        </tr>
+
+        <tr style="height:1%">
+            <td colspan="2">
+                <div style="border:solid 1 gray;padding:5px">
+<?if ($stage!=0)
+{?>
+		שמור כתבנית: <input name="templatename" size=30 value="<?=$templatename?>">
+                    <input name="doSaveTemplate" value="שמור" type="submit" onclick='if (!validateTemplate())return false;'>&nbsp;&nbsp;&nbsp;
+                            <?}?>
+<?if ($stage==0)
+                            {?>
+		בחר תבנית: 
+                    <select name="template" onchange="document.F.doLoadTemplate.disabled=document.F.doDeleteTemplate.disabled=this.value=='';">
+                        <option>
+    <?while (!$templatesRS->EOF)
+                        {?>
+                        <option value="<?=$templatesRS->fields["id"]?>"><?=$templatesRS->fields["name"]?></option>
+        <?$templatesRS->MoveNext();}?>
+                    </select>
+                    &nbsp;
+                    <input name="doLoadTemplate" value="בחר" type="submit" disabled>&nbsp;
+                    <input name="doDeleteTemplate" value="מחק" type="submit" disabled onclick='if (!confirm("למחוק תבנית?"))return false;'>
+<?}?>
+                </div>
+            <td>
+        </tr>
+
+        <tr>
+            <td width="99%">
+                <div style="height:470px;BORDER:inset 2;padding:5px;overflow:auto" onkeydown="processKey();" onkeypress="if (window.event.keyCode==13){return disableEnterKey()}">
+                                <?if ($stage==2)
+{?>
+
+                    <p>
+
+                        <b>
+		הפעולה היסטימה בהצלחה.
+                            <br><br>
+		נוצר <a href="javascript:openDoc('docid=<?=$doc->id?>')"><u>מסמך מס' <?=$doc->number?></u></a></b>
+                        <br><br>
+                        <input type="button" value="סגור" onclick="window.close()">
+                    </p>
+
+                                <?}elseif ($stage==1)
+                                {?>
+                    <table cellspacing="2" cellpadding="2" id="ATTRS">
+                        <tr>
+                            <td style="background-color:gray;color:white;font-weight:bold" colspan="2">פריט <?=$currentIndex+1?> מתוך <?=count($products)?></td>
+                        </tr>
+                        <tr><td colspan="2">&nbsp;</td></tr>
+    <?while(!$attrs->EOF)
+    {?>
+                        <tr>
+                            <td width=1% nowrap><?=$attrs->Fields("name")?>:</td>
+                            <td width=99%>
+        <?switch($attrs->Fields("type"))
+        {
+            case "STRING":?>
+                                <input codelength="<?=$attrs->Fields("code_length")?>" autocomplete="off" <?=(!$enabled)?"disabled":""?> maxlength=200 style='width:200px' type=text name="ATTR_<?=$attrs->Fields("id")?>" value="<?=str_replace('"','&quot;',$_POST["ATTR_".$attrs->Fields("id")])?>">
+                <?
+                break;
+            case "VLIST":?>
+                                <select onchange="calcBarcode()" codelength="<?=$attrs->Fields("code_length")?>" <?=(!$enabled)?"disabled":""?>   name="ATTR_<?=$attrs->Fields("id")?>" id="ATTR_<?=$attrs->Fields("id")?>" >
+                                    <option value=>
+                <?$vals = explode("|",$attrs->Fields("vals"));
+                $valids = explode("|",$attrs->Fields("valids"));
+                $codes = explode("|",$attrs->Fields("codes"));
+                $c=0;
+                foreach($vals as $val)
+                {
+                    ?><option value="<?=$valids[$c]?>" code="<?=$codes[$c]?>" <?=($valids[$c]==$_POST["ATTR_".$attrs->Fields("id")])?"selected":""?>><?=$val?>
+                    <?$c++;}
+                ?>
+                                </select>
+                <?
+                break;
+        }
+        ?>
+                            </td>
+                        </tr>
+
+                            <?$attrs->MoveNext();}?>
+                        <tr valign="top">
+                            <td style="padding-left:0px"><hr>ברקוד:</td>
+                            <td style="padding-right:0px"><hr><input tabindex=-1  readonly style="color:gray;background-color:#efefef" autocomplete="off" type="text" size=50 name="barcode" id="barcode" value="<?=$barcode?>" ></td>
+                        <tr>
+                        <tr valign="top">
+                            <td >שם פריט: <span class="error">*</span></td>
+                        <input type="hidden" name="namedirty" value="<?=$namedirty?>">
+                        <td ><input ismandatory="true"  autocomplete="off" onchange="document.F.namedirty.value=1" type="text" size=50 id="pname" name="pname" value="<?=$pname?>" ></td>
+                        <tr>
+                        <tr>
+                            <td>כמות: <span class="error">*</span></td>
+                            <td><input ismandatory="true" format="float" type="text" size=3 name="qty" id=qty  autocomplete="off" value="<?=$qty?>" ></td>
+                        <tr>
+                        <tr>
+                            <td>עלות: <span class="error">*</span></td>
+                            <td><input ismandatory="true" format="float" type="text" name="cost"  autocomplete="off" value="<?=$cost?>" size=10 ></td>
+                        <tr>
+                        <tr>
+                            <td nowrap>מחיר מכירה: <span class="error">*</span></td>
+                            <td><input ismandatory="true" format="float" type="text" name="price" autocomplete="off" value="<?=$price?>" size=10 ></td>
+                        <tr>
+
+                    </table>
+                    <br/>
+                    <input type="submit" name="doNext" value="שמור ועבר לפריט הבא" onclick="if (!validateForm())return false;">
+                    <input type="submit" name="doFinish" value="שמור וסיים"  onclick="if (!validateForm())return false;">
+                    <input type="submit" name="doBack" value="לפריט קודם"  onclick="goIndex(<?=$currentIndex-1?>)" <?=$currentIndex==0?"disabled":""?>>
+                    <input type="submit" name="doDelete" value="מחק">
+                    <input type="hidden" name="doChangeIndex" value="">
+                    <input type="hidden" name="oldIndex" value="<?=$currentIndex?>">
+
+<?}elseif(!$stage)
+{?>
+
+<?}?>
+                </div>
+
+            </td>
+<?if ($stage==1)
+{?>
+            <td width="1%">
+                <div style="width:200px;height:470px;BORDER:inset 2;padding:5px;overflow:auto">
+                    <table width="100%" cellpadding="3">
+    <?foreach($products as $index=>$product)
+    {?>
+                        <tr onmouseover="this.style.backgroundColor='lightgray'" onmouseout="this.style.backgroundColor=''"  <?=($index==$currentIndex)?"class=TableHead2":""?>>
+                            <td style="cursor:pointer" onclick="goIndex(<?=$index?>)"><?=$product["name"]?></td>
+                        </tr>
+    <?}?>
+                    </table>
+                </div>
+            </td>
+<?}?>	
+        </tr>
+    </table>
+</form>
+<script>
+    var barcodes = [<?=$barcodes?>];
+
+
+    function ArrayPos( arr, v) {
+        for (i=0;i<arr.length;i++){
+            if (arr[i]==v)return i;
+        }
+        return -1;
+    };
+
+
+    var isValidationOK;
+    function validateForm(){
+        isValidationOK = true;
+        var barc = $("#barcode").attr("value");
+        if (typeof(barc)!="undefined"){
+            if (barc.replace(/0/g,"")==""){
+                alert("יש להזין מאפיינים כדי ליצור פריט עם ברקוד");
+                isValidationOK = false;
+            }
+        }
+
+        var barcExistsPos = ArrayPos(barcodes,barc);
+        if (barcExistsPos!=-1 && barcExistsPos!=<?=$currentIndex?>){
+            alert("פריט עם ברקוד זה כבר קיים בקבוצה");
+            isValidationOK = false;
+        }
+
+        if (isValidationOK){
+            $("[ismandatory='true'][value='']").each(
+            function(){
+                if (isValidationOK){
+                    this.focus();try{this.select();}catch(e){}
+                    alert("יש להזין ערך בכול שדות חובה");
+                    isValidationOK = false;
+                    return;
+                }
+            }
+        );
+        }
+
+        if (isValidationOK){
+            $("[format='float'][value!='']").each(
+            function(){
+                if (isValidationOK){
+                    if (isNaN(parseFloat(this.value))){
+                        this.focus();try{this.select();}catch(e){}
+                        alert("יש להזין ערך מספרי");
+                        isValidationOK = false;
+                        return;
+                    }
+                }
+            }
+        );
+        }
+
+        return isValidationOK;
+
+    }
+
+    function goIndex(index){
+        document.F.oldIndex.value = document.F.currentIndex.value;
+        document.F.currentIndex.value = index;
+        document.F.doChangeIndex.value = 1;
+        enableAll();
+        document.F.submit();
+    }
+
+    function calcBarcode(){
+        var barcode = "";
+        var name = $("#productname").attr("value");
+
+        $("#ATTRS select").each(function(){
+            codelength = ($("#"+this.id).attr("codelength"));
+            code = this.options[this.selectedIndex].code;
+            if (typeof(code)=="undefined")code="";
+            barcode+=LPad(code,codelength,"0");
+            name+=" "+this.options[this.selectedIndex].text;
+        });
+        $("#barcode").attr("value",barcode);
+
+        if (document.F.namedirty.value!=1){
+            $("#pname").attr("value",name);
+        }
+    }
+
+    function LPad(ContentToSize,PadLength,PadChar){
+        var PaddedString;
+        PaddedString=ContentToSize;
+        for(i=ContentToSize.length+1;i<=PadLength;i++)
+        {
+            PaddedString=PadChar+PaddedString;
+        }
+        return PaddedString;
+    }
+
+<?if ($stage==1)
+{?>
+    $(document).ready(function(){
+        calcBarcode()
+        document.F.qty.focus();
+        document.F.qty.select();
+    });
+<?}?>
+
+    function enableAll(){
+        $("input").removeAttr('disabled');
+        $("select").removeAttr('disabled');
+    }
+
+    function validateTemplate(){
+        if (document.F.templatename.value==""){
+            alert("יש להזין שם תבנית");
+            document.F.templatename.focus();
+            return false;
+        }
+        return true;
+    }
+
+    function processKey(){
+        var key = window.event.keyCode;
+        if (key==13){
+            document.F.doNext.click();
+        }
+    }
+
+    function disableEnterKey(e)
+    {
+        var key;
+
+        if(window.event)
+            key = window.event.keyCode;     //IE
+        else
+            key = e.which;     //firefox
+
+        if(key == 13)
+            return false;
+        else
+            return true;
+    }
+
+</script>
+<?
+$conn->Close(); // close the db connection
+?>

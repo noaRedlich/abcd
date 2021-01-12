@@ -1,0 +1,53 @@
+<?php
+
+	$simple=1;
+
+ 	$page_subtitle = "שינוי סטטוס מסמך";
+
+	require("include/common.php"); 
+    require("include/business_functions.php");
+    require("include/document.php");
+	if(!loginCheck('User'))exit;
+    
+	include("$config[template_path]/admin_top.html");
+    
+    $rs = DBQuery("select * from $TABLE_DOCUMENT_TYPE where id in 
+    (select cancel_type_id from $TABLE_DOCUMENT_TYPE where id = 
+     (select doc_type from documents where id = $docid))");
+    if ($rs->Fields("name"))
+    {
+        $msg = "כתוצאה של הביטול יוצר מסמך חדש: <b style=color:blue>".$rs->Fields("name")."</b>.";
+    }    
+    
+?>
+
+<table width=100% height=180>
+<tr style='height:1%'>
+ <td>
+ <center>
+ <b><?=$msg?></b>
+ </center>
+ <br>
+ סיבת שינוי סטטוס:   
+ </td>
+</tr>
+
+<tr>
+ <td>
+ <textarea style=width:100%;height:100% id=reason></textarea>
+ </td>
+</tr>
+
+<tr style='height:1%'>
+ <td align=center>
+    <input type=button id=btnOK value='אישור' onclick='dialogArguments.document.F.statusreason.value=document.all.reason.value;window.returnValue=1;window.close();' style='background:url(<?=$imgPath?>ok.gif);background-repeat:no-repeat' class=button>
+    <input type=button value='סגור' onclick='window.returnValue=0;window.close();' style='background:url(<?=$imgPath?>back.gif);background-repeat:no-repeat' class=button>
+ </td>
+</tr>
+
+</table>
+
+<?
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

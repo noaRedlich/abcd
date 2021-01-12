@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="422" isWeight="0" isDeleted="0" title="דבק פיקס לבן 109" category="0" saleprice="35" cost="" stockQuantity="-48" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="4891199112638" isWeight="0" isDeleted="0" title="סוללות AA שישייה GP" category="0" saleprice="16" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1339668339">
+  </Product>
+  <Product barcode="189" isWeight="0" isDeleted="0" title="ידיות לדלת" category="0" saleprice="28.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1326886228">
+  </Product>
+  <Product barcode="83852" isWeight="0" isDeleted="0" title="גליל קרטון" category="0" saleprice="89" cost="" stockQuantity="-17" minStockQuantity="" lastUpdated="1339668341">
+  </Product>
+  <Product barcode="114" isWeight="0" isDeleted="0" title="מסקינג טייפ מעוז" category="0" saleprice="6.9" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="7290102621415" isWeight="0" isDeleted="0" title="שפכטל טמבור &quot;6" category="0" saleprice="14.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668342">
+  </Product>
+  <Product barcode="80925" isWeight="0" isDeleted="0" title="נייר טואלט טישו אביבית 48 גל'" category="0" saleprice="39" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="1555" isWeight="0" isDeleted="0" title="נוזל חלונות אקדח 750" category="0" saleprice="10" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="56216" isWeight="0" isDeleted="0" title="חומצת מלח 30% 4 ליטר" category="0" saleprice="26.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+  <Product barcode="15210" isWeight="0" isDeleted="0" title="טרפנטין 1 ליטר" category="0" saleprice="15.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="7296166389476" isWeight="0" isDeleted="0" title="דיסק דק &quot;4.5 לברזל גמל" category="0" saleprice="8.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668344">
+  </Product>
+  <Product barcode="4887" isWeight="0" isDeleted="0" title="רביעיית מטליות מיקרופייבר" category="0" saleprice="10" cost="" stockQuantity="-10" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="1037" isWeight="0" isDeleted="0" title="תקע כוח" category="0" saleprice="4.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668344">
+  </Product>
+  <Product barcode="7290006547279" isWeight="0" isDeleted="0" title="כרית ניקוי" category="0" saleprice="1.5" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1326886228">
+  </Product>
+  <Product barcode="43025" isWeight="0" isDeleted="0" title="טיח גבס 791 30 ק&quot;ג" category="0" saleprice="40" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="10187" isWeight="0" isDeleted="0" title="כף בנאי 14 ידית עץ" category="0" saleprice="15.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668343">
+  </Product>
+  <Product barcode="70199" isWeight="0" isDeleted="0" title="גוף תאורה מוגן מים יונדאי משנק אלק'" category="0" saleprice="169" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668339">
+  </Product>
+</Products>

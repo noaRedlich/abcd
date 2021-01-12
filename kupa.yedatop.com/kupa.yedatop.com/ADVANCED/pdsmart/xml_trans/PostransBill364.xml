@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="1258" BillId="364" ClientId="1">
+  <Products>
+    <Product Id="10002">
+      <Name>SPIRT 96.6% 0.7 L        כהל 9</Name>
+      <Barcode>788558666767</Barcode>
+      <SalePrice>45</SalePrice>
+      <SaledPrice>45</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10005">
+      <Name>VODKA MOROZOV BEREZA 0.7 L   ו</Name>
+      <Barcode />
+      <SalePrice>30</SalePrice>
+      <SaledPrice>30</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10008">
+      <Name>VODKA IMPERATOR 0.7 L      ווד</Name>
+      <Barcode />
+      <SalePrice>30</SalePrice>
+      <SaledPrice>30</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>105.00</Cash>
+  </Pay>
+</Bill>

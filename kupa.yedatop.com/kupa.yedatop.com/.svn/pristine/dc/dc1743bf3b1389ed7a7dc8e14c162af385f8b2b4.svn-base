@@ -1,0 +1,100 @@
+<?php
+
+include_once("printhtml.php");
+
+class TemplateHTMLDocumentWriter extends HTMLDocumentWriter
+{
+	
+	function TemplateHTMLDocumentWriter($docid)
+	{
+		$this->isSmarty = true;
+		$this->HTMLDocumentWriter($docid);
+	}
+	
+	function StyleSheet()
+	{
+		return 
+		"
+		body {width:18cm;}
+		
+		body,td,b{font-family:courier new;font-size:12px}
+
+		.products-header {border-top:solid 1px #000000;border-bottom:solid 1px #000000;}
+		.products-total {border-top:solid 1px #000000;}
+		
+		.break{page-break-before:always;}
+		
+		.company-name
+		{
+			font-weight:bold;
+			font-size:22px;
+		}
+		.doc-name
+		{
+			font-weight:bold;
+			font-size:26px;
+		}
+		.header
+		{
+			height:2.5cm
+		}
+
+		.table
+		{
+			border-collapse:collapse;
+		}
+
+		.table td
+		{
+			border:solid 1px black;
+		}
+
+
+		.table td
+		{
+			padding:3px;
+		}
+
+		.spacer
+		{
+			height:.3cm
+		}
+		.small-spacer
+		{
+			height:3px;
+			font-size:1px;
+		}
+
+
+		.noborder
+		{
+			border:none !important;
+		}
+
+		.footer
+		{
+			font-size:10px;
+		}
+
+		.box
+		{
+			width:100%;
+			height:2.5cm;
+			border: solid 1px black;
+			padding:0 10px;
+		}
+
+		.box legend
+		{
+			color: black;
+			font-weight:bold;
+		}
+		";
+	}
+	
+
+	
+	
+}
+
+?>

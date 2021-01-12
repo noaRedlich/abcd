@@ -1,0 +1,591 @@
+<?php
+$simple=1;
+ob_start();
+
+$stockmode="clients";   
+require("include/common.php");
+require("include/business_functions.php");
+require("include/client.php");
+
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+ob_end_clean();
+
+if (!$tabmode)$tabmode="CLIENTS";
+switch ($tabmode)
+{
+	case "CLIENTS":
+		$caption = $lang["clients"];
+		$scaption = $lang["admin_listings_editor_contact1"];
+		break;
+	case "PERSONS":
+		$caption = $lang["person"];
+		$scaption = $lang["comm_person"];
+		break; 
+	
+}
+
+if ($delete != "")
+{
+	
+	$sql_delete = make_db_safe($delete); 
+	$test = DBQuery("select id from documents where (client_id = $sql_delete or agent_id = $sql_delete) ");
+	$test2 = DBQuery("select id from purchases where supplier_id = $sql_delete");
+	$test3 = DBQuery("select id from crm_documents where worker_id = $sql_delete  ");
+	$test4 = DBQuery("select id from crm_document_clients where client_id = $sql_delete  ");
+	if ($test->EOF && $test2->EOF && $test3->EOF && $test4->EOF)
+	{                                              
+		// delete a listing
+		$sql = "DELETE FROM listingsSuppliers WHERE ((ID = $sql_delete) AND (user_ID = $userID))";
+		DBQuery($sql);    
+	}
+	else
+	{
+		$cant_delete = true;
+	}
+	
+	
+}
+?>
+    
+<head>
+<?$duration=($UserData->Fields("visual_effects"))?2:0;?>
+<meta http-equiv="Page-Enter" content="BlendTrans(Duration=0.<?=$duration?>)">
+<meta http-equiv="content-type" content="text/html; charset=<?=$charset?>">
+<link href="/themes/blue-grey/style.css" rel="stylesheet" type="text/css">
+<link href="template/vertical-menu/style.css" rel="stylesheet" type="text/css">
+<script src='/javascript/common.js'></script>
+<script>
+var delete_error = "<?=$lang["delete_error"]?>";
+function selectall(checked){
+	var ids="-1";
+	for (i=0;i<document.all.tags("INPUT").length;i++){
+		if (document.all.tags("INPUT")(i).type=="checkbox" && document.all.tags("INPUT")(i).id!=null&&document.all.tags("INPUT")(i).id!=""){
+			document.all.tags("INPUT")(i).checked = checked;
+			ids+=","+document.all.tags("INPUT")(i).id;
+		}
+	}
+	if (ids!=""){
+		<?if ($tabmode=="CLIENTS"){?>
+		parent.clientbasket(ids,checked);
+		<?}elseif ($tabmode=="PERSONS"){?>
+		parent.personbasket(ids,checked);
+		<?}?>
+	}
+}
+
+
+</script>
+
+</head>
+    
+<?
+$rsStocks = GetStocks(true);
+
+$s='';$q='';$gs='';
+
+
+
+$sql = "select ID, SupplierName as Title, phone,fax,email,PaymentTypeVerified,CreateDate,status, basket
+		from listingsSuppliers s";
+
+$sqlwhere = " WHERE  s.user_ID = $userID  and s.id <> 1 ";
+$sqlwhere.=" and allowhakafa=1 ";
+	
+if ($inv)
+{
+	if ($ClientName)
+	{
+		$sqlwhere.=" and suppliername like binary '%".addslashes($ClientName)."%'";
+	}  
+	if ($BusinessNum)
+	{ 
+		$sqlwhere.=" and (BusinessNum = '".addslashes($BusinessNum)."' 
+				or exists (select id from persons where supplier_id = s.id and personnum = '".addslashes($BusinessNum)."'))";    
+	}
+	if ($Phone)
+	{ 
+		$sqlwhere.=" and  
+				( 
+				replace(replace(Phone,'-',''),' ','') = '".addslashes(str_replace(array(" ", "-"),"",$Phone))."'
+				or replace(replace(Phone2,'-',''),' ','') = '".addslashes(str_replace(array(" ", "-"),"",$Phone))."'
+				or replace(replace(CellPhone,'-',''),' ','') = '".addslashes(str_replace(array(" ", "-"),"",$Phone))."'
+				) ";    
+	}
+}
+else
+{
+	if ($companyid)
+	{
+		$sqlwhere.=" and s.id = $companyid";
+	}	
+	elseif ($ClientName)
+	{
+		$sqlwhere.=" and suppliername like binary '%".addslashes($ClientName)."%'";
+	}  	
+	if ($status!="")
+	{
+		$sqlwhere.=" and status = ".($status);
+	}
+	
+	if ($catid!="" && $catid!=-1)
+	{
+		$sqlwhere.=" and ifnull(groupid,0) = ".$catid;
+	}
+	
+	
+	
+	/*
+	$sqlwhere.= " and (1=0 ";  
+	if ($isClient)$sqlwhere.=" or isClient = 1";
+	if ($isSupplier)$sqlwhere.=" or isSupplier = 1"; 
+	if ($isAgent)$sqlwhere.=" or isAgent = 1"; 
+	if ($isWorker)$sqlwhere.=" or isWorker = 1";   
+	$sqlwhere.= ")";    
+	*/
+	
+	
+	if ($BusinessNum)
+	{
+		$sqlwhere.=" and (BusinessNum = '".addslashes($BusinessNum)."' 
+				or exists (select id from persons where supplier_id = s.id and personnum = '".addslashes($BusinessNum)."'))";    
+	}
+	if ($Phone)
+	{ 
+		$sqlwhere.=" and  
+				( 
+				replace(replace(Phone,'-',''),' ','') = '".addslashes(str_replace(array(" ", "-"),"",$Phone))."'
+				or replace(replace(Phone2,'-',''),' ','') = '".addslashes(str_replace(array(" ", "-"),"",$Phone))."'
+				or replace(replace(CellPhone,'-',''),' ','') = '".addslashes(str_replace(array(" ", "-"),"",$Phone))."'
+				) ";    
+	} 
+	if ($tnai!="")
+	{
+		$sqlwhere.=" and PaymentTypeVerified = ".$tnai;    
+	}
+	if ($ClientNum!="")
+	{
+		$sqlwhere.=" and  clientnum = '".addslashes($ClientNum)."' ";
+	}
+	if ($AccountNum!="")
+	{
+		$sqlwhere.=" and  account = '".addslashes($AccountNum)."' ";
+	}
+	/*
+	if (intval($stock)>0)
+	{
+		$showUnrelatedItems = "true";
+		if ($officeUserID != $userID && !$UserData->fields["ShowUnrelatedItemsToSubUsers"])
+		{
+			$showUnrelatedItems = "false";
+		}
+		$sqlwhere.=" and  (( $showUnrelatedItems and ifnull(related_stock_id,0)=0)  or related_stock_id = '".addslashes($stock)."' ) ";
+	}
+	*/
+	
+
+	
+	if ($hovOnly)
+	{
+		$sqlwhere.=" and (
+				select
+				sum(amount * (case when dt.balance='+' then 1 else -1 end))
+				from documents d, $TABLE_DOCUMENT_TYPE dt, $TABLE_DOCUMENT_STATUS ds
+				where
+				s.id = d.client_id and 
+				dt.id = d.doc_type and
+				ds.id = d.doc_status and
+				ds.countbalance = 1 and
+				dt.balance in ('+','-') and
+				d.doc_status not in (".$STATUS_DRAFT."))>0";
+	}
+	
+}
+
+
+
+// this is the main SQL that grabs the listings
+// basic sort by title..
+if ($sortby == "")
+{
+	$order_text = " ORDER BY ID desc";
+}
+elseif ($sortby=="suppliername")
+{
+	$order_text = " ORDER BY binary $sortby ".($asc?"ASC":"DESC");
+}
+else
+{
+	$order_text = " ORDER BY $sortby ".($asc?"ASC":"DESC");
+}
+$sqlrows="select count(*) as cnt from listingsSuppliers s $sqlwhere";
+
+
+
+$sqlHov = "select
+				sum(amount) as total
+				from documents d, $TABLE_DOCUMENT_TYPE dt, $TABLE_DOCUMENT_STATUS ds
+				where
+				d.client_id in (select id from listingsSuppliers s $sqlwhere) and 
+				dt.id = d.doc_type and
+				ds.id = d.doc_status and
+				ds.countbalance = 1 and
+				dt.balance ='+' and
+				d.doc_status not in (".$STATUS_DRAFT.")";
+				
+$totalHov = DBQuery($sqlHov);		
+$totalHov = $totalHov->fields["total"];
+
+$sqlHov = "select
+				sum(amount*-1) as total
+				from documents d, $TABLE_DOCUMENT_TYPE dt, $TABLE_DOCUMENT_STATUS ds
+				where
+				d.client_id in (select id from listingsSuppliers s $sqlwhere) and 
+				dt.id = d.doc_type and
+				ds.id = d.doc_status and
+				ds.countbalance = 1 and
+				dt.balance ='-' and
+				d.doc_status not in (".$STATUS_DRAFT.")";
+				
+$totalZhut = DBQuery($sqlHov);		
+$totalZhut = $totalZhut->fields["total"];
+
+$totalYetra = $totalZhut+$totalHov;
+
+//echo $sqlwhere;
+/////////////////// END SEARCH /////////////////
+
+//echo $sql;
+$ADODB_FETCH_MODE = ADODB_FETCH_ASSOC;
+
+
+$recordSet = DBQuery($sqlrows);
+$num_rows = $recordSet->fields["cnt"];
+
+$sql = $sql.$sqlwhere.$order_text;
+
+
+//echo $sql;
+
+// build the string to select a certain number of listings per page
+//$config[listings_per_page]=1;
+$limit_str = $cur_page * $config[listings_per_page];
+
+$recordSet = $conn->SelectLimit($sql, $config[listings_per_page], $limit_str );
+
+$end=time();
+//echo "elapsed:".($end-$sta);
+
+
+$count = 0;
+?>
+<body topmargin=0 leftmargin=0 scroll=no >
+<form name=s method=get action='clientlist.php'>
+<input type=hidden name=inv>
+<input type=hidden name=tabmode value="<?=$tabmode?>">
+<input type=hidden name=client>
+<table DIR=<?=$dir?> cellpadding=0 cellspacing=0 width=100% height=100% border=0>
+<tr style='height:1%'><td>
+<!--MAIN TABLE-->
+    
+    <table cellpadding=0 cellspacing=0 border=0 width=100% bgcolor=buttonface>
+    <TR>
+		<td width=100% nowrap style='font-size:8pt' height=26 valign=middle>
+        &nbsp;<?=$lang["name"]?>: <input size=9 name=ClientName style='border:inset 1;background-color:#efefef;' id=ClientName>
+        &nbsp;<?=$lang["number_id"]?>: <input size=9 name=BusinessNum style='border:inset 1;background-color:#efefef;' id=BusinessNum>
+        <input type=hidden name=search value=1><input style='font-size:8pt;background-image:url(<?=$imgPath?>find.gif)' type=button class=button onclick='document.s.inv.value=1;document.s.submit();' title='<?=$lang["find_by_name"]?>'>&nbsp;&nbsp;</td>
+		<td nowrap width=1% align=left>
+<?
+$gs=queryString("cur_page,delete");
+$lang["listings"]=$caption;
+$lang["listing"]=$scaption;
+//"stock=$stock&catid=$catid&deleted=$deleted&sortby=$sortby&title=".urlencode($title)."&BarCode=$BarCode&ProductGroup=$ProductGroup&MisparZar=$MisparZar&Sapak=$Sapak&MisparSiduri=$MisparSiduri&MisparChalifi=$MisparChalifi&search=".$_GET["search"];
+next_prev($num_rows, $cur_page, $gs);
+            ?>
+		</td>
+<?/*
+      <td width=1%>
+      <input type=button value='<?=$lang["print"]?>' onclick='printList()' class=button style='background-image:url(<?=$imgPath?>printer.gif)'>
+      </td>
+		*/?>
+	</tr>
+    </table>
+
+</td></form>
+</tr>
+<tr style='height:1%'><td height=5></td></tr>
+
+<tr><td>
+
+<div id=CONTAINER  style='border:solid 1 gray;overflow-Y:scroll;overflow-X:auto;position:absolute;width:100%;height:100%'>
+<?
+$qs=queryString("sortby,cur_page,asc,delete"); 
+
+$asc = ($asc)?0:1;
+?>
+<table border="0" id=LISTTABLE cellspacing="0" cellpadding="<?php echo $style[admin_listing_cellpadding] ?>" width="100%" class="form_main">
+<tr id=HEADER class='tableHead2 none' style='position:absolute;top:expression(document.getElementById("CONTAINER").scrollTop);left:0'   align=center>
+
+<?if ($UserData->Fields("MlaitekProEnabled")){?>
+<td class="tableHead2" width=1% nowrap>&nbsp;</td> 
+<?}?>
+<td class="tableHead2" width=1% nowrap><a class=gridtitlelink href="<?=basename($PHP_SELF)."?".$qs."&sortby=suppliername&asc=$asc"?>"><?=$lang["name"]?></a></td>
+<td class="tableHead2" width=1% nowrap><a class=gridtitlelink href="<?=basename($PHP_SELF)."?".$qs."&sortby=createdate&asc=$asc"?>"><?=$lang["admin_listings_editor_date"]?></a></td>
+<td class="tableHead2"  width=15% nowrap><?=$lang["phone"]?></td>
+<td class="tableHead2" nowrap><?=$lang["fax"]?></td>
+<td class="tableHead2" nowrap><?=$lang["email2"]?></td>
+<td class="tableHead2" nowrap><?=$lang["chov"]?></td>
+<td class="tableHead2" nowrap><?=$lang["credit"]?></td>
+<td class="tableHead2" nowrap><?=$lang["balance"]?></td>
+<td class="tableHead2" nowrap><a class=gridtitlelink href="<?=basename($PHP_SELF)."?".$qs."&sortby=PaymentTypeVerified&asc=$asc"?>"><?=$lang["payment_type"]?></a></td>
+<td class="tableHead2" nowrap><?=$lang['admin_listings_editor_action']?></td>
+
+
+
+</tr>
+
+
+
+<tr class=tableHead2 align=center>
+
+
+<?if ($UserData->Fields("MlaitekProEnabled")){?> 
+<td class="tableHead2" width=1% nowrap>&nbsp;</td>
+<?}?>
+<td class="tableHead2" width=1% nowrap><a class=gridtitlelink href="<?=basename($PHP_SELF)."?".$qs."&sortby=suppliername&asc=$asc"?>"><?=$lang["name"]?></a></td>
+<td class="tableHead2" width=1% nowrap><a class=gridtitlelink href="<?=basename($PHP_SELF)."?".$qs."&sortby=createdate&asc=$asc"?>"><?=$lang["admin_listings_editor_date"]?></a></td>
+<td class="tableHead2"  width=15% nowrap><?=$lang["phone"]?></td>
+<td class="tableHead2" nowrap><?=$lang["fax"]?></td>
+<td class="tableHead2" nowrap><?=$lang["email2"]?></td>
+<td class="tableHead2" nowrap><?=$lang["chov"]?></td>
+<td class="tableHead2" nowrap><?=$lang["credit"]?></td>
+<td class="tableHead2" nowrap><?=$lang["balance"]?></td>
+<td class="tableHead2" nowrap><a class=gridtitlelink href="<?=basename($PHP_SELF)."?".$qs."&sortby=PaymentTypeVerified&asc=$asc"?>"><?=$lang["payment_type"]?></a></td>
+<td class="tableHead2 none" nowrap><?=$lang['admin_listings_editor_action']?></td>
+
+
+</tr>
+<?
+while (!$recordSet->EOF)
+{
+	// alternate the colors
+	if ($count == 0)
+	{
+		$count = $count +1;
+	}
+	else
+	{
+		$count = 0;
+	}
+	
+	$ID = $recordSet->fields["ID"]; 
+	
+	
+	$title = make_db_unsafe ($recordSet->fields["Title"]);
+	$phone = make_db_unsafe ($recordSet->fields["phone"]); 
+	if ($recordSet->fields["CreateDate"])
+	{ 
+		$date = DateFromSQL($recordSet->fields["CreateDate"]); 
+	}
+	else
+	{
+		$date="";
+	}
+	
+	
+	$fax = make_db_unsafe ($recordSet->fields["fax"]); 
+	$email = make_db_unsafe ($recordSet->fields["email"]); 
+	$chova = Client::GetBalance($ID, BALANCE_CHOVA, false, $idsChova);
+	$zhut = Client::GetBalance($ID, BALANCE_ZHUT, false, $idsZhut);
+	$itra = $chova+$zhut;
+	if (!$idsZhut)$idsZhut="-1";
+	if (!$idsChova)$idsChova="-1";
+	$ids = $idsChova.",".$idsZhut;
+	$position = $recordSet->fields["position"];
+	$companyID = $recordSet->fields["companyid"]; 
+	$company = $recordSet->fields["suppliername"];
+	$personnum = $recordSet->fields["personnum"];
+	$tnai = $recordSet->fields["PaymentTypeVerified"]?("<span style=color:green>".$lang["updated"]):("<span style=color:red>".$lang["not_updated"]);
+	$checked = ($recordSet->fields["basket"])?"checked":""; 
+	$class = "";
+	
+	if ($ClientPrevRowID==$ID)
+	{
+		$class = "class=selectedrow prevClassName=selectedrow ";
+	}		
+	echo "<tr $class id='tr$ID' ".((HasActionPermission("VIEWLISTING")||HasActionPermission("EDITLISTING"))?"sonclick=\"if(prevRow!=null)prevRow.className=prevRow.prevClassName='';prevRow=this;SetCookieVal('ClientPrevRowID',$ID);this.className=this.prevClassName='selectedrow';\"":"").">\n";
+	//echo "<td onmouseover='tr$ID.className=\"mo\"' style='padding-top:2;padding-bottom:3;' onmouseout='tr$ID.className=tr$ID.prevClassName'  valign=\"top\" class=\"row3_$count\" align=center><input type=checkbox $checked id='$ID' onclick='parent.clientbasket($ID,this.checked);window.event.cancelBubble=true'></td>\n";
+	if ($UserData->Fields("MlaitekProEnabled"))
+	{
+		echo "<td onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=tr$ID.prevClassName' valign=\"top\" class=\"row3_$count\">";
+		echo "<a onclick='event.cancelBubble=true;addDocument($ID)'\"><img src=".$imgPath."doc_add.gif width=16 height=16 align=absmiddle border=0 alt='".$lang["new_doc"]."' style='cursor:hand;visibility:".($recordSet->fields["status"]?"":"hidden")."'></a>";
+		echo "&nbsp;</td>\n";  
+	}
+	echo "<td width=100% title='".str_replace("'","&#39;",$description)."' onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=tr$ID.prevClassName' valign=\"top\" class=\"row3_$count\">".((true)?"<a  href=\"javascript:parent.wopen('cppro/main.php?service=suppliers&bd_event=edit_record&cid=1&record_id=$ID','edit',750,440,true)\">":"") .splitLongWords($title)."&nbsp;</a>"; 
+	echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=tr$ID.prevClassName' valign=\"top\" class=\"row3_$count\">$date&nbsp;</td>\n";
+	echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=tr$ID.prevClassName' valign=\"top\" class=\"row3_$count\">$phone&nbsp;</td>\n";
+	echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=tr$ID.prevClassName' valign=\"top\" nowrap class=\"row3_$count\" align=right>&nbsp;$fax&nbsp;</td>\n";
+	echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=tr$ID.prevClassName' valign=\"top\" nowrap class=\"row3_$count\" align=right><span dir=ltr>&nbsp;<a onclick='event.cancelBubble=true'  href='mailto:$email'>".splitLongWords($email)."</a>&nbsp;</td>\n";
+	echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=tr$ID.prevClassName' valign=\"top\" nowrap class=\"row3_$count\" align=right><span dir=ltr ><a onclick='event.cancelBubble=true' href='javascript:parent.wopen(\"rep_documents.php?itramode=1&ids=$idsChova\",\"itra1\",650,500,true)' title='".$lang["show_balance_docs"]."'>".balance($chova)."</a>&nbsp;</td>\n";
+	echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=tr$ID.prevClassName' valign=\"top\" nowrap class=\"row3_$count\" align=right><span dir=ltr ><a onclick='event.cancelBubble=true' href='javascript:parent.wopen(\"rep_documents.php?itramode=1&ids=$idsZhut\",\"itra2\",650,500,true)' title='".$lang["show_balance_docs"]."'>".balance($zhut)."</a>&nbsp;</td>\n";
+	echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=tr$ID.prevClassName' valign=\"top\" nowrap class=\"row3_$count\" align=right><span dir=ltr ><a onclick='event.cancelBubble=true' href='javascript:parent.wopen(\"rep_documents.php?itramode=1&ids=$ids\",\"itra3\",650,500,true)' title='".$lang["show_balance_docs"]."'>".balance($itra)."</a>&nbsp;</td>\n";
+	echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=tr$ID.prevClassName' valign=\"top\" nowrap class=\"row3_$count\" align=center><span dir=ltr>&nbsp;$tnai&nbsp;</td>\n";
+	
+	echo "<td nowrap bgcolor=#E0DBDC onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=tr$ID.prevClassName' class=\"row3_$count none\" valign=middle width=1% nowrap>";
+	
+	//echo "<a href=\"".$PHP_SELF."?".queryString("delete")."&delete=$ID". "\" onClick='window.event.cancelBubble=true;return parent.confirmClientDelete(\"".JSEncode($title)."\")'><img src=".$imgPath."delete2.gif align=absmiddle border=0 alt='".$lang["delete"]." ".$scaption."'></a>&nbsp;";
+	echo" <a onclick='event.cancelBubble=true' href=\"javascript:parent.wopen('cppro/main.php?service=suppliers&cid=1&bd_event=edit_record&record_id=$ID','edit',750,440,true)\"><img src=".$imgPath."pencil.gif width=16 height=16 align=absmiddle border=0 alt='".$lang["details"]." ".$scaption."'></a>";
+	echo" <a onclick='event.cancelBubble=true' href=\"javascript:parent.wopen('printclient.php?client=$ID','print',600,400)\"><img src=".$imgPath."printer.gif width=16 height=16 align=absmiddle border=0 alt='".$lang["print"]."'></a>";
+	echo "</td>\n";
+	
+	
+	echo "</tr>\r\n\r\n";
+	$recordSet->MoveNext();
+} // end while
+?>
+</table>
+</div>
+</td></tr>
+<tr style="height:1%">
+<td colspan=30 style="background-color:#efefef;border-top:solid 3px #fff;padding:5px;">
+	<table align="center">
+		<tr>
+		<td>סה"כ חוב: <b><?=balance($totalHov)?></b>&nbsp;&nbsp;&nbsp;</td>
+		<td>סה"כ זכות: <b><?=balance($totalZhut)?></b>&nbsp;&nbsp;</td>
+		<td>סה"כ יתרה: <b><?=balance($totalYetra)?></b>&nbsp;&nbsp;</td>
+		</tr>
+	</table>
+</td>
+</tr>
+</table>
+
+<?
+$sql = "select dt.id,dt.name,dt.showinmenu, dtg.id as groupid,dtg.name as groupname
+		from $TABLE_DOCUMENT_TYPE dt
+		left outer join document_type_counters dtc on dt.id = doc_type_id and user_id = $userID
+		left outer join $TABLE_DOCUMENT_TYPE_GROUP dtg on dt.group_id = dtg.id
+		where dtc.status is null or dtc.status = 1
+		order by dtg.sortorder, dt.sortorder";
+$dtype=DBQuery($sql); 
+
+?>
+
+
+		
+		<Div id=NEWDOCPOPUP style='display:none'>
+            <div style='width:100%;height:100%;overflow-y:auto' dir=<?=$dir?>>
+			<table width=100% border=1 cellpadding=2 cellspacing=1>
+<?
+$isdocument=false;
+$popupHeight=2;
+$dtype->MoveFirst();
+$dtg=0;
+while (!$dtype->EOF)
+{
+	if ($dtg!=$dtype->fields["groupid"])
+	{
+                    ?>
+                    <tr><td height=16 align=center bgcolor=lightyellow style='color:blue;font-family:arial;font-size:8pt;font-weight:bold' style='padding:0' height=0>
+                    <i><?=$dtype->fields["groupname"]?>
+                    </td></tr>
+		<?
+		$dtg=$dtype->fields["groupid"];
+		$popupHeight+=18; 
+	}
+	if (!$dtype->fields["showinmenu"]||!HasDocumentPermission($dtype->fields["id"],"C"))
+	{
+		$dtype->MoveNext();
+		continue;
+	}
+	
+                $isdocument=true;?>
+				 	<tr><td height=20
+						onmouseover='this.bgColor="darkblue";this.style.color="white"'
+						onmouseout='this.bgColor="";this.style.color="black"'
+						align=center style='border:outset 1;cursor:hand;color:black;font-family:arial;font-size:9pt;font-weight:bold'
+						onclick="parent.parent.wopen('add_document.php?client='+parent.document.s.client.value+'&did=<?=$dtype->fields["id"]?>','',screen.availWidth-100,520,true,'no')"><?=$dtype->fields["name"]?></td></tr>
+	<?
+	$popupHeight+=22;
+	$dtype->MoveNext();
+}
+if (!$isdocument){
+	$popupHeight+=22;
+                 ?>
+                <tr><td align=center height=20 style='border:outset 1;cursor:hand;color:red;font-family:arial;font-size:9pt;font-weight:bold'><?=$lang["no_permission"]?></td></tr>
+	<?
+}
+if ($popupHeight>400)$popupHeight=400;
+             ?>
+			</table>
+            </div>
+		</Div>
+        
+        
+
+        
+<script>
+var oPopup = window.createPopup();
+
+function addDocument(id)
+{
+    document.s.client.value = id
+	var oPopBody = oPopup.document.body;
+    oPopBody.style.backgroundColor = "buttonface";
+    oPopBody.style.border = "solid gray 1px";
+    oPopBody.innerHTML = document.getElementById("NEWDOCPOPUP").innerHTML;
+    oPopup.show(window.event.clientX-100, window.event.clientY+10, 180, <?=$popupHeight+2?>, document.body);
+}
+
+function addCrmDocument(id)
+{
+    document.s.client.value = id
+	var oPopBody = oPopup.document.body;
+    oPopBody.style.backgroundColor = "buttonface";
+    oPopBody.style.border = "solid gray 1px";
+    oPopBody.innerHTML = document.getElementById("NEWCRMDOCPOPUP").innerHTML;
+    oPopup.show(window.event.clientX-100, window.event.clientY+10, 180, <?=$crmpopupHeight+2?>, document.body);
+}
+</script>
+
+<script>
+
+function printList(){
+	var s;
+    s = parent.wopen("rep_clients.php?<?=queryString()?>","doc_list",800,600,true,'yes');
+    try{
+        s.focus();
+    }
+    catch(e){
+    }
+}
+
+function Start(){
+    <?if ($cant_delete){?>
+    alert('<?=$lang["cannot_delete_client"]?>');
+    <?}?>
+    <?if (!$nofocus){?> 
+	try{
+		document.getElementById('BarCode').focus();
+	}         
+	catch(e){}
+    <?}?>   
+}
+document.body.onload=Start;
+
+var prevRow = null;
+<?if ($tabmode=="CLIENTS" && $ClientPrevRowID){?>
+prevRow  = document.getElementById("tr<?=$ClientPrevRowID?>");
+<?}?>
+<?if ($tabmode=="PERSONS" && $PersonPrevRowID){?>
+prevRow  = document.getElementById("tr<?=$PersonPrevRowID?>");
+<?}?>
+</script>
+
+
+
+
+<?php
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

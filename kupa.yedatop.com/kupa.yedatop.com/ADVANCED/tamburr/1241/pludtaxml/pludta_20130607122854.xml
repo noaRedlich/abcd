@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="131647" isWeight="0" isDeleted="0" title="ורנית עץ 0.75 ל'" category="0" saleprice="75" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1367235298">
+  </Product>
+  <Product barcode="131718" isWeight="0" isDeleted="0" title="ורנית עץ 0.25 ל'" category="0" saleprice="27" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1367235298">
+  </Product>
+  <Product barcode="120816" isWeight="0" isDeleted="0" title="מברשת STAR 2.5 פאר" category="0" saleprice="32" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1367235296">
+  </Product>
+  <Product barcode="1086" isWeight="0" isDeleted="0" title="קונזולה 8X10" category="0" saleprice="4.9" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1367235296">
+  </Product>
+  <Product barcode="15355" isWeight="0" isDeleted="0" title="טסטר קצר סטנלי" category="0" saleprice="9.5" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1367235301">
+  </Product>
+</Products>

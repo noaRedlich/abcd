@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="103912" isWeight="0" isDeleted="0" title="אצטון 1 ליטר" category="0" saleprice="22" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1363512472">
+  </Product>
+  <Product barcode="56216" isWeight="0" isDeleted="0" title="חומצת מלח 30% 4 ליטר" category="0" saleprice="26.9" cost="0.000" stockQuantity="-9" minStockQuantity="" lastUpdated="1363512466">
+  </Product>
+</Products>

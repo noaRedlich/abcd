@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="766" isWeight="0" isDeleted="0" title="תעלה + מחסה 2 מטר 60X60" category="0" saleprice="22" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1361268089">
+  </Product>
+  <Product barcode="85267" isWeight="0" isDeleted="0" title="שטיח גומי לבד לרכב" category="0" saleprice="120" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1361268090">
+  </Product>
+  <Product barcode="2567" isWeight="0" isDeleted="0" title="נשמיות שסטום מתקפלות" category="0" saleprice="13" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1361268082">
+  </Product>
+  <Product barcode="7887" isWeight="0" isDeleted="0" title="ג'ל אקונומיקה ג'ונסון קלין" category="0" saleprice="14.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1361268089">
+  </Product>
+  <Product barcode="9335" isWeight="0" isDeleted="0" title="מקדח SDS 10X160" category="0" saleprice="13.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1361268091">
+  </Product>
+  <Product barcode="9315" isWeight="0" isDeleted="0" title="מקדח SDS 6X160" category="0" saleprice="12.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1361268091">
+  </Product>
+  <Product barcode="93410" isWeight="0" isDeleted="0" title="מקדח SDS 12X460" category="0" saleprice="24" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1361268091">
+  </Product>
+  <Product barcode="84214" isWeight="0" isDeleted="0" title="אזמל לפטישון שטוח" category="0" saleprice="35" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1361268090">
+  </Product>
+  <Product barcode="4011890076590" isWeight="0" isDeleted="0" title="דיסק ברזל 4.5  דק רודיוס" category="0" saleprice="10.9" cost="0.000" stockQuantity="-18" minStockQuantity="" lastUpdated="1361863937">
+  </Product>
+  <Product barcode="1072" isWeight="0" isDeleted="0" title="מלט לבן 1 ק&quot;ג" category="0" saleprice="6.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1361268095">
+  </Product>
+  <Product barcode="54966" isWeight="0" isDeleted="0" title="סיפון אמריקאי בודד+מדיח &quot;2 חוליות" category="0" saleprice="105" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1329143216">
+  </Product>
+  <Product barcode="90640" isWeight="0" isDeleted="0" title="דיסק יהלום &quot;4.5" category="0" saleprice="69" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1339668341">
+  </Product>
+</Products>

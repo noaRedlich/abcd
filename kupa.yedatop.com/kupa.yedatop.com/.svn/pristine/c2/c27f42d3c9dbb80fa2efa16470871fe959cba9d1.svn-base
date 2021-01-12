@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>listingsCategories</main_table>
+	<name>ספקים</name>
+	<options>
+		<opt name="create_record" type="sometimes"></opt>
+		<opt name="search" type="sometimes"></opt>
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="ID" >ID</vcol>
+		<vcol name="SortOrder" >מיקום</vcol>
+		<vcol name="CategoryName">שם</vcol>
+        <vcol name="parent_id" type="cross" cross="listingsCategories" cross_field="ID" lookup_field="CategoryName">מחלקה ראשית</vcol>
+		<vcol name="CategoryCode" type="string">קוד מחלקה</vcol>
+		<vcol name="Status" type="yes_no">פעיל</vcol>
+	</view>
+	<edit>
+		<ecol name="CategoryName" ismandatory="yes" type="string">שם מחלקה</ecol>
+		<ecol name="CategoryCode" type="string">קוד</ecol>
+        <ecol name="parent_id"  type="cross" cross="listingsCategories" cross_field="ID" lookup_field="CategoryName">מחלקה ראשית</ecol>
+		<ecol name="SortOrder"  type="string">מיקום</ecol>
+		<ecol name="Status" type="yes_no"  defaultvalue="1">פעיל</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="SortOrder,CategoryName"></opt>
+		<opt name="search_by" type="CategoryName,CategoryCode"></opt>
+	</sql_actions>
+</xml>

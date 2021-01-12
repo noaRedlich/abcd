@@ -1,0 +1,242 @@
+<?php
+$page_subtitle = "מבצעים";
+$noheader=1;
+$simple=1;
+include("include/common.php");
+include("include/business_functions.php");
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+
+$mayEdit = HasActionPermission("EDITLISTING");
+$disabled = (!$mayEdit)?"disabled":"";
+    ?>
+
+      <script>
+      
+            function reloadParent(){
+                var delim = (window.opener.location.href.indexOf("?")>-1)?"&":"?";
+                try{
+                    window.opener.location=window.opener.location.href+delim+'nofocus=1'
+                }
+                catch(e){}
+            }                                   
+            
+            function changeForm(mode){
+                <?if ($mayEdit){?>
+                document.all.discount_expiration_id.disabled = document.all.btnExp.disabled = mode==0;
+                document.all.other_listing_id.disabled = document.all.btnSearch.disabled =  mode!=3;
+                document.all.discount.disabled = mode==0;
+                if(mode==0){
+                    document.all.discount.value="";
+                }
+                <?}?>
+                document.all.lblDiscount.innerText = ((mode==4)?"סכום שובר":(mode==5?"סכום הנחה":"אחוזי הנחה"))+":"
+            }
+            
+      </script>
+<?
+$sql_edit = make_db_safe($edit);
+
+
+if ($doSave)
+{
+	if ($discount_type!=0 && !$discount){
+		$message = ($discount_type==4)?"סכום שובר":"יש להזין אחוז הנחה";
+	}
+	elseif($discount&&!is_numeric($discount)){
+		$message = ($discount_type==4)?"סכום שובר":"אחוז הנחה";
+		$message .= " חייב להכיל ערך נומרי";
+	}
+	elseif($discount_type==3&&!$discount_listing_id){
+		$message = "יש לבחור פריט אחר";    
+	}
+	if (!$message)
+	{
+		$sql = "update listingsDB set 
+				lastupdated=unix_timestamp(),
+				discount = '".floatval($discount)."', 
+				discount_type = $discount_type, 
+				discount_listing_id = '$discount_listing_id',
+				discount_expiration_id = '$discount_expiration_id',
+				no_general_discount = '$no_general_discount'
+				where id = $sql_edit
+				";  
+		$recordSet = $conn->Execute($sql);
+		if ($recordSet === false){log_error($sql);}
+		$success = "המבצע נשמר בהצלחה";
+	}
+	
+}
+
+else{
+	// first, grab the listings's main info
+	if (!$_POST["post"])
+	{
+		$sql = "SELECT l.ID, l.title, l.notes, l.last_modified, l.featured, l.active, l.expiration,
+				l.discount, l.discount_type, l.discount_listing_id, l.discount_expiration_id, 
+				l.no_general_discount,
+				lo.title as other_title
+				FROM listingsDB l
+				left outer join discount_listing dl on dl.id = l.discount_listing_id
+				left outer join listingsDB lo on dl.listing_id = lo.id
+				WHERE ((l.ID = $sql_edit) AND (l.user_ID = '$userID'))";
+		
+		$recordSet = $conn->Execute($sql);
+		if ($recordSet === false){log_error($sql);}
+		
+		$num_records = $recordSet->RecordCount();
+		
+		// collect up the main DB's various fields
+		$listing_ID = make_db_unsafe ($recordSet->Fields("ID"));
+		$edit_title = make_db_unsafe ($recordSet->Fields("title"));
+		$discount_type = $recordSet->Fields("discount_type");
+		$no_general_discount = $recordSet->Fields("no_general_discount");
+		$other_title = $recordSet->Fields("other_title");
+		$discount = $recordSet->Fields("discount");
+		$discount_expiration_id = $recordSet->Fields("discount_expiration_id");
+		$discount_listing_id = $recordSet->Fields("discount_listing_id");
+	}
+}
+
+$sql = "select dl.*,l.Title from discount_listing dl left outer join listingsDB l
+		on l.id = dl.listing_id where dl.user_id = $userID order by SortOrder";
+$otherListings = DBQuery($sql);
+
+$sql = "select * from discount_expirations where user_id = $userID order by SortOrder";
+$expirations =DBQuery($sql);
+
+$sql = "select id, name, status, discount_type, expiration_date from discount_lists l where exists (select id from discount_items where listing_id = $sql_edit and discount_list_id = l.id)";
+$otherDiscounts = DBQuery($sql);
+	
+require($GO_THEME->theme_path."simple_header.inc");
+include("$config[template_path]/admin_top.html");
+?>
+
+
+	<form name="F" action="<?php echo "$PHP_SELF";?>" method="post">
+    <input type=hidden name=edit value="<?=$edit?>">                
+    <input type=hidden name=edit_title value="<?=$edit_title?>">    
+    <input type=hidden name=post value="1">              
+	<table width=100% height=480 cellpadding=0 cellspacing=0>
+	<TR><TD align=center>
+		<?include("productmenu.php")?>
+	</td></td>
+	<TR><TD align=center style='padding:5px'><b>
+<?
+if ($doSave && $message){
+	echo "<p style=color:red>$message</p>";
+}
+if ($doSave && $success){
+	echo "<p style=color:green>$success</p>";
+}
+else 
+{
+	echo "<p>&nbsp;</p>";
+}
+?>
+	</TD></TR>
+	<tr style='height:100%'><td valign=top>
+    <table width=100%>
+          <tr>
+            <td width=1%><input type=radio <?=$disabled?> onclick='changeForm(0)' value=0 name=discount_type <?=$discount_type==0?"checked":""?>></td>
+            <td>פריט ללא מבצע</td>
+          </tr>
+          <tr>
+            <td><input type=radio value=1 <?=$disabled?> onclick='changeForm(1)' name=discount_type <?=$discount_type==1?"checked":""?>></td>
+            <td>הנחה לפריט באחוזים</td>
+          </tr>
+          <tr>
+            <td><input type=radio value=5 <?=$disabled?> onclick='changeForm(5)' name=discount_type <?=$discount_type==5?"checked":""?>></td>
+            <td>הנחה לפריט בשקלים <span class="error">(לא נתמך בקופה רושמת)</span></td>
+          </tr>
+          <tr>
+            <td><input type=radio value=2 <?=$disabled?> onclick='changeForm(2)' name=discount_type <?=$discount_type==2?"checked":""?>></td>
+            <td>הנחה לפריט שני</td>
+          </tr>
+          <tr>
+            <td><input type=radio value=3 <?=$disabled?> onclick='changeForm(3)' name=discount_type <?=$discount_type==3?"checked":""?>></td>
+            <td>הנחה לפריט נוסף (עד 15 פריטים)
+                <select <?=$disabled?> name=discount_listing_id id=other_listing_id style='width:175px'>
+                    <option value="">
+                    <?$i=0;while (!$otherListings->EOF){?>
+                          <option value="<?=$otherListings->Fields("id")?>" <?=$discount_listing_id==$otherListings->Fields("id")?"selected":""?>><?=$i+1?>. <?=$otherListings->Fields("Title")?$otherListings->Fields("Title"):"<לא מוגדר>"?>
+                    <?$otherListings->MoveNext();$i++;}?>
+                </select>                                                                      
+                <?if ($mayEdit){?>
+                <input type=button id=btnSearch onclick='wopen("discountlistings.php?","discountlistings",550,450,true)' value="הגדרת פריטים" class=button style='width:100px;background-image:url(<?=$imgPath?>box.gif)'>
+                <?}?>
+            </td>
+          </tr>
+          <tr>                                              
+            <td><input type=radio <?=$disabled?> value=4 onclick='changeForm(4)' name=discount_type <?=$discount_type==4?"checked":""?>></td>
+            <td>הנחת שובר בקניה הבאה
+            </td>
+          </tr>
+          <tr><td colspan=2><hr></td></tr> 
+          <tr>
+            <td></td>
+            <td><span id=lblDiscount style='width:70'>אחוזי הנחה:</span> 
+            <input <?=$disabled?> size=8 name=discount style='width:120px' id=discount disabled value="<?=number_format($discount,2,".","")?>"></td>
+          </tr>
+          <tr>
+            <td></td>
+            <td><span style='width:70'>תוקף מבצע:</span> 
+                <select <?=$disabled?> name=discount_expiration_id id=discount_expiration_id style='width:120px'>
+                    <option value="">ללא תוקף
+                    <?$i=0;while (!$expirations->EOF){?>
+                          <option value="<?=$expirations->Fields("id")?>" <?=$discount_expiration_id==$expirations->Fields("id")?"selected":""?>>  <?=$i+1?>. <?=($expirations->Fields("expdate")!=""&&$expirations->Fields("expdate")!="0000-00-00")?dateFromSQL($expirations->Fields("expdate")):"<לא מוגדר>"?>
+                    <?$expirations->MoveNext();$i++;}?>
+                </select>
+                <?if ($mayEdit){?>
+                <input type=button id=btnExp onclick='wopen("expirations.php?","expirations",500,450,true)' value="קביעת תאריכי תוקף" class=button style='background-image:url(<?=$imgPath?>calendar.gif)'>
+                <?}?>
+                </td>
+          </tr>
+          <tr><td colspan=2><hr></td></tr>
+          <tr>
+            <td><input type=checkbox <?=$disabled?> name=no_general_discount value=1 <?=$no_general_discount==1?"checked":""?>></td>
+            <td>פריט ללא הנחה כללית</td>
+          </tr>
+     </table>
+	
+	<?if (!$otherDiscounts->EOF){?>
+	<b>פריט משתתף במבצעים אחרים:</b> <span class="error">(לא נתמך בקופה רושמת)</span>
+	<div style="height:90px;overflow:auto;border:inset 1;background-color:#fff">
+	<table cellpadding="1" width="100%" border="1" style="border-collapse:collapse">
+	<tr class="tableHead2">
+		<th>שם מבצע</th>
+		<th>סוג מבצע</th>
+		<th>תוקף</th>
+		<th>פעיל</th>
+	</tr>
+	<?while (!$otherDiscounts->EOF){?>
+		<tr valign="top" >
+			<td><a href="javascript:s=window.open('cppro/main.php?cid=1&service=discounts&bd_event=edit_record&record_id=<?=$otherDiscounts->fields["id"]?>','','top='+(window.screenTop+15)+',left='+(window.screenLeft+15)+',width=650,height=400');s.focus();"><?=$otherDiscounts->fields["name"]?></a></td>
+			<td><?=$otherDiscounts->fields["discount_type"]==1?"סכום סה\"כ":"N+1"?></td>
+			<td><?=dateFromSQL($otherDiscounts->fields["expiration_date"],true)?></td>
+			<td><?=$otherDiscounts->fields["status"]==1?"כן":"לא"?></td>
+		</tr>
+	<?$otherDiscounts->MoveNext();}?>
+	</table>
+	</div>
+	<?}?>
+	
+    
+	</td></tr>
+	<tr style='height:1%'><td align=center>
+        <?if ($mayEdit){?>
+        <input type="submit" value='אישור' name=doSave class=button style='background-image:url(<?=$imgPath?>ok.gif)'>
+        <?}?>
+        <input type="button" value='סגור' class=button style='background-image:url(<?=$imgPath?>back.gif)' onclick='window.close()'>
+	</td></tr>
+	</form>
+</table>
+
+<script>
+   changeForm(<?=$discount_type?>)
+</script>
+
+<?php
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

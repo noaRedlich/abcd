@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>creditorpayments</main_table>
+	<name>תשלומים</name>
+	<options>
+		<opt name="create_record" type="always"></opt>
+		<opt name="search" type="none"></opt> 
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="Day" type="date">תאריד תשלום</vcol>
+		<vcol name="Amount">סכום תשלום</vcol>
+		<vcol name="hov" type="yes_no">חיוב</vcol>
+		<vcol name="status" type="yes_no">פעיל</vcol>
+	</view>
+	<edit>
+		<ecol name="creditor_id" type="cross" cross="listingsSuppliers" cross_field="ID" lookup_field="SupplierName">לקוח</ecol>
+		<ecol name="Day" type="date">תאריך תשלום</ecol>
+		<ecol name="Amount" type="string">סכום תשלום</ecol>
+		<ecol name="PaymentType" type="enum">אמצעי תשלום
+			<enum val="0">שיק</enum>
+			<enum val="1">מזומן</enum>
+			<enum val="2">אשראי</enum>
+			<enum val="3">חשבונית מס</enum>
+		</ecol>
+		<ecol name="hov" type="enum">סוג תשלום
+			<enum val="1">חיוב</enum>
+			<enum val="0">זיכוי</enum>
+		</ecol>
+		<ecol name="checknumber" type="string">מספר שיק</ecol>
+		<ecol name="checkdate" type="date">תאריך פרעון שיק</ecol>
+		<ecol name="checkbank" type="string">מספר בנק</ecol>
+		<ecol name="checksnif" type="string">מספר סניף</ecol>
+		<ecol name="checkaccount" type="string">מספר חשבון</ecol>
+		<ecol name="comment" type="string">הערות</ecol>
+		<ecol name="status" type="yes_no">פעיל</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="Day desc"></opt>
+		<opt name="search_by" type="Day"></opt>
+	</sql_actions>
+</xml>

@@ -1,0 +1,39 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+$selected_modules = array();
+$selected_count = 0;
+echo '<br />';
+if (isset($feedback))
+{
+	echo $feedback;
+}
+echo $admin_modules_text.'<br /><br /><table border="0" cellpadding="4" cellspacing="0">';
+
+$module_count = count($modules);
+while($module = array_shift($modules))
+{
+	//$module['path'] = str_replace("\\","/",$module['path']);
+
+	$lang_var = isset($lang_modules[$module['name']]) ? $lang_modules[$module['name']] : $module['name'];
+	if ($GO_MODULES->is_registered_module($module['path']))
+	{
+		$display = "<a href=\"javascript:popup('module_permissions.php?module_id=".urlencode($module['name'])."','450','380')\" class=\"normal\">".$lang_var."</a>";
+		$selected_count++;
+		$check = 'checked';
+	}else
+	{
+		$display = $lang_var;
+		$check = '';
+	}
+	echo '<tr><td><input type="checkbox" name="selected_modules[]" value="'.$module['path'].'" '.$check.' /></td><td>'.$display.'</td></tr>';
+}
+echo '<tr><td colspan="2"><i>'.$selected_count.' / '.$module_count.' '.$admin_modules.'</i></td></tr>';
+echo '</table>';
+$button = new button($cmdSave, "javascript:document.forms[0].submit();");
+?>

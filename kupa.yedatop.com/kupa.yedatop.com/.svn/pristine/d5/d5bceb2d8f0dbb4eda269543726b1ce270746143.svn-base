@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+  <main_table>cardtype_kupot</main_table>
+  <name>#cl_groups#</name>
+  <options>
+    <opt name="create_record" type="none"></opt>
+    <opt name="edit_record" type="sometime"></opt>
+    <opt name="search" type="none"></opt>
+    <opt name="view" type="always"></opt>
+    <opt name="delete_record" type="none"></opt>
+  </options>
+  <view>
+    <vcol name="cardtype_id" type="cross" cross="$main_db.cardtypes" cross_field="id" lookup_field="name" >סוג כרטיס</vcol>
+    <vcol name="slika" type="enum">חברת סליקה
+        <enum val="visa">ויזה</enum>
+        <enum val="isra">ישראכרט</enum>
+        <enum val="leumi">לאומי קארד</enum>
+        <enum val="diners">דיינרס</enum>
+    </vcol>
+  </view>
+  <edit>
+    <ecol name="cardtype_id" type="cross" cross="$main_db.cardtypes" nouserid="yes" cross_field="id" readonly="true" lookup_field="name" >סוג כרטיס</ecol>
+    <ecol name="slika" type="enum">חברת סליקה
+        <enum val="visa">ויזה</enum>
+        <enum val="isra">ישראכרט</enum>
+        <enum val="leumi">לאומי קארד</enum>
+        <enum val="diners">דיינרס</enum>
+    </ecol>
+  </edit>
+  <sql_actions>
+    <opt name="order" val="SortOrder"></opt>
+  </sql_actions>
+</xml>

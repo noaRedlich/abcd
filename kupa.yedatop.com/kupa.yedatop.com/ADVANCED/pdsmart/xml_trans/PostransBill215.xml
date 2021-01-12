@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="" BillId="215" ClientId="500015.00">
+  <Products>
+    <Product Id="12">
+      <Name>פוטו מאקי הרכבה עצמית</Name>
+      <Barcode />
+      <SalePrice>25</SalePrice>
+      <SaledPrice>125</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>5</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>125</Cash>
+  </Pay>
+</Bill>

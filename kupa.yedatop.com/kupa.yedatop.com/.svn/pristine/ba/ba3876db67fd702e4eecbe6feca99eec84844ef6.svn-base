@@ -1,0 +1,14 @@
+DirectoryIndex index.htm index.html index.php
+
+#GeoIPEnable On
+#GeoIPDBFile /usr/local/share/GeoIP/GeoIP.dat
+
+RewriteEngine on
+#RewriteCond %{ENV:GEOIP_COUNTRY_CODE} !^IL$ [OR]
+
+####RewriteCond %{ENV:GEOIP_COUNTRY_CODE} !^IL$
+####RewriteRule ^(.*)$ http://www.vcx.co.il [R,L]
+
+#Order deny,allow
+#Deny from all
+#Allow from 127.0.0.1 62.90.162.222 80.178.191.186

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>userdata</main_table>
+	<name>הגדרות משתמש</name>
+	<options>
+		<opt name="create_record" type="none"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="UserName" >שם משתמש</vcol>
+	</view>
+	<edit>
+		<ecol name="listings_per_page" type="enum" tab="1">מספר רשומות בכל דף
+			<enum val="10">10</enum>
+			<enum val="13">13 (תואם לדף)</enum>
+			<enum val="15">15</enum>
+			<enum val="20">20</enum>
+			<enum val="25">25</enum>
+			<enum val="30">30</enum>
+			<enum val="35">35</enum>
+			<enum val="40">40</enum>
+			<enum val="45">45</enum>
+			<enum val="50">50</enum>
+		</ecol>
+		<ecol tab="1" name="visual_effects" type="yes_no">אפקט ויזואלי בהעברת העמוד</ecol>
+		<ecol tab="2" name="RecalcCostOnPurchase" type="enum">
+      חישוב עלות פריט בזמן קנייה
+      <enum val="0">לא לעדכן עלות פריט בזמן קנייה</enum>
+      <enum val="1">לחשב עלות ממוצע</enum>
+      <enum val="2">להשתמש בעלות קניה אחרונה</enum>
+    </ecol>
+    <ecol tab="2" name="ShowProductsEvenNoStock" type="yes_no">להציג פריטים בנקודה אפילו אם איו במלאי</ecol>
+    <ecol tab="2" name="EnableStockOverdraft" type="yes_no">לאפשר חריגת כמויות בהעברות</ecol>
+  </edit>
+	<sql_actions> 
+		<opt name="order" val="UserName"></opt>
+		<opt name="search_by" type="UserName"></opt>
+	</sql_actions>
+	<tabs>
+        <tab index="1" name="ממשק משתמש"></tab>
+        <tab index="2" name="הגדרות עסקיות"></tab>
+	</tabs>
+</xml>

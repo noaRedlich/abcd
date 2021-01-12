@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="153814" isWeight="0" isDeleted="0" title="סרט חבלה 25 מ'" category="0" saleprice="26" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1367235301">
+  </Product>
+  <Product barcode="7290100067611" isWeight="0" isDeleted="0" title="מפסק כפול ספיר ניסקו" category="0" saleprice="14.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1367235277">
+  </Product>
+  <Product barcode="709" isWeight="0" isDeleted="0" title="קופסא 55" category="0" saleprice="2" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1367235288">
+  </Product>
+  <Product barcode="1307115" isWeight="0" isDeleted="0" title="פוליאור טמבור 2.5 ל'" category="0" saleprice="159" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1367235297">
+  </Product>
+</Products>

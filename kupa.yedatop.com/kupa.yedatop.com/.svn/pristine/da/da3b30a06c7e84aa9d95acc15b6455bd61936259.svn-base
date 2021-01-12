@@ -1,0 +1,204 @@
+<?php
+$simple=1;
+global $action, $id, $lang, $conn, $config;
+
+switch($closingdid)
+{
+    case "KABALA":
+        $title = "חשבוניות";
+        $doctype = "CHESHBONIT";
+        break;
+    case "TASHLUM":
+        $title = "קניות";
+        $doctype = "KNIYA";
+        break;
+}
+$page_subtitle = "סגירת ".$title;
+
+include("include/common.php");
+if(!loginCheck('User'))exit; 
+
+include("$config[template_path]/admin_top.html");
+
+if ($do && is_array($docid))
+{
+    $docs_ids = implode(",",$docid);
+    $sql = "update documents set cheshbonit_closed=1, doc_status = $STATUS_CLOSED, closed_by = $closingdocid where id in ($docs_ids)";
+    DBQuery($sql);
+    $sql = "update documents set doc_status = $STATUS_CLOSED where id = $closingdocid and amount = $amount";
+    DBQuery($sql);
+    echo "<script>window.opener.document.location.reload()</script>";
+}
+
+$sql = "select sum(amount) as amt from documents d where doc_type='$closingdid' and client_id=$client
+    and doc_status in ($STATUS_ACTIVE)
+    and not exists (select id from documents where closed_by = d.id)
+    and user_id = $userID";
+$recordSet = $conn->Execute($sql);
+if ($recordSet === false)
+{
+    log_error($sql);
+}
+$limit = $recordSet->fields["amt"];
+
+//echo "<!--limit $limit-->";
+
+$sql = "select sum(amount) as amt from documents d where doc_type='$doctype' and client_id=$client 
+    and cheshbonit_closed=1 and user_id = $userID";
+$recordSet = $conn->Execute($sql);
+if ($recordSet === false)
+{
+    log_error($sql);
+}
+$closedamt = $recordSet->fields["amt"];
+
+//echo "<!--closedamt $closedamt -->";
+
+//REMOVED - TICKET 234
+//$limit=$limit-$closedamt;
+if ($limit<0)$limit=0;
+
+$sql = "select dt.id as type, d.id,doc_number,doc_date, dt.name as doc_type,
+            s.SupplierName as client_name, amount
+            from documents d, $TABLE_DOCUMENT_TYPE dt, listingsSuppliers s
+            where d.user_id = $userID and d.doc_type = dt.id
+            and client_id = $client
+            and cheshbonit_closed=0 
+            and doc_status not in ($STATUS_CLOSED,$STATUS_CANCELLED)
+            and doc_type = '$doctype'
+            and d.amount > 0
+            and s.id = d.client_id";
+
+$sql.=" order by doc_date desc,doc_number desc";
+
+//echo $sql;
+$recordSet = $conn->Execute($sql);
+    if ($recordSet === false)
+{
+    log_error($sql);
+}
+?>
+
+
+
+<table width=100% height=380>
+
+<?if (!$readonly && !$docTypes->EOF)
+{?>
+    <tr style='height:1%'>
+        <td align=center>
+            <b>יש לבחור <?=$title?> וללחוץ "אישור"</b>
+        </td>
+    </tr>
+    <form name=F method=post>
+    <?}?>
+
+        <tr>
+            <td>
+                <div style='background-color:white;overflow:auto;border:inset 2;width:100%;height:100%'>
+                    <table width=100% border=1 cellpadding=2 style='border-collapse:collapse'>
+                        <tr class=tableHead2 align=center>
+                            <td class="tableHead2" width=1% nowrap>&nbsp; <input type=hidden id=SELECTED></td>
+                            <td class="tableHead2" width=1% nowrap>מספר</td>
+                            <td class="tableHead2" width=1% nowrap>תאריד</td>
+                            <td class="tableHead2" width=1% nowrap >סוג</td>
+                            <td class="tableHead2" nowrap >לקוח</td>
+                            <td class="tableHead2 " width=1% nowrap>סכום <input type=hidden id=AMT></td>
+                        </tr>
+                        <?
+                        while (!$recordSet->EOF)
+                        {
+    $ID =$recordSet->fields["id"];
+    echo "<tr id='tr$ID' ".((!$readonly)?"onclick='this.cells[0].all[0].checked=!this.cells[0].all[0].checked;checkall()'":"").">";
+                        echo "<td align=center nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><input name=docid[] type=checkbox value='$ID' ".(($readonly)?"disabled":"")." onclick='checkall();event.cancelBubble=true;' ". ((in_array($ID,$arr_selected))?"checked":"") ." id=SELECTED></td>";
+                        echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["doc_number"]."&nbsp;</td>";
+                        echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".DateFromSQL($recordSet->fields["doc_date"])."&nbsp;</td>";
+    echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><a onclick=\"wopen('add_document.php?docid=$ID&did=".$recordSet->fields["type"]."','',screen.availWidth-100,520,true);\"  id='tr$ID' href=#>".$recordSet->fields["doc_type"]."</a>&nbsp;</td>";
+                        echo "<td  onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["client_name"]."&nbsp;</td>";
+                        echo "<td  nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".number_format($recordSet->fields["amount"],2)."&nbsp;<input type=hidden id=AMT value='".number_format($recordSet->fields["amount"],2,".","")."'></td>";
+                        echo "<tr>";
+    $recordSet->MoveNext();
+}
+?>
+                    </table>
+
+<?    if ($recordSet->RecordCount()==0)
+{
+    $nodocs=true;
+    ?>
+                    <p><br><p><center><b>ללקוח זה אין <?=$title?> שניתן לסגור</b></td></center>
+    <?
+}
+?>
+                </div>
+            </td>
+        </tr>
+
+        <tr style='height:1%'>
+            <td align=center>
+                <table width=100% cellpadding=0 cellspacing=0>
+                    <tr>
+                        <td>ניתן לסגור <?=$title?> עד</td>
+                        <td width=1% style='padding-right:3px'><b style='color:green' id=limit><?=number_format( $limit,2,".","")?></b></td>
+                    </tr>
+                    <tr>
+                        <td>סכום שנבחר</td>
+                        <td><input size=8 dir=ltr readonly style='color:gray;font-weight:bold;text-align:right' name=amount id=amount value='<?=number_format( 0,2)?>'></td>
+                    </tr>
+                    <tr><td colspan=2><hr></td></tr>
+                </table>
+            </td>
+        </tr>
+
+        <tr style='height:1%'>
+            <td align=center>
+<?if (!$readonly && !$nodocs)
+{?>
+                <input type=submit name=do id=btnOK class=button style='background-image:url(<?=$imgPath?>ok.gif)' value='אישור' onclick='return validate()'>
+    <?}?>
+                <input type=button value='סגור' class=button style='background-image:url(<?=$imgPath?>back.gif)'  onclick='window.close();'>
+            </td>
+        </tr>
+
+
+</table>
+
+<script>
+    var str="";
+
+    function validate(){
+        if (parseFloat(document.all.amount.value)==0){
+            alert("יש לסמן <?=$title?> לסגירה");
+            return false;
+        }
+        if(parseFloat(document.all.amount.value)>parseFloat(document.all.limit.innerText)){
+            alert("ניתן לסגור <?=$title?> על סכום עד "+document.all.limit.innerText);
+            return false;
+        }
+        return true;
+    }
+
+    function refreshParent(){
+        //if (str=="")str=-1;
+        if (window.opener!=null){
+            window.opener.startKlita(str)
+        }
+    }
+
+    function checkall(){
+        total=0;
+        for (i=0;i<document.all("SELECTED").length;i++){
+            if (document.all("SELECTED")[i].checked){
+                total+=parseFloat(document.all("AMT")[i].value);
+            }
+        }
+        document.all.amount.value = total.toFixed(2);
+    }
+
+</script>
+
+
+<?
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

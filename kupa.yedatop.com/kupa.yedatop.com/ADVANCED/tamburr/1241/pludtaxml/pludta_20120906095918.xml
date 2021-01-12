@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="7290001596517" isWeight="0" isDeleted="0" title="שקיות אשפה 60 יח'" category="0" saleprice="17.9" cost="" stockQuantity="-10" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+  <Product barcode="7290003020157" isWeight="0" isDeleted="0" title="נייר אפיה" category="0" saleprice="3" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668346">
+  </Product>
+  <Product barcode="266" isWeight="0" isDeleted="0" title="מחבר לברז &quot;1 ומעבר 3/4" category="0" saleprice="4.5" cost="" stockQuantity="-8" minStockQuantity="" lastUpdated="1339668333">
+  </Product>
+  <Product barcode="6253344003792" isWeight="0" isDeleted="0" title="שקיות אוכל" category="0" saleprice="5.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+  <Product barcode="7290002579229" isWeight="0" isDeleted="0" title="מטלית הפלא שלישייה" category="0" saleprice="5.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668335">
+  </Product>
+  <Product barcode="7290006547279" isWeight="0" isDeleted="0" title="כרית ניקוי" category="0" saleprice="1.5" cost="" stockQuantity="-17" minStockQuantity="" lastUpdated="1326886228">
+  </Product>
+  <Product barcode="4766" isWeight="0" isDeleted="0" title="נוזל רצפות כחול 4 ל' JOHONSON CLEAN" category="0" saleprice="14.5" cost="" stockQuantity="-9" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="83414" isWeight="0" isDeleted="0" title="נוזל כלים 4 ל' ג'ונסון קלין" category="0" saleprice="28" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668341">
+  </Product>
+  <Product barcode="7290006547736" isWeight="0" isDeleted="0" title="כפפות חד פעמי 100 L" category="0" saleprice="25.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="7290003020027" isWeight="0" isDeleted="0" title="רדיד אלומיניום" category="0" saleprice="6.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668344">
+  </Product>
+  <Product barcode="80925" isWeight="0" isDeleted="0" title="נייר טואלט טישו אביבית 48 גל'" category="0" saleprice="39" cost="" stockQuantity="-12" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="4837" isWeight="0" isDeleted="0" title="אקונומיקה ריחנית 4 ל' JOHONSON CLEAN" category="0" saleprice="14.5" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="7290000599304" isWeight="0" isDeleted="0" title="3 מטליות לניקוי כללי" category="0" saleprice="3.5" cost="" stockQuantity="-10" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="7879" isWeight="0" isDeleted="0" title="ניקוי כללי ג'ונסון קלין 4 ל'" category="0" saleprice="18.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="6921296286838" isWeight="0" isDeleted="0" title="מטלית ריצפה מיקרופייבר" category="0" saleprice="10" cost="" stockQuantity="-8" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="749" isWeight="0" isDeleted="0" title="סחבה בודדת" category="0" saleprice="2.5" cost="" stockQuantity="-18" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="7290002278306" isWeight="0" isDeleted="0" title="סקוצ' ברייט" category="0" saleprice="3" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="4311536917301" isWeight="0" isDeleted="0" title="כפפות לניקוי MEDIUM" category="0" saleprice="3.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668335">
+  </Product>
+  <Product barcode="29000760" isWeight="0" isDeleted="0" title="כף אשפה עם מוט" category="0" saleprice="14.5" cost="" stockQuantity="-10" minStockQuantity="" lastUpdated="1339668333">
+  </Product>
+  <Product barcode="4837" isWeight="0" isDeleted="0" title="אקונומיקה ריחנית 4 ל' JOHONSON CLEAN" category="0" saleprice="14.5" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="4766" isWeight="0" isDeleted="0" title="נוזל רצפות כחול 4 ל' JOHONSON CLEAN" category="0" saleprice="14.5" cost="" stockQuantity="-9" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="7879" isWeight="0" isDeleted="0" title="ניקוי כללי ג'ונסון קלין 4 ל'" category="0" saleprice="18.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="5879" isWeight="0" isDeleted="0" title="סבון ידיים ורוד 4 ל' JOHONSON CLEAN" category="0" saleprice="14.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+  <Product barcode="83414" isWeight="0" isDeleted="0" title="נוזל כלים 4 ל' ג'ונסון קלין" category="0" saleprice="28" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668341">
+  </Product>
+  <Product barcode="67925" isWeight="0" isDeleted="0" title="אקדח דבק חם 100W" category="0" saleprice="55" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668339">
+  </Product>
+  <Product barcode="80925" isWeight="0" isDeleted="0" title="נייר טואלט טישו אביבית 48 גל'" category="0" saleprice="39" cost="" stockQuantity="-12" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+</Products>

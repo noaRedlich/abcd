@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+  <main_table>discount_items</main_table>
+  <name>פריטים</name>
+  <options>
+    <opt name="create_record" type="sometime"></opt>
+    <opt name="edit_record" type="sometime"></opt>
+    <opt name="search" type="none"></opt>
+    <opt name="view" type="always"></opt>
+    <opt name="delete_record" type="always"></opt>
+  </options>
+  <view>
+    <vcol name="listing_id" type="cross" cross="listingsDB" cross_field="ID" lookup_field="BarCode" ifnull="product_name">ברקוד</vcol>
+    <vcol name="listing_title" type="sql" value="select title  as result from listingsDB where id = [listing_id]">שם פריט</vcol>
+    <vcol name="listing_price" type="sql" value="select round(saleprice,2)  as result from listingsDB where id = [listing_id]">מחיר מכירה</vcol>
+  </view>
+  <edit>
+    <ecol tab="3" name="discount_list_id" type="cross" cross="discount_lists" cross_field="id" lookup_field="name" >מבצע</ecol>
+    <ecol name="listing_id" ismandatory="yes" type="cross_more" url="/modules/stock/product_select.php" dialogwidth="600" dialogheight="500" cross="listingsDB" cross_field="id" lookup_field="title" >בחר פריט</ecol>
+  </edit>
+  <sql_actions>
+    <opt name="order" val="SortOrder"></opt>
+  </sql_actions>
+</xml>

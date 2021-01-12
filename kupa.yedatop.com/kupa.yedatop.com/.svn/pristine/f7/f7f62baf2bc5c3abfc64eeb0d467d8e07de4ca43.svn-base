@@ -1,0 +1,341 @@
+<?php
+
+$simple = 1;
+
+ob_start();
+require("include/common.php"); 
+require("include/business_functions.php");
+require("include/document.php");           
+require("include/product.php");                        
+require("include/movement.php");  
+include_once("../../classes/xmlwriter.class.inc");                      
+if(!loginCheck('User'))exit;
+
+include("$config[template_path]/admin_top.html");
+ob_end_clean();
+
+function ChangeDocStatus($documentid,$docstatus,$statusreason)
+{
+	global $TABLE_DOCUMENT_TYPE,$STATUS_ACTIVE,$STATUS_CANCELLED;
+	$statusreason = utf8RawUrlDecode($statusreason);
+	
+	$doc = DBQuery("select 
+				stock_date,doc_date,doc_number,client_id,doc_type, doc_status, stock_id, source_stock_id,target_stock_id, comment,
+				is_product, move_stock,move_reserved,move_ordered,docgroup,is_internal,dt.name as type_name, cancel_type_id
+				from documents d, $TABLE_DOCUMENT_TYPE dt where dt.id = d.doc_type and d.id = $documentid");
+	if ($doc->EOF)
+	{
+		return "No document found";
+	}
+	
+	$movestock = $doc->fields["move_stock"]; 
+	$moveordered = $doc->fields["move_ordered"]; 
+	$movereserved = $doc->fields["move_reserved"]; 
+	$prevdocstatus = $doc->fields["doc_status"];
+	$sourcestock = $doc->fields["source_stock_id"];
+	$targetstock = $doc->fields["target_stock_id"];
+	$comment1 = $doc->fields["comment"];
+	$stock = $doc->fields["stock_id"];
+	$workmode = "A";
+	$stock_date = dateFromSQL($doc->fields["stock_date"]);
+	$docdate = dateFromSQL($doc->fields["doc_date"]);
+	$client = $doc->fields["client_id"];
+	$docnum = $doc->fields["doc_number"];
+	$docgroup = $doc->fields["docgroup"];
+	$isinternal = $doc->fields["is_internal"];
+	$isproduct  = $doc->fields["is_product"];
+	$did = $doc->fields["doc_type"];
+	$cancelTypeId = $doc->fields["cancel_type_id"];
+	$docTypeName = $doc->fields["type_name"];
+	$factory = $stock;
+	
+	$listingid = array();
+	$quantity = array();
+	$price = array();
+	$pdiscount = array();
+	$masterindex = array();
+	
+	if ($isproduct && $docstatus == $STATUS_ACTIVE && $prevdocstatus != $STATUS_ACTIVE)
+	{
+		$docProductsRS = DBQuery("select masterindex,listing_id,quantity,price,discount from document_products where doc_id = ".$documentid);
+		$i=0;
+		while (!$docProductsRS->EOF)
+		{
+			$listingid[$i] = $docProductsRS->fields["listing_id"];
+			$quantity[$i] = $docProductsRS->fields["quantity"];
+			$price[$i] = $docProductsRS->fields["price"];
+			$pdiscount[$i] = $docProductsRS->fields["discount"];
+			$masterindex[$i] = $docProductsRS->fields["masterindex"];
+			
+			if ($did=="HAAVARATPRITIM" && $listingid[$i])
+			{
+				moveProduct($listingid[$i],$quantity[$i],$sourcestock,$targetstock,$comment1);
+			}
+			elseif ($movestock=="+" && ($stock||$workmode=="B") && $listingid[$i])
+			{
+				//purchase
+				//get purchase group
+				$sql = "select max(group_id) as group_id from purchases where supplier_id = '$client'";
+				$groupRS = DBQuery($sql);
+				$groupid = $groupRS->fields["group_id"]+1;
+				$purdate = ($stock_date)?$stock_date:$docdate; 
+				purchaseProduct($listingid[$i],$quantity[$i],$client,$stock,$price[$i],$pdiscount[$i],$workmode,$purdate,1,$docnum,$groupid,$documentid);
+			} 
+			elseif($movestock=="-" && ($stock||$workmode=="B") && $listingid[$i])
+			{
+				//sell
+				sellProduct($listingid[$i],$quantity[$i],$client,$stock,$workmode,DateToSQL($docdate),$price[$i]);
+			}
+			
+			//update supplier
+			if ($docgroup=="PURCHASE" && !$isinternal && $client>1 && $listingid[$i])
+			{
+				$sql = "update listingsDB set sapak = '$client' where id = '".$listingid[$i]."'";
+				DBQuery($sql);
+			}
+			
+			
+			//move ordered quantity
+			if ($moveordered && $listingid[$i])
+			{
+				$sql = "update listingsDB set ordered = ordered $moveordered ".$quantity[$i]." where id = ".$listingid[$i];
+				DBQuery($sql);
+			}
+			//move reserved quantity
+			if ($movereserved && $listingid[$i])
+			{
+				$sql = "update listingsDB set reserved = reserved $movereserved ".$quantity[$i]." where id = ".$listingid[$i];
+				DBQuery($sql);
+			}
+			
+			$docProductsRS->MoveNext();
+		}
+		
+		//treate yezia mi izur
+		if ($listingid[$i] && ($did == "YETZIAMIIZUR"))
+		{
+			if ($masterindex[$i].""!="")
+			{
+				//move stock of children product from factory
+				UpdateQuantity($listingid[$i],$factory,-1*$quantity[$i]);
+			}
+			else
+			{
+				//create tree product and add stock of tree product in the point   
+				$sql = "select sum(ifnull(lse.saleprice,l.SalePrice)*t.quantity*(100-t.discount)/100) as total,
+						sum(Cost*t.quantity) as cost  
+						from listings_tree t,
+						listingsDB l
+						left outer join listingsStocksElements lse on lse.listingid = t.listing_id and lse.stockid = $stock
+						where l.id = t.listing_id and  master_id = ".$listingid[$i];
+				
+				$treepriceRS = DBQuery($sql);
+				
+				$testRS = DBQuery("select l.id from listingsDB l,listingsDB tl where l.tree_origin_id = tl.id and tl.id = ".$listingid[$i]." and tl.treeupdated < l.lastinserted ");
+				
+				if ($testRS->EOF)
+				{
+					$createdproduct = new Product($product_name,$productid[$i],$treepriceRS->fields["total"]);
+					$createdproduct->cost = $treepriceRS->fields["cost"];
+					$createdproduct->description = $lang["yetzia_izur"].$docnum;  
+					$createdproduct->treeorigin = $listingid[$i];  
+					$createdproduct->factorydocid = $documentid; 
+					$createdproduct->Create();
+					$createdproductid = $createdproduct->id;                                                                    
+				}
+				else
+				{
+					$createdproductid = $testRS->Fields("id");
+				}
+				DBQuery("update document_products set factory_listing_id = $createdproductid where doc_id = $documentid and listing_id = ".$listingid[$i]);
+				UpdateQuantity($createdproductid,$stock, $quantity[$i]);  
+			}
+		}
+		
+		//treate knisa le izur
+		if ($listingid[$i] && ($did == "KNISALEIZUR"))
+		{
+			$components = DBQuery("select listing_id,quantity from listings_tree where master_id = 
+						(select listing_id from document_products where factory_listing_id = ".$listingid[$i]." order by id desc limit 1)");
+			while (!$components->EOF)
+			{
+				//return component to stock
+				UpdateQuantity($components->fields["listing_id"],$factory,$components->fields["quantity"]*$quantity[$i]);
+				
+				//create fictive document_product records to handle doch parit
+				$doc = new ExistingDocument($documentid);
+				$doc->AddItem($components->fields["listing_id"],$components->fields["quantity"]*$quantity[$i],"","","","",false);
+				$components->MoveNext();
+			}
+			//decrease factory product stock
+			UpdateQuantity($listingid[$i],$stock,-1*$quantity[$i]);                            
+		}			
+		
+		
+	}
+	elseif($docstatus == $STATUS_CANCELLED && $prevdocstatus != $STATUS_CANCELLED && $prevdocstatus != $STATUS_DRAFT)
+	{
+		//create cancellation document
+		if ($cancelTypeId)
+		{
+			$cancelDoc = new Document($cancelTypeId,$stock,$client);
+			$cancelDoc->inheritFrom = $documentid;
+			//update stock to rollback original document
+			$cancelDoc->UpdateStock = true;
+			$cancelDoc->comment = "ביטול ".$docTypeName." מס' ".$docnum.".\n".$statusreason;
+			$cancelDoc->Create($STATUS_ACTIVE);
+		}
+		else
+		{
+			//don't create cancellation document, just rollback reserved and ordered products.
+			$cancelDoc = new ExistingDocument($documentid);
+			$cancelDoc->RollbackReservedAndOrderedProducts();
+		}
+		
+	}
+	
+	DBQuery("update documents set doc_status = $docstatus where id = $documentid");
+	
+	return "OK";
+}
+
+function GetProducts($productName) 
+{ 
+	global $userID;
+	$productName = ConvertFromUnicode(utf8RawUrlDecode($productName),"he");
+	
+	$rs = DBQuery("select title,barcode from listingsDB where title <> '' and active='yes' and title like '%".addslashes($productName)."%' and user_id = $userID order by binary title limit 30");
+	$xml = new MyXmlWriter();
+	$xml->push("products");
+	while (!$rs->EOF)
+	{
+		$xml->element("product",$rs->fields["title"],array("barcode"=>$rs->fields["barcode"]));
+		$rs->MoveNext();
+	}
+	$xml->pop();
+	return $xml->getXml();
+} 
+
+
+function GetProductsByBarcode($barcode)
+{  
+	global $userID;
+	$productName = ConvertFromUnicode(utf8RawUrlDecode($productName),"he");
+	
+	$rs = DBQuery("select title,barcode from listingsDB where title <> '' and active='yes' and barcode like binary '%".addslashes($barcode)."%' and user_id = $userID order by barcode+0, binary barcode limit 30");
+	$xml = new MyXmlWriter();
+	$xml->push("products");
+	while (!$rs->EOF)
+	{
+		$xml->element("product",$rs->fields["title"],array("barcode"=>$rs->fields["barcode"]));
+		$rs->MoveNext();
+	}
+	$xml->pop();
+	return $xml->getXml();
+}
+
+function AddProductsToBasket($ids,$clear)
+{
+	global $userID;
+	if ($clear)
+	{
+		DBQuery("update listingsDB set basket = 0 where user_id = $userID");
+	}
+	$idsarr = explode(",",$ids);
+	$max = DBQuery("select max(basket) as basket from listingsDB where user_id = $userID");
+	$max = $max->fields["max"];
+	if (!$max)$max=0;
+	foreach($idsarr as $id) 
+	{
+		$max++;
+		DBQuery("update listingsDB set basket = '".($max)."' where id = ".$id);
+	}
+	return "OK";
+}
+
+function GetAgents($agentName,$stock)
+{ 
+	global $userID, $officeUserID, $UserData;
+	$agentName = ConvertFromUnicode(utf8RawUrlDecode($agentName),"he");
+	if ($stock)
+	{	
+		
+		$showUnrelatedItems = "true";
+		if ($officeUserID != $userID && !$UserData->fields["ShowUnrelatedItemsToSubUsers"])
+		{
+			$showUnrelatedItems = "false";
+		}			
+		$q = " and ((related_stock_id = 0 and $showUnrelatedItems) or related_stock_id='$stock') ";
+	}
+	$sql = "select ID, SupplierName from listingsSuppliers where user_id = $userID and SupplierName like binary '%".addslashes($agentName)."%' and isAgent=1 and status=1 $q order by binary SupplierName";
+	$rs = DBQuery($sql);
+	$xml = new MyXmlWriter();
+	$xml->push("agents");
+	while (!$rs->EOF)
+	{
+		$xml->element("agent",$rs->fields["SupplierName"],array("id"=>$rs->fields["ID"]));
+		$rs->MoveNext();
+	}
+	$xml->pop();
+	return $xml->getXml();
+}  
+
+function GetClients($agentName,$stock)
+{ 
+	global $userID, $officeUserID, $UserData;
+	$agentName = ConvertFromUnicode(utf8RawUrlDecode($agentName),"he");
+	
+	if ($stock)
+	{
+		
+		$showUnrelatedItems = "true";
+		if ($officeUserID != $userID && !$UserData->fields["ShowUnrelatedItemsToSubUsers"])
+		{
+			$showUnrelatedItems = "false";
+		}			
+		$q = " and ((related_stock_id = 0 and $showUnrelatedItems) or related_stock_id='$stock')";
+	}
+	$sql = "select ID, SupplierName from listingsSuppliers where user_id = $userID and SupplierName like binary '%".addslashes($agentName)."%' and (isClient=1 or isSupplier=1)  and status=1 $q order by binary SupplierName";
+	$rs = DBQuery($sql);
+	$xml = new MyXmlWriter();
+	$xml->push("clients");
+	while (!$rs->EOF)
+	{
+		$xml->element("client",$rs->fields["SupplierName"],array("id"=>$rs->fields["ID"]));
+		$rs->MoveNext();
+	}
+	$xml->pop();
+	return $xml->getXml();
+}  
+
+function GetWorkers($agentName,$stock)
+{ 
+	global $userID, $officeUserID,$UserData;
+	$agentName = ConvertFromUnicode(utf8RawUrlDecode($agentName),"he");
+	
+	if ($stock)
+	{
+		
+		$showUnrelatedItems = "true";
+		if ($officeUserID != $userID && !$UserData->fields["ShowUnrelatedItemsToSubUsers"])
+		{
+			$showUnrelatedItems = "false";
+		}	
+		$q = " and ((related_stock_id = 0 and $showUnrelatedItems) or related_stock_id='$stock') ";
+	}
+	$sql = "select ID, SupplierName from listingsSuppliers where user_id = $userID and SupplierName like binary '%".addslashes($agentName)."%' and isWorker=1 and status=1 $q order by binary SupplierName";
+	$rs = DBQuery($sql);
+	$xml = new MyXmlWriter();
+	$xml->push("agents");
+	while (!$rs->EOF)
+	{
+		$xml->element("agent",$rs->fields["SupplierName"],array("id"=>$rs->fields["ID"]));
+		$rs->MoveNext();
+	}
+	$xml->pop();
+	return $xml->getXml();
+}  
+ 
+include_once("../../classes/agent.php");
+
+?>

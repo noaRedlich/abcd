@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="7290004116590" isWeight="0" isDeleted="0" title="קלסימו 5 ק&quot;ג" category="0" saleprice="28.9" cost="" stockQuantity="-34" minStockQuantity="" lastUpdated="1329143212">
+  </Product>
+  <Product barcode="83852" isWeight="0" isDeleted="0" title="גליל קרטון" category="0" saleprice="89" cost="" stockQuantity="-14" minStockQuantity="" lastUpdated="1329143219">
+  </Product>
+  <Product barcode="80117" isWeight="0" isDeleted="0" title="אקדח סיליקון כרום" category="0" saleprice="35" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143219">
+  </Product>
+  <Product barcode="8711595058797" isWeight="0" isDeleted="0" title="סופר 7 שקוף" category="0" saleprice="28.8" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1329143211">
+  </Product>
+  <Product barcode="4891199112638" isWeight="0" isDeleted="0" title="סוללות AA שישייה GP" category="0" saleprice="16" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1329143218">
+  </Product>
+  <Product barcode="8682" isWeight="0" isDeleted="0" title="מנורה נר  OSRAM" category="0" saleprice="4.9" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1329143220">
+  </Product>
+  <Product barcode="109" isWeight="0" isDeleted="0" title="מסקינג טייפ TESA 4323 50/50" category="0" saleprice="12.9" cost="" stockQuantity="-55" minStockQuantity="" lastUpdated="1329143210">
+  </Product>
+  <Product barcode="7290008048224" isWeight="0" isDeleted="0" title="סופרקריל אקרינול 5 ליטר" category="0" saleprice="175" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143213">
+  </Product>
+  <Product barcode="47812" isWeight="0" isDeleted="0" title="מטהר אויר אושיין 1 ל' JOHONSON CLEAN" category="0" saleprice="19.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143215">
+  </Product>
+</Products>

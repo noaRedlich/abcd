@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="8711595058797" isWeight="0" isDeleted="0" title="סופר 7 שקוף" category="0" saleprice="28.8" cost="" stockQuantity="-55" minStockQuantity="" lastUpdated="1363512459">
+  </Product>
+  <Product barcode="12658" isWeight="0" isDeleted="0" title="אקדח סיליקון כתום" category="0" saleprice="15" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1363512475">
+  </Product>
+</Products>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="140523" isWeight="0" isDeleted="0" title="שלישייה נורת חיסכון 20W סאן לייט" category="0" saleprice="39" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1363512477">
+  </Product>
+  <Product barcode="4050300327235" isWeight="0" isDeleted="0" title="נורה OSRAM PL 4 PIN 26W" category="0" saleprice="23.9" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1363512464">
+  </Product>
+  <Product barcode="7845" isWeight="0" isDeleted="0" title="בית מנורה קומפלט" category="0" saleprice="9.9" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1363512469">
+  </Product>
+</Products>

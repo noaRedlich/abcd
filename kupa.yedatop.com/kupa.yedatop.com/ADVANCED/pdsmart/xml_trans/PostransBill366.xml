@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="1258" BillId="366" ClientId="1">
+  <Products>
+    <Product Id="872">
+      <Name>פריט hhh לדוגמה</Name>
+      <Barcode>1377723241200</Barcode>
+      <SalePrice>69</SalePrice>
+      <SaledPrice>276</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>4</Quantity>
+    </Product>
+    <Product Id="874">
+      <Name>2פריט לדוגמה</Name>
+      <Barcode>1300023241268</Barcode>
+      <SalePrice>47</SalePrice>
+      <SaledPrice>47</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="50008">
+      <Name>TEA EDWIN MALINA 25 PAK   תה א</Name>
+      <Barcode />
+      <SalePrice>5</SalePrice>
+      <SaledPrice>5</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="50007">
+      <Name>TEA EDWIN BREAKFAST 100 PAK   </Name>
+      <Barcode />
+      <SalePrice>13.5</SalePrice>
+      <SaledPrice>13.5</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>341.50</Cash>
+  </Pay>
+</Bill>

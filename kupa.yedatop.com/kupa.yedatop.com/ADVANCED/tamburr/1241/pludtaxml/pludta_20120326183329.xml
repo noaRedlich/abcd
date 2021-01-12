@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="802" isWeight="0" isDeleted="0" title="דיבל דפיקה 6X40 פטרייה 10 יח'" category="0" saleprice="4.5" cost="" stockQuantity="-25" minStockQuantity="" lastUpdated="1329143219">
+  </Product>
+  <Product barcode="281" isWeight="0" isDeleted="0" title="חוט בנאים סינטטי" category="0" saleprice="11.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143213">
+  </Product>
+  <Product barcode="7291021332536" isWeight="0" isDeleted="0" title="סט אלן מתקפל" category="0" saleprice="12.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143213">
+  </Product>
+  <Product barcode="5808" isWeight="0" isDeleted="0" title="מקדח SDS 6MM" category="0" saleprice="12.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143216">
+  </Product>
+  <Product barcode="6951325435579" isWeight="0" isDeleted="0" title="מפתח שוודי &quot;8" category="0" saleprice="39" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143215">
+  </Product>
+  <Product barcode="58422" isWeight="0" isDeleted="0" title="מפתח שוודי &quot;10" category="0" saleprice="49" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1326886234">
+  </Product>
+  <Product barcode="6942629215318" isWeight="0" isDeleted="0" title="טסטר TACTIX" category="0" saleprice="8" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143216">
+  </Product>
+  <Product barcode="565" isWeight="0" isDeleted="0" title="ארגז כלים &quot;16" category="0" saleprice="65" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143216">
+  </Product>
+  <Product barcode="7291021332567" isWeight="0" isDeleted="0" title="סט ביטים 7 יח'" category="0" saleprice="9.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143213">
+  </Product>
+  <Product barcode="4011890076590" isWeight="0" isDeleted="0" title="דיסק ברזל 4.5  דק רודיוס" category="0" saleprice="10.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1329143211">
+  </Product>
+  <Product barcode="4738" isWeight="0" isDeleted="0" title="אום &quot;5/16 100 יח'" category="0" saleprice="22" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1329143215">
+  </Product>
+  <Product barcode="5863" isWeight="0" isDeleted="0" title="דיבל 7 אדום 100 יח'" category="0" saleprice="8" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1329143216">
+  </Product>
+  <Product barcode="4564" isWeight="0" isDeleted="0" title="מתלה מוט הברגה למזגן 3/8X300" category="0" saleprice="5.9" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1329143215">
+  </Product>
+</Products>

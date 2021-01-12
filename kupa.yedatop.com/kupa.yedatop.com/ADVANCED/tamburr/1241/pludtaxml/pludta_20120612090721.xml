@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="2962" isWeight="0" isDeleted="0" title="כפפות בד בד" category="0" saleprice="4.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1338529986">
+  </Product>
+  <Product barcode="4887" isWeight="0" isDeleted="0" title="רביעיית מטליות מיקרופייבר" category="0" saleprice="10" cost="" stockQuantity="-8" minStockQuantity="" lastUpdated="1338529988">
+  </Product>
+  <Product barcode="81216" isWeight="0" isDeleted="0" title="נייר מגבת שישייה כפול" category="0" saleprice="22" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1338529993">
+  </Product>
+  <Product barcode="1093" isWeight="0" isDeleted="0" title="מגב מילניום 50 +מקל" category="0" saleprice="29.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1338529995">
+  </Product>
+  <Product barcode="385" isWeight="0" isDeleted="0" title="טפלון סרט" category="0" saleprice="2" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1338529987">
+  </Product>
+  <Product barcode="7290102625895" isWeight="0" isDeleted="0" title="שפכטל טמבור &quot;4" category="0" saleprice="11.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1338529985">
+  </Product>
+  <Product barcode="240" isWeight="0" isDeleted="0" title="מברג PH2-150mm" category="0" saleprice="12.5" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1338529986">
+  </Product>
+  <Product barcode="266" isWeight="0" isDeleted="0" title="מחבר לברז &quot;1 ומעבר 3/4" category="0" saleprice="4.5" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1338529986">
+  </Product>
+  <Product barcode="7290006547736" isWeight="0" isDeleted="0" title="כפפות חד פעמי 100 L" category="0" saleprice="25.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1338529985">
+  </Product>
+</Products>

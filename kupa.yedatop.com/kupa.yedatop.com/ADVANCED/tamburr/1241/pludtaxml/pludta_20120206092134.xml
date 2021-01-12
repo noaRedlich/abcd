@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="7484" isWeight="0" isDeleted="0" title="סחבות ריצפה זוג" category="0" saleprice="5.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1326886236">
+  </Product>
+  <Product barcode="6256" isWeight="0" isDeleted="0" title="שקיות אשפה 25 יח' שחורות 85X75" category="0" saleprice="9.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1326886235">
+  </Product>
+  <Product barcode="8643" isWeight="0" isDeleted="0" title="קופסה 3 מקום לקיר גבס" category="0" saleprice="6" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1326886238">
+  </Product>
+  <Product barcode="8623" isWeight="0" isDeleted="0" title="מתאם 3 גויס" category="0" saleprice="6" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1326886238">
+  </Product>
+</Products>

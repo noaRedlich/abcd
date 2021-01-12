@@ -1,0 +1,323 @@
+<?php
+
+
+
+ini_set("error_reporting","E_ERROR & E_CORE_ERROR & E_COMPILE_ERROR");
+$noheader=1;
+
+
+switch ($type)
+{
+    case "csva":
+        $filename = "credit";
+        $logcode = "csa";
+        $fieldname = "export_csva";
+        $paymID = 5;
+		$paymID1 = 8;
+        break;
+    case "csvm":
+        $filename = "cash";
+        $logcode = "csm";
+        $fieldname = "export_csvm";
+        $paymID = 1;
+        $paymID1 = 1;
+        break;
+}
+
+if($action=="dat")
+{
+    ob_start();
+    $noheader=1;
+	include("include/common.php");
+    ob_end_clean();
+    
+	// Date in the past
+     header("Pragma: ");
+     header("Cache-Control: ");
+     header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
+     header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
+     header("Cache-Control: no-store, no-cache, must-revalidate"); // HTTP/1.1
+     header("Cache-Control: post-check=0, pre-check=0", false);
+     //header("Content-Type: text/plain");
+
+    header("Content-Disposition: attachment; filename=\"$filename.csv\"");      
+
+    if(!mysql_connect($db_server,$db_user,$db_password))
+	{
+		echo "SQL_ERROR: Cannot connect to DB: $db_database"; exit();
+	}
+	mysql_select_db($db_database) or die("SQL_ERROR: Cannot select DB: $db_database");
+}
+
+
+$simple=1;
+$page_subtitle = "יבוא ויצוא";
+
+
+$company = array(
+	0=>"",
+	1=>"isracard",
+	2=>"visacal",
+	3=>"diners",
+	4=>"amex",
+	5=>"JCB",
+	6=>"visa"
+);
+
+
+if (!$action)
+{
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+	$sql="select * from exporthashlog where user_id = $userID and code='$logcode' order by end_Date desc limit 10";
+	$log=$conn->execute($sql);
+	if ($log === false){log_error($sql);}
+	echo
+	"
+	<head>
+	<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+	</head><pre dir=rtl>";
+	
+	if (!$UserData->fields["ExportEnabled"]){
+		die( "אין הרשאה לפעולה הזאת. יש לפנות למנהל המערכת.");
+	}
+	echo "יש להזין תאריכי יצוא וללחוץ על אישור";
+	if(!$log->EOF){
+		echo "\n\n----------------------------------------------";
+		echo "\n"."תווחי תאריכים שקבר  עברו ליצוא  (10 אחרונים )";
+		while (!$log->EOF){
+			$checkDate =$log->fields["start_date"];
+			$start_date = substr($checkDate,8,2)."/".substr($checkDate,5,2)."/".substr($checkDate,2,2);	//6 Taarich perayon (cheque)
+			$checkDate =$log->fields["end_date"];
+			$end_date = substr($checkDate,8,2)."/".substr($checkDate,5,2)."/".substr($checkDate,2,2);	//6 Taarich perayon (cheque)
+
+			echo "\n".$start_date ." - ".$end_date." (בוצע ".date("d/m/y H:i",$log->fields["timestamp"]).")" ;
+			$log->MoveNext();
+		}
+	}
+	
+	exit;
+}
+
+elseif ($action=="do")
+{
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+	print"
+	<head>
+	<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+	</head>
+	<pre dir=rtl>";	
+	if (!$UserData->fields["ExportEnabled"])
+    {
+		die( "אין הרשאה לפעולה הזאת. יש לפנות למנהל המערכת.");
+	}
+	if(($sDate==""||$eDate=="") && !$auto)  
+    {
+		die("יש להזין תאריכי יצוא ");
+	}
+	else
+    {
+        if (!$auto)
+        {
+            $period = "($sDate - $eDate)";
+        }
+		echo "<ul><li><a target=_blank href='".$rootpath."export_csvdeals.php?type=$type&action=dat&auto=$auto&stock=$stock&sDate=$sDate&eDate=$eDate&username=$username&uid=$userID&rnd=".rand()."'><strong>יש ללחוץ כאן להורדת קובץ <span dir=ltr> $period $filename.csv</span></strong></a><br>";
+		echo "<li><a target=_blank href='".$rootpath."export_csvdeals.php?siduri=1&type=$type&action=dat&auto=$auto&stock=$stock&sDate=$sDate&eDate=$eDate&username=$username&uid=$userID&rnd=".rand()."'><strong>יש ללחוץ כאן להורדת קובץ <span dir=ltr> $period $filename.csv</span><br>(קוד סידורי במקום ברקוד)</strong></a></ul>";
+ 		echo "\n<input class=button onclick='showLog()' style='background-image:url(".$imgPath."table_view.gif)' type=button value='הסטוריה יצוא  אוטומטי'>";
+        echo "<script>
+        function showLog()
+        {
+            url = 'rep_exportlog.php?f=$fieldname';
+        	s = window.open(url,'LOG','top=100,left=100,height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+	        s.focus();
+        }
+        </script>
+        ";	
+    
+    }
+	
+	$SQLsDate = substr($sDate,6,4)."-".substr($sDate,3,2)."-".substr($sDate,0,2);	
+	$SQLeDate = substr($eDate,6,4)."-".substr($eDate,3,2)."-".substr($eDate,0,2);	
+
+	$sql="select * from exporthashlog where user_id = $userID and code='$logcode' and 
+	 (('$SQLsDate' between start_date and end_date) or ('$SQLeDate' between start_date and end_date) )
+	 ";
+	//echo $sql;
+	$log=$conn->execute($sql);
+	if ($log === false){log_error($sql);}
+	if(!$log->EOF){
+		echo "\n<b style=color:red>הזהרה: התאריכים כבר עברו ליצוא!</a>";
+		while (!$log->EOF){
+			$checkDate =$log->fields["start_date"];
+			$start_date = substr($checkDate,8,2)."/".substr($checkDate,5,2)."/".substr($checkDate,2,2);	//6 Taarich perayon (cheque)
+			$checkDate =$log->fields["end_date"];
+			$end_date = substr($checkDate,8,2)."/".substr($checkDate,5,2)."/".substr($checkDate,2,2);	//6 Taarich perayon (cheque)
+
+			echo "\n".$start_date ." - ".$end_date." (בוצע ".date("d/m/y H:i",$log->fields["timestamp"]).")"  ;
+			$log->MoveNext();
+		}
+		echo "\n\n";
+	}
+
+
+	exit;
+}
+
+elseif($action=="dat")
+{
+	$asDate = explode("/",$sDate);
+	$aeDate = explode("/",$eDate);
+	$startdate = mktime(23,59,59,$asDate[1],$asDate[0],$asDate[2]);
+	$enddate = mktime(23,59,59,$aeDate[1],$aeDate[0],$aeDate[2]);
+	$startDay = date("Y/m/d",$startdate);
+	$endDay = date("Y/m/d",$enddate);
+	$day = $startdate;
+	
+	$cnt=0;
+	$rowlen=94;
+	
+	$sql="select * from $TABLE_USERDATA where userName = '$username'";
+	$userdata = mysql_query($sql) or die(mysql_error());
+	$userdata = mysql_fetch_array($userdata);
+
+    //title row 
+    $out="date,inv num,total,item,qunatity,pay method\n\r";
+
+    if ($auto)
+    {
+        $day = $enddate = 1;
+    }
+    
+	while ($day <= $enddate)
+    {
+	
+		$sqldate = date("Y-m-d",$day);
+		$opdate = date("d/m/Y",$day);
+		
+        if ($auto)
+        {
+            $qq = " and $fieldname is null "; 
+        }
+        else
+        {
+		    $qq = " and  trandate = '$sqldate' ";
+		    if ($stock){
+			    $qq.=" and t.stock_id=$stock ";
+		    }
+        }
+
+
+		if ($siduri)
+		{
+			$code = "l.MisparSiduri";
+		}
+		else
+		{
+			$code = "plucode";
+		}
+		$sql = "select t.ID,decimals,
+			    trandate, TranNum, journalNum, $code as barcode,
+    			(case when WeigthFlag then WeightQty/grams_rate else StockAmount end)* (case when isrefund = 1 or StockAmount <0 then -1 else 1 end) as StockAmount ,
+    				(case
+                    when AmountPercentDiscount <> 0 and (DiscountType=1 or SecondDiscFlag=1 or OtherDiscountFlag=1 or ClubDiscount=1)
+                        then CompAmount - (CompAmount*AmountPercentDiscount/100)
+    				when CompCashDiscount <> 0
+    					then CompAmount - CompCashDiscount
+    				when CompDiscount <> 0
+    					then CompAmount - (CompAmount*CompDiscount/100)
+    				when TranDiscount <> 0
+    					then CompAmount - (CompAmount*TranDiscount/100)
+    				when TranCashDiscount <> 0
+    					then CompAmount - (CompAmount*(TranCashDiscount*100/TranAmount)/100)
+    				else CompAmount end) * (case when isrefund = 1 or StockAmount <0 then -1 else 1 end)
+    				 as Mahzor
+		   from
+			 transactions t ,transactionpackages p,
+             transactioncomponents tc
+             left outer join listingsDB l on l.id = tc.listing_id
+             left outer join  $TABLE_UNITS u on u.id = l.unit
+			where 
+				p.id = t.package_id
+				and t.user_id = $uid              
+                and tc.trans_id = t.id
+                 
+				$qq 
+			";
+		//die( $sql);
+		$transDataRS = mysql_query($sql) or die(mysql_error());
+
+		while ($transData=mysql_fetch_array($transDataRS))
+        {
+			$transid = $transData["ID"];
+            $sqlpay = "select distinct(PaymID) as paymid from transactionpayments where trans_id = $transid";
+            //echo $sqlpay;
+		    $payRS = mysql_query($sqlpay) or die(mysql_error());
+            if (mysql_num_rows($payRS)>1)
+            {
+                echo "עסקה מכילה יותר מסוג תשלום אחד./n";
+                continue;
+            }
+            
+            $sql = "select PaymID,CompanyNum from transactionpayments where trans_id = $transid";
+		    $payRS1 = mysql_query($sql) or die(mysql_error());
+            $payRS1 = mysql_fetch_array($payRS1);
+            if ($payRS1["PaymID"] != $paymID && $payRS1["PaymID"] != $paymID1)continue;
+            
+            $date = dateSQL($transData["trandate"]);
+			$chn_num = str_pad( ($transData["journalNum"])*1000 +  $transData["TranNum"] , 8,"0",STR_PAD_LEFT);
+            $total = number_format($transData["Mahzor"],2,".","");
+            $quantity =  number_format($transData["StockAmount"],$transData["decimals"]); 
+            $barcode =  trim($transData["barcode"]); 
+            //die("**".$paymID."**");
+            $paymethod = ($paymID==1)?"cash":$company[$payRS1["CompanyNum"]];
+            
+            $out.='"'.$date.'","';
+            $out.=$chn_num.'","';
+            $out.=$total.'","';
+            $out.=$barcode.'","';
+            $out.=$quantity.'","';
+            $out.=$paymethod."\"\n";
+              
+			$cnt++;
+            
+            if ($auto)
+            {
+                $sql = "update transactions set $fieldname = now() where id = $transid";
+                $hres = mysql_query($sql) or die(mysql_error());
+            }
+		}
+
+         $day= strtotime("+1 day",$day);
+         if ($auto)break;
+	}
+	
+	//$out=str_pad(trim($cnt), $rowlen," ",STR_PAD_RIGHT).chr(13).chr(10) . $out;
+	
+	$sDate = substr($sDate,6,4)."-".substr($sDate,3,2)."-".substr($sDate,0,2);	
+	$eDate = substr($eDate,6,4)."-".substr($eDate,3,2)."-".substr($eDate,0,2);	
+
+    if (!$auto)
+    {
+	    $sql="INSERT INTO exporthashlog ( start_date, end_date, timestamp, user_id,code) VALUES ( '$sDate', '$eDate', unix_timestamp(), $uid,'$logcode')";
+	    mysql_query($sql) or die(mysql_error());	
+    }
+    
+	echo $out;
+	exit();
+}
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+function dateSQL($date)
+{
+	return substr($date,8,2) ."/".substr($date,5,2)."/".substr($date,0,4);
+}
+
+
+?>

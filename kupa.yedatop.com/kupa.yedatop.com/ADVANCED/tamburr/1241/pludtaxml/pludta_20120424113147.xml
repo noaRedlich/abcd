@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="80925" isWeight="0" isDeleted="0" title="נייר טואלט טישו אביבית 48 גל'" category="0" saleprice="39" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1329143219">
+  </Product>
+  <Product barcode="4766" isWeight="0" isDeleted="0" title="נוזל רצפות כחול 4 ל' JOHONSON CLEAN" category="0" saleprice="14.5" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1329143215">
+  </Product>
+  <Product barcode="4837" isWeight="0" isDeleted="0" title="אקונומיקה ריחנית 4 ל' JOHONSON CLEAN" category="0" saleprice="14.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1329143215">
+  </Product>
+  <Product barcode="5879" isWeight="0" isDeleted="0" title="סבון ידיים ורוד 4 ל' JOHONSON CLEAN" category="0" saleprice="14.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143216">
+  </Product>
+</Products>

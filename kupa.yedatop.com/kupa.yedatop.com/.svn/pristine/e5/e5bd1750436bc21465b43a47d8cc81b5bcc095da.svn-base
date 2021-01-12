@@ -1,0 +1,28 @@
+<?php
+// open the file in a binary mode
+$dir = "../web/modules/stock/tmp/";
+$name = $dir . $uid . "/" . $file;
+$fp = fopen($name, 'rb');
+
+// send the right headers
+include ("db.php");
+
+ header("Expires: Mon, 26 Nov 1962 00:00:00 GMT");
+ // always modified
+ header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
+ // HTTP/1.1
+ header("Cache-Control: private, no-store, must-revalidate, max-age=0");
+ header("Cache-Control: post-check=0, pre-check=0", false); // false=don't overwrite but add header
+ // HTTP/1.0
+ //header("Pragma: no-cache");
+ header("Content-Type: application/pdf");
+ header("Content-Length: " . filesize($name));
+ header("Content-Disposition: inline; filename=$file");
+
+
+// dump the file and stop the script
+fpassthru($fp);
+fclose($fp);
+unlink($name);
+exit;
+?>

@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="" BillId="216" ClientId="1">
+  <Products>
+    <Product Id="45">
+      <Name>טאמאקי קונוס   מלפפון  גזר  עי</Name>
+      <Barcode />
+      <SalePrice>20</SalePrice>
+      <SaledPrice>20</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="901">
+      <Name>עסקית טורטיה אבוקדו ללא שתיה </Name>
+      <Barcode />
+      <SalePrice>35</SalePrice>
+      <SaledPrice>35</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="90">
+      <Name>עסקית טורטיה אבוקדו </Name>
+      <Barcode />
+      <SalePrice>39</SalePrice>
+      <SaledPrice>39</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="911">
+      <Name>עסקית כנפיים ללא שתיה </Name>
+      <Barcode />
+      <SalePrice>35</SalePrice>
+      <SaledPrice>35</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="92">
+      <Name>עסקית שניצל טמפורה ופאנקו</Name>
+      <Barcode />
+      <SalePrice>39</SalePrice>
+      <SaledPrice>39</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>168</Cash>
+  </Pay>
+</Bill>

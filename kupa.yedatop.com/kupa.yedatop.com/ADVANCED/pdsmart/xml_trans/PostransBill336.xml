@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="1258" BillId="336" ClientId="1">
+  <Products>
+    <Product Id="10003">
+      <Name>VODKA MOROZOV PREMIUM 0.7 L   </Name>
+      <Barcode />
+      <SalePrice>30</SalePrice>
+      <SaledPrice>30</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="30123">
+      <Name>WHISKY MINI GLENROS 0.2 L     </Name>
+      <Barcode />
+      <SalePrice>20</SalePrice>
+      <SaledPrice>20</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>50.00</Cash>
+  </Pay>
+</Bill>

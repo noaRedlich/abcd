@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="80925" isWeight="0" isDeleted="0" title="נייר טואלט טישו אביבית 48 גל'" category="0" saleprice="39" cost="0.000" stockQuantity="-25" minStockQuantity="" lastUpdated="1367235290">
+  </Product>
+  <Product barcode="68114" isWeight="0" isDeleted="0" title="צלחות חד פעמי לבן" category="0" saleprice="7.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1367235287">
+  </Product>
+  <Product barcode="83414" isWeight="0" isDeleted="0" title="נוזל כלים 4 ל' ג'ונסון קלין" category="0" saleprice="28" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1367235290">
+  </Product>
+  <Product barcode="5879" isWeight="0" isDeleted="0" title="סבון ידיים ורוד 4 ל' JOHONSON CLEAN" category="0" saleprice="14.9" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1367235286">
+  </Product>
+  <Product barcode="7290001596517" isWeight="0" isDeleted="0" title="שקיות אשפה 60 יח'" category="0" saleprice="17.9" cost="" stockQuantity="-13" minStockQuantity="" lastUpdated="1367235286">
+  </Product>
+  <Product barcode="4891199034473" isWeight="0" isDeleted="0" title="סוללות זוג GP C" category="0" saleprice="18" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1367235277">
+  </Product>
+  <Product barcode="6921296286838" isWeight="0" isDeleted="0" title="מטלית ריצפה מיקרופייבר" category="0" saleprice="10" cost="" stockQuantity="-10" minStockQuantity="" lastUpdated="1367235285">
+  </Product>
+</Products>

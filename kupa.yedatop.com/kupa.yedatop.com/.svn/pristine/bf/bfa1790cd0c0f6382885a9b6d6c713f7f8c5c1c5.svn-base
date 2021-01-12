@@ -1,0 +1,486 @@
+<form action="<?php echo $PHP_SELF; ?>" method="POST" name="register">
+<table border="0" cellpadding="0" cellspacing="3">
+<tr>
+	<td colspan="2"><h1><?php echo $admin_new_user; ?></h1>
+	<?php if (isset($error)) echo $error; ?>
+	<?php echo $registration_text; ?><br /><br />
+	<h2><?php echo $registration_personal_info; ?></h2>
+</tr>
+<tr>
+	<td valign="top">
+	<table border="0" cellpadding="0" cellspacing="3">
+	<?php
+	if ($val->error["name"])
+	{
+	?>
+	<tr>
+		<td class="Error" colspan="2">
+			<?php echo $val->error["name"]; ?>
+		</td>
+	</tr>
+	<?php
+	}
+	?>
+	<tr>
+		<td align="right" nowrap>
+		<?php echo $strName; ?><span style=color:red> *</span>:&nbsp;
+		</td>
+		<td>
+		<input type="text" class="textbox"  name="name" size="30" value="<?php if(isset($name)) echo $name; ?>" maxlength="50">
+		</td>
+	</tr>
+	
+	<?php
+	if ($val->error["email"])
+	{
+	?>
+	<tr>
+		<td colspan="2" class="Error">
+			<?php echo $val->error["email"]; ?>
+		</td>
+	</tr>
+	<?php } ?>
+	<tr>
+		<td align="right" nowrap valign="top">
+		<?php echo $strEmail; ?><span style=color:red> *</span>:&nbsp;
+		</td>
+		<td class="small">
+		<input type="text" class="textbox"  name="email" size="30" value="<?php if(isset($email)) echo $email; ?>" maxlength="75"><br />
+		<?php
+		if ($GO_CONFIG->enable_system_accounts)
+		{
+			echo $ml_email_only;
+		}
+		?>
+		</td>
+	</tr>	
+	<tr>
+		<td align="right" nowrap>
+		<?php echo $strAddress; ?>:&nbsp;
+		</td>
+		<td>
+		<input type="text" class="textbox"  name="address" size="30" value="<?php  if(isset($address)) echo $address; ?>" maxlength="100">
+		</td>
+	</tr>
+
+	<tr>
+		<td align="right" nowrap>
+		<?php echo $strZip; ?>:&nbsp;
+		</td>
+		<td>
+		<input type="text" class="textbox"  name="zip" size="30" value="<?php if(isset($zip)) echo $zip; ?>" maxlength="20">
+		</td>
+	</tr>
+	<tr>
+		<td align="right" nowrap>
+		<?php echo $strCity; ?>:&nbsp;
+		</td>
+		<td>
+		<input type="text" class="textbox"  name="city" size="30" value="<?php if(isset($city)) echo $city; ?>" maxlength="50">
+		</td>
+	</tr>
+
+	<tr>
+		<td align="right" nowrap>
+		<?php echo $strState; ?>:&nbsp;
+		</td>
+		<td>
+		<input type="text" class="textbox"  name="state" size="30" value="<?php if(isset($state)) echo $state; ?>" maxlength="50">
+		</td>
+	</tr>
+
+	<tr>
+		<td align="right" nowrap>
+		<?php echo $strCountry; ?>:&nbsp;
+		</td>
+		<td>
+		<input type="text" class="textbox"  name="country" size="30" value="<?php if(isset($country)) echo $country; ?>" maxlength="50">
+		</td>
+	</tr>
+
+
+	<tr>
+		<td colspan="2">&nbsp;</td>
+	</tr>
+
+	<tr>
+		<td align="right" nowrap>
+		<?php echo $strPhone; ?>:&nbsp;
+		</td>
+		<td>
+		<input type="text" class="textbox"  name="home_phone" size="30" value="<?php if(isset($home_phone)) echo $home_phone; ?>" maxlength="20">
+		</td>
+	</tr>
+
+
+
+	<tr>
+		<td align="right" nowrap>
+		<?php echo $strFax; ?>:&nbsp;
+		</td>
+		<td>
+		<input type="text" class="textbox"  name="fax" size="30" value="<?php if(isset($fax)) echo $fax; ?>" maxlength="20">
+		</td>
+	</tr>
+
+	<tr>
+		<td align="right" nowrap>
+		<?php echo $strCellular; ?>:&nbsp;
+		</td>
+		<td>
+		<input type="text" class="textbox"  name="cellular" size="30" value="<?php if(isset($cellular)) echo $cellular; ?>" maxlength="20">
+		</td>
+	</tr>
+	<tr>
+		<td colspan="2">&nbsp;</td>
+	</tr>
+	<?php
+	if ($val->error["businessnum"])
+	{
+	?>
+	<tr>
+		<td class="Error" colspan="2">
+			<?php echo $val->error["businessnum"]; ?>
+		</td>
+	</tr>
+	<?php
+	}
+	?>	
+	<tr>
+		<td align="right" nowrap>
+		<?php echo $strBusinessNum; ?>
+		<?if ($GO_CONFIG->require_businessnum){?>
+				<span style=color:red> *</span>
+		<?}?>
+		:&nbsp;
+		</td>
+		<td>
+		<input type="text" class="textbox"  name="businessnum" size="30" value="<?php if(isset($businessnum)) echo $businessnum; ?>" maxlength="50">
+		</td>
+	</tr>
+	
+	</table>
+	</td>
+	<td valign="top">
+		<table border="0" cellpadding="0" cellspacing="3">
+		<tr>
+			<td align="right" nowrap>
+			<?php echo $strCompany; ?>:&nbsp;
+			</td>
+			<td>
+			<input type="text" class="textbox"  name="company" size="30" value="<?php if(isset($company)) echo $company; ?>" maxlength="50">
+			</td>
+		</tr>
+		<tr>
+			<td align="right" nowrap>
+			<?php echo $strAddress; ?>:&nbsp;
+			</td>
+			<td>
+			<input type="text" class="textbox"  name="work_address" size="30" value="<?php if(isset($work_address)) echo$work_address; ?>" maxlength="100">
+			</td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap>
+			<?php echo $strZip; ?>:&nbsp;
+			</td>
+			<td>
+			<input type="text" class="textbox"  name="work_zip" size="30" value="<?php if(isset($work_zip)) echo $work_zip; ?>" maxlength="20">
+			</td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap>
+			<?php echo $strCity; ?>:&nbsp;
+			</td>
+			<td>
+			<input type="text" class="textbox"  name="work_city" size="30" value="<?php if(isset($work_city)) echo $work_city; ?>" maxlength="50">
+			</td>
+		</tr>
+
+
+		<tr>
+			<td align="right" nowrap>
+			<?php echo $strState; ?>:&nbsp;
+			</td>
+			<td>
+			<input type="text" class="textbox"  name="work_state" size="30" value="<?php if(isset($work_state)) echo $work_state; ?>" maxlength="50">
+			</td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap>
+			<?php echo $strCountry; ?>:&nbsp;
+			</td>
+			<td>
+			<input type="text" class="textbox"  name="work_country" size="30" value="<?php if(isset($work_country)) echo $work_country; ?>" maxlength="50">
+			</td>
+		</tr>
+		<tr>
+			<td colspan="2">&nbsp;</td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap>
+			<?php echo $strWorkphone; ?>:&nbsp;
+			</td>
+			<td>
+			<input type="text" class="textbox"  name="work_phone" size="30" value="<?php if(isset($work_phone)) echo $work_phone; ?>" maxlength="20">
+			</td>
+		</tr>
+		<tr>
+			<td align="right" nowrap>
+			<?php echo $strWorkFax; ?>:&nbsp;
+			</td>
+			<td>
+			<input type="text" class="textbox"  name="work_fax" size="30" value="<?php if(isset($work_fax)) echo $work_fax; ?>" maxlength="20">
+			</td>
+		</tr>
+		<tr>
+			<td align="right" nowrap>
+			<?php echo $strHomepage; ?>:&nbsp;
+			</td>
+			<td>
+			<input type="text" class="textbox"  name="homepage" size="30" value="<?php if(isset($homepage)) echo $homepage ?>" maxlength="100">
+			</td>
+		</tr>
+		<tr>
+			<td colspan="2">&nbsp;</td>
+		</tr>
+		<tr>
+			<td align="right" nowrap>
+			<?php echo $strDepartment; ?>:&nbsp;
+			</td>
+			<td>
+			<input type="text" class="textbox"  name="department" size="30" value="<?php if(isset($department)) echo $department; ?>" maxlength="50">
+			</td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap>
+			<?php echo $strFunction; ?>:&nbsp;
+			</td>
+			<td>
+			<input type="text" class="textbox"  name="function" size="30" value="<?php if(isset($function)) echo $function; ?>" maxlength="50">
+			</td>
+		</tr>
+		</table>
+	</td>
+</tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="3" width="600">
+<tr height="30">
+	<td>&nbsp;</td>
+</tr>
+<tr>
+        <td colspan="2"><h2><?php echo $registration_account_info; ?></h2>
+        <?php echo $registartion_username_text; ?><br><br>
+        </td>
+</tr>
+<?php
+if ($val->error["username"])
+{
+?>
+<tr>
+        <td colspan="2" class="Error">
+                <?php echo $val->error["username"]; ?>
+        </td>
+</tr>
+<?php } ?>
+
+<tr>
+	<td align="right" nowrap>
+        <?php echo $strUsername; ?><span style=color:red> *</span>:&nbsp;
+      	</td>
+      	<td width="100%">
+        <input type="text" class="textbox"  name="username" size="30" value="<?php if(isset($username)) echo $username; ?>" maxlength="20">
+       </td>
+</tr>
+<?php
+if ($val->error["pass1"])
+{
+?>
+<tr>
+        <td colspan="2" class="Error">
+                <?php echo $val->error["pass1"]; ?>
+        </td>
+</tr>
+<?php } ?>
+
+<tr>
+	<td align="right" nowrap>
+        <?php echo $strPassword; ?><span style=color:red> *</span>:&nbsp;
+      	</td>
+      	<td>
+        <input type=password class="textbox" name=pass1 size="30" maxlength="20" value="<?php if(isset($pass1)) echo $pass1; ?>">
+        </td>
+</tr>
+<?php
+if ($val->error["pass2"])
+{
+?>
+<tr>
+        <td colspan="2" class="Error">
+                <?php echo $val->error["pass2"]; ?>
+        </td>
+</tr>
+<?php } ?>
+<tr>
+	<td align="right" nowrap>
+        <?php echo $strPasswordConfirm; ?><span style=color:red> *</span>:&nbsp;
+      	</td>
+      	<td>
+        <input type="password" class="textbox" name="pass2" size="30" maxlength="20" value="<?php if(isset($pass2)) echo $pass2; ?>">
+        </td>
+</tr>
+<?if (false){?>
+<tr>
+        <td colspan=2><br><br><?php echo $registration_question_text; ?><br><br>
+
+        </td>
+</tr>
+<?php
+if ($val->error["question"])
+{
+?>
+<tr>
+        <td colspan="2" class="Error">
+                <?php echo $val->error["question"]; ?>
+        </td>
+</tr>
+<?php } ?>
+
+<tr>
+	<td align="right" nowrap>
+        <?php echo $strQuestion; ?><span style=color:red> *</span>:&nbsp;
+      	</td>
+      	<td>
+        <input type="text" class="textbox" name="question" size="30" value="<?php if(isset($question)) echo $question; ?>" maxlength="50">
+        </td>
+</tr>
+<?php
+if ($val->error["answer"])
+{
+?>
+<tr>
+        <td colspan="2" class="Error">
+                <?php echo $val->error["answer"]; ?>
+        </td>
+</tr>
+<?php } ?>
+<tr>
+	<td align="right" nowrap>
+        <?php echo $strAnswer; ?><span style=color:red> *</span>:&nbsp;
+      	</td>
+      	<td>
+        <input type="text" class="textbox" name="answer" size="30" value="<?php if(isset($answer)) echo $answer; ?>" maxlength="50">
+        </td>
+</tr>
+<?}?>
+<tr>
+        <td colspan=2><br><br><?php echo $registartion_authcode_text; ?><br><br>
+
+        </td>
+</tr>
+<?php
+if ($val->error["auth1"])
+{
+?>
+<tr>
+        <td colspan="2" class="Error">
+                <?php echo $val->error["auth1"]; ?>
+        </td>
+</tr>
+<?php } ?>
+
+<tr>
+	<td align="right" nowrap>
+        <?php echo $strAuthcode; ?>:&nbsp;
+      	</td>
+      	<td>
+        <input type=password class="textbox" name=auth1 size="30" maxlength="20" value="<?php if(isset($auth1)) echo $auth1; ?>">
+        </td>
+</tr>
+<?php
+if ($val->error["auth2"])
+{
+?>
+<tr>
+        <td colspan="2" class="Error">
+                <?php echo $val->error["auth2"]; ?>
+        </td>
+</tr>
+<?php } ?>
+<tr>
+	<td align="right" nowrap>
+        <?php echo $registartion_confirm_authcode; ?>:&nbsp;
+      	</td>
+      	<td>
+        <input type="password" class="textbox" name="auth2" size="30" maxlength="20" value="<?php if(isset($auth2)) echo $auth2; ?>">
+        </td>
+</tr>
+<tr>
+        <td colspan="2">
+        <br/>
+        <?php
+        $vis_check = isset($visible) ? $vis_check = 'checked' : '';
+        $create_check = isset($create_email) ? $create_check = 'checked' : '';
+        $create_samba_check = isset($create_samba_user) ? $create_samba_check = 'checked' : '';
+
+        echo '<input type="checkbox" name="visible" value="true" '.$vis_check.' />'.$registration_visibility.'<br />';
+
+        if ($GO_CONFIG->enable_system_accounts == true)
+		{
+            echo '<input type="checkbox" name="create_email" value="true" '.$create_check.' />'.$registration_email;
+		}
+		?>
+		</td>
+</tr>
+<tr>
+		<td colspan="2">
+		<br />
+		<?php
+		echo $admin_module_access.'<br />';
+		echo '<table border="0">';
+
+		if ($GO_CONFIG->enable_samba_accounts == true)
+		{
+			echo '<tr><td><input type="checkbox" name="create_samba_user" value="true" '.$create_samba_check.' />'.$registration_samba.'</td></tr>';
+		}
+
+
+		$count = $GO_MODULES->get_modules();
+		while ($GO_MODULES->next_record())
+		{
+		    if   (
+			$GO_MODULES->f('id')!='stock_admin'&&( 	
+				strpos(" ".$GO_MODULES->f('id'),'stock')>-1 
+		    || $GO_MODULES->f('id')=='shaon' 
+		    || $GO_MODULES->f('id')=='credit'))
+            {
+		    
+			    $check = in_array($GO_MODULES->f('acl_read'), $module_acl) ? 'checked' : '';
+
+
+			    $lang_var = $lang_modules[$GO_MODULES->f('id')] ? $lang_modules[$GO_MODULES->f('id')] : $GO_MODULES->f('id');
+			    echo '<tr><td><input type="checkbox" checked name="module_acl[]" value="'.$GO_MODULES->f('acl_read').'" '.$check.' />'.$lang_var.'</td></tr>';
+		    }
+		}
+		echo '</table>';
+        ?>
+        </td>
+</tr>
+<tr height="25" colspan="2">
+	<td>&nbsp;</td>
+</tr>
+<tr>
+        <td colspan="2">
+        <?php
+			$button = new button($cmdOk, 'javascript:document.forms[0].submit()');
+			echo '&nbsp;&nbsp;';
+			$button = new button($cmdCancel, 'javascript:document.location=\'../index.php\';');
+			?>
+        </td>
+</tr>
+</table>

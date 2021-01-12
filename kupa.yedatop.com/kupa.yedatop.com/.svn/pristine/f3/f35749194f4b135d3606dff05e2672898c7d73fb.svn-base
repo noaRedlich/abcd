@@ -1,0 +1,35 @@
+<?php
+$noheader=1;
+session_start();
+ini_set("max_execution_time",10000);
+include("include/common.php");
+
+$q = "";
+if ($USERID)
+{
+     $q =    "where office_user_id = $USERID";
+}
+$users = DBQuery("select username, office_user_id, sql_database from userdata $q order by username");
+
+while (!$users->EOF)
+{
+    echo "User ".$users->Fields("username")." ";
+    $user_id = $users->Fields("office_user_id");
+    $db = $users->Fields("sql_database");
+    if ($db) $db .= ".";
+    $sql = "insert into ".$db."stocksnapshot
+    (`Listing_ID`, `Stock_ID`, `Quantity`, `day`, `timestamp`)
+    select listingid, stockid, quantity, now(), unix_timestamp()
+    from ".$db."listingsStocksElements` where stock_id in (select id from $TABLE_LISTINGSSTOCKS where user_id = $user_id)";
+    if ($conn->Execute($sql)===false)
+    {
+	    echo "Stock snapshot failed: ".$conn->ErrorMsg()."<BR>";flush();
+    }
+    else
+    {
+        echo "Stock snapshot created<br>";flush();
+    }
+    $users->MoveNext();    
+}
+echo "Done";
+?>

@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="" BillId="218" ClientId="500015.00">
+  <Products>
+    <Product Id="45">
+      <Name>טאמאקי קונוס   מלפפון  גזר  עי</Name>
+      <Barcode />
+      <SalePrice>20</SalePrice>
+      <SaledPrice>20</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="46">
+      <Name>טאמאקי קונוס צמחוני  מלפפון  ג</Name>
+      <Barcode />
+      <SalePrice>18</SalePrice>
+      <SaledPrice>18</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="38">
+      <Name>סושי טמפורה  בטטה קנפיו  גזר</Name>
+      <Barcode />
+      <SalePrice>32</SalePrice>
+      <SaledPrice>32</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="12">
+      <Name>פוטו מאקי הרכבה עצמית</Name>
+      <Barcode />
+      <SalePrice>25</SalePrice>
+      <SaledPrice>25</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>95</Cash>
+  </Pay>
+</Bill>

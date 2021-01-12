@@ -1,0 +1,110 @@
+<?php
+
+class RateFetcher
+{
+	var $rates = array();
+	var $userID;
+	var $rowsFetched = 0;
+	
+	function RateFetcher()
+	{ 
+		
+		$rs = DBQuery("select id from currencies where code = 'USD'");
+		if($rs->EOF)
+		{
+			die ("ERROR - cannot find USD currency");
+		}
+		else
+		{
+			$this->USDRateID = $rs->Fields("id");
+		}
+	}
+	
+	function GetRates()
+	{
+		global $userID;
+		
+		if (!$this->userID)
+		{
+			$this->userID = $userID;
+		}
+		
+		$this->rates = $this->FetchRatesArray();
+		
+		foreach($this->rates as $raterecord)
+		{
+			if ($raterecord["day"] && $raterecord["day"]!="0000-00-00")
+			{
+				$this->rowsFetched++;
+				$rateRS = DBQuery("select id from currency_rates where currency_id = ".$raterecord["currency_id"]." and day = '".$raterecord["day"]."'");
+				if ($rateRS->EOF)
+				{
+					DBQuery("
+						insert into currency_rates (currency_id,day,user_id,official_rate,buy_rate,sell_rate)
+						values (
+						'".$raterecord["currency_id"]."',
+						'".$raterecord["day"]."',
+						'".$this->userID."',
+						'".$raterecord["official_rate"]."',
+						'".$raterecord["buy_rate"]."',
+						'".$raterecord["sell_rate"]."'
+						)
+					");
+				} 
+				else
+				{
+					DBQuery("
+						update currency_rates set 
+						official_rate='".$raterecord["official_rate"]."',
+						buy_rate='".$raterecord["buy_rate"]."',
+						sell_rate='".$raterecord["sell_rate"]."'
+						where id = ".$rateRS->fields["id"]."
+					");
+				} 
+			}
+		}
+	}
+	
+	function FetchRatesArray()
+	{
+		return array();
+	}
+	
+}
+
+class WebMoneyRateFetcher extends RateFetcher
+{
+	function FetchRatesArray()
+	{
+		$rates = array();
+		$handle = fopen("http://www.wmz.co.il/u/","r");
+		if ($handle)
+		{
+			$contents = '';
+			while (!feof($handle)) 
+			{
+			  $contents .= fread($handle, 8192);
+			}
+			fclose($handle);
+			
+			if ($contents)
+			{
+				$rows = explode("</tr>",$contents);
+				foreach($rows as $row)
+				{
+					$cell = explode("</td>",$row);
+					$rate["day"] = trim(strip_tags($cell[0]));
+					$rate["currency_id"] = $this->USDRateID;
+					$rate["buy_rate"] = trim(strip_tags($cell[1]));
+					$rate["sell_rate"] = trim(strip_tags($cell[2]));
+					$rates[] = $rate;
+				}
+			}
+		}
+		array_shift($rates);	//remove first row
+		return $rates;
+		
+	}
+}
+
+?>

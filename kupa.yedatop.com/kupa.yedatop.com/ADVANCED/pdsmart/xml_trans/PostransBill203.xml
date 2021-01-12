@@ -1,0 +1,127 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="" BillId="203" ClientId="1">
+  <Products>
+    <Product Id="102">
+      <Name>קניידלעך</Name>
+      <Barcode />
+      <SalePrice>28</SalePrice>
+      <SaledPrice>28</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="101">
+      <Name>קרפלך</Name>
+      <Barcode />
+      <SalePrice>28</SalePrice>
+      <SaledPrice>28</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="102">
+      <Name>קניידלעך</Name>
+      <Barcode />
+      <SalePrice>28</SalePrice>
+      <SaledPrice>28</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="103">
+      <Name>איטריות</Name>
+      <Barcode />
+      <SalePrice>25</SalePrice>
+      <SaledPrice>25</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="205">
+      <Name>סלט חצילים</Name>
+      <Barcode />
+      <SalePrice>24</SalePrice>
+      <SaledPrice>24</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="207">
+      <Name>רגל קרושה</Name>
+      <Barcode />
+      <SalePrice>22</SalePrice>
+      <SaledPrice>22</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="208">
+      <Name>סלט כרוב וגזר בתחמיץ</Name>
+      <Barcode />
+      <SalePrice>24</SalePrice>
+      <SaledPrice>24</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="210">
+      <Name>כרוב ממולא</Name>
+      <Barcode />
+      <SalePrice>26</SalePrice>
+      <SaledPrice>26</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="211">
+      <Name>מעיים</Name>
+      <Barcode />
+      <SalePrice>28</SalePrice>
+      <SaledPrice>28</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="301">
+      <Name>קיטון ילדים</Name>
+      <Barcode />
+      <SalePrice>39</SalePrice>
+      <SaledPrice>39</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="3304">
+      <Name>פירה</Name>
+      <Barcode />
+      <SalePrice>0</SalePrice>
+      <SaledPrice>0</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="710">
+      <Name>ענבים</Name>
+      <Barcode />
+      <SalePrice>0</SalePrice>
+      <SaledPrice>0</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="3303">
+      <Name>קציצה</Name>
+      <Barcode />
+      <SalePrice>0</SalePrice>
+      <SaledPrice>0</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>244</Cash>
+  </Pay>
+</Bill>

@@ -1,0 +1,25 @@
+<xml>
+	<main_table>listingsStocks</main_table>
+	<name>ספקים</name>
+	<options>
+		<opt name="create_record" type="none"></opt>
+		<opt name="search" type="sometimes"></opt>
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="SortOrder" >מיקום</vcol>
+		<vcol name="StockName">שם</vcol>
+		<vcol name="TerminalID">קוד מסוף</vcol>
+		<vcol name="Status" type="yes_no">פעיל</vcol>
+	</view>
+	<edit>
+		<ecol name="StockName" type="string">שם נקודה</ecol>
+		<ecol name="SortOrder"  type="string">מיקום</ecol>
+		<ecol name="clientKey"   type="string">מפתח לקוח חשבשבת</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="SortOrder,StockName"></opt>
+		<opt name="search_by" val="StockName,TerminalID"></opt>
+	</sql_actions>
+</xml>

@@ -1,0 +1,308 @@
+<?php
+include_once("../../classes/xmlwriter.class.inc");
+include_once("../../../classes/xmlwriter.class.inc");
+include_once("../../classes/mailer.class.inc");
+include_once("../../../classes/mailer.class.inc");
+ 
+class TransExport
+{
+
+	var $outputPath;
+	var $outputFileName = "transactions.xml";
+	var $outputMoveinFileName = "movein.dat"; 
+	var $outputKupainPrmFileName = "kupain.prm"; 
+	var $outputKupainFileName = "kupain.dat"; 
+	var $userID;
+	var $userName;
+	var $terminalID;
+	var $packageID;
+	var $journalNum;
+	var $mailToSend;
+	var $sendXML = true;
+	var $sendMoveIn = true;
+	var $sendMoveInMerukaz = false;
+	var $sendKupaIn = false;
+	var $sendKupaInPrm = false;
+	var $output;
+	
+	var $TransFields = array("TranNum","JournalNum","TranAmount","TranDiscount","TranCashDiscount","tChange","TranDate","TranTime","IsRefund","IsDebtPayment","CashierFlag","CashierNum","AmountDiscountType","ClubDealFlag","CustID","AmountDiscountPercent","RefundMode");
+	var $CompFields = array("PluCode","Title","CompAmount","CompCashDiscount","CompDiscount","CodeFlag","StockAmount","DiscountType","SecondDiscFlag","SecondFreeFlag","OtherDiscountFlag","ClubDiscount","AmountPercentDiscount","DepartmentFlag","DepartmentNum","WeigthFlag","WeightQty");
+	var $PaymFields = array("PaymID","CashSum","ChequeSum","FullData","ChequeNumber","PayDate","BankNo","BankDeptNo","BankCntNo","CouponSum","CouponNumber","FrnCurrSum","CurrencyID","IsInShekels","CreditCardSum",
+	"FirstPayment","OtherPayment","CardNum","ExpDate","CreditTerms","CompanyNum","NumPayments","TranCode","TranType","AuthorizCode","Currency","AuthorizNo","Deposited","Track2","Track2Len","FileNum","CTransCount","ComReason","CochavAmount","HakafaSum","CustID","ClubCode","IsRefundVoucher","IsChangingVoucher");
+	
+
+	function TransExport($packageid)
+	{
+		global $GO_CONFIG,$TABLE_USERDATA,$TABLE_LISTINGSSTOCKS;
+		$maindb = $GO_CONFIG->db_name;
+		$this->packageID = $packageid;
+
+		$usr = DBQuery("select u.importmail, journalNum, u.username, s.user_id, s.terminalid from 
+		$TABLE_USERDATA u,$TABLE_LISTINGSSTOCKS s, $maindb.users us,
+		transactionpackages tp where 
+		tp.stock_id = s.id and s.user_id = u.office_user_id and tp.id = $packageid and us.id = s.user_id");
+		$this->userName = $usr->Fields("username");
+		$this->userID = $usr->Fields("user_id");
+		$this->terminalID = $usr->Fields("terminalid");
+		$this->journalNum = $usr->Fields("journalNum");
+		$this->mailToSend = $usr->Fields("importmail");
+		
+		//REMOVE
+		//$this->mailToSend = "glebby@gmail.com";
+
+		if (!$this->userID)
+		{
+			die("error in TransExport: invalid package id");
+		}
+
+		$this->outputPath = $GO_CONFIG->file_storage_path.$this->userName."/TransBackup";
+
+		if (!file_exists($GO_CONFIG->file_storage_path.$this->userName))
+		{
+			$old_umask = umask(000); 
+			mkdir($GO_CONFIG->file_storage_path.$this->userName,0777);
+			umask($oldumask);
+		}
+		
+		if (!file_exists($this->outputPath))
+		{
+			$old_umask = umask(000); 
+			mkdir($this->outputPath,0777);
+			umask($oldumask);
+		}
+
+	} 
+	
+	function Export()
+	{
+
+		if ($this->sendXML)
+		{ 
+			$this->ExportXML();
+			$fname1 = $this->outputPath."/".$this->outputFileName;
+		}
+		if ($this->sendMoveIn)
+		{
+			$this->ExportMoveIn();
+			$fname2 = $this->outputPath."/".$this->outputMoveinFileName;
+		}
+		if ($this->sendMoveInMerukaz)
+		{
+			$this->ExportMoveInMerukaz();
+			$fname3 = $this->outputPath."/".$this->outputMoveinFileName;
+		}
+		if ($this->sendKupaIn)
+		{
+			$this->ExportKupaIn();
+			$fname4 = $this->outputPath."/".$this->outputKupainFileName;
+		}
+		if ($this->sendKupaInPrm)
+		{
+			$this->ExportKupaInPrm();
+			$fname5 = $this->outputPath."/".$this->outputKupainPrmFileName;
+		}
+		
+		
+		if ($fname1 || $fname2 || $fname3 || $fname4 || $fname5)
+		{
+			$zipname = $this->outputPath."/trans_".$this->terminalID."_".date("Ymd")."_".$this->journalNum.".zip";
+			$command = "/usr/local/bin/zip -j $zipname $fname1 $fname2 $fname3 $fname4 $fname5";
+			unlink($zipname);
+			exec($command,$res,$x);
+		}
+		 
+		if($fname1)unlink($fname1);
+		if($fname2)unlink($fname2);
+		if($fname3)unlink($fname3);
+		if($fname4)unlink($fname4);
+		if($fname5)unlink($fname5);
+		
+		
+		$this->mailfile($zipname);
+	}
+	
+	function mailfile($filename)
+	{
+		global $GO_CONFIG;
+        $message[1]['content_type'] = 'text/plain; charset=windows-1255';
+        $message[1]['filename'] = '';
+        $message[1]['no_base64'] = TRUE;
+        $message[1]['data'] = "";
+
+        $message[2]['content_type'] = 'application/zip';
+        $message[2]['filename'] = basename($filename);
+		$message[2]['data'] = mp_read_file($filename);
+        $message[2]['headers'] = array('Reply-To' => $GO_CONFIG->webmaster_email);
+        $out = mp_new_message($message);	
+        mail($this->mailToSend, 'Transaction: '.basename($filename), $out[0], "From: <".$GO_CONFIG->title.">".$GO_CONFIG->webmaster_email."\n".$out[1]);
+
+	}
+	
+	function ExportMoveIn()
+	{
+		$packageid = $this->packageID;
+		$username = $this->userName;
+		$userID = $this->userID;
+
+		ob_start();		
+		$action="dat";
+		$uid = $userID;
+		
+		include("export_hash_movein.php");
+		$output = ob_get_contents();
+		ob_end_clean();
+		$handle = fopen($this->outputPath."/".$this->outputMoveinFileName,"w");
+		fwrite($handle,$output);
+		fclose($handle);
+	}
+	
+	function ExportMoveInMerukaz()
+	{
+		$packageid = $this->packageID;
+		$username = $this->userName;
+		$userID = $this->userID;
+
+		ob_start();		
+		$action="dat";
+		$uid = $userID;
+		
+		include("export_hash_movein_z.php");
+		$output = ob_get_contents();
+		ob_end_clean();
+		$handle = fopen($this->outputPath."/".$this->outputMoveinFileName,"w");
+		fwrite($handle,$output);
+		fclose($handle);
+	}	
+
+	function ExportKupaIn()
+	{
+		$packageid = $this->packageID;
+		$username = $this->userName;
+		$userID = $this->userID;
+
+		ob_start();		
+		$action="dat";
+		$uid = $userID;
+		
+		include("export_hash.php");
+		$output = ob_get_contents();
+		ob_end_clean();
+		$handle = fopen($this->outputPath."/".$this->outputKupainFileName,"w");
+		fwrite($handle,$output);
+		fclose($handle);
+	}	
+		
+	function ExportKupaInPrm()
+	{
+		$packageid = $this->packageID;
+		$username = $this->userName;
+		$userID = $this->userID;
+
+		ob_start();		
+		$action="prm";
+		$uid = $userID;
+		
+		include("export_hash.php");
+		$output = ob_get_contents();
+		ob_end_clean();
+		$handle = fopen($this->outputPath."/".$this->outputKupainPrmFileName,"w");
+		fwrite($handle,$output);
+		fclose($handle);
+	}	
+	
+	function ExportXML()
+	{
+		global $TABLE_LISTINGSSTOCKS;
+		
+		$packageid = $this->packageID;
+		$userName = $this->userName;
+		$userID = $this->userID;
+		$transRS = DBQuery("select t.*, JournalNum, s.terminalid
+		 from transactions t, transactionpackages p, $TABLE_LISTINGSSTOCKS s
+		 where t.package_id = p.id and p.id = $packageid and p.stock_id = s.id order by t.id");
+
+		$xml_writer_object=new MyXmlWriter();
+
+		$noattrs=array();
+
+		$xml_writer_object->push("Transactions");
+
+		while (!$transRS->EOF)
+		{
+			$attrs=array();
+			$TID = $transRS->Fields("ID");
+			$attrs["ID"]=$TID;
+			$attrs["Terminal"]=$transRS->Fields("terminalid");
+			$attrs["ChnNum"]=str_pad( ($transRS->fields["JournalNum"])*10000 +  $transRS->fields["TranNum"] , 8,"0",PAD_LEFT);
+			$xml_writer_object->push("Transaction",$attrs);	
+			foreach($this->TransFields as $fname)
+			{
+				$xml_writer_object->element($fname,trim($transRS->Fields($fname)));
+			}
+			
+			
+			//components
+			$compsRS = DBQuery("select c.* from transactioncomponents c where c.trans_id = $TID order by c.id");
+
+			if (!$compsRS->EOF)
+			{
+				$xml_writer_object->push("Components");
+				while (!$compsRS->EOF)
+				{
+					$plucode = trim($compsRS->Fields("PluCode"));
+					if ($plucode!=""&& $plucode!=str_repeat("0",13))
+					{
+						$listRS = DBQuery("select Title from listingsDB where user_id = $userID and barcode = '".$plucode."'");
+						$compsRS->fields["Title"] = $listRS->fields["Title"];
+					}
+					
+					$xml_writer_object->push("Component",array("ID"=>$compsRS->Fields("ID")));
+					foreach($this->CompFields as $fname)
+					{
+						$xml_writer_object->element($fname,trim($compsRS->Fields($fname)));
+					}
+					$xml_writer_object->pop();//Component
+					$compsRS->MoveNext();
+				}
+				$xml_writer_object->pop();//Components
+			}		
+			
+			//payments
+			$payRS = DBQuery("select tp.* from transactionpayments tp where tp.trans_id = $TID order by tp.id");
+			
+			if (!$payRS->EOF)
+			{
+				$xml_writer_object->push("Payments");
+				while (!$payRS->EOF)
+				{
+					if ($payRS->fields["PayDate"]=="0000-00-00 00:00:00")
+					{
+						$payRS->fields["PayDate"]="";
+					}
+					$xml_writer_object->push("Payment",array("ID"=>$payRS->Fields("ID")));
+					foreach($this->PaymFields as $fname)
+					{
+						$xml_writer_object->element($fname,trim($payRS->Fields($fname)));
+					}
+					$xml_writer_object->pop();//Payment
+					$payRS->MoveNext();
+				}
+				$xml_writer_object->pop();//Payments
+			}
+			
+			$xml_writer_object->pop();//Transaction
+			$transRS->MoveNext();
+		} 
+		
+		$xml_writer_object->pop();//Transactions
+
+		$this->output = $xml_writer_object->getXml();
+ 
+		$handle = fopen($this->outputPath."/".$this->outputFileName,"w");
+		fwrite($handle,$this->output);
+		fclose($handle);
+
+	}
+}
+
+?> 

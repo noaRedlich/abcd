@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="" BillId="225" ClientId="500015.00">
+  <Products>
+    <Product Id="40">
+      <Name>סושי טמפורה  צמחוני אבוקדו גזר</Name>
+      <Barcode />
+      <SalePrice>30</SalePrice>
+      <SaledPrice>30</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="38">
+      <Name>סושי טמפורה  בטטה קנפיו  גזר</Name>
+      <Barcode />
+      <SalePrice>32</SalePrice>
+      <SaledPrice>32</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="37">
+      <Name>סושי טמפורה    אבוקדו טמאגו גז</Name>
+      <Barcode />
+      <SalePrice>32</SalePrice>
+      <SaledPrice>32</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="710">
+      <Name>קינלי מוגז</Name>
+      <Barcode />
+      <SalePrice>8</SalePrice>
+      <SaledPrice>8</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>102</Cash>
+  </Pay>
+</Bill>

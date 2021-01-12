@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="8118" isWeight="0" isDeleted="0" title="נייר מגבת שישייה" category="0" saleprice="10.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="6921296286838" isWeight="0" isDeleted="0" title="מטלית ריצפה מיקרופייבר" category="0" saleprice="10" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="7290000599076" isWeight="0" isDeleted="0" title="כרית ניקוי" category="0" saleprice="1.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="7290000599304" isWeight="0" isDeleted="0" title="3 מטליות לניקוי כללי" category="0" saleprice="3.5" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="6253344003792" isWeight="0" isDeleted="0" title="שקיות אוכל" category="0" saleprice="5.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+</Products>

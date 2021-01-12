@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="1093" isWeight="0" isDeleted="0" title="מגב מילניום 50 +מקל" category="0" saleprice="29.9" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1372679867">
+  </Product>
+  <Product barcode="1412" isWeight="0" isDeleted="0" title="מגב מילניום 60 +מקל" category="0" saleprice="36" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1372679871">
+  </Product>
+  <Product barcode="1093" isWeight="0" isDeleted="0" title="מגב מילניום 50 +מקל" category="0" saleprice="29.9" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1372679867">
+  </Product>
+  <Product barcode="6256" isWeight="0" isDeleted="0" title="שקיות אשפה 25 יח' שחורות 85X75" category="0" saleprice="9.9" cost="" stockQuantity="-10" minStockQuantity="" lastUpdated="1372679861">
+  </Product>
+  <Product barcode="6921590797184" isWeight="0" isDeleted="0" title="כפפות לניקוי LARGE" category="0" saleprice="4" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1372679868">
+  </Product>
+  <Product barcode="8358" isWeight="0" isDeleted="0" title="נוזל רצפות פרימיום 4 ל' ג'ונסון קלין" category="0" saleprice="17.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1372679864">
+  </Product>
+  <Product barcode="8118" isWeight="0" isDeleted="0" title="נייר מגבת שישייה" category="0" saleprice="10.9" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1372679864">
+  </Product>
+  <Product barcode="1093" isWeight="0" isDeleted="0" title="מגב מילניום 50 +מקל" category="0" saleprice="29.9" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1372679867">
+  </Product>
+  <Product barcode="154021" isWeight="0" isDeleted="0" title="מגב ריצפה מתכת ויויאן 60 + מקל" category="0" saleprice="35" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1372679873">
+  </Product>
+  <Product barcode="7290008185653" isWeight="0" isDeleted="0" title="פח אשפה + מכסה 22 ל'" category="0" saleprice="29.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1372679856">
+  </Product>
+</Products>

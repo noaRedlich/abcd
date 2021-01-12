@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="6256" isWeight="0" isDeleted="0" title="שקיות אשפה 25 יח' שחורות 85X75" category="0" saleprice="9.9" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1338529991">
+  </Product>
+  <Product barcode="4766" isWeight="0" isDeleted="0" title="נוזל רצפות כחול 4 ל' JOHONSON CLEAN" category="0" saleprice="14.5" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1338529988">
+  </Product>
+  <Product barcode="29000760" isWeight="0" isDeleted="0" title="כף אשפה עם מוט" category="0" saleprice="14.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1338529986">
+  </Product>
+</Products>

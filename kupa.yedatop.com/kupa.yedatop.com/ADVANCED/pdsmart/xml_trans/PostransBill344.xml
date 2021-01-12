@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="1258" BillId="344" ClientId="1">
+  <Products>
+    <Product Id="10111">
+      <Name>VODKA ABSOLUT ROCK 1 L      וו</Name>
+      <Barcode />
+      <SalePrice>100</SalePrice>
+      <SaledPrice>100</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="60005">
+      <Name>KOMPOT PERSIK 820 GR    ליפטן </Name>
+      <Barcode />
+      <SalePrice>5.5</SalePrice>
+      <SaledPrice>5.5</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10004">
+      <Name>VODKA MOROZOV PSHENICHNAYA 0.7</Name>
+      <Barcode />
+      <SalePrice>30</SalePrice>
+      <SaledPrice>30</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="80004">
+      <Name>MIVTZA NA 32 BUTILOK MASLO 3 L</Name>
+      <Barcode />
+      <SalePrice>681.5</SalePrice>
+      <SaledPrice>681.5</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>817.00</Cash>
+  </Pay>
+</Bill>

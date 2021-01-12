@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="38710" isWeight="0" isDeleted="0" title="סט  רולר פאר+מגש+ספוג 10 ס&quot;מ" category="0" saleprice="18.5" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1338529987">
+  </Product>
+  <Product barcode="7290001596517" isWeight="0" isDeleted="0" title="שקיות אשפה 60 יח'" category="0" saleprice="17.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1338529990">
+  </Product>
+  <Product barcode="7290000599304" isWeight="0" isDeleted="0" title="3 מטליות לניקוי כללי" category="0" saleprice="3.5" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1338529985">
+  </Product>
+</Products>

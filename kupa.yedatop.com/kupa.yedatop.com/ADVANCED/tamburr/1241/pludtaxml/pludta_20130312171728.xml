@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="147" isWeight="0" isDeleted="0" title="סכין יפני רחב" category="0" saleprice="4.5" cost="" stockQuantity="-79" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="13625" isWeight="0" isDeleted="0" title="סכין יפני מחוזק + רז'" category="0" saleprice="10.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="808" isWeight="0" isDeleted="0" title="קצף פוליאוריתן" category="0" saleprice="28.9" cost="0.000" stockQuantity="-4" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="1061" isWeight="0" isDeleted="0" title="טסטר קצר" category="0" saleprice="5.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="74027" isWeight="0" isDeleted="0" title="מנעול שריון" category="0" saleprice="65" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+  <Product barcode="98611" isWeight="0" isDeleted="0" title="רב שקע  NB3 ע&quot;הט דק" category="0" saleprice="22" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1362129957">
+  </Product>
+</Products>

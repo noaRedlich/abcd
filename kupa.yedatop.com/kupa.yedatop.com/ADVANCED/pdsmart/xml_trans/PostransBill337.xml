@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="1258" BillId="337" ClientId="1">
+  <Products>
+    <Product Id="50008">
+      <Name>TEA EDWIN MALINA 25 PAK   תה א</Name>
+      <Barcode />
+      <SalePrice>5</SalePrice>
+      <SaledPrice>5</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10005">
+      <Name>VODKA MOROZOV BEREZA 0.7 L   ו</Name>
+      <Barcode />
+      <SalePrice>30</SalePrice>
+      <SaledPrice>30</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>5.00</Cash>
+  </Pay>
+</Bill>

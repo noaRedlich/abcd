@@ -1,0 +1,117 @@
+<?php
+ 	$page_subtitle = "הגדרת פריטים";
+    $simple=1;
+	include("include/common.php");
+    include("include/business_functions.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	require($GO_THEME->theme_path."simple_header.inc");
+	include("$config[template_path]/admin_top.html");
+    
+    if ($doSave){
+        for ($i=0;$i<15;$i++)
+        {
+            if ($_POST["id".$i]){
+                $sql = "update discount_listing set listing_id = '".$_POST["listing".$i]."' where id = ".$_POST["id".$i];
+            }
+            else{
+                $sql = "insert into discount_listing (listing_id, user_id, SortOrder) values ('".$_POST["listing".$i]."',$userID,$i)";     
+            }
+            $rs = $conn->Execute($sql);
+	        if ($rs === false){log_error($sql);}
+        }
+        echo "<script>opener.document.F.submit();location='discountlistings.php?success=1'</script>";
+    }
+    
+    
+    $sql = "select dl.*,l.Title,BarCode from discount_listing dl
+    left outer join listingsDB l on l.id = dl.listing_id 
+    where dl.user_id = $userID order by SortOrder";
+    $listings = $conn->Execute($sql);
+	if ($listings === false){log_error($sql);}
+    
+    if ($showProducts){
+        $sql = "select l.Title, BarCode, l.ID from listingsDB l
+        where l.user_id = $userID and discount_listing_id = $showProducts order by binary Title";
+        $products = $conn->Execute($sql);
+	    if ($products === false){log_error($sql);}
+    }
+    
+     
+?>
+
+<script>
+function searchListing(i)
+{
+    s=showModalDialog('product_select.php','','dialogWidth:600px;dialogHeight:490px;status:no;help:no');
+    if (typeof(s)!="undefined" && s!=""){
+        s = s.split("~")
+        document.getElementById("listing"+i).value=s[1];
+        document.getElementById("title"+i).value=s[0]+". "+s[2];
+    } 
+}
+</script>
+
+<table width=100% height=420>
+<form name=F method=post>
+<input type=hidden name=showProducts value="<?=$showProducts?>">
+<tr>
+<td>
+    <div style='overflow:auto;width:100%;height:100%;border:inset 2;background-color:white'>
+    <table width=100% bordercolor=gray cellpadding=2     border=1 style='border-collapse:collapse'>
+        <?for($i=0;$i<15;$i++){?>
+        <tr <?=($showProducts==$listings->Fields("id")&&$listings->Fields("id"))?"style='background-color:lightgreen'":""?>>
+            <td>&nbsp;<?=$i+1?></td>
+            <td nowrap>
+                <input type=hidden name="id<?=$i?>" value="<?=$listings->Fields("id")?>">
+                <input type=hidden name="listing<?=$i?>" id="listing<?=$i?>"  value="<?=$listings->Fields("listing_id")?>">
+                <input readonly  id="title<?=$i?>" name="title<?=$i?>" value="<?=($listings->Fields("Title"))?($listings->Fields("BarCode").". ".$listings->Fields("Title")):""?>" size=35>
+                <img align=absmiddle style="cursor:hand" onclick='searchListing(<?=$i?>)' src='<?=$imgPath?>view.gif' alt='בחר פריט' >
+            </td>
+            <td width=1%>                                                         
+                <input type=button <?=(!$listings->Fields("id"))?"disabled":""?> style='width:160' onclick='document.F.showProducts.value="<?=$listings->Fields("id")?>";document.F.submit();' style='border:outset 2' value='להציג פריטים שבמבצע זה'>
+            </td>
+        </tr>
+        <?
+        $listings->MoveNext();                                   
+        }?>
+    </table>
+    </div>
+</td>
+</tr>
+
+<tr>
+<td>
+    <div style='overflow:auto;width:100%;height:100%;border:inset 2;'>
+    <table width=100% bordercolor=gray cellpadding=2 border=1 style='border-collapse:collapse'>
+        <?if ($showProducts){?>
+            <tr>
+                <td class="tableHead2"><b>ברקוד</b></td>
+                <td class="tableHead2"><b>שם פריט</b></td>
+            </tr>
+            <?while (!$products->EOF){?>
+            <tr>
+                <td><?=$products->Fields("BarCode")?></td>
+                <td><a href='javascript:wopen("discount.php?simple=1&edit=<?=$products->Fields("ID")?>")'><?=$products->Fields("Title")?></a></td>
+            </tr>
+            <?$products->MoveNext();}?>
+        <?}?>
+    </table>
+    </div>
+</td>
+</tr>
+
+
+<tr style='height:1%'>
+<td align=center>
+        <input type="submit" value='אישור' name=doSave class=button style='background-image:url(<?=$imgPath?>ok.gif)'>
+        <input type="button" value='סגור' class=button style='background-image:url(<?=$imgPath?>back.gif)' onclick='window.close()'>
+</td>
+</tr>
+</form>
+</table>
+
+<?php
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

@@ -1,0 +1,251 @@
+<?php
+
+
+	$simple=1;
+	$page_subtitle = "TRANS log";
+
+	if (!$mode){
+		include("../stock/include/common.php");
+		if (!loginCheck('User'))exit;
+		global $action, $id, $cur_page, $lang, $conn, $config;
+	}
+
+    if ($userID != 1){
+        die("You have no permissions to access this page");
+    }
+
+	include("$config[template_path]/admin_top.html");
+	
+	$saction="go";
+    
+    if (!$sDate){
+        $sDate = date("d/m/Y");
+    }
+    if (!$hour){
+        $hour=6;
+    }
+    if (($errmode==1||$errmode==3)&&$backmode){
+        $errmode=0;
+    }
+
+	?>
+
+	<?if(!$mode){?>
+		<script>
+		function PrintReport(){
+			document.getElementById("Query").style.display = "none";
+			window.print();
+			document.getElementById("Query").style.display = "";
+		}
+
+		function openReport1(url){
+			var ss="";
+			s = window.open(url+'&simple=1','','top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+			s.focus();
+		}
+
+		</script>
+		<style>
+		.z {color:gray}
+		.b {font-weight:bold}
+		th {background-color:silver}
+		</style>
+		<body>
+		<table cellpadding=5 border=0 width=100%>
+		<tr>
+		<form name=F method=post>
+		<input type=hidden name=usr value=<?=$usr?>>
+		<?$reporttitle = "TRANS log";?>
+		<td nowrap>
+		<strong style='font-size:12pt'><?=$reporttitle?></strong>
+		</td><td width=99% style='border:inset 1'>
+		
+        <?if (true){?>
+        לוג: 
+        <select name=backmode onchange='document.F.submit()'>
+            <option value="0" <?=(!$backmode)?"selected":""?>>TRANS
+            <option VALUE="1" <?=($backmode)?"selected":""?>>BACK
+        </select>
+        <?}?>
+        
+        תאריך: 
+	    <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+        <img align=absmiddle style="cursor:hand" src='../stock/images/calendar.gif' onclick='ShowCalendar("F.sDate")'>
+        
+        משעה:
+        <select name=hour>
+            <?for ($i=0;$i<=23;$i++){?>
+            <option value="<?=$i?>" <?=($i==$hour)?"selected":""?>><?=$i?>:00
+            <?}?>
+        </select>
+        
+        <select name=errmode >
+            <option value="0" <?=(!$errmode)?"selected":""?>>כל הקופות
+            <?if (!$backmode){?>
+            <option value="1" <?=($errmode==1)?"selected":"1"?>>רק קופות שלא הגיעו
+            <?}?>
+            <option value="2" <?=($errmode==2)?"selected":"2"?>>רק קופות שלא חזרו
+            <?if (!$backmode){?>
+            <option value="3" <?=($errmode==3)?"selected":"2"?>>רק קופות שהגיעו ולא חזרו
+            <?}?>
+        </select>
+        
+        <input type=submit value='הצג' class=button style='background-image:url(../stock/images/ok.gif)'>
+
+		<?if ($saction=="go" || $saction=="sendreport")
+        {
+			require("../stock/sendreport.php");
+		}?>
+		<input type=hidden name=saction value=go>
+		<input type=hidden name=reportbody value="">
+		<input type=hidden name=sendmode value="">
+		</td>
+		</form>
+		</tr>
+		</table>
+	<?}?>
+	<?
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+
+	//$worksheet->set_column('A:H', 13);
+
+	//$headings = array('חשבונית','תאריך קניה',"מס' שיק",'סכום','תאריך פרעון',"מס' בנק","מס' סניף","מס' חשבון");
+	//$worksheet->write_row('A'.($rrow++), $headings, $heading);
+	
+	
+	echo "<div ><br><table id=REPORTTABLE dir=$dir  width=100% border=1  bordercolor=gray style='border-collapse:collapse'  bgcolor=white cellpadding=3 cellspacing=1>";
+	echo "
+	<tr align=center bgcolor=#efefef>
+	<td width=1%>#</td>
+	<td>שם משתמש</td>
+	<td>מספר מסוף</td>
+	<td>שם מסוף</td>";
+    if (!$backmode)
+    {
+	    echo "
+        <td>זמן</td>
+	    <td>מספר חבילה</td>";
+    }
+    echo "<td>זמן החזרה</td></tr>";
+    
+        $arrivals = array();
+	
+        $timefrom = mktime($hour,0,0,substr($sDate,3,2),substr($sDate,0,2),substr($sDate,6,4));
+        $timeto = strtotime("+1 day",$timefrom);
+
+        $qs = "and is_trans = ".(($backmode)?"0":"1");
+        
+        if($errmode==1)
+        {
+            $q = " and package_id is null ";
+        }
+        elseif($errmode==3)
+        {
+            $q = " and package_id is not null ";
+        }
+
+        $sql = "select s.user_id, p.journalNum, s.terminalID, fail_count, StockName,username, 
+        package_id,tl.day, tl.stock_id,from_unixtime(tl.time_stamp) as timestamp,time_stamp from 
+        listingsStocks s
+        inner join userdata u on u.office_user_id = s.user_id
+        left outer join translog tl on tl.stock_id = s.id and time_stamp between $timefrom and $timeto $qs
+        left outer join transactionpackages p on p.id = tl.package_id
+        where s.TerminalID is not null 
+            and s.TerminalID <> '' 
+            and s.TerminalID <>".$config["MainStock"]." 
+            and s.Status=1 
+            and s.RunScript=1        
+        $q
+        order by timestamp, username, terminalID
+        ";
+        //echo $sql;
+		$rs = $conn->Execute($sql);
+		if ($rs === false){log_error($sql);}
+        $cnt=1;
+		while (!$rs->EOF)
+        {
+            $hasArrived = (in_array($rs->Fields("stock_id"),$arrivals));
+            $arrivals[] = $rs->Fields("stock_id");
+
+            $showRow = true;
+            if ($rs->Fields("timestamp"))
+            {
+                //search return time in the log
+                if (!$backmode)
+                {
+                    $sql = "select from_unixtime(time_stamp) as timestamp from translog 
+                    where stock_id = ".$rs->Fields("stock_id")." and is_trans = 0 and 
+                    time_stamp > ".$rs->Fields("time_stamp")." 
+                    and (time_stamp < (select min(time_stamp) from translog where is_trans = 1 and time_stamp > ".$rs->Fields("time_stamp").")
+                        or not exists (select time_stamp from translog where is_trans = 1 and time_stamp > ".$rs->Fields("time_stamp").")
+                    )
+                    order by id limit 1";
+                    $rsBack = $conn->Execute($sql);
+                    if ($rsBack === false){log_error($sql);}
+                    $backtime = ($rsBack->EOF)?"<span style=color:red>אין</span>":$rsBack->Fields("timestamp"); 
+                    if ($errmode==2 && !$rsBack->EOF)
+                    {
+                        $showRow = false;
+                    
+                    }
+                    elseif ($errmode==3 && !$rsBack->EOF)
+                    {
+                        $showRow = false;
+                    }
+                }
+                else
+                {
+                    $backtime = $rs->Fields("timestamp");
+                    if ($errmode==2 && !$rsBack->EOF)
+                    {
+                        $showRow = false;
+                    
+                    }
+                }
+            }
+            else
+            {
+                $backtime = "";
+            }
+		    if ($rsBack === false){log_error($sql);}
+            
+            if($showRow)
+            {
+                if ($rs->Fields("fail_count"))
+                {
+                    $fcnt=" (".$rs->Fields("fail_count").")";
+                }
+                echo "
+                <tr>
+                    <td>".($cnt++)."</td>
+                    <td ".(!$rs->Fields("timestamp")?"style=color:red":"").">".$rs->Fields("username")."</td>
+                    <td ".(!$rs->Fields("timestamp")?"style=color:red":"").">".$rs->Fields("terminalID").$fcnt."</td>
+                    <td ".(!$rs->Fields("timestamp")?"style=color:red":"").">".$rs->Fields("StockName")."</td>";
+                    if (!$backmode)
+                    {
+                     echo "
+                     <td align=center dir=ltr ".($hasArrived?"style=color:green":"").">".$rs->Fields("timestamp")."</td>
+                     <td align=center dir=ltr><a href='javascript:openReport1(\"../stock/rep_cheshbonit.php?usr=".$rs->Fields("user_id")."&package=".$rs->Fields("package_id")."\")'><u>".$rs->Fields("journalNum")."</u></a></td>";
+                    }
+                    echo "<td align=center dir=ltr>".$backtime."</td>
+                </tr>";
+            }
+			$rs->MoveNext();
+		}
+
+
+	echo "</table></div>";
+
+	}
+	
+	if (!$mode){
+		include("$config[template_path]/admin_bottom.html");
+		$conn->Close(); // close the db connection
+	}
+?>

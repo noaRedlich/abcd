@@ -1,0 +1,807 @@
+<?php
+	$simple=1;
+	global $action, $id, $lang, $conn, $config;
+
+
+	$page_subtitle = ($docid)?"פרטי מסמך":"מסמך חדש";
+    $did = "HAFKADAHAAVARA";
+
+
+	include("include/common.php");
+    include("include/business_functions.php");
+	if(!loginCheck('User'))exit;
+
+	include("$config[template_path]/admin_top.html");
+    echo "<script src='/javascript/common.js'></script>";
+
+    if ($_GET["clientName"]){
+        $clientName = utf8RawUrlDecode($_GET["clientName"]);
+    }
+
+
+	$sql = "select * from $TABLE_DOCUMENT_TYPE where id = '$did'";
+	$dtype = $conn->Execute($sql);
+	if ($dtype === false){log_error($sql);}
+    $ispayment = $dtype->fields["is_payment"];
+    $isproduct = $dtype->fields["is_product"];
+    $isserials = $dtype->fields["is_serials"];
+    $movestock = $dtype->fields["move_stock"];
+    $mayinheritfrom = $dtype->fields["may_inherit_from"];
+    $moveordered = $dtype->fields["move_ordered"];
+    $movereserved = $dtype->fields["move_reserved"];
+
+
+    $sql = "select * from $TABLE_LISTINGSSTOCKS where Status=1 and user_id = $userID order by sortorder, binary StockName";
+    $stocks = $conn->Execute($sql);
+	if ($stocks === false){log_error($sql);}
+
+
+    $sql = "select id, name from $TABLE_DOCPAYMENTTYPES order by id";
+    $$TABLE_DOCPAYMENTTYPES = $conn->Execute($sql);
+	if ($$TABLE_DOCPAYMENTTYPES === false){log_error($sql);}
+
+
+    if ($do || $doserials || $doprint || $doclosechn){
+		if (!$docdate){
+			$error = "יש להזין כל השדות חובה";
+		}
+        elseif (!$sourcekupa){
+			$error = "יש לבחור קופת מקור";
+		}
+        elseif (!$targetkupa){
+			$error = "יש לבחור קופת יעד";
+		}
+		elseif (!preg_match("/^\d\d\/\d\d\/\d\d\d\d$/",$docdate)){
+			$error = "יש להזין תאריך מסמך בפורמת DD/MM/YYYY";
+		}
+        elseif ($ispayment && (!array_sum($paymentid)||array_sum($paymentid)==0)){
+			$error = "אין תקבולים נבחרים";
+        }
+		else
+		{
+            $isadded=false;
+            if ($_POST["docid"] && !$duplicate)
+            {
+                //update document
+                $documentid = $docid = $_POST["docid"];
+                $sql = "update documents
+                set
+                doc_date = '".DateToSQL($docdate)."',
+                modified = unix_timestamp(),
+                comment = '".dbsafe($comment)."',
+                client_id = '".dbsafe($client)."',
+                amount = '".(($total)?$total:$totalpayment)."',
+                discount = '".$discount."',
+                agent_id = '".$agent."',
+                payment_type_id = '".$dpaymenttype."',
+                sourcekupa = '".$sourcekupa."',
+                comment1 = '".dbsafe($comment1)."',
+                targetkupa = '".dbsafe($targetkupa)."',
+                payment_date = ".(($paymentdate)?("'".DateToSQL($paymentdate)."'"):"null")."
+                where id = $documentid
+                ";
+                //die( $sql);
+                $newdoc = $conn->Execute($sql);if ($newdoc === false){log_error($sql);}
+                $addednum="";
+                $added=1;
+            }
+            else
+            {
+                //create/duplicate document
+                $docid = "";
+                $isadded=true;
+                $sql = "insert into documents
+                (vat, doc_type, doc_status, doc_date, client_id, created,doc_number, user_id, comment, amount, discount,
+                agent_id,payment_type_id, payment_date,comment1, sourcekupa, targetkupa,office_user_id)
+                 values ('".$config["VAT"]."','$did','".$STATUS_CLOSED."','".DateToSQL($docdate)."',0,unix_timestamp(),$docnum,$userID,'".dbsafe($comment)."','".(($total)?$total:$totalpayment)."','$discount',
+                 '$agent','$dpaymenttype',".(($paymentdate)?("'".DateToSQL($paymentdate)."'"):"null").",'".dbsafe($comment1)."','$sourcekupa','$targetkupa',$officeUserID)";
+
+
+                $newdoc = $conn->Execute($sql);if ($newdoc === false){log_error($sql);}
+                $documentid = $conn->Insert_ID();
+
+
+
+                if (!$doserials && !$doprint && !$doclosechn){
+                    $addednum=$docnum;
+                    $added=$documentid;
+                }
+                else{
+                    $docid=$documentid;
+                }
+
+
+            }
+
+
+            // ADDING PAYMENTS TO HAFKADA/HAAVARA
+            $sql = "delete from  hafkada_payments where doc_id = $documentid";
+            $newrs = $conn->Execute($sql);if ($newrs === false){log_error($sql);}
+            foreach ($paymentid as $pay_id){
+
+
+                    $sql = "update document_payments set kupa_id = $targetkupa  where id = $pay_id";
+                    $newrs = $conn->Execute($sql);if ($newrs === false){log_error($sql);}
+                    $sql = "insert into hafkada_payments (doc_id, payment_id) values ($documentid,$pay_id)";
+                    $newrs = $conn->Execute($sql);if ($newrs === false){log_error($sql);}
+            }
+
+
+             //success
+    		//echo "<script>location='add_document.php?docid=did=$did&added=$added&addednum=$addednum&usr=$usr&ser=".(($doserials)?"1":"")."&cls=".(($doclosechn)?"1":"")."&prn=".(($doprint)?"1":"")."';</script>";die();
+    		echo "<script>location='hafkada.php?docid=$documentid&did=$did&added=1&usr=$usr&ser=".(($doserials)?"1":"")."&cls=".(($doclosechn)?"1":"")."&prn=".(($doprint)?"1":"")."';</script>";die();
+	    }
+	}
+
+
+    //***********************************************************************************
+
+
+    $readonly = false;
+
+
+    if ($_GET["docid"]){
+        //get existing document
+        $existing=true;
+        $docid =$_GET["docid"];
+        $sql = "select d.*,supplierName as client_name, editable_after_creating, is_payment
+        from documents d,$TABLE_DOCUMENT_TYPE dt, listingsSuppliers c
+        where
+        d.client_id = c.id and
+        dt.id = doc_type and d.id = $docid";
+        $document = $conn->Execute($sql);if ($document === false){log_error($sql);}
+
+
+        $did = $document->fields["doc_type"];
+        $docnum = $document->fields["doc_number"];
+        $docdate = DateFromSQL($document->fields["doc_date"]);
+        $comment = $document->fields["comment"];
+        $stock = $document->fields["stock_id"];
+        $client = $document->fields["client_id"];
+        $discount = $document->fields["discount"];
+        $docamount = $document->fields["amount"];
+        $closedby = $document->fields["closed_by"];
+        $readonly = !$duplicate && ($closedby > 0 || !$document->fields["editable_after_creating"]);
+        $ispayment = $document->fields["is_payment"];
+        $isproduct = $document->fields["is_product"];
+        $agent = $document->fields["agent_id"];
+        $dpaymenttype = $document->fields["payment_type_id"];
+        $comment1 = $document->fields["comment1"];
+        $clientName = $document->fields["client_name"];
+        $person = $document->fields["person"];
+        $sourcekupa = $document->fields["sourcekupa"];
+        $targetkupa = $document->fields["targetkupa"];
+
+
+        if ($document->fields["payment_date"]){
+            $paymentdate = DateFromSQL($document->fields["payment_date"]);
+        }
+        else{
+            $paymentdate = "";
+        }
+
+
+    	$sql = "select * from $TABLE_DOCUMENT_TYPE where id = '$did'";
+    	$dtype = $conn->Execute($sql);
+    	if ($dtype === false){log_error($sql);}
+        $ispayment = $dtype->fields["is_payment"];
+        $isproduct = $dtype->fields["is_product"];
+        $isserials = $dtype->fields["is_serials"];
+        $movestock = $dtype->fields["move_stock"];
+        $moveordered = $dtype->fields["move_ordered"];
+        $movereserved = $dtype->fields["move_reserved"];
+        $mayinheritfrom = $dtype->fields["may_inherit_from"];
+
+
+        //get existing payments
+        $sql = "select dp.*,dpt.name as paymenttypename,k.name as kupaname,d.doc_number
+            from hafkada_payments hp, document_payments dp, $TABLE_DOCPAYMENTTYPES dpt, kupot k, documents d
+            where d.id = dp.doc_id and hp.payment_id = dp.id and k.id = dp.kupa_id and dpt.id = dp.payment_type and  hp.doc_id = $docid order by sort_order";
+        $docpayments = $conn->Execute($sql);if ($docpayments === false){log_error($sql);}
+        $numpayments = $docpayments->RecordCount();
+
+
+        $sql = "select id, name from kupot where id = ". $document->fields["sourcekupa"];
+        $tkupot = $conn->Execute($sql);
+    	if ($tkupot === false){log_error($sql);}
+
+
+    }
+    else{
+
+
+        $sql = "select id, name from kupot where Status=1 and user_id = $userID and
+        id in (select kupa_id from document_payments dp, documents d where d.id = dp.doc_id and basket=1 and not (doc_type = 'TASHLUM' and d.doc_status = $STATUS_CANCELLED) and d.user_id = $userID)
+        order by sortorder, binary name";
+        $tkupot = $conn->Execute($sql);
+	    if ($tkupot === false){log_error($sql);}
+
+
+        if (!$_POST[sourcekupa]){
+            $sourcekupa = $tkupot->fields["id"];
+        }
+
+
+        //get selected payments to create new document
+        $sql = "select dp.*,d.doc_number, dpt.name as paymenttypename,k.name as kupaname
+             from document_payments dp, $TABLE_DOCPAYMENTTYPES dpt,kupot k, documents d
+             where d.id = dp.doc_id and k.id = dp.kupa_id and dpt.id = dp.payment_type and  basket=1 and doc_id in (select id from documents where user_id =  $userID  and not (doc_type = 'TASHLUM' and d.doc_status = $STATUS_CANCELLED))
+             and kupa_id = '$sourcekupa'
+             ";
+        $docpayments = $conn->Execute($sql);if ($docpayments === false){log_error($sql);}
+        $numpayments = $docpayments->RecordCount();
+
+
+    }
+
+
+
+    $sql = "select id, name from kupot where Status=1 and user_id = $userID and id <> '$sourcekupa' order by sortorder, binary name";
+    $kupot = $conn->Execute($sql);
+	if ($kupot === false){log_error($sql);}
+
+
+	$sql = "select ID,SupplierName from listingsSuppliers where Status=1 and user_id = $userID order by binary SupplierName";
+	$clients = $conn->Execute($sql);
+	if ($clients === false){log_error($sql);}
+
+
+	$sql = "select * from currencies where user_id=$userID order by SortOrder,binary code";
+	$curr = $conn->Execute($sql);
+	if ($curr === false){log_error($sql);}
+
+	//set doc number
+    if (!$docnum || $duplicate){
+    	$notset=false;
+    	$sql = "select doc_number from documents where user_id = $userID and doc_type='$did' order by doc_number desc limit 1";
+    	$docnum = $conn->Execute($sql);
+    	if ($docnum === false){log_error($sql);}
+    	if (!$docnum->EOF){
+    		$docnum = ($docnum->fields["doc_number"])+1;
+    	}
+    	else{
+    		$sql="select id,counter from document_type_counters where user_id = $userID and doc_type_id='$did' ";
+    		$start = $conn->Execute($sql);
+    		if ($start === false){log_error($sql);}
+    		$docnum = ($start->fields["counter"]);
+    		if (!$docnum){
+    			$docnum=1;
+    			$notset=true;
+    			$counterid=$start->fields["id"];
+    		}
+    	}
+    }
+
+
+	if (!$docdate){
+		$docdate = date("d/m/Y");
+	}
+
+
+    if ($client){
+        $sql = "select s.*,p.name as PaymentTypeName from listingsSuppliers s
+        left outer join payment_type p on p.id = s.PaymentTypeId
+        where s.id = $client";
+        $clientrs = $conn->Execute($sql);
+        if ($clientrs === false){log_error($sql);}
+        $OpenChequesLimit = $clientrs->fields["OpenCheques"];
+        $sql = "select sum(amount * (case when dt.balance='+' then 1 else -1 end)) as itra from documents d, $TABLE_DOCUMENT_TYPE dt where
+               dt.id = d.doc_type and
+               dt.balance in ('+','-') and
+               d.client_id = $client";
+        $itrars = $conn->Execute($sql);
+        if ($itrars === false){log_error($sql);}
+
+
+
+        $sqlCheques = "select sum(dp.amount) as amount from document_payments dp, documents d
+            where d.id = dp.doc_id and d.doc_type='KABALA' and payment_type=0
+            and curdate() < date_add(checkdate,INTERVAL 4 DAY)
+            and d.client_id = $client
+        ";
+        $chequesrs = $conn->Execute($sqlCheques);
+        if ($chequesrs === false){log_error($sql);}
+    }
+
+
+
+    if ($readonly) $readonly="readonly";
+
+	?>
+
+
+<table width=100% height=100% border=0>
+<form method=post name=F action="hafkada.php?did=<?=$did?>&usr=<?=$usr?>">
+<input type=hidden name=docid value="<?=$docid?>">
+<tr style='height:1%'>
+<td>
+    <table cellpadding=0 cellspacing=0 height=25 width=100%>
+    <td width=1% nowrap><b style='color:darkblue;font-size:14pt'><?=$dtype->fields["name"];?></b>&nbsp;</td>
+    <td width=99%>
+    <fieldset>
+        <table>
+            <tr>
+                <td>מספר <input name=docnum size=4 style='border:solid 1 gray;font-weight:bold;text-align:center;background-color:buttonface' value='<?=$docnum?>' readonly></td>
+                <TD>תאריך: <input readonly name=docdate style='border:solid 1 gray;font-weight:bold;text-align:center;background-color:buttonface'  size=8 maxlength=10 value='<?=$docdate?>'></TD>
+                <td>אסמכתא: <input size='12' <?=$readonly?> name=comment value="<?=$comment?>"></td>
+                    <?if ($movestock && $workmode=="A"){?>
+                    <TD>
+                    נקודת מכירה:
+                    </TD>
+                    <td style='border:solid 2 GREEN'>
+                    	<select  name=stock onchange='document.F.submit();' <?if ($readonly){echo "disabled";}?>>
+                    	<?while(!$stocks->EOF){?>
+                    		<option value="<?=$stocks->fields["ID"]?>" <?=($stock==$stocks->fields["ID"])?"selected":""?>><?=$stocks->fields["StockName"]?>
+                    		<?$stocks->MoveNext();
+                    	}?>
+                    	</select>
+                    <?}?>
+                </td>
+            </tr>
+        </table>
+    </fieldset>
+    </td>
+    <td nowrap width=1% align=center >
+    <?	if ($usr){echo "משתמש: <strong>$username</strong>&nbsp;&nbsp;";}?>
+    <?if ($error){?>
+    &nbsp;&nbsp;<span style='height:20;color:white;background-color:red'><strong>&nbsp;<?=$error?>&nbsp;</strong></span>
+    <?}elseif($added){?>
+        &nbsp;&nbsp;<span style='height:22;color:white;background-color:green'><strong>&nbsp;המסמך  נשמר בהצלחה&nbsp;</strong>    </span>
+        <script>reloadParent();</script>
+        <?if ($addednum){ ?>
+            &nbsp;&nbsp;<input type=button value='חזרה למסמך #<?=$addednum?>' onclick='goto(<?=$added?>)'>
+        <?}?>
+    <?}?>
+    <?if ($duplicate && !$error){?>
+        &nbsp;&nbsp;<span style='height:20;color:white;background-color:orange'><strong>&nbsp;יש ללחוץ שמור <br>
+        לשמירת מסמל משוכפל&nbsp;</strong>    </span>
+    <?}?>
+    <?if ($createddoc && !$error){?>
+        &nbsp;&nbsp;<span style='height:20;color:white;background-color:orange'><strong>&nbsp;יש ללחוץ שמור לשמירת
+<br>
+        מסמל חדש&nbsp;</strong>    </span>
+    <?}?>
+    <?if ($closedby){?>
+    &nbsp;<input type=button value='למסמך סוגר' onclick='goto(<?=$closedby?>)'>
+    <?}?>
+    &nbsp;</td>
+    </tr>
+    </table>
+<tr>
+
+
+
+<tr style='height:1%'>
+    <td>
+    <table width=100%>
+
+
+        <tr>
+            <td nowrap>קופת מקור:</td>
+            <td>
+            	<select  <?=$readonly?"disabled":""?> name=sourcekupa onchange='document.F.submit()'>
+            	<?
+                $tkupot->MoveFirst();
+                while(!$tkupot->EOF){?>
+            		<option value="<?=$tkupot->fields["id"]?>" <?=($sourcekupa==$tkupot->fields["id"])?"selected":""?>><?=$tkupot->fields["name"]?>
+            		<?$tkupot->MoveNext();
+            	}?>
+            	</select>
+            </td>
+            <td nowrap>קופת יעד:</td>
+            <td>
+            	<select  <?=$readonly?"disabled":""?> name=targetkupa >
+            	<?
+                $kupot->MoveFirst();
+                while(!$kupot->EOF){?>
+            		<option value="<?=$kupot->fields["id"]?>" <?=($targetkupa==$kupot->fields["id"])?"selected":""?>><?=$kupot->fields["name"]?>
+            		<?$kupot->MoveNext();
+            	}?>
+            	</select>
+            </td>
+            <td width=99%>
+        </tr>
+        <tr valign=top>
+        <td width=1% align=left>הערות: </td>
+        <td colspan=4>
+            <textarea style='width:100%' rows=2 name=comment1 <?=$readonly?>><?=$comment1?></textarea>
+        </td>
+        </tr>
+    </table>
+</tr>
+
+
+
+
+<tr style='height:1%'><td colspan=2>
+
+
+
+	<?
+	if (!$numproducts)$numproducts=1;
+	if (!$numpayments)$numpayments=1;
+	?>
+<?
+
+
+// {{{ Payments
+//****************************** PAYMENTS **************************?>
+
+
+<fieldset  id=LEG_PAYMENTS >
+<LEGEND>
+תקבולים
+</LEGEND>
+	<input type=hidden name=copy>
+
+
+	<div  style='background-color:white;overflow-Y:scroll;overflow-X:auto;width:100%;height:210px;border:solid 1 gray;'>
+	<table bgcolor=white width=100% style='border-collapse:collapse' border=1>
+	<tr style='background-color:silver'>
+		<th>#</th>
+		<th>מס' מסמך</th>
+		<th>סוג תשלום</th>
+        <th width=25%>קופה</th>
+		<th><input type=hidden id=sumdoc>סכום</th>
+		<th>תאריך פרעון</th>
+		<th>מס' שיק / שובר</th>
+		<th>מס' בנק </th>
+		<th>מס' סניף</th>
+		<th>מס' חשבון</th>
+	</tr>
+	<?
+    $total = 0;
+	for ($i=0;$i<$numpayments;$i++){
+
+
+         if ($docpayments){
+            $id[$i] = $docpayments->fields["id"];
+            $paymid[$i] = $docpayments->fields["payment_type"];
+            $paydate[$i] = ($docpayments->fields["checkdate"]&&$docpayments->fields["checkdate"]!="0000-00-00")?DateFromSQL($docpayments->fields["checkdate"]):"";
+            $sumdoc[$i]=$docpayments->fields["Amount"];
+            $chequenumber[$i] =$docpayments->fields["checknumber"];
+            $bankno[$i] =$docpayments->fields["checkbank"];
+            $bankdeptno[$i] =$docpayments->fields["checksnif"];
+            $kupano[$i] =$docpayments->fields["kupa_id"];
+            $bankcntno[$i] = $docpayments->fields["checkaccount"];
+            $paymenttypename[$i] = $docpayments->fields["paymenttypename"];
+            $kupaname[$i] = $docpayments->fields["kupaname"];
+            $docnumber[$i] = $docpayments->fields["doc_number"];
+            $total += $sumdoc[$i];
+            $docpayments->MoveNext();
+        }
+	?>
+	<tr class='row3_0'>
+		<td class='row3_0' width=30 align=center><?=($i+1)?></td>
+		<td class='row3_0'><?=$docnumber[$i]?></td>
+		<td class='row3_0'><?=$paymenttypename[$i]?></td>
+        <td class='row3_0'><?=$kupaname[$i]?></td>
+		<td class='row3_0'><?=number_format($sumdoc[$i],2,".","")?></td>
+		<td class='row3_0' width=1% nowrap><?=$paydate[$i]?></td>
+		<td class='row3_0'><?=$chequenumber[$i]?></td>
+		<td class='row3_0'><?=$bankno[$i]?></td>
+		<td class='row3_0'><?=$bankdeptno[$i]?></td>
+		<td class='row3_0'><?=$bankcntno[$i]?>
+        <input type=hidden name='paymentid[]' value="<?=$id[$i]?>">
+        </td>
+	</tr>
+	<?}?>
+	</table>
+	</div>
+	</fieldset>
+
+
+    <input type=hidden name=totalsum>
+    <input type=hidden name=date>
+    <input type=hidden name=cheque>
+    <input type=hidden name=bank>
+    <input type=hidden name=kupa>
+    <input type=hidden name=snif>
+    <input type=hidden name=acc>
+    <input type=hidden name=sum1>
+    <?
+
+
+
+//******************** END OF PAYMENTS ********************************
+   ?>
+
+
+	</div>
+	<table width=100% cellpadding=0 cellspacing=0>
+	<tr>
+		<td width=99% style='padding-left:10px' valign=bottom height=100>
+			<table width=100% border=0><tr><td>
+            <?if ($isproduct){?>
+            <fieldset>
+                <legend>פרטים נוספים</legend>
+                    <table width=100% Border=0>
+                        <tr>
+                            <td align=left>סוכן:</td>
+                            <td colspan=3>
+                                <select name=agent <?=$readonly?"disabled":""?>>
+                                <option value="">
+                            	<?
+                                $sql = "select ID, SupplierName from listingsSuppliers where user_id = $userID and isAgent=1 and status=1 order by binary SupplierName";
+                                $agents = $conn->Execute($sql);
+                                if ($agents === false){log_error($sql);}
+                                while(!$agents->EOF){?>
+                            		<option value="<?=$agents->fields["ID"]?>" <?=($agent==$agents->fields["ID"])?"selected":""?>><?=$agents->fields["SupplierName"]?>
+                            		<?$agents->MoveNext();
+                            	}?>
+                            	</select>
+                            </td>
+                            <td NOWRAP align=left>תנאי תשלום:</td>
+                            <td>
+                                <?
+                                $sql = "select * from payment_type where Status=1 and user_id = $userID order by sortOrder, name";
+                                $ptypes = $conn->Execute($sql);
+                            	if ($ptypes === false){log_error($sql);}
+                                ?>
+                                <select <?=$readonly?"disabled":""?> name=dpaymenttype id=dpaymenttype onchange="document.F.calcDate.value=1;document.F.submit()">
+                                <option value="">
+                            	<?while(!$ptypes->EOF){?>
+                            		<option value="<?=$ptypes->fields["id"]?>" <?=($dpaymenttype==$ptypes->fields["id"])?"selected":""?> numdays="<?=$ptypes->fields["numdays"]?>" shotef="<?=$ptypes->fields["shotef"]?>" ><?=$ptypes->fields["name"]?>
+                            		<?$ptypes->MoveNext();
+                            	}?>
+                            	</select>
+                            </td>
+                            <td NOWRAP>תאריך תשלום:</td>
+                            <td NOWRAP>
+                                <?if ($calcDate){
+                                    if ($dpaymenttype){
+                                            $sql = "select * from payment_type where id = $dpaymenttype";
+                                            $ptypes = $conn->Execute($sql);
+                                            if ($ptypes === false){log_error($sql);}
+                                            if ($ptypes->fields["shotef"]){
+                                                $pdate = strtotime("+1 month");
+                                                $pdate = mktime(0,0,0,date("m",$pdate),1,date("Y",$pdate));
+                                                $pdate = strtotime("+".($ptypes->fields["numdays"]-1)." days",$pdate);
+                                            }
+                                            else{
+                                                $pdate = strtotime("+".$ptypes->fields["numdays"]." days");
+                                            }
+                                            $paymentdate = date("d/m/Y",$pdate);
+                                    }
+                                    else{
+                                        $paymentdate = "";
+                                    }
+                                }?>
+                                <input <?=$readonly?> name=paymentdate size=6 maxlength=10 value='<?=$paymentdate?>'>
+                                <?if (!$readonly){?>
+                                <img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.paymentdate")'>
+                                <?}?>
+                            </td>
+                            <td width=99%>
+                        </tr>
+                    </table>
+            </fieldset>
+            <?}?>
+            </td></tr>
+            <tr><td>
+
+					<table>
+					<tr >
+					<td>
+					<?if (!$readonly){?>
+							<input type=submit name=do  value='שמור'  class=button style='background-image:url(<?=$imgPath?>ok.gif)'>
+							<?if ($isserials){?>
+							<input type=submit style='width:150' name=doserials value='שמור והכנס קודים סידוריים'  class=button style='background-image:url(<?=$imgPath?>barcode.gif)'>
+							<?}?>
+							<?if (!$docid){?>
+							<input type=submit style='width:120' name=doprint value='שמור והדפס'  class=button style='background-image:url(<?=$imgPath?>printer.gif)'>
+							<?}?>
+					<?}?>
+
+
+					<?if(false && $isserials && $docid){?>
+					<input type=button  value='קודים סידוריים' onclick='showCodes()'  class=button style='background-image:url(<?=$imgPath?>barcode.gif)'>
+					<?}?>
+
+
+					<?if ($docid){?>
+					<input type=button  value='הדפס' onclick='printDocument()'  class=button style='background-image:url(<?=$imgPath?>printer.gif)'>
+					<?}?>
+
+					<?if ($docid && $did=="KABALA"){?>
+					<input type=button  value='סגירת חשבוניות' onclick='closeCheshonit()' >
+					<?}elseif (!$docid && $did=="KABALA"){?>
+					<input type=submit name=doclosechn  value='שמור וסגור חשבוניות'>
+					<?}?>
+
+
+					<input type=button onclick='window.close()' value='סגור'  class=button style='background-image:url(<?=$imgPath?>back.gif)'>
+					</td>
+					</tr>
+					</table>
+
+            </td></tr></table>
+        </td>
+
+
+		<td valign=top>
+
+
+			<table id=DIV_PAYMENTS >
+			<tr>
+				<td align=left nowrap ><strong>סה"כ: </strong>
+                <input readonly size=8  id=totalpayment name=totalpayment value="<?=number_format($total,2)?>">
+                <input type=hidden name=total value="<?=$total?>">
+                </td>
+				<td style=padding-left:17></td>
+			</tr>
+			</table>
+
+
+	</td>
+	</tr>
+	</table>
+
+
+
+</td></tr>
+
+
+
+
+
+
+<input type=hidden name=klita value='<?=$klita?>'>
+<input type=hidden name=productids value=''>
+<input type=hidden name=duplicate value='<?=$duplicate?>'>
+<input type=hidden name=rowtodelete value=''>
+<input type=hidden name=addrow value=''>
+<input type=hidden name=calcDate>
+<input type=hidden name=focusAsmachta>
+</form>
+<script>
+var pName='';
+function selectProduct(i){
+    pName = event.srcElement.parentElement.parentElement.cells[0].all(0).value;
+    s=showModalDialog('product_select.php?cname='+escape(pName),'','dialogWidth:600px;dialogHeight:500px;status:no;help:no');
+    if (typeof(s)!="undefined" && s!=""){
+        document.getElementById("barcode"+i).value=s;
+        addproduct(i);
+    }
+}
+
+
+function checkKey(i){
+    if (window.event.keyCode==13){
+        addproduct(i);
+    }
+}
+
+
+function addproduct(i){
+    document.F.addrow.value = i;
+    if (i==document.F.numproducts.value){
+        document.F.numproducts.value++;
+    }
+    document.F.submit();
+}
+
+
+function closeCheshonit(){
+    if (document.F.client.value==""){
+        alert("יש להגדיר לקוח לפני הקליטה");
+        return;
+    }
+    var url = "close_chn.php?simple=1&client="+document.F.client.value;
+    var s = wopen(url,"sgira",500,400,true,"no");
+}
+
+
+function delrow(i){
+    document.F.rowtodelete.value = i;
+    document.F.submit()
+}
+
+
+var oPopup = window.createPopup();
+
+
+
+function duplicateDoc(){
+     document.F.duplicate.value=1;
+     document.F.action="add_document.php?docid=<?=$docid?>&usr=<?=$usr?>";
+     document.F.submit();
+}
+
+
+function showCodes(){
+    url='codes.php?docid=<?=$docid?>'
+    var s = wopen(url,"serials",500,400,true);
+}
+
+
+
+function goto(s){
+    location="add_document.php?docid="+s;
+}
+
+
+<?if ($ser){?>
+showCodes();
+<?}?>
+
+
+<?if ($docid){?>
+function printDocument(){
+    showModalDialog("printdoc.php?docid=<?=$docid?>","","dialogWidth:320px;dialogHeight:240px;center:yes;resizable:no;status:no;help:no");
+}
+<?}?>
+
+
+
+
+
+
+<?if ($focusAsmachta){?>
+document.F.comment.focus();
+<?}?>
+
+
+
+</script>
+
+
+</table>
+
+
+
+<?if ($prn){?>
+<script>
+document.body.onload=printDocument;
+</script>
+<?}?>
+
+
+<?if ($cls){?>
+<script>
+document.body.onload=closeCheshonit;
+</script>
+<?}?>
+
+
+<?php
+function array_delete($array, $index) {
+    for($i=0;$i<count($array);$i++)
+    {
+        if($i>=$index && $i!=count($array)-1) {
+           $array[$i]=$array[$i+1];
+        }
+    }
+    unset($array[count($array)-1]);
+    return $array;
+}
+
+
+function isParentShouldBeClosed($doctype,$mayinheritfrom)
+{
+    $elems = explode(",",$mayinheritfrom);
+    foreach($elems as $TABLE_DOCUMENT_TYPE){  
+        $elem = explode("|",$TABLE_DOCUMENT_TYPE);
+        if ($elem[0]==$doctype){
+            return $elem[1]=="1";
+        }
+    }
+    return false;
+}
+
+
+function GetMoveStock($doctype,$mayinheritfrom){
+    $elems = explode(",",$mayinheritfrom);
+    foreach($elems as $TABLE_DOCUMENT_TYPE){
+        $elem = explode("|",$TABLE_DOCUMENT_TYPE);
+        if ($elem[0]==$doctype){
+            return $elem[2];
+        }
+    }
+    return "";
+}
+
+
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

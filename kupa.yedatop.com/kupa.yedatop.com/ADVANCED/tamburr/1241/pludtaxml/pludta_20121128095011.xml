@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="808" isWeight="0" isDeleted="0" title="קצף פוליאוריתן CS330" category="0" saleprice="26.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="6942629204701" isWeight="0" isDeleted="0" title="מספרי פח TACTIX" category="0" saleprice="49" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+  <Product barcode="67513" isWeight="0" isDeleted="0" title="קטר תוכי 6" category="0" saleprice="29.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668339">
+  </Product>
+  <Product barcode="568186" isWeight="0" isDeleted="0" title="סולם סיידים 6 שלבים" category="0" saleprice="249" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+</Products>

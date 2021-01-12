@@ -1,0 +1,78 @@
+<form action="<?php echo $PHP_SELF; ?>" method="POST" name="forgot">
+<table border="0" cellpadding="0" cellspacing="3">
+<tr>
+	<td colspan="2"><h1><?php echo $admin_forgot; ?></h1>
+	<?php if (isset($error)) echo $error; ?>
+	<?php echo $forgot_text; ?><br /><br />
+</tr>
+
+<?if ($forgot_error){?>
+<tr>
+        <td colspan="2" class="Error">
+                <?php echo $forgot_error; ?>
+				<br><br>
+        </td>
+</tr>
+<?}?>
+
+<?php
+if ($val->error["username"])
+{
+?>
+
+<tr>
+        <td colspan="2" class="Error">
+                <?php echo $val->error["username"]; ?>
+        </td>
+</tr>
+<?}?>
+
+<tr>
+	<td align="right" nowrap>
+        <?php echo $strUsername; ?>*:&nbsp;
+      	</td>
+      	<td width="100%">
+        <input type="text" class="textbox"  name="username" size="30" value="<?php if(isset($username)) echo $username; ?>" maxlength="20">
+       </td>
+</tr>
+	<?php
+	if ($val->error["email"])
+	{
+	?>
+	<tr>
+		<td colspan="2" class="Error">
+			<?php echo $val->error["email"]; ?>
+		</td>
+	</tr>
+	<?php } ?>
+	<tr>
+		<td align="right" nowrap valign="top">
+		<?php echo $strEmail; ?>*:&nbsp;
+		</td>
+		<td class="small">
+		<input type="text" class="textbox"  name="email" size="30" value="<?php if(isset($email)) echo $email; ?>" maxlength="75"><br />
+		<?php
+		if ($GO_CONFIG->enable_system_accounts)
+		{
+			echo $ml_email_only;
+		}
+		?>
+		</td>
+	</tr>	
+
+
+
+
+
+
+<tr>
+        <td colspan="2">
+		<br>
+        <?php
+			$button = new button($cmdOk, 'javascript:document.forms[0].submit()');
+			echo '&nbsp;&nbsp;';
+			$button = new button($cmdCancel, 'javascript:document.location=\'../index.php\';');
+			?>
+        </td>
+</tr>
+</table>

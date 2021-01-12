@@ -1,0 +1,202 @@
+<?
+	ini_set("max_execution_time",10000);
+	@set_time_limit(10000); 
+	session_start();
+	$simple=1;
+
+
+	header("Pragma: no-cache");
+	require("../../Group-Office.php");
+	require("../stock/include/functions.php");
+
+	//always set hebrew
+	$GO_LANGUAGE->set_language("Hebrew");
+	require($GO_LANGUAGE->get_language_file('common'));
+	
+	
+	//authenticate the user
+	//if $GO_SECURITY->authenticate(true); is used the user needs admin permissons
+	$GO_SECURITY->authenticate();
+
+	//see if the user has access to this module
+	//for this to work there must be a module named 'example'
+	$GO_MODULES->authenticate('stock_admin');
+
+	require "lib/system.lib";
+	require "lib/plug-ins.lib";
+	require "lib/mod_xml.lib";
+	require "lib/mod_xml_ct.lib";
+	require "lib/mail.lib";
+
+	require "services/BD3LoadConfiguration.service";
+	require "services/BD3LoadDBDevice.service";
+
+	require "services/BD3Auth.service";
+	require "services/BD3ProcessEvents.service";
+	require "services/BD3PushServiceName.service";
+	require "services/BD3PushPluginName.service";
+	
+	require_once($GO_CONFIG->class_path.'users.class.inc');
+	//create a users object:
+	$users = new users();
+	$userID = $GO_SECURITY->user_id;
+	//set the page title for the header file
+	$page_title = "מלאיטק";
+	require($GO_THEME->theme_path."simple_header.inc");
+	//require the header file. This will draw the logo's and the menu
+	// there is also the simple_header.inc file without logo's and menu
+	$users = new users();
+    $db="";
+	if ($stockuser)
+    {
+		$stockuserid = $users->get_user_id_by_name($stockuser);
+        $userd = f(q("select sql_database from userdata where username = '$stockuser'"));
+        if ($userd["sql_database"])
+        {
+            $db = $userd["sql_database"].".";
+        }
+        
+	}
+
+	if ($DELTRANS)
+    {
+		if (!$sDate || !$eDate || !IsDate($sDate) || !IsDate($eDate)){
+			$error = "Invalid date range";
+		}
+		else{
+			$tcnt=0;
+			$ssDate = dateToSQL($sDate);
+			$seDate = dateToSQL($eDate);
+			echo "Processing"; flush();
+			$sql = "select id,package_id from ".$db."transactions where trandate between '$ssDate' and '$seDate' and user_id = $stockuserid";
+			$t = q($sql)  or die($sql." ".mysql_error());	
+			while ($trans=f($t)){
+				$sql = "delete from ".$db."transactionpayments where trans_id = ".$trans["id"];
+				$r = q($sql) or  die($sql." ".mysql_error());	
+				$sql = "delete from ".$db."transactioncomponents where trans_id = ".$trans["id"];
+				$r = q($sql) or  die($sql." ".mysql_error());	
+				$sql = "delete from ".$db."transactionpackages where id = ".$trans["package_id"];
+				$r = q($sql) or  die($sql." ".mysql_error());	
+				$sql = "delete from ".$db."transactions where id = ".$trans["id"];
+				$r = q($sql) or  die($sql." ".mysql_error());	
+				$tcnt++;
+				echo". "; flush();
+				
+			}
+			$message="$tcnt transactions were deleted.";
+		}
+	}
+	
+	if ($DELJOUR){
+		if (!$stock || !$journalNum ){
+			$error = "Enter Terminal and Jornal number";
+		}
+		else{
+			$tcnt=0;
+			echo "Processing"; flush();
+			$sql = "select t.id,package_id from ".$db."transactions t,".$db."transactionpackages p 
+			where user_id = $stockuserid
+			and p.id = t.package_id and p.stock_id = $stock 
+			and p.journalNum = $journalNum
+			";
+			$t = q($sql)  or die($sql." ".mysql_error());	
+			while ($trans=f($t)){
+				$sql = "delete from ".$db."transactionpayments where trans_id = ".$trans["id"];
+				$r = q($sql) or  die($sql." ".mysql_error());	
+				$sql = "delete from ".$db."transactioncomponents where trans_id = ".$trans["id"];
+				$r = q($sql) or  die($sql." ".mysql_error());	
+				$sql = "delete from ".$db."transactions where id = ".$trans["id"];
+				$r = q($sql) or  die($sql." ".mysql_error());	
+				$tcnt++;
+				echo". "; flush();
+			}
+			$sql = "delete from ".$db."transactionpackages where stock_id = $stock and journalNum = $journalNum and substring(journaldate,1,10) = '".dateToSQL($jsDate)."'";
+			$r = q($sql) or  die($sql." ".mysql_error());	
+			$message="$tcnt transactions were deleted.";
+		}
+	}	
+	
+	if ($DELPRODUCTS || $DELPRODUCT)
+	{
+		$tcnt=0;
+		if ($DELPRODUCT && $barcode){
+			$sql = "select id from ".$db."listingsDB where BarCode='$barcode' and user_id = $stockuserid";
+		}
+		else{
+			$sql = "select id from ".$db."listingsDB where user_id = $stockuserid";
+		}
+		echo "Processing"; flush();
+		$t = q($sql)  or die($sql." ".mysql_error());	
+			while ($prod = f($t))
+            {
+				$sql = "delete from ".$db."listingsStocksElements where listingid = ".$prod["id"];
+				$r = q($sql) or  die($sql." ".mysql_error());	
+				$sql = "delete from ".$db."history where listing_id = ".$prod["id"];
+				$r = q($sql) or  die($sql." ".mysql_error());	
+				$sql = "delete from ".$db."listingsDB where id = ".$prod["id"];
+				$r = q($sql) or  die($sql." ".mysql_error());	
+				echo". "; flush();
+				$tcnt++;
+			}
+			$message="$tcnt products were deleted.";
+	}
+	
+?>
+	<div style='position:absolute;top:0;left:0;height:100%;width:100%'>
+	<table dir=ltr bgcolor=buttonface width=100% height=100% >
+	<tr style=height:1%><td align=center>
+		<strong><h1>Administrative tools. User: <?=$stockuser;?></h1></strong>
+		<strong style=color:red><?=$error?></strong><strong style=color:green><?=$message?></strong>
+	</td></tr>
+	<tr><td valign=top style=padding:10>
+	<script dir=ltr>
+	function validate(){
+		if (confirm("THE OPERATION CANNOT BE UNDONE! Please confirm the operation")){
+			return true;
+		}
+		else{
+			return false;
+		}
+	}
+	</script>
+	
+	<form onsubmit='return validate()' method=post>
+		<hr>	
+		<li><b>Remove all TRANS data by dates:</b><br>
+		From 
+			<input size=6 name=sDate value="<?=$sDate?>">
+			 to <input size=6 name=eDate value="<?=$eDate?>"> (dd/mm/yyyy)
+			 <input type=submit name=DELTRANS value=OK>
+		</li>
+		<hr>	
+		<li><b>Remove TRANS data by Journal number:</b>
+		<br> Terminal: 
+			<select name=stock>
+			<option value="">
+			<?
+			$rstock = q("select ID,StockName from listingsStocks where user_id = $stockuserid");
+			while ($stk = f($rstock)){
+				echo "<option value='".$stk["ID"]."' ".(($stk["ID"]==$stock)?"selected":"").">".$stk["StockName"];
+			}
+			?>
+			</select>
+			Jornal number: <input size=4 name=journalNum  value="<?=$journalNum?>"> 
+			 <input type=submit name=DELJOUR value=OK>
+		</li>
+		<hr>
+		<li><b>Remove all products </b> 
+			 <input type=submit name=DELPRODUCTS value=OK>
+		</li>
+		<hr>
+		<li><b>Remove product by barcode </b><input size=10 name=barcode>
+			 <input type=submit name=DELPRODUCT value=OK>
+		</li>
+	</ul>
+	</form>
+	</td></tr>
+	</table>
+	</div>
+<?
+	
+	d($db);
+?>

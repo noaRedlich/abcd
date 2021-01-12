@@ -1,0 +1,381 @@
+<?
+	//session_start();
+    ini_set("max_execution_time","3000");
+    @set_time_limit(3000); 
+	$simple=1;
+	$page_subtitle = "עדכון מחירים ויצירת פריטים";
+	$xlsfilename = "pricechanges";
+	include("include/common.php");
+    include("include/business_functions.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+	if (($_GET["sDate"] || $_GET["sort"]) && $saction != "sendreport"){
+		$saction="go";
+	}                                                       
+ 
+ 
+	if (!$sDate)
+    {
+		//$sDate = date("d/m/Y",$initialTime);
+        $firstday = mktime(0,0,0,date("m"),1,date("Y"));
+		//$sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+		$eDate = date("d/m/Y");
+        $sDate = $eDate;
+	}
+   // echo $sDate;
+    $reptime = mktime(23,59,59,substr($sDate,3,2),substr($sDate,0,2),substr($sDate,6,4));
+    $olddate = false;
+    
+    if($reptime<time())
+    {
+        $sql = "select max(day) as day from stocksnapshot";
+        $snap = $conn->Execute($sql);
+        if ($snap === false){log_error($sql);}
+        $dateStart = $snap->Fields("day");
+        $olddate = true;
+    }
+
+	if (!$sDate){
+		$sDate = date("d/m/Y",$initialTime);
+		$eDate = date("d/m/Y");
+	}
+
+	$cats = $conn->Execute("select * from listingsCategories where user_ID = $userID and Status=1 order by binary CategoryName");
+	if ($cats === false){log_error($sql);}
+
+	$stocks = GetStocks(true);
+
+	$suppliers = $conn->Execute("select * from listingsSuppliers where Status=1 and isSupplier=1 and user_id = $userID order by binary SupplierName");
+	if ($suppliers === false){log_error($sql);}                                 
+	
+	?>
+	<style>
+	.z {color:gray}
+	.b {font-weight:bold}
+	th {background-color:silver}
+	</style>
+	<script>
+	function PrintReport(){
+		document.getElementById("Query").style.display = "none";
+		window.print();
+		document.getElementById("Query").style.display = "";
+	}
+	</script>
+	<body>
+	<table cellpadding=5 border=0 width=100%>
+	<tr>
+	<form name=F method=post action="<?=$PHP_SELF?>">
+	<input type=hidden name=usr value=<?=$usr?>>
+	<input type=hidden name=rmodule value=<?=$rmodule?>>
+	
+	<td nowrap>
+	<?$reporttitle = "עדכון מחירים
+    <br>ויצירת פריטים
+    "?>
+	<?if ($usr){$reporttitle.="<br>".$username;}?>
+	<strong style='font-size:12pt'><?=$reporttitle?></strong>
+	</td><td width=99% style='border:inset 1'>
+	מ-
+    <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+    <img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.sDate")'>
+
+    עד	
+    <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+    <img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.eDate")'>
+    
+	<select name=category>
+	<option value=""><?=$lang["all_cats"]?>
+    <?FillCategoriesList($category);?> 
+	</select>
+	
+	<select name=stock>
+	<?FillStockList($stocks,$stock);?>
+	</select>
+	
+	<select name=supplier>
+	<option value=""><?=$lang["all_suppliers"]?>
+	<?while(!$suppliers->EOF){?>
+		<option value="<?=$suppliers->fields["ID"]?>" <?=($supplier==$suppliers->fields["ID"])?"selected":""?>><?=$suppliers->fields["SupplierName"]?>
+		<?$suppliers->MoveNext();
+	}?>
+	</select>
+
+	<input type=submit value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top"  >
+	
+     <br>
+     <input type=checkbox value=1 name=includevat <?=($includevat)?"checked":""?> >מחיר מכירה כולל מע"מ
+ 
+ 
+	<?if ($saction=="go" || $saction=="sendreport"){
+		require("sendreport.php");
+	}?>
+	<input type=hidden name=saction value=go>
+	<input type=hidden name=reportbody value="">
+	<input type=hidden name=sendmode value="">
+
+	</td>
+	</form>
+	</tr>
+	</table>
+	<?	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go")
+    {
+	
+
+        switch ($sort)
+        {
+            case "Category": $sortorder = "binary CategoryName";break;   
+            case "Name": $sortorder = "binary title";break;
+            case "BarCode":  $sortorder = "BarCode+0";break;  
+            case "CreationDate":  $sortorder = "creation_date";break;    
+            case "Sapak":  $sortorder = "binary sap.SupplierName";break;    
+            case "SalePriceFrom":   $sortorder = "saleprice_from";break;    
+            case "SalePriceTo":   $sortorder = "saleprice_to";break; 
+            case "DateTime":   $sortorder = "datetime";break;  
+            case "Stock":   $sortorder = "Stock";break;  
+            default: $sortorder = "binary title,datetime";     
+        }
+        
+        if ($includevat)
+        {
+            $pricetosql = "saleprice_to"; 
+            $pricefromsql = "saleprice_from"; 
+        }
+        else
+        {
+            $pricetosql = "saleprice_to/(1+".$config["VAT"]."/100)"; 
+            $pricefromsql = "saleprice_from/(1+".$config["VAT"]."/100)"; 
+        }
+        
+        if ($sDate && !$eDate)
+        {
+            $qhistory = "and datetime between '".DateToSQL($sDate)."' and '".DateToSQL($sDate)." 23:59:59'";
+            $crdatesql  = "and creation_date between '".DateToSQL($sDate)."' and '".DateToSQL($sDate)." 23:59:59'";
+        }
+        elseif($sDate && $eDate)
+        {
+            $qhistory = "and datetime between '".DateToSQL($sDate)."' and '".DateToSQL($eDate)." 23:59:59'"; 
+            $crdatesql  = "and creation_date between '".DateToSQL($sDate)."' and '".DateToSQL($eDate)." 23:59:59'";    
+        }
+        
+        if ($stock)
+        {
+           $qhistory.=" and stock_id_from = $stock "; 
+        }
+        
+        
+        $q="";
+		if ($category){
+			$q.=" and c.ID=$category";
+		}
+		
+		if ($supplier){
+			$q.=" and sap.ID=$supplier";
+		}
+        
+		$sql = "select 
+				l.id,
+                l.creation_date,
+				title,
+				c.CategoryName,
+				sap.SupplierName as sapak,
+				barcode,
+                group_concat($pricefromsql) as saleprice_from,
+                group_concat($pricetosql) as saleprice_to,
+                group_concat(datetime) as datetime,
+                s.stockname as stock
+			from
+				 listingsDB l		
+					inner join listingsCategories  c on	ProductGroup = c.ID
+					inner join listingsSuppliers  sap on Sapak = sap.ID
+                    inner join history h on 
+                        h.listing_id = l.id and type='adjustment' 
+                        and ifnull(saleprice_from,0) <> ifnull(saleprice_to,0)
+                        $qhistory
+                    left outer join $TABLE_LISTINGSSTOCKS s on s.id = stock_id_from    
+	 		where
+				l.user_id = $userID  $q
+            group by l.id, stock
+                
+            union  all
+                select
+                l.id,
+                l.creation_date,
+				title,
+				c.CategoryName,
+				sap.SupplierName as sapak,
+				barcode,
+                '' as saleprice_from,
+                saleprice as saleprice_to,
+                '' as datetime,
+                '' as stock
+                from
+                listingsDB l		
+				inner join listingsCategories  c on	ProductGroup = c.ID
+				inner join listingsSuppliers  sap on Sapak = sap.ID
+                where  l.user_id = $userID $crdatesql $q  
+			order by $sortorder";
+		
+		//echo "<!--SQL: ".$sql." -->";
+
+		$products = $recordSet = $conn->Execute($sql);
+		if ($products === false){log_error($sql);}     
+        $numrows = $products->NumRows();
+        
+
+        echo "</table></table>
+        <table width=300  id=CALCSTATUS align=center >
+        <tr><td align=center id=CALCMSG>מתבצע חישוב...</td></tr>
+        <tr>
+            <td height=20 DIR=LTR bgcolor=white><div id=CNT style='text-align:center;color:white;background-color:blue;'></div></td>
+        </tr>
+        </table>
+        <script>
+        function upd(cnt){
+            percent = cnt/$numrows*100
+            document.all.CNT.innerText=percent.toFixed(0)+'%'
+            document.all.CNT.style.width=percent.toFixed(0)+'%'
+        }
+        function calcend(){
+             document.all.CALCSTATUS.style.display='none';
+        }
+        function calcmsg(s){
+             document.all.CALCMSG.innerText=s;
+        }
+        </script>
+        ";
+        flush();
+        
+        $url = "rep_changes.php?includevat=$includevat&sDate=$sDate&eDate=$eDate&category=$category&stock=$stock&supplier=$supplier";
+	    $worksheet->set_column('A:D', 15);
+	    $worksheet->set_column('E:O', 12);
+	    
+	    $headings = array('מחלקה','ברקוד','פריט','תאריך יצירה','ספק','מחיר מכירה קודם','מחיר מכירה נוחכי','תאריך שינוי','נקודת שינוי');
+	    $worksheet->write_row('A'.($rrow++), $headings, $heading);
+
+        
+        echo "<script>try{calcmsg('הכנה לתצוגת דו\"ח - נא לחכות');}catch(e){}</script>\n";flush();
+	    echo "<div ><table id=REPORTTABLE dir=$dir  border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+	    echo "
+	    <tr valign=top>
+	    <th><a href='$url&sort=Category'>מחלקה</a></th>
+	    <th><a href='$url&sort=BarCode'>ברקוד</a></th>
+	    <th><a href='$url&sort=Name'>שם פריט</a></th>
+	    <th><a href='$url&sort=CreationDate'>תאריך יצירה</a></th>
+	    <th><a href='$url&sort=Sapak'>ספק</a></th>
+	    <th><a href='$url&sort=SalePriceFrom'>מחיר מכירה קודם</a></th>
+	    <th><a href='$url&sort=SalePriceTo'>מחיר מכירה נוחכי</a></th>
+        <th><a href='$url&sort=DateTime'>תאריך שינוי אחרון</a></th> 
+        <th><a href='$url&sort=Stock'>נקודת שינוי</a></th>
+	    </tr>
+	    ";
+	    
+	    $totalMlaiAlut = 0;
+	    $totalMlaiMechira = 0;
+        $totalKamut = 0;
+        $maxDecimals = 0;
+        
+        $TAchuzRevachMemutza = 0;
+	    $TMahzor = 0; 
+	    $TRevachAgol = 0;
+	    $cnt=0;
+
+	
+		while (!$products->EOF)
+        {          
+	
+            $include = true;
+            $cnt++;
+            if ($cnt % 50 == 0){
+                echo "<script>upd($cnt);</script>\n";flush();
+            }
+			if ($include)
+            {
+                
+                $pf = explode(",",$products->fields["saleprice_from"]); 
+                $pf = $pf[0];
+                                 
+                
+                $pt = explode(",",$products->fields["saleprice_to"]); 
+                $pt = $pt[count($pt)-1];
+                
+                $d = explode(",",$products->fields["datetime"]);  
+                $d = $pt[count($d)-1];     
+    
+				$row = array(
+					"ProductID" => $products->fields["id"],
+					"Category" => $products->fields["CategoryName"],
+					"Name" => $products->fields["title"],
+					"Price" => $Price,
+					"Sapak" => $products->fields["sapak"],
+					"BarCode" => $products->fields["barcode"],
+					"CreationDate" => $products->fields["creation_date"],
+                    "SalePriceFrom" => $pf,
+					"SalePriceTo" => $pt,
+                    "Stock" => $products->fields["stock"],
+                    "DateTime" => $products->fields["datetime"], 
+					
+				);
+                
+                $dayofweek = $days[date("w",strtotime($row["CreationDate"]))]; 
+                echo "
+		        <tr valign=top>
+		        <td>".splitLongWords($row["Category"])."</td>
+		        <td>".splitLongWords($row["BarCode"])."</td>
+		        <td><a href=\"javascript:wopen('edit_my_listings.php?edit=".$row["ProductID"]."','edit')\">".splitLongWords($row["Name"])."</a></td>
+		        <td nowrap>".(($row["CreationDate"]&&$row["CreationDate"]!="0000-00-00")?DateFromSql($row["CreationDate"]):"")." $dayofweek</td>
+		        <td>".$row["Sapak"]."</td>
+		        <td>".(($row["SalePriceFrom"]=="")?"":number_format($row["SalePriceFrom"],2))."</td>
+                <td>".(($row["SalePriceTo"]=="")?"":number_format($row["SalePriceTo"],2))."</td> 
+                <td>".($row["DateTime"]?DateFromSQL($row["DateTime"]):"")."</td> 
+                <td>".$row["Stock"]."</td> 
+		        </tr>
+	        
+		        ";	
+                flush();
+		        $totalMlaiAlut += $row["Alut"]*$row["Quantity"];
+		        $totalMlaiMechira += $row["Price"]*$row["Quantity"];
+                $totalKamut+=$row["Quantity"];
+                if ($maxDecimals<$row["Decimals"])$maxDecimals=$row["Decimals"];
+
+		        $b=$body;
+		        $f=$numformat;
+		        $worksheet->write("A".($rrow),$row["Category"],$b);
+		        $worksheet->write("B".($rrow)," ".$row["BarCode"],$r);
+		        $worksheet->write("C".($rrow),$row["Name"],$b);
+		        $worksheet->write("D".($rrow),DateFromSQL($row["CreationDate"]),$b);
+		        $worksheet->write("E".($rrow),$row["Sapak"],$b);
+		        $worksheet->write("F".($rrow),$row["SalePriceFrom"],$f);
+		        $worksheet->write("G".($rrow),$row["SalePriceTo"],$f);
+		        $worksheet->write("H".($rrow),($row["DateTime"])?DateFromSQL($row["DateTime"]):"",$b);
+		        $worksheet->write("I".($rrow),$row["Stock"],$b);
+		        $rrow++;
+                
+                
+			}
+		
+ 			$products->MoveNext();
+		}
+
+	    echo "
+	    </table></div>";
+	}
+    echo "<script>try{calcend();}catch(e){}</script>\n";flush();
+
+	$workbook->close();
+	copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+    unlink($fname);
+	
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+	
+	
+?>

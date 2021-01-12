@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="7291044031782" isWeight="0" isDeleted="0" title="כבל מאריך 10 מטר ECOUEURO" category="0" saleprice="75.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+  <Product barcode="585203" isWeight="0" isDeleted="0" title="משחזת זווית &quot;5 SC4949" category="0" saleprice="299" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+  <Product barcode="7291044031584" isWeight="0" isDeleted="0" title="רב שקע 5 + 1 מ' כבל ECOUEURO" category="0" saleprice="29.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668337">
+  </Product>
+  <Product barcode="1038" isWeight="0" isDeleted="0" title="שקע קופלונג ויסבורד" category="0" saleprice="4.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668344">
+  </Product>
+  <Product barcode="101123" isWeight="0" isDeleted="0" title="סולם סיידים 4 שלבים" category="0" saleprice="155" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="34637" isWeight="0" isDeleted="0" title="סטלבנד 15 מטר" category="0" saleprice="59" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668334">
+  </Product>
+  <Product barcode="58422" isWeight="0" isDeleted="0" title="מפתח שוודי &quot;10" category="0" saleprice="49" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+</Products>

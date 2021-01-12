@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="90634" isWeight="0" isDeleted="0" title="" category="0" saleprice="69" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1360653418">
+  </Product>
+  <Product barcode="8850747532072" isWeight="0" isDeleted="0" title="" category="0" saleprice="15.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1360653425">
+  </Product>
+  <Product barcode="8850747502396" isWeight="0" isDeleted="0" title="" category="0" saleprice="15.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1360653407">
+  </Product>
+</Products>

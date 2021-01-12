@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>userdata</main_table>
+	<name>הגדרות חשבשבת</name>
+	<options>
+		<opt name="create_record" type="none"></opt>
+		<opt name="edit_record" type="sometime"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="UserName" >שם משתמש</vcol>
+	</view>
+	<edit>
+		<ecol name="CodeMechirot" type="string">מפתח חשבון מכירות</ecol>
+		<ecol name="CodeVAT" type="string">מפתח חשבון מע''מ</ecol>
+		<ecol name="CodeIsra" type="string">מפתח חשבון ישקאכרט</ecol>
+		<ecol name="CodeVisa" type="string">מפתח חשבון ויזה</ecol>
+		<ecol name="CodeAMEX" type="string">מפתח חשבון AMEX</ecol>
+		<ecol name="CodeDiners" type="string">מפתח חשבון דיינרס</ecol>
+		<ecol name="CodeMastercard" type="string">מפתח חשבון מסטרכארט</ecol>
+		<ecol name="CodeEurocard" type="string">מפתח חשבון ירוכארט</ecol>
+		<ecol name="CodeCheque" type="string">מפתח חשבון שיקים</ecol>
+		<ecol name="CodeCash" type="string">מפתח חשבון מזומן</ecol>
+
+	</edit>
+	<sql_actions>
+		<opt name="order" val="UserName"></opt>
+		<opt name="search_by" type="UserName"></opt>
+	</sql_actions>
+</xml>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="7290006882110" isWeight="0" isDeleted="0" title="צינור למקלח מתכת שרשורי 1.5 מ'" category="0" saleprice="39.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="1085" isWeight="0" isDeleted="0" title="כוס פלסטיק" category="0" saleprice="4" cost="" stockQuantity="-10" minStockQuantity="" lastUpdated="1339668345">
+  </Product>
+  <Product barcode="7290008999274" isWeight="0" isDeleted="0" title="דבק מגע פוליסטיק 200 מ&quot;ל" category="0" saleprice="13.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668334">
+  </Product>
+  <Product barcode="4742" isWeight="0" isDeleted="0" title="להבים סכין יפני רחב" category="0" saleprice="5.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="114020" isWeight="0" isDeleted="0" title="קל קר מים" category="0" saleprice="35" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1339668346">
+  </Product>
+</Products>

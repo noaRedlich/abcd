@@ -1,0 +1,242 @@
+<?php
+require "excelparser.php";
+$simple=1;
+$page_subtitle = "יבוא ויצוא";
+ob_start();
+include("include/common.php");
+include("include/business_functions.php");
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+if ($action!="do")
+{
+ob_end_flush();
+echo
+"
+<pre dir=rtl>
+פורמט קובץ EXCEL:
+-------------------
+<b style=color:red>A:</b> ברקוד
+<b style=color:red>B:</b> קוד נקודה 1
+<b style=color:red>C:</b> מחיר מכירה בנקודה 1
+D: קוד נקודה 2
+E:</b> מחיר מכירה בנקודה 2
+....
+עד 10 נקודות בשורה
+";
+exit;
+}
+
+ob_end_clean();
+print"
+<head>
+<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+<style>body{background-color:buttonface;}</style>
+</head>
+<body><pre dir=rtl>";
+$excel_file = $_FILES['impfile'];
+if($excel_file){
+	$excel_file = $excel_file['tmp_name'];
+}
+
+if($excel_file == '') die("<center><b style=color:red>יש לבחור קובץ");
+
+
+$fh = @fopen ($excel_file,'rb');
+if( !$fh ) die("<center><b style=color:red>יש לבחור קובץ");
+if( filesize($excel_file)==0 ) die("<center><b style=color:red>יש לבחור קובץ");
+
+$fc = fread( $fh, filesize($excel_file) );
+@fclose($fh);
+if( strlen($fc) < filesize($excel_file) )
+die("<pre dir=ltr>Cannot read file");
+
+$exc = new ExcelFileParser;
+if( $exc->ParseFromFile($excel_file)>0 ) die("This is not an Excel file or file stored in Excel < 5.0");
+//$res = $exc->ParseFromString($fc);
+switch ($res) {
+	case 0: break;
+	case 1: die("Can't open file");
+	case 2: die("File too small to be an Excel file");
+	case 3: die("Error reading file header");
+	case 4: die("Error reading file");
+	case 5: die("This is not an Excel file or file stored in Excel < 5.0");
+	case 6: die("File corrupted");
+	case 7: die("No Excel data found in file");
+	case 8: die("Unsupported file version");
+
+	default:
+		die("Unknown error");
+}
+
+if( count($exc->worksheet['name']) < 1 ) die("No worksheets in Excel file.");
+
+$codes = "";
+
+for ($worksheet=0;$worksheet<count($exc->worksheet['name']);$worksheet++)
+{
+
+	if( $exc->worksheet['unicode'][$worksheet] )
+	{
+		$wname = uc2html($exc->worksheet['name'][$worksheet]);
+	}
+	else
+	{
+		$wname = $exc->worksheet['name'][$worksheet];
+	}
+
+	
+	print "<span style='color:blue' dir=rtl>גיליון: ". $wname."</span>\n";flush();
+	$ws = $exc->worksheet['data'][$worksheet];
+
+	if( is_array($ws) && 	 isset($ws['max_row']) &&    isset($ws['max_col']) )
+	{
+		if( $ws['max_col'] < 1 ) {
+			echo("Invalid format.<br>Number of columns is less then 2.");
+			continue;
+		}
+		if( $ws['max_row'] < 0 ){
+    		echo("Invalid format.<br>No rows defined in document.");
+			continue;
+		}
+		$data = $ws['cell'];
+     
+        $docnums=array();
+		foreach( $data as $i => $row )
+		{
+            echo "<b>שורה ".($i+1)."</b>\n";
+            //row validation 
+			/*
+            if (count($row)%2==0)
+            {
+                echo "<span style='color:red' dir=ltr>שורה שגויה: חוסרים נתונים - ".count($row)." עמודות</span>\n";
+                continue;
+            }
+			*/
+			$barcode = trim(get( $exc, $row[0] ));
+            if (!$barcode)
+            {
+                echo "<span style='color:red' dir=ltr>שורה שגויה: חוסר ברקוד</span>\n";
+                continue;
+            }
+            //find product
+            $sql = "select id  from listingsDB where user_id = $userID and BarCode='".trim($barcode)."'";
+			$rs=DBQuery($sql);
+            if ($rs->EOF)
+            {
+                echo "<span style='color:red' dir=ltr>שורה שגויה: פריט לא נימצא: $barcode</span>\n";
+                continue;
+            }
+	        $listingID = $rs->Fields("id");
+   
+            $cnt=1;
+            for ($k=1;$k<count($row)-1;$k=$k+2)
+            {
+                //validation
+                echo ($cnt++).". ";
+                
+                $terminal = trim(get( $exc, $row[$k] ));
+                $price = trim(get( $exc, $row[$k+1] ));
+                if (!$terminal)
+                {
+                    echo "<span style='color:red' dir=ltr>חוסר קוד נקודה</span>\n";
+                    continue;
+                }
+                if (!$price || floatval($price)==0)
+                {
+                    echo "<span style='color:red' dir=ltr>חוסר מחיר</span>\n";
+                    continue;
+                }
+    
+                //find terminal
+                $sql="select id from $TABLE_LISTINGSSTOCKS where user_id = $userID and terminalId='$terminal' and status=1";
+				$stk=DBQuery($sql);
+				$termID = $stk->fields["id"];
+				if(!$termID)
+                {
+					echo "<span style='color:red'>נקודה לא קיימת או לא פעילה: ". $terminal."</span>\n";flush();
+					continue;
+				}
+                
+                //update price
+                $sql = "select lse.id as lseid,saleprice from listingsStocksElements lse where lse.stockid = $termID and listingid=$listingID";
+				$stk=DBQuery($sql);
+				$lseID = $stk->fields["lseid"];
+                $oldPrice = $stk->fields["saleprice"];
+                if (!$lseID)
+                {
+					$sql = "INSERT INTO listingsStocksElements (ListingID, StockID, SalePrice, priceupdated) VALUES 
+					($listingID, $termID, '$price', UNIX_TIMESTAMP())";
+				}
+				else
+                {
+					$sql = "update listingsStocksElements set saleprice = '$price'  where id = $lseID";
+                    if (floatval($oldPrice)!=floatval($price))
+                    {
+                        DBQuery("update listingsStocksElements set priceupdated = UNIX_TIMESTAMP()  where id = $lseID");
+                    }
+                }
+				DBQuery($sql);
+                echo "פריט: ".$barcode.": ";
+                echo "מחיר עדכן בנקודה ".$terminal."\n";
+                
+                //save to history
+                if (floatval($oldPrice)!=floatval($price))
+                {
+				    $sql = "insert into history (timestamp,datetime,type,listing_id,note,stock_id_from,stock_id_to,saleprice_from,saleprice_to) values 
+											(unix_timestamp(),now(),'adjustment',$listingID,'',$termID,$termID,'".$oldPrice."','".$price."')";
+                    DBQuery($sql);
+                }                            
+            }
+            echo "<script>document.body.scrollTop=document.body.scrollHeight</script>";
+            flush();
+		}
+	}
+}
+echo "<span style=color:green>סוף הקובץ</span>";
+
+?>
+
+
+<?
+	function uc2html($str) {
+		$ret = '';
+		for( $i=0; $i<strlen($str)/2; $i++ ) {
+			$charcode = ord($str[$i*2])+256*ord($str[$i*2+1]);
+			$ret .= '&#'.$charcode;
+		}
+		return $ret;
+	}
+
+	function get( $exc, $data )
+	{
+		switch( $data['type'] )
+		{
+			// string
+		case 0:
+			$ind = $data['data'];
+			if( $exc->sst[unicode][$ind] )
+				return uc2html($exc->sst['data'][$ind]);
+			else
+				return $exc->sst['data'][$ind];
+
+			// integer
+		case 1:
+			return (integer) $data['data'];
+
+			// float
+		case 2:
+			return (float) $data['data'];
+        
+		case 3:
+			return gmdate("m-d-Y",$exc->xls2tstamp($data[data]));
+
+		default:
+			return '';
+		}
+	}
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

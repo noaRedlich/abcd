@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="107042" isWeight="0" isDeleted="0" title="שמן מנוע 15W40 פרסטון" category="0" saleprice="69" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1367235295">
+  </Product>
+  <Product barcode="36512" isWeight="0" isDeleted="0" title="SP ניפל כפול ארוך 3/4" category="0" saleprice="15.8" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1367235282">
+  </Product>
+  <Product barcode="35619" isWeight="0" isDeleted="0" title="SP אום תותב 20 3/4" category="0" saleprice="25.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1367235282">
+  </Product>
+  <Product barcode="1225" isWeight="0" isDeleted="0" title="צמה פשתן" category="0" saleprice="12" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1367235296">
+  </Product>
+  <Product barcode="91918" isWeight="0" isDeleted="0" title="SP מחבר מעבר דו כיווני 20-16 לחיצה" category="0" saleprice="25.3" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1367235291">
+  </Product>
+  <Product barcode="91321" isWeight="0" isDeleted="0" title="SP הסתעפות לחיצה T 16-16-16" category="0" saleprice="30" cost="" stockQuantity="-30" minStockQuantity="" lastUpdated="1367235291">
+  </Product>
+  <Product barcode="90019" isWeight="0" isDeleted="0" title="SP תושבת בודדת 16-1/2 לחיצה" category="0" saleprice="26.7" cost="" stockQuantity="-56" minStockQuantity="" lastUpdated="1367235291">
+  </Product>
+  <Product barcode="385" isWeight="0" isDeleted="0" title="טפלון סרט" category="0" saleprice="2" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1367235283">
+  </Product>
+  <Product barcode="128618" isWeight="0" isDeleted="0" title="צינור  50 3 מ' ש.ת." category="0" saleprice="28" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1367235297">
+  </Product>
+  <Product barcode="201" isWeight="0" isDeleted="0" title="זווית 90 50X50 ליפסקי" category="0" saleprice="8.9" cost="" stockQuantity="-14" minStockQuantity="" lastUpdated="1367235278">
+  </Product>
+  <Product barcode="195" isWeight="0" isDeleted="0" title="ברך 45 50X50 ליפסקי" category="0" saleprice="8.9" cost="" stockQuantity="-21" minStockQuantity="" lastUpdated="1367235278">
+  </Product>
+  <Product barcode="120218" isWeight="0" isDeleted="0" title="אפסילון 50 תבריג" category="0" saleprice="29.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1367235296">
+  </Product>
+  <Product barcode="78525" isWeight="0" isDeleted="0" title="מאסף מערכת B" category="0" saleprice="45" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1367235289">
+  </Product>
+  <Product barcode="149522" isWeight="0" isDeleted="0" title="ברך אסלה ליפסקי" category="0" saleprice="35" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1367235301">
+  </Product>
+  <Product barcode="8935" isWeight="0" isDeleted="0" title="זווית 110 90" category="0" saleprice="10.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1367235291">
+  </Product>
+  <Product barcode="1352" isWeight="0" isDeleted="0" title="פקק 110" category="0" saleprice="6" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1367235298">
+  </Product>
+  <Product barcode="95113" isWeight="0" isDeleted="0" title="קופלונג פליז בודד ½" category="0" saleprice="21" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1367235292">
+  </Product>
+  <Product barcode="90212" isWeight="0" isDeleted="0" title="SP מחבר הברגה חיצונית 16-1/2 לחיצה" category="0" saleprice="17.7" cost="" stockQuantity="-24" minStockQuantity="" lastUpdated="1367235291">
+  </Product>
+  <Product barcode="90114" isWeight="0" isDeleted="0" title="SP זווית הברגה חיצונית 16-1/2 לחיצה" category="0" saleprice="19.2" cost="" stockQuantity="-16" minStockQuantity="" lastUpdated="1367235291">
+  </Product>
+  <Product barcode="138122" isWeight="0" isDeleted="0" title="צינור חלק 50 4 מ' חוליות" category="0" saleprice="34" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1367235298">
+  </Product>
+  <Product barcode="8904" isWeight="0" isDeleted="0" title="מופה עם מעצור 110" category="0" saleprice="9.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1367235291">
+  </Product>
+  <Product barcode="131811" isWeight="0" isDeleted="0" title="ניפל  110 0.5 מטר" category="0" saleprice="19.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1367235298">
+  </Product>
+  <Product barcode="422" isWeight="0" isDeleted="0" title="דבק פיקס לבן 109" category="0" saleprice="35" cost="0.000" stockQuantity="-125" minStockQuantity="" lastUpdated="1367235284">
+  </Product>
+  <Product barcode="8711595058797" isWeight="0" isDeleted="0" title="סופר 7 שקוף" category="0" saleprice="28.8" cost="" stockQuantity="-56" minStockQuantity="" lastUpdated="1367235275">
+  </Product>
+  <Product barcode="56216" isWeight="0" isDeleted="0" title="חומצת מלח 30% 4 ליטר" category="0" saleprice="26.9" cost="0.000" stockQuantity="-11" minStockQuantity="" lastUpdated="1367235285">
+  </Product>
+  <Product barcode="13715" isWeight="0" isDeleted="0" title="כפפות עבודה טבולות גומי" category="0" saleprice="10" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1367235298">
+  </Product>
+  <Product barcode="6921296286838" isWeight="0" isDeleted="0" title="מטלית ריצפה מיקרופייבר" category="0" saleprice="10" cost="" stockQuantity="-9" minStockQuantity="" lastUpdated="1367235285">
+  </Product>
+  <Product barcode="40512" isWeight="0" isDeleted="0" title="מנעול חבוי מפתח ירדני" category="0" saleprice="24.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1367235283">
+  </Product>
+  <Product barcode="1135" isWeight="0" isDeleted="0" title="מפתח 0" category="0" saleprice="2" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1367235295">
+  </Product>
+</Products>

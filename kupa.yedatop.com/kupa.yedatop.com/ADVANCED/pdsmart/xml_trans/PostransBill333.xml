@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="1258" BillId="333" ClientId="1">
+  <Products>
+    <Product Id="10001">
+      <Name>SPIRT 96.6% 1 L       כהל 96.6</Name>
+      <Barcode />
+      <SalePrice>54</SalePrice>
+      <SaledPrice>54</SaledPrice>
+      <DiscountPerc>10.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="9999999" />
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>48.60</Cash>
+  </Pay>
+</Bill>

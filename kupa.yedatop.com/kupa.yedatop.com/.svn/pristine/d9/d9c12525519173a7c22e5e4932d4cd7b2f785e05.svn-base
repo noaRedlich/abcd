@@ -1,0 +1,26 @@
+<xml>
+	<main_table>vat</main_table>
+	<name>אחוז מע&quot;מ</name>
+	<options>
+		<opt name="create_record" type="sometime"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="delete_record" type="none"></opt>
+		<opt name="main_view" type="always"></opt>
+	</options>
+	<view>
+		<vcol name="bd_counter">#</vcol>
+		<vcol name="start_date">Start Date</vcol>
+		<vcol name="end_date">End Date</vcol>
+		<vcol name="vat">VAT rate, %</vcol>
+    <vcol name="Status" type="yes_no">פעיל</vcol>
+	</view>
+	<edit>
+		<ecol name="start_date" type="string">Start Date  YYYY-MM-DD</ecol>
+		<ecol name="end_date" type="string">End Date  YYYY-MM-DD</ecol>
+		<ecol name="vat" type="string">VAT rate, %</ecol>
+    <ecol name="Status" type="yes_no">פעיל</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="start_date desc"></opt>
+	</sql_actions>
+</xml>

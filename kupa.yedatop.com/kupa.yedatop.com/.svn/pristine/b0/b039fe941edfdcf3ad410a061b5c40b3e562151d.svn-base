@@ -1,0 +1,51 @@
+<?
+if ($save){
+
+if (!get_magic_quotes_gpc ()) {
+   $text = addslashes ($text);
+}
+//$text=str_replace("'","\'",$text);
+
+	q("update dt_texts set text_$langs = '$text' where code='$code'");
+	echo "<b>Text saved</b><p>";
+}
+else{
+	echo "&nbsp;<p>";
+}
+
+?>
+
+<form method=post>
+<?
+$res = q("select code from dt_texts order by code");
+?>
+Please select a text  
+<select name=code>
+<?while ($f=f($res)){?>
+<option value="<?=$f[code]?>" <?=($f[code]==$code)?"selected":""?>><?=$f[code]?></option>
+<?}?>
+</select>
+<select name=langs>
+<option value=eng <?=($langs=="eng")?"selected":""?>>English</option>
+<option value=rus <?=($langs=="rus")?"selected":""?>>Russian</option>
+<option value=heb <?=($langs=="heb")?"selected":""?>>Hebrew</option>
+</select>
+<input name=action type=submit value='Show'>
+
+</form>
+
+<?
+
+if ($action || $save){
+	$res = q("select text_$langs txt from dt_texts where code='$code'");
+	$t=f($res);
+	$txt=$t["txt"];
+	$txt=stripslashes($txt);
+}
+?>
+<form method=post>
+<input type=hidden name=code value="<?=$code?>">
+<input type=hidden name=langs value="<?=$langs?>">
+<textarea name=text style='width:100%' cols=20 rows=20><?=$txt?></textarea><br>
+<input name=save type=submit value='Save'>
+</form>

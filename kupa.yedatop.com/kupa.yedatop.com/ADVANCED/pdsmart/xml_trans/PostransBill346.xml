@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="1258" BillId="346" ClientId="500003">
+  <Products>
+    <Product Id="10031">
+      <Name>VODKA PERFECT 1 L             </Name>
+      <Barcode />
+      <SalePrice>35</SalePrice>
+      <SaledPrice>35</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10005">
+      <Name>VODKA MOROZOV BEREZA 0.7 L   ו</Name>
+      <Barcode />
+      <SalePrice>30</SalePrice>
+      <SaledPrice>30</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>6.5</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>58.50</Cash>
+  </Pay>
+</Bill>

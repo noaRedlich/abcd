@@ -1,0 +1,441 @@
+<?php
+
+
+$page_title = "מכירה הקפה";
+$stockmode="clients"; 
+
+if ($ajaxagent)
+{
+	include_once("../../classes/agent.php"); 
+	$agent->init(); 
+}
+
+
+include("include/common.php");
+
+echo "<script src='/javascript/common.js'></script>";
+if (!loginCheck('User'))exit;
+
+if (!$ajaxagent)
+{
+	include_once("../../classes/agent.php"); 
+	$agent->init();
+}
+
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+if (!$tabmode)$tabmode="CLIENTS";
+switch ($tabmode)
+{
+    case "CLIENTS":
+        $caption = $lang["clients"];
+        $scaption = $lang["admin_listings_editor_contact1"];
+        $mfield = "isClient";
+        break;
+    case "SUPPLIERS":
+        $caption = $lang["suppliers"];
+        $scaption = $lang["supplier"];
+        $mfield = "isSupplier";
+        break;
+    case "AGENTS": 
+        $caption = $lang["agents"];
+        $scaption = $lang["admin_listings_editor_agent"];
+        $mfield = "isAgent";
+        break;
+    case "WORKERS":
+        $caption = $lang["workers"];
+        $scaption = $lang["worker"];
+        $mfield = "isWorker";
+        break;
+}
+
+?>
+		<SCRIPT LANGUAGE="JScript">
+		var delete_error = "<?=$lang["delete_error"]?>";
+		var oPopup = window.createPopup();
+		var prevClientName = "";
+		var inProc = false;
+		var __stock = "";
+		var __autoSubmit = false;
+		var currentInput = null;
+
+		var xmlDoc=new ActiveXObject("Microsoft.XMLDOM");
+
+        function addClient()
+        {
+		
+			parent.wopen('cppro/main.php?cid=1&service=suppliers&bd_event=create_record&isClient=1&allowhakafa=1','newclient',750,440,true,'no')	
+			/*
+	        var oPopBody = oPopup.document.body;
+            oPopBody.style.backgroundColor = "buttonface";
+            oPopBody.style.border = "solid gray 1px";
+            oPopBody.innerHTML = document.getElementById("NEWCLIENTPOPUP").innerHTML;
+            oPopup.show(window.event.clientX-100, window.event.clientY+10, 180, 93, document.body);
+			*/
+        }
+        
+		function getOffsetTop(el)
+		{
+			var e = el;
+			var s = el.offsetTop;
+			while (e.offsetParent!=null)
+			{
+				s+=e.offsetTop;
+				e = e.offsetParent;
+			}
+			return s-85;
+		}
+		
+		function getOffsetLeft(el)
+		{
+			var e = el;
+			var s = el.offsetLeft;
+			while (e.offsetParent!=null)
+			{
+				s+=e.offsetLeft;
+				e = e.offsetParent;
+			}
+			return s-15;
+		}		
+		</SCRIPT>
+
+
+		<script>
+		function selectall(checked){
+			var ids="-1";
+			for (i=0;i<document.all.tags("INPUT").length;i++){
+				if (document.all.tags("INPUT")(i).type=="checkbox" && document.all.tags("INPUT")(i).id!=null&&document.all.tags("INPUT")(i).id!=""){
+					document.all.tags("INPUT")(i).checked = checked;
+					ids+=","+document.all.tags("INPUT")(i).id;
+				}
+			}
+			if (ids!=""){
+				basket(ids,checked);
+			}
+		}
+		</script>
+	
+	    <?$rsStocks = GetStocks(true);?>
+        <table width=100% height=100% border=0>
+        <form name=F method=get target=LISTING action='clientlist.php'>
+        <input type=hidden name=inv>       
+        <input type=hidden name=tabmode value="<?=$tabmode?>">
+        <input type=hidden name=catid value="<?=$catid?>">
+		<tr>
+        <td>
+        <!--MAIN TABLE-->
+        <table height=100% width=100% cellpadding=0 cellspacing=0 border=0 width=100%>
+        <!--UPPER ROW-->
+        <tr style='height:1%'>
+        <td   bgcolor=buttonface style='padding:3 2;height:26'>
+        <?
+        if ($catid)
+        {
+			echo "<a style='color:black;font-size:8pt' href=# onclick=parent.wopen('add_listing.php?ProductGroup=".$catid."','add')><img src=".$imgPath."folder_add.gif width=16 height=16 align=absmiddle hspace=3 border=0>".$lang[admin_menu_add_a_listing]."</a>";
+		}
+		else
+        {
+            if (HasActionPermission("PREFERENCES"))
+            {
+			    echo "
+		 			<SPAN dir=$dir><a style='color:black;font-size:8pt' href=# onclick=parent.wopen1('cppro/main.php?service=clientgroups&bd_event=create_record','tools')><img src=".$imgPath."folder_add.gif width=16 height=16 align=absmiddle hspace=3 border=0>".$lang["new_group"]."</a></span>
+					";
+            }   
+                                     
+		}
+        ?>
+        </td>
+        <!--END UPPER ROW-->
+        
+        <td ROWSPAN=2 valign=top>
+        <table width=100% cellpadding=0 cellspacing=0 bgcolor=buttonface><tr><td height=26>&nbsp;</td></tr></table>
+        </td>
+        
+        
+		<td valign=top width=99%  ROWSPAN=2>
+        
+        <iframe name=LISTING style='width:100%;height:100%' onload="window.status=''" frameborder=0 src="clientlist.php?<?=$_SERVER["QUERY_STRING"]?>&tabmode=<?=$tabmode?>"></iframe>
+        
+        </td></tr>
+        
+ <!--tree-->
+ <TR>
+ <td>
+		<table height=100% border=0 cellpadding=0 cellspacing=0 width=100%>
+        <tr>
+		<td style='padding-bottom:5px;font-size:1px'>&nbsp;</td>
+		</tr>
+        <tr style='height:100%'>
+        <td>
+            <table height=100% width=100% cellpadding=0 cellspacing=0>
+            <tr style=height:1%>
+                <td>
+                <table width=100% cellpadding=0 cellspacing=0>
+                <tr>
+                <td width=1% class=<?=($tabmode=="CLIENTS")?"activetab":"inactivetab"?> id=TAB_CLIENTS nowrap onclick=toggle("CLIENTS")>לקוחות בהקפה<td>
+                <td width=99% style='border-bottom:solid 1 gray'>&nbsp;<td>
+               </tr>
+                </table>
+                </td>
+            </tr>
+            <tr>
+            <td style='border:solid 1 gray;border-top:none;padding:0px;background-color:#efefef'>
+          
+            <table height=100% width=200 cellpadding=0 cellspacing=0><tr><td>
+
+                <div style='display:<?=($tabmode=="CLIENTS")?"":"none"?>'  id=CLIENTS_DIV style='overflow:auto;width:250px;height:100%;padding:0px;'>
+					<table width=100% height=100% cellpadding=0 cellspacing=0>
+						<tr>
+							<td>
+					    		<div style='overflow-Y:auto;overflow-X:auto;width:100%;height:100%'>
+									<table border=0 width=100% align=center>
+										<tr>
+											<td   width=50%><?=$lang["name"]?>:</td>
+											<td width=50%>
+												 <script src="include/clientAjax.js"></script> 
+							                     <input  type=hidden name=companyid id=companyid value="<?=$client?>">
+												 <input name=ClientName autocomplete=off sonchange="document.F.clientid.value='';if(this.value=='')startClient('','');" size=12 value="<?=$clientName?>"  sonblur='closeClientNames()' sonkeyup='checkClient(document.all.companyid);'>
+											</td>
+										</tr>
+										<tr>
+											<td  ><?=$lang["comm_person_id"]?>:</td>
+											<td><input size=12 name=BusinessNum></td>
+										</tr>
+										<tr>
+											<td  ><?=$lang["num_phone"]?>:</td>
+											<td><input size=12 name=Phone></td>
+										</tr>
+										<tr>
+											<td  ><?=$lang["group"]?>:</td>
+											<td>
+												<select name=catid>
+													<option value="">
+													<?
+													$groups = DBQuery("select * from clientgroups where user_id = $userID and status=1 order by sortorder, binary groupname");
+													while (!$groups->EOF)
+													{
+														echo "<option value=".$groups->Fields("ID").">".$groups->Fields("GroupName");
+														$groups->MoveNext();
+													}
+													?>
+												</select>
+											</td>
+										</tr>  
+										<tr>
+											<td ><?=$lang["payment_updated"]?>:</td>
+											<td>
+												<select name=tnai>
+													<option></option>
+													<option value=0><?=$lang["no"]?></option>
+													<option value=1><?=$lang["yes"]?></option>
+												</select>
+											</td>
+										</tr>
+										<tr>
+											<td ><?=$lang["client_num"]?>:</td>
+											<td><input size=12 name=ClientNum></td>
+										</tr>
+										<tr>
+											<td ><?=$lang["acc_bank_num"]?>:</td>
+											<td><input size=12 name=AccountNum></td>
+										</tr>
+				                        
+
+										<tr>
+											<td valign=top  ><?=$lang["status"]?>:</td>
+											<td>
+												<select name=status>
+													<option value="1"><?=$lang["actives"]?></option>
+													<option value="0"><?=$lang["deleted"]?></option>
+													<option value=""><?=$lang["alls"]?></option>
+												</select>
+											</td>
+										</tr>
+										<tr>
+											<td colspan="2">
+											<input type=checkbox name=hovOnly value=1> רק לקוחות עם חוב
+											</td>
+										</tr>									
+									</table>					    		
+					    		<td>
+							</td>
+						</tr>
+						<tr style=height:1%><td nowrap align=center colspan=2 style='padding:3px 17px;border-top:solid 1 gray;background-color:#efefef'>
+							<input type=submit value='<?=$lang["find"]?>'  style='background-image:url(<?=$imgPath?>view.gif)' class=button>
+							<input type=button onclick='window.location="clients.php?tabmode="+document.F.tabmode.value' value='<?=$lang["reset_query"]?>'  style='background-image:url(<?=$imgPath?>back.gif);width:130;' class=button>
+						</td></tr>
+					</table>		
+                </div>
+
+                <div style='display:<?=($tabmode=="PERSONS")?"":"none"?>'  id=PERSONS_DIV style='overflow:auto;width:250px;height:100%;padding:0px;'>
+					<table width=100% height=100% border=0 cellpadding=0 cellspacing=0>
+						<tr>
+							<td valign=top>
+					    		<div style='padding-top:5px;overflow-Y:auto;overflow-X:auto;width:100%;height:100%'>
+									<table border=0 width=100% cellpadding=1 >
+									<td><?=$lang["company"]?>:</td>
+									<td  nowrap>
+							            <input  type=hidden name=client id=clientid value="<?=$client?>">
+										<input name=companyName style=width:95 value="<?=$companyName?>"  autocomplete=off onchange="document.F.client.value='';if(this.value=='')startClient('','');" size=12 value="<?=$companyName?>"  onblur='closeClientNames()' onkeyup='checkClient();'>
+										<input type=button class=button style='font-size:8pt;background-image:url(<?=$imgPath?>find.gif)' value="" title='<?=$lang["find_client_tooltip"]?>' onclick="showClient()">
+										<input type=button class=button style='width:18px;font-size:8pt;background-image:url(<?=$imgPath?>del.gif)' title='<?=$lang["clear_client_field"]?>' onclick="startClient('','')">
+									</td>
+									<tr>
+										<td nowrap width=1%><?=$lang["name"]?>:</td>
+										<td width=99%><input size=12 name=PersonName></td>
+									</tr>
+									<tr>
+										<td nowrap ><?=$lang["identification"]?>:</td>
+										<td><input size=12 name=PersonBusinessNum></td>
+									</tr>
+									<tr>
+										<td nowrap ><?=$lang["num_phone"]?>:</td>
+										<td><input size=12 name=PersonPhone></td>
+									</tr>
+									<tr>
+										<td nowrap ><?=$lang["position"]?>:</td>
+										<td>
+											<select name=PersonPosition>
+													<option value="">
+													<?
+													$groups = DBQuery("select * from tafkid where user_id = $userID and status=1 order by sortorder, binary name");
+													while (!$groups->EOF)
+													{
+														echo "<option value=".$groups->Fields("id").">".$groups->Fields("name");
+														$groups->MoveNext();
+													}
+													?>
+											</select>
+										</td>
+									</tr>
+										<tr>
+											<td valign=top  ><?=$lang["status"]?>:</td>
+											<td>
+												<select name=personstatus>
+													<option value="1"><?=$lang["actives"]?></option>
+													<option value="0"><?=$lang["deleted"]?></option>
+													<option value=""><?=$lang["alls"]?></option>
+												</select>
+											</td>
+										</tr>
+									</table>
+								</div>
+							</td>		
+						</tr>
+						<tr style=height:1%><td nowrap align=center colspan=2 style='padding:3px 17px;border-top:solid 1 gray;background-color:#efefef'>
+							<input type=submit value='<?=$lang["find"]?>'  style='background-image:url(<?=$imgPath?>view.gif)' class=button>
+							<input type=button onclick='window.location="clients.php?tabmode="+document.F.tabmode.value' value='<?=$lang["reset_query"]?>'  style='background-image:url(<?=$imgPath?>back.gif);width:130;' class=button>
+						</td></tr>
+					</table>	
+                </div>
+         
+                </td></tr>
+                
+            </table>
+            
+            </td>
+            </tr>
+            
+
+
+            </table>  
+            
+        </td>
+        </tr>
+        </table>
+     </td>
+ </TR>
+ <!--end tree-->
+        
+ </table>
+ <!--END MAIN TABLE-->
+        
+ </td></tr>
+ </table>
+
+
+
+
+<script>
+var s_catid="";
+var s_deleted="";
+
+
+
+
+function showClient(readonly){
+    var url = "client_select.php?simple=1&clients=1&suppliers=1";
+    if (window.event!=null && window.event.shiftKey)
+    {
+		url+="&selectdefault=1";
+    }
+    url=url+"&rnd="+Math.random();
+    var s = wopen(url,"client",600,400,true,"resizable=no");
+}
+
+function startClient(s,name,discount,payment,agent,el){
+	if (el==""||typeof(el)=="undefined"){
+		document.F.client.value=s;
+		document.F.companyName.value=name;
+    }
+    else
+    {
+		document.getElementById(el).value = s;
+    }
+}
+function toggle(id)
+{
+	document.getElementById("PERSONS_DIV").style.display = "none";
+	document.getElementById("CLIENTS_DIV").style.display = "none";
+    if (id=="CLIENTS"){
+		document.getElementById("TAB_CLIENTS").className = "activetab";
+		document.getElementById("TAB_PERSONS").className = "inactivetab";
+		document.getElementById("CLIENTS_DIV").style.display = "";
+		document.getElementById("clientbasket").style.display = "";
+		document.getElementById("personbasket").style.display = "none";
+	}
+    if (id=="PERSONS"){
+		document.getElementById("TAB_CLIENTS").className = "inactivetab";
+		document.getElementById("TAB_PERSONS").className = "activetab";
+		document.getElementById("PERSONS_DIV").style.display = "";
+		document.getElementById("personbasket").style.display = "";
+		document.getElementById("clientbasket").style.display = "none";
+	}
+
+	document.F.tabmode.value=id;
+    window.status='Loading...'
+	document.F.submit();
+}
+
+	document.F.submit();
+
+</script>
+
+<select id=clientNames onfocus='this.style.backgroundColor="lightyellow"' onkeypress='checkClNames()' onclick='getClient()' style='display:none;position:absolute;minWidth:200;top:0;left:0' size=5></select>
+
+<?$types = array($lang["admin_listings_editor_contact1"]=>"isClient",$lang["supplier"]=>"isSupplier",$lang["admin_listings_editor_agent"]=>"isAgent",$lang["worker"]=>"isWorker");?>
+
+
+		<Div id=NEWCLIENTPOPUP style='display:none'>
+            <div style='width:100%;height:100%;overflow-y:auto' dir=<?=$dir?>>
+			<table width=100% border=1 cellpadding=2 cellspacing=1>
+            <?foreach($types as $title=>$mode){?>
+ 				 	<tr><td height=20
+						onmouseover='this.bgColor="darkblue";this.style.color="white"'
+						onmouseout='this.bgColor="";this.style.color="black"'
+						align=center style='border:outset 1;cursor:hand;color:black;font-family:arial;font-size:9pt;font-weight:bold'
+						onclick="parent.parent.wopen('cppro/main.php?cid=1&service=suppliers&bd_event=create_record&<?=$mode?>=1','newclient',750,440,true,'no')">
+                        <?=$lang["new_$mode"]?>
+                    </td></tr>
+            <?}?>
+			</table>
+            </div>
+		</Div>
+
+
+
+<?php
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

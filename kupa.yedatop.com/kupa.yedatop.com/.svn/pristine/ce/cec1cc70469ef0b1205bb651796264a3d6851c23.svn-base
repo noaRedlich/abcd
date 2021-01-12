@@ -1,0 +1,293 @@
+<?
+	session_start();
+
+	$simple=1;
+	$page_subtitle = "קניות ותשלומים לספקים";
+	$xlsfilename="Sapakim";
+
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+	if ($saction != "sendreport"){
+		$saction="go";
+	}
+	
+
+	if (!$sDate){
+		$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+		$sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+		$eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+	}
+	
+	$asDate = explode("/",$sDate);
+	$aeDate = explode("/",$eDate);
+
+	$startdate = mktime(0,0,0,$asDate[1],$asDate[0],$asDate[2]);
+	$enddate = mktime(23,59,59,$aeDate[1],$aeDate[0],$aeDate[2]);
+	$startDay = date("Y/m/d",$startdate);
+	$endDay = date("Y/m/d",$enddate);
+	
+	$sql = "select ID,SupplierName from listingsSuppliers where status = 1 and issupplier=1 and user_id = $userID order by binary supplierName ";
+	$suppliers = $conn->Execute($sql);
+	if ($suppliers === false){log_error($sql);die();}
+	?>
+	<style>
+	.z {color:gray}
+	.b {font-weight:bold}
+	th {background-color:silver}
+	</style>
+	<script>
+	function PrintReport(){
+		document.getElementById("Query").style.display = "none";
+		window.print();
+		document.getElementById("Query").style.display = "";
+	}
+	
+	function openReport1(url){
+	var ss="";
+	s = window.open(url+'&simple=1','','top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+	s.focus();
+	}	
+	</script>
+	<body>
+	<table cellpadding=5 border=0 width=100%>
+	<tr>
+	<form name=F method=post action='rep_suppliers.php'>
+	<input type=hidden name=usr value=<?=$usr?>>
+	<input type=hidden name=rmodule value=<?=$rmodule?>>
+	<td nowrap>
+	<?$reporttitle = "קניות ותשלומים <br>לספקים";?>
+	<?if ($usr){$reporttitle.="<br>".$username;}?>
+	<strong style='font-size:12pt'><?=$reporttitle?></strong>
+	</td><td width=99% style='border:inset 1'>
+
+    <?if (!$ids){?>
+	ספק:
+<?echo"
+		<select name=sid><option value=''>כל הספקים";
+			$issupplier=false;
+			$suppliers->MoveFirst();
+			while (!$suppliers->EOF){
+				echo "<option ".(($suppliers->fields["ID"]==$sid)?"selected":"")." value=".$suppliers->fields["ID"].">".$suppliers->fields['SupplierName']."</option>";
+				$suppliers->MoveNext();
+				$issupplier=true;
+			}
+			echo "</select>";
+?>	
+סוג פעולה
+<select name=type>
+<option value='' <?=($type=="")?"selected":""?>>הכול
+<option value='P'  <?=($type=="P")?"selected":""?>>קנייה
+<option value='S'  <?=($type=="S")?"selected":""?>>תשלום
+</select>
+	
+<?=$lang["from"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.sDate")'>
+<?=$lang["to"]?> <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.eDate")'>
+	
+	<input type=submit value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top" >
+
+<?}?>
+
+	<?if ($saction=="go" || $saction=="sendreport"){
+		require("sendreport.php");
+	}?>
+	<input type=hidden name=saction value=go>
+	<input type=hidden name=reportbody value="">
+	<input type=hidden name=sendmode value="">
+    <input type=hidden name=ids  value="<?=$ids?>"> 
+	</td>
+	</form>
+	</tr>
+	</table>
+	<?	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+	
+	if (!$sort){	
+	
+		$q="";
+        if ($ids){
+            $q=" and p.id in ($ids)";
+        }
+		elseif ($sid!=""){
+			$q=" and supplier_id = $sid ";
+		}
+
+		$report = array();
+		if ($type==""||$type=="P"){
+			$sql = "
+			select group_id, s.id as sid, s.SupplierName, purchase_date,chn_num, ROUND(sum(final_cost*quantity),2) as Amount from
+			purchases p, listingsSuppliers s where
+            s.user_id = $userID and 
+			p.supplier_id = s.id and
+            p.deleted = 0
+            $q
+			group by group_id, s.id,chn_num,purchase_date,SupplierName
+			";
+			//echo $sql;
+			
+			$purchases = $conn->Execute($sql);
+			if ($purchases === false){log_error($sql);}
+			
+			
+			while (!$purchases->EOF){
+					$report[] = array(
+						"SID" => $purchases->fields["sid"],
+						"Group" => $purchases->fields["group_id"],
+						"Day" => $purchases->fields["purchase_date"],
+						"ChnNum" => $purchases->fields["chn_num"],
+						"Amount" => $purchases->fields["Amount"],
+						"Supplier" => $purchases->fields["SupplierName"],
+						"Type" => "P", 
+					);
+				$purchases->MoveNext();
+			}
+		}
+		
+		if ($type==""||$type=="S"){
+			$sql = "select s.id as sid, s.SupplierName, round(sum(amount*(case when hov=1 then -1 else 1 end)),2) as Amount, Day, group_id
+			from supplierpayments p,listingsSuppliers s 
+			where
+            s.user_id = $userID and
+            supplier_id = s.id $q
+			group by Day, s.id, group_id,SupplierName
+			";
+			$payments = $conn->Execute($sql);
+			if ($payments === false){log_error($sql);}
+			while (!$payments->EOF){
+					$report[] = array(
+						"SID" => $payments->fields["sid"],
+						"Group" => $payments->fields["group_id"],
+						"Day" => $payments->fields["Day"],
+						"ChnNum" => $payments->fields["group_id"],
+						"Amount" => $payments->fields["Amount"],
+						"Supplier" => $payments->fields["SupplierName"],
+						"Type" => "S",
+					);
+				$payments->MoveNext();
+			}		
+		}
+		$_SESSION["REPORT"] = $report;
+		$report = aSortBySecondIndex($report,"Day",true);
+	}
+	else{ 
+
+		//Sort Mode
+	
+		$report = $_SESSION["REPORT"];
+		$report = aSortBySecondIndex($report,$sort,$desc);
+	}
+	//Output
+
+	$cnt=0;
+
+	$url = $_SELF."?saction=go&usr=$usr&rmodule=$rmodule&desc=".((!$desc)?1:0);
+	
+	$worksheet->set_column('A:E', 12);
+	$headings = array('תאריך','סוג פעולה','מספר חשבונית','ספק','סכום');
+	$worksheet->write_row('A'.($rrow++), $headings, $heading);
+	;
+
+	echo "<div ><table id=REPORTTABLE dir=$dir border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+	echo "
+	<tr valign=top>
+	<th><a href='$url&sort=Day'>תאריך</a></th>
+	<th><a href='$url&sort=Type'>סוג פעולה</a></th>
+	<th><a href='$url&sort=ChnNum'>מספר חשבונית</a></th>
+	<th width=60%><a href='$url&sort=Supplier'>ספק</a></th>
+	<th width=10%><a href='$url&sort=Amount'>סכום</a></th>
+	<th width=1%></th>
+	</tr>
+	";
+	
+	$ID=$cnt;
+	foreach ($report as $row){
+		$AMOUNT+= ($row["Amount"] * (($row["Type"]=="P")?1:-1));
+        $rowtype = (($row["Type"]=="P")?"קנייה":"תשלום");
+        if ($row["Type"]=="P" && $row["Amount"]<0){
+           $rowtype = "זיכוי קניה";    
+           $zikui = "1"; 
+        }
+        else{
+            $zikui = "";
+        }
+		//if ($row["Type"]=="S"){$s="s";}else{$s="";}
+		echo "<tr style$s='cursor:hand' id=tr$ID valign=top onclick$s='openReport1(\"".(($row["Type"]=="P")?"rep_purchase1.php?zikui=".$zikui."&sid=".$row["SID"]."&chn=".$row["ChnNum"]."&sDate=".$row["Day"]."&gid=".$row["Group"]:"rep_spayment.php?sid=".$row["SID"]."&sDate=".$row["Day"]."&gid=".$row["Group"])."\")'>
+		<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"'  >".DateFromSQL($row["Day"])."</td>
+		<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"'  >".$rowtype."</td>
+		<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"'  ><span dir=ltr>".(($row["ChnNum"])?$row["ChnNum"]:"")."</td>
+		<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"'  ><span dir=ltr>".$row["Supplier"]."</td>
+		<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"'  style=color:".(($row["Type"]=="P"&&$row["Amount"]>0)?"red":"blue")."><span dir=ltr>".number_format(abs($row["Amount"]),2)."</td>
+		<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"'  >".(($row["Type"]=="P"&&HasActionPermission("PURCHASE")&&!$zikui)?"<a href='#' onclick='cancelPurchase(".$row["SID"].",\"".$row["ChnNum"]."\",\"".$row["Day"]."\",\"".$row["Group"]."\");window.event.cancelBubble=true'><img border=0 alt='ביטול קניה' src=".$imgPath."del.gif>":"")."</a></td>
+		</tr>
+		";
+
+		$ID++;
+		$b=$body;
+		$f=$numformat;
+		$worksheet->write("A".$rrow,DateFromSQL($row["Day"]),$b);
+		$worksheet->write("B".$rrow,(($row["Type"]=="P")?"קנייה":"תשלום"),$b);
+		$worksheet->write("C".$rrow,$row["ChnNum"],$b);
+		$worksheet->write("D".$rrow,$row["Supplier"],$b);
+		$worksheet->write("E".$rrow,$row["Amount"],$f);
+		$rrow++;
+	 
+ 	}
+	
+	echo "<tr>
+	<td><b>סה\"כ</b></td>
+	<td></td>
+	<td></td>
+	<td></td>
+	<td><strong dir=ltr>".number_format($AMOUNT,2)."</strong></td>
+	</tr>";
+	
+	echo "</table></div>";
+    ?>
+
+    <script>
+    function cancelPurchase(id,chnnum,day,group){
+        s = window.open("cancel_purchase.php?sid="+id+"&chn="+chnnum+"&sDate="+day+"&gid="+group,"cancel","left=300,top=200,Width=400,Height=150px");
+        //if (s==1)window.location.reload();
+    }
+    </script>
+    <?
+
+	}
+	
+	$worksheet->write("D".($rrow),"סה\"כ",$numformatb);
+	$worksheet->write("E".($rrow),$AMOUNT,$numformatb);
+	
+	$workbook->close();
+	copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+    unlink($fname);
+	
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+	
+	
+	function aSortBySecondIndex($multiArray, $secondIndex,$rew = false) {
+		while (list($firstIndex, ) = each($multiArray))
+		$indexMap[$firstIndex] = $multiArray[$firstIndex][$secondIndex];
+		if (!$rew)
+			asort($indexMap);
+		else 	
+			arsort($indexMap);
+		while (list($firstIndex, ) = each($indexMap))
+		if (is_numeric($firstIndex))
+		$sortedArray[] = $multiArray[$firstIndex];
+		else $sortedArray[$firstIndex] = $multiArray[$firstIndex];
+	return $sortedArray;
+
+
+}
+?>

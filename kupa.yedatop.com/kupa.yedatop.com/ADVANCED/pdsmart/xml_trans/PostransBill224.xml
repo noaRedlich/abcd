@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="" BillId="224" ClientId="500383.00">
+  <Products>
+    <Product Id="61">
+      <Name>מוקפץ אטריות אורז עם עוף וירקו</Name>
+      <Barcode />
+      <SalePrice>32</SalePrice>
+      <SaledPrice>32</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="83">
+      <Name>מרקים </Name>
+      <Barcode />
+      <SalePrice>15</SalePrice>
+      <SaledPrice>15</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+  </Pay>
+</Bill>

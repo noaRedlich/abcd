@@ -1,0 +1,1075 @@
+<?php
+//    ob_start();
+define('FPDF_FONTPATH','../../classes/pdf/font/');
+require("../../classes/pdf/html2fpdf.php");
+
+if ($umode=="provider")
+{
+	define("PROVIDER_MODE",true);
+}
+else
+{
+	define("PROVIDER_MODE",false);
+}
+
+
+//MyPDF class
+class MyPDF extends FPDF
+{
+	function Footer(){
+		global $copy,$fontname,$numcopy;
+		$this->SetY(-15); 
+		$this->SetFont("$fontname",'',8);  
+		
+		$this->Cell(150,5,reverse($copy),"T:1",0,'L');
+		//$this->Cell(0,5,reverse('דף: '.$this->PageNo()."/{nb}"),"T:1",0,'R');
+		$this->Cell(0,5,"","T:1",0,'R');
+	} 
+	
+	function Header(){
+		global $shortmode,$copynumber,$did,$document,$clientName,$userName,$docdate,$copy,$userinfo,$fontname,$docnum,$klita, $UserData,$GO_CONFIG,$_GET;
+		global $langcode,$imgPath,$STATUS_DRAFT,$TABLE_LISTINGSSTOCKS,$userID,$officedbname,$lang;
+		
+		$this->SetFont("$fontname",'B','16');
+		
+		if ($UserData->Fields("IsSampleUser"))
+		{
+			$fname =  $GO_CONFIG->root_path."themes/blue-grey/images/stock/dugma.jpg";
+			$this->Image($fname,50,60,190); 
+		}
+		
+		if ($_GET["requisites"]==1){
+			
+			$phonefax = "טל. ".$userinfo->fields["work_phone"];
+			if ($userinfo->fields["work_fax"]){
+				$phonefax.=" פקס. ".$userinfo->fields["work_fax"];
+			}
+			$address= $userinfo->fields["work_address"]. " ".$userinfo->fields["work_city"]." ".$userinfo->fields["work_zip"];
+			
+			$mail = "דואר אלקטרוני: ".$userinfo->fields["email"];
+			
+			if ($userinfo->fields["homepage"]){
+				$web = "אתר: ".$userinfo->fields["homepage"];
+			}
+			
+			
+			$this->SetXY(140,10);
+			$this->Cell(0,5,reverse($userinfo->fields["company"]),0,1,"R");
+			$this->SetFont("$fontname",'B','9');
+			$this->Cell(0,3,reverse($address),0,1,"R");
+			$this->Cell(0,3,reverse($phonefax),0,1,"R");
+			$this->Cell(0,3,reverse($mail),0,1,"R");
+			$this->Cell(0,3,reverse($web),0,1,"R");
+			
+		}
+		
+		if ($_GET["logo"]==1)
+		{
+			$rootp = PROVIDER_MODE?$GO_CONFIG->provider_storage_path:$GO_CONFIG->file_storage_path;
+			if ($UserData->fields["LogoPicture"]){
+				$fname = $rootp.$UserData->fields["UserName"]."/_MlaitekPro/".$UserData->fields["LogoPicture"];
+                                if (file_exists($fname))
+                                {
+                                    $this->Image($fname,10,10,0,20);
+                                }
+			}
+		}			
+		
+		$this->SetFillColor(255,255,255);
+		
+		$this->SetLineWidth("0.4");
+		
+		if ($_GET["requisites"]==1||$_GET["logo"]==1)
+		{
+			$this->Line(10,33,200,33);
+		}
+		$this->SetFontSize('10');
+		
+		//Lichvod
+		
+		if($document->Fields("is_internal"))
+		{
+			$clientName = $userinfo->fields["company"];
+		}
+		
+		$adr = $document->Fields("PostAdress");
+		$client = "\n";
+		$client .= reverse ($clientName)."\n";
+		$client .= reverse (wordwrap($adr,25))."\n";
+		if (!strpos($adr,"\n")){
+			$client .= "\n";
+		}
+		
+		$this->SetXY(140,45);
+		$this->MultiCell(60,5,$client,1,0,'R');
+		
+		$this->SetFont("$fontname",'B','10');
+		$this->SetXY(183,44);
+		$this->Cell(15,3,reverse ("לכבוד"),0,0,'R',1);
+		$this->SetFont("$fontname",'','10');
+		
+		//Pirtey lacoach
+		$client = "\n";
+		$clheight=5;
+		if ($document->fields["client_id"]>1)
+		{
+			$client .= reverse ("מס' לקוח: ".$document->fields["client_id"])."\n";
+			$clheight=4;
+		}
+		$client .= reverse ("טלפון: ".$document->fields["Phone"])."\n";
+		$client .= reverse ("פקס: ".$document->fields["Fax"])."\n";
+		$client .= reverse ("ע.מ. ".$document->fields["BusinessNum"])."\n";
+                if ($document->fields["SpecialNum"]){
+                    $client .= reverse ("מספר עסק מיוחד"." ".$document->fields["SpecialNum"])."\n";
+                }
+		
+		$this->SetXY(75,45);
+		$this->MultiCell(60,$clheight,$client,1,0,'R');
+		
+		$this->SetFont("$fontname",'B','10');
+		$this->SetXY(110,44);
+		$this->Cell(23,5,reverse ("פרטי לקוח"),0,0,'R',1);
+		$this->SetFont("$fontname",'','10');
+		
+		//Date etc
+		if ($document->fields["print_time"])
+		{
+			$hour = " ".date("H:i",$document->fields["created"]);
+		}
+		$client = "". reverse ("תאריך: ".$docdate.$hour)."\n"; 
+		
+		$hasdate = false;
+		if ($document->fields["execdate"] && $document->fields["execdate"]!="0000-00-00 00:00:00")
+		{
+			$exec_date = DateFromSQL($document->fields["execdate"],true);
+			$exec_hour = GetTime($document->fields["execdate"]);
+			$client .= reverse ("ביצוע: ".$exec_date." ".$exec_hour."\n");
+			$hasdate = true;
+		}
+		
+		$client .= reverse ("ע.מ. ".$userinfo->fields["businessnum"])."\n";
+		$client .= reverse ($document->fields["StockName"])."\n";
+		if (!$hasdate)$client .= "\n";
+		
+		$this->SetXY(10,45);
+		$this->MultiCell(60,5,$client,1,0,'R');
+		
+		$this->Ln(2);
+		
+		//ish kesher & asmachta
+		
+		if ($document->fields["PersonName"])
+		{
+			$kesher = "לידי: ".$document->fields["PersonName"];
+		}
+		if ($document->fields["PersonPhone"])
+		{
+			$kesher .= ", "."נייד: ".$document->fields["PersonPhone"];
+		}
+		
+		if ($document->fields["comment"]){
+			$asmachta = "אסמכתא: ".$document->fields["comment"];
+		}
+		
+		$this->Cell(70,10,reverse("$asmachta"),"0",0,'L');
+		$this->Cell(0,10,reverse("$kesher"),"0",0,'R');
+		$this->Ln();
+		if (!$shortmode){
+			$this->Cell(0,1,reverse("$klita"),"0",0,'L');
+			$this->Ln();
+		}
+		
+		$this->SetFont("$fontname","B",18);
+		
+		$title = $document->fields["DocTypeName"]." ".$lang["num"]." $docnum    ";
+		if ($document->fields["doc_status"]==$STATUS_DRAFT)
+		{
+			$title .= $lang["draft"];
+		}
+		else
+		{
+			
+			if (PROVIDER_MODE)		
+			{
+				$isSupplierDoc = false;
+			}
+			else
+			{
+				$sql = "select id from listingsSuppliers where id = ".$document->fields["client_id"]." and 
+						(username in (select username from $officedbname.users where provider_user = $userID))";
+				
+				$isSupplierDocRS = DBQuery($sql);
+				$isSupplierDoc = !$isSupplierDocRS->EOF;
+			}
+			
+			$title.=(!$isSupplierDoc && ($document->fields["first_copy"]&&$copynumber==1)?$lang["original"]:$lang["copy"]);
+		}
+		
+		$this->SetTitle($title);
+		
+		$this->Ln(10);
+		$this->Cell(0,10,reverse("$title"),"T:1",0,'C');
+		$this->Ln(10);
+		
+		if ($did=="HAFKADAHAAVARA"){
+			$this->SetFont("$fontname","B",12);
+			$this->Cell(0,5,reverse("מ: ".$document->fields["sourcekupaname"]),"0",0,'R');
+			$this->Ln();
+			$this->Cell(0,5,reverse("ל: ".$document->fields["targetkupaname"]),"0",0,'R');
+			$this->Ln(10);
+		}
+		
+		if ($did=="HAAVARATPRITIM"){
+			$this->SetFont("$fontname","B",12);
+			$this->Cell(0,5,reverse("מ: ".$document->fields["sourcestock"]),"0",0,'R');
+			$this->Ln();
+			$this->Cell(0,5,reverse("ל: ".$document->fields["targetstock"]),"0",0,'R');
+			$this->Ln(10);
+		}
+		
+	}
+}
+
+//End MyPDF class
+
+
+///////////////////////////////////////////////////////////////////////
+//*********** Start flow *****************  
+
+$simple=1;
+global $action, $id, $lang, $conn, $config,$copynumber;
+$rowIndexToRecalc = -1;
+
+$fontname = "Courier New";
+$fontfilename = "cour.php";
+$fontfilenameb = "courbd.php";
+
+$page_subtitle = ($docid)?"פרטי מסמך":"מסמך חדש";
+$copy = "מסמך זה הופק בתוכנה \"מלאיטק פרו\" www.mlaitech.co.il 072-2125599";
+
+if ($backuptype)ob_start();
+include("include/common.php");
+include("include/business_functions.php");
+if ($backuptype)ob_end_clean();
+
+
+if(!PROVIDER_MODE && !loginCheck('User'))exit;
+
+if (!PROVIDER_MODE)
+{
+	$sql = "select * from ".$GO_CONFIG->db_name.".users u where id = $userID";
+}
+else
+{ 
+	$sql = "select * from ".$GO_CONFIG->db_name.".users u where username = '".$UserData->fields["UserName"]."'";
+	//$sql = "select * from ".$GO_CONFIG->provider_officedb_name.".users u where username = '".$GO_CONFIG->provider_username."'";
+}
+$userinfo = $conn->Execute($sql);if ($userinfo === false){log_error($sql);}
+
+$docid = $_GET["docid"];
+
+if ($docid){
+	//print mode
+	if (strpos($docid,",")>0){
+		$docsid = explode(",",$docid);
+		$ismultiple = true;
+	}
+	else{
+		$docsid = array($docid);
+		$ismultiple = false;
+	}
+}
+else
+{
+	//backup mode
+	switch($backuptype){
+		case "dates":
+			$backupname = "backup_".dateToSQL($sDate)."_".dateToSQL($eDate).".pdf";
+			$q = " and doc_date between '".dateToSQL($sDate)."' and '".dateToSQL($eDate)."' ";
+			break;
+		case "month":
+			$sTimeStamp = mktime(0,0,0,$month+1,1,date("Y"));
+			$eTimeStamp = strtotime("+1 month",$sTimeStamp);
+			$sDate = date("d/m/Y",$sTimeStamp);
+			$eDate = date("d/m/Y",$eTimeStamp);
+			$backupname = "backup_".dateToSQL($sDate)."_".dateToSQL($eDate).".pdf";
+			$q = " and doc_date between '".dateToSQL($sDate)."' and '".dateToSQL($eDate)."' ";
+			break;
+		case "schedule":    
+			$sql = "select lastbackup_doc_id from $TABLE_USERDATA where office_user_id = $userID";
+			$lastbackupRS = $conn->Execute($sql);if ($lastbackupRS === false){log_error($sql);}
+			if ($lastbackupRS->fields["lastbackup_doc_id"])
+			{
+				$q = " and id > ".$lastbackupRS->fields["lastbackup_doc_id"];
+			}
+			$backupname = "backup_".date("Y-m-d").".pdf";
+			break;
+		case "all":
+			$backupname = "backup_all.pdf";
+			break;
+	}
+	$sql = "select group_concat(id) as ids from documents where user_id = $userID $q order by doc_date, doc_number";
+	$documentsRS = $conn->Execute($sql);if ($documentsRS === false){log_error($sql);}
+	$docsid = explode(",",$documentsRS->fields["ids"]);
+	$ismultiple = true;
+}
+
+if (!count($docsid))
+{
+	echo "אין מסמכים לגיבוי";
+	exit();
+}
+
+$filenames = array();
+foreach ($docsid as $did){
+	if ($did){
+		$filenames[] = $filename = printDocument($did);
+	}
+}
+
+if ($ismultiple){
+	
+	if (file_exists("/usr/local/bin/pdfjoin"))
+	{
+		$command = "/usr/local/bin/pdfjoin --outfile tmp/$userID/documents.pdf ".implode(" ",$filenames);
+	}
+	else
+	{
+		$command = $GO_CONFIG->root_path."utils/pdftk.exe ".implode(" ",$filenames)." cat output ".$filepath."tmp/$userID/documents.pdf";
+	}
+	
+	//$command = str_replace("/",'\\',$command);
+	$s = exec($command,$i); 
+	foreach ($filenames as $filename){
+		unlink($filename);
+	} 
+	
+	if ($backuptype){
+		header("Pragma: ");
+		header("Cache-Control: ");
+		header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
+		header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
+		header("Cache-Control: no-store, no-cache, must-revalidate"); // HTTP/1.1
+		header("Cache-Control: post-check=0, pre-check=0", false);
+		//header("Content-Type: applicatiton/pdf");
+		header("Content-Disposition:attachment; filename=\"".trim(htmlentities($backupname))."\"");            
+		$fp = fopen("tmp/$userID/documents.pdf", 'rb'); 
+		fpassthru($fp); 
+		$sql = "update $TABLE_USERDATA set lastbackup_timestamp = unix_timestamp(), lastbackup_doc_id = (select max(id) from documents where user_id = $userID) where office_user_id = $userID";
+		$lastbackupRS = $conn->Execute($sql);if ($lastbackupRS === false){log_error($sql);}
+		exit();
+	}
+	else{
+		echo "<script>location='tmp/$userID/documents.pdf?rnd=".rand(0,1000)."'</script>";
+	}
+	
+}
+else
+{
+	
+	if ($mail && $document->fields["Email"]){
+		require("../../classes/mailer.class.inc");
+		$message[1]['content_type'] = 'text/plain; charset=windows-1255';
+		$message[1]['filename'] = '';
+		$message[1]['no_base64'] = TRUE;
+		$message[1]['data'] = "";
+		
+		$message[2]['content_type'] = 'application/pdf';
+		$message[2]['filename'] = $docfilename;
+		$message[2]['data'] = mp_read_file($filename);
+		$message[2]['headers'] = array('X-Sent-By' => 'info@vcx.co.il', 'X-mailer' => 'VCX Mlaitek-Pro');
+		$out = mp_new_message($message);
+		mail($document->fields["Email"], 'Document: '.$docfilename, $out[0], "From: <".$userinfo->fields["email"].">".$userinfo->fields["email"]."\n".$out[1]);
+		echo "<style>body{background-color:buttonface}</style><br><br><center><b style='font-size:12pt;color:green'>המסמך נשלח בהצלחה</b><br><br><input type='button' value='סגור' onclick='window.close()'></center></br>";
+	}
+	else{
+		echo "<script>location='$filename?rnd=".rand(0,1000)."'</script>";
+	}
+	
+}
+
+$conn->Close(); // close the db connection
+
+///////////////////////////////////////////////////////////////////////////
+
+global $document,$docnum;
+global $copynumber,$did,$document,$clientName,$userName,$docdate,$copy,$userinfo,$fontname,$docnum,$klita, $UserData,$GO_CONFIG;
+
+
+
+
+function printDocument($docid)
+{       
+	global $docfilename,$langcode;       
+	global $shortmode,$conn,$userinfo,$userID,$fontname,$fontfilename,$fontfilenameb,$document,$docnum,$config;
+	global $copynumber,$did,$document,$clientName,$userName,$docdate,$copy,$userinfo,$fontname,$docnum,$klita, $UserData,$GO_CONFIG;
+	global $_GET,$TABLE_DOCUMENT_TYPE,$TABLE_DOCPAYMENTTYPES,$TABLE_UNITS,$TABLE_LISTINGSSTOCKS,$PTYPE_CHEQUE;
+	global $officedbname;
+	$pdf = new MyPDF();
+	$pdf->AddFont("$fontname",'',"$fontfilename");
+	$pdf->AddFont("$fontname",'B',"$fontfilenameb");
+	
+	
+	$sql = "select 
+			d.*,s.supplierName as agent_name, dt.name as DocTypeName, st.StockName, d.exec_date as execdate,
+			client_name, 
+			is_payment, created,
+			sourcekupa.name as sourcekupaname,
+			targetkupa.name as targetkupaname, 
+			sourcestock.stockname as sourcestock, 
+			targetstock.stockname as targetstock,
+			(case when client_id = 1 then client_address else (case when is_internal=1 then ifnull(targetstock.Address,st.Address) else c.PostAdress end) end) as PostAdress,
+			(case when client_id = 1 then client_phone else (case when is_internal=1 then ifnull(targetstock.Phone,st.Phone) else c.Phone end) end) as Phone,
+			c.Fax, 
+			(case when client_id = 1 then client_email else c.Email end) as Email,
+			(case when client_id = 1 then client_person else (case when is_internal=1 then ifnull(targetstock.ContactPerson,st.ContactPerson) else p.Name end) end) as PersonName, 
+			client_businessnum as  BusinessNum,
+                        c.SpecialNum,
+			p.cellular as PersonPhone,
+			dt.is_internal, dtc.print_time, dt.print_paydate,dtc.show_misparzar,
+			u.name as authorname,pt.name as payment_type 
+			from 
+			documents d
+			inner join $TABLE_DOCUMENT_TYPE dt on dt.id = doc_type
+			inner join listingsSuppliers c on d.client_id = c.id 
+			inner join $officedbname.users u on u.id = d.office_user_id 
+			left outer join persons p on p.id = d.person        
+			left outer join listingsSuppliers s on s.id = d.agent_id
+			left outer join kupot targetkupa on targetkupa.id = d.targetkupa
+			left outer join kupot sourcekupa on sourcekupa.id = d.sourcekupa
+			left outer join $TABLE_LISTINGSSTOCKS sourcestock on sourcestock.id = d.source_stock_id
+			left outer join $TABLE_LISTINGSSTOCKS targetstock on targetstock.id = d.target_stock_id
+			left outer join $TABLE_LISTINGSSTOCKS st on st.id = d.stock_id
+			left outer join document_type_counters dtc on dtc.doc_type_id = dt.id
+			left outer join payment_type pt on pt.id = d.payment_type_id
+			where
+			d.id = '$docid'";
+	
+	$document = $conn->Execute($sql);if ($document === false){log_error($sql);}
+	
+	$did = $document->fields["doc_type"];
+	$docnum = $document->fields["doc_number"];
+	$docdate = DateFromSQL($document->fields["doc_date"]);
+	$comment = $document->fields["comment"];
+        $showmisparzar = $document->fields["show_misparzar"];
+	$client = $document->fields["client_id"];
+	$sourcekupa = $document->fields["sourcekupa"];
+	$targetkupa = $document->fields["targetkupa"];
+	$sourcestock = $document->fields["sourcestock"];
+	$targetstock = $document->fields["targetstock"];
+	$discount = $document->fields["discount"];
+	$ispayment = $document->fields["is_payment"];
+	$isproduct = $document->fields["is_product"];
+	$agent = $document->fields["agent_id"];
+	$dpaymenttype = $document->fields["payment_type_id"];
+	$comment1 = $document->fields["comment1"];
+	$clientName = $document->fields["client_name"];
+	$person = $document->fields["person"];
+	$vat = $document->fields["vat"];
+	if ($document->fields["payment_date"]){
+		$paymentdate = DateFromSQL($document->fields["payment_date"]);
+	}
+	else{
+		$paymentdate = "";
+	}
+	
+	$sql = "select * from $TABLE_DOCUMENT_TYPE where id = '$did'";
+	$dtype = $conn->Execute($sql);
+	if ($dtype === false){log_error($sql);}
+	$ispayment = $dtype->fields["is_payment"];
+	$isproduct = $dtype->fields["is_product"];
+	$isserials = $dtype->fields["is_serials"];
+	$movestock = $dtype->fields["move_stock"];
+	$moveordered = $dtype->fields["move_ordered"];
+	$movereserved = $dtype->fields["move_reserved"];
+	$mayinheritfrom = $dtype->fields["may_inherit_from"];
+	
+	if ($UserData->fields["PrintKlitaAsmachta"])
+	{
+		$sql = "select GROUP_CONCAT(concat(doc_number,case when ifnull(comment,'') <> '' then concat('(',comment,')') else '' end)) as klita from documents where closed_by = $docid";
+	}
+	else
+	{
+		$sql = "select GROUP_CONCAT(doc_number) as klita from documents where closed_by = $docid";
+	}
+	$klita = $conn->Execute($sql);if ($klita === false){log_error($sql);}
+	$klita = $klita->fields["klita"];
+	
+	$namesuffix = PROVIDER_MODE?"_$langcode":"";
+	
+	if ($klita){
+		$sql = "select name from $TABLE_DOCUMENT_TYPE where id in (select doc_type from documents where closed_by = $docid)";
+		$kname = $conn->Execute($sql);if ($kname === false){log_error($sql);}
+		$klita = $kname->fields["name"]." מס' ".$klita;
+	}
+	
+	
+	$sql = "select comment from document_type_counters where user_id = $userID and doc_type_id = '$did'";
+	$dcomment = $conn->Execute($sql);if ($dcomment === false){log_error($sql);}
+	$documenttext = $dcomment->fields["comment"];
+	
+	//get itra
+	if ($client)
+	{
+		$sql = "select sum(amount * (case when dt.balance='+' then 1 else -1 end)) as amount
+				from documents d, $TABLE_DOCUMENT_TYPE dt where
+				dt.id = d.doc_type and
+				dt.balance in ('+','-') and
+				d.client_id = $client";
+		$itrars = $conn->Execute($sql);
+		if ($itrars === false){log_error($sql);}
+		
+		//get open cheques
+		$sqlCheques = "select sum(dp.amount) as amount from document_payments dp, documents d
+				where d.id = dp.doc_id and d.doc_type in ('KABALA','MASKABALA') and payment_type=0
+				and curdate() < date_add(checkdate,INTERVAL 4 DAY)
+				and d.client_id = $client
+				";
+		$chequesrs = $conn->Execute($sqlCheques);
+		if ($chequesrs === false){log_error($sqlCheques);}
+		
+	}
+	
+	
+	//get parent documents
+	if($shortmode==1){
+		$sql = "select d.*, dt.name as doctypename from documents d, $TABLE_DOCUMENT_TYPE dt
+				where d.doc_type = dt.id and closed_by = $docid order by doc_date, doc_number";
+		$documents = $conn->Execute($sql);if ($documents === false){log_error($sql);}
+	}
+	
+	$pdf->AliasNbPages();
+	
+	$numcopy = $_GET["numcopy"];
+	if (!$numcopy)$numcopy=1;
+	for ($copynumber=1;$copynumber<=$numcopy;$copynumber++)
+	{
+		
+		$pdf->AddPage();
+		$pdf->SetFont("$fontname",'','10');
+		
+		$pdf->SetFontSize(10);
+		
+		if ($did=="HAFKADAHAAVARA")
+		{
+			
+			$sql = "select dp.*,dpt.name as paymenttypename,k.name as kupaname,d.doc_number
+					from hafkada_payments hp, document_payments dp, $TABLE_DOCPAYMENTTYPES dpt, kupot k, documents d
+					where d.id = dp.doc_id and hp.payment_id = dp.id and k.id = dp.kupa_id and dpt.id = dp.payment_type and  hp.doc_id = $docid order by sort_order";
+			$docpayments = $conn->Execute($sql);if ($docpayments === false){log_error($sql);}
+			
+			$pdf->SetFont("$fontname","B",10);
+			$pdf->Cell(30,7,reverse("סכום"),1,0,'R');
+			$pdf->Cell(30,7,reverse("ת.פרעון"),1,0,'R');
+			$pdf->Cell(20,7,reverse("חשבון"),1,0,'R');
+			$pdf->Cell(30,7,reverse("סניף"),1,0,'R');
+			$pdf->Cell(30,7,reverse("בנק"),1,0,'R');
+			$pdf->Cell(30,7,reverse("מס' שיק"),1,0,'R');
+			$pdf->Cell(0,7,reverse("מסי"),1,0,'R');
+			$pdf->Ln();
+			$pdf->SetFont("$fontname","",10);
+			$cnt=1;
+			$total=0;
+			while (!$docpayments->EOF)
+			{
+				$paydate = ($docpayments->fields["checkdate"]&&$docpayments->fields["checkdate"]!="0000-00-00")?DateFromSQL($docpayments->fields["checkdate"]):"";
+				
+				$pdf->Cell(30,7,number_format($docpayments->fields["Amount"],2),1,0,'R');
+				$pdf->Cell(30,7,$paydate,1,0,'R');
+				$pdf->Cell(20,7,$docpayments->fields["checkaccount"],1,0,'R');
+				$pdf->Cell(30,7,$docpayments->fields["checksnif"],1,0,'R');
+				$pdf->Cell(30,7,$docpayments->fields["checkbank"],1,0,'R');
+				$pdf->Cell(30,7,$docpayments->fields["checknumber"],1,0,'R');
+				$pdf->Cell(0,7,$cnt,1,0,'R');
+				$pdf->Ln();
+				$cnt++;
+				$total+=$docpayments->fields["Amount"];
+				$docpayments->MoveNext();
+			}
+			$pdf->Ln(2);
+			$pdf->SetFont("$fontname","B",10);
+			$pdf->Cell(30,7,"₪ ".number_format($total,2),1,0,'R');
+			$pdf->Cell(30,7,reverse('סה"כ',2),1,0,'R');
+			
+			
+		}
+		elseif ($shortmode==1 && $documents->RowCount())
+		{
+			
+			$pdf->SetFont("$fontname","B",10);
+			$pdf->Cell(30,7,reverse("סכום"),1,0,'R');
+			$pdf->Cell(50,7,reverse("אסמכתא"),1,0,'R');
+			$pdf->Cell(25,7,reverse("תאריך"),1,0,'R');
+			$pdf->Cell(20,7,reverse("מס' מסמך"),1,0,'R');
+			$pdf->Cell(50,7,reverse("סוג מסמך"),1,0,'R');
+			$pdf->Cell(0,7,reverse("מס'"),1,0,'R');
+			$pdf->Ln();
+			$pdf->SetFont("$fontname","",10);
+			$cnt=1;
+			$PRICEBEFORE=0;
+			while (!$documents->EOF)
+			{
+				$amount = $documents->fields["amount"];
+				$amount = round($amount/(1+$documents->fields["vat"]/100),2);
+				if ($did=="CHESHBONIT"&&$documents->fields["doc_type"]=="KNISALEMLAI"){
+					//Close Cheshbon case (teudat michloach-knisalemlai)
+					$amount=$amount*-1;
+				}
+				$PRICEBEFORE+=$amount;
+				//$amount = $amount-$vat;
+				$pdf->Cell(30,7,number_format($amount,2),1,0,'R');
+				$pdf->Cell(50,7,reverse($documents->fields["comment"]),1,0,'R');
+				$pdf->Cell(25,7,DateFromSQL($documents->fields["doc_date"]),1,0,'R');
+				$pdf->Cell(20,7,$documents->fields["doc_number"],1,0,'R');
+				$pdf->Cell(50,7,reverse($documents->fields["doctypename"]),1,0,'R');
+				$pdf->Cell(0,7,$cnt,1,0,'R');
+				$pdf->Ln();
+				$cnt++;
+				$documents->MoveNext();
+			}
+			
+			//total
+			if ($document->fields["print_paydate"])
+			{
+				$s = ($document->fields["print_paydate"]=="PAY_UNTIL")?"לתשלום עד":"מסמך בתוקף עד";
+				if ($document->fields["payment_date"])
+				{
+					$paystr = $s.": ".DateFromSQL($document->fields["payment_date"]);
+				}
+				if (trim($document->fields["agent_name"]))
+				{
+					$agentstr = "סוכן: ".$document->fields["agent_name"];
+				}
+				if (trim($document->fields["payment_type"]))
+				{
+					$paycondstr = "תנאי תשלום: ".$document->fields["payment_type"];    
+				}
+			}
+			
+			if ($did=="KNIYA" && $document->fields["stock_date"] && $document->fields["stock_date"]!="0000-00-00")
+			{
+				$stockdatestr = "כניסה למלאי: ".dateFromSQL($document->fields["stock_date"],true);
+			}
+			
+			$pdf->Ln(2);
+			$pdf->SetFont("$fontname","B",10);
+			$pdf->Cell(30,7,"₪ ".number_format($PRICEBEFORE,2),1,0,'R');
+			$pdf->Cell(50,7,reverse("סה\"כ לפני הנחה",2),1,0,'R');
+			$pdf->SetFont("$fontname","",10);
+			$pdf->Cell(0,7,reverse($paystr),0,0,'R');
+			$pdf->Ln();
+			
+			$DISCOUNT = $PRICEBEFORE * $document->fields["discount"]/100;
+			
+			$pdf->SetFont("$fontname","B",10);
+			$pdf->Cell(30,7,"₪ ".number_format($DISCOUNT,2),1,0,'R');
+			$pdf->Cell(50,7,reverse("הנחה ".number_format($document->fields["discount"],4)."% "),1,0,'R');
+			$pdf->SetFont("$fontname","",10);
+			$pdf->Cell(0,7,$paycondstr,0,0,'R');
+			$pdf->Ln();
+			
+			$pdf->SetFont("$fontname","B",10);
+			$pdf->Cell(30,7,"₪ ".number_format($PRICEBEFORE-$DISCOUNT,2),1,0,'R');
+			$pdf->Cell(50,7,reverse("סה\"כ אחרי הנחה"),1,0,'R');
+			$pdf->SetFont("$fontname","",10);
+			$pdf->Cell(0,7,reverse($agentstr),0,0,'R');
+			$pdf->Ln();
+			
+			$pdf->SetFont("$fontname","B",10);
+			$pdf->Cell(30,7,"₪ ".number_format($document->fields["amount"]*$vat/(100+$vat),2),1,0,'R');
+			$pdf->Cell(50,7,reverse("מע\"מ ".$vat."% "),1,0,'R');
+			$pdf->SetFont("$fontname","",10);
+			$pdf->Cell(0,7,reverse($stockdatestr),0,0,'R');
+			$pdf->Ln();
+			$pdf->Ln(2);
+			
+			$pdf->SetFont("$fontname","B",10);
+			$pdf->Cell(30,7,"₪ ".number_format($document->fields["amount"],2),1,0,'R');
+			$pdf->Cell(50,7,reverse("סה\"כ לתשלום"),1,0,'R');
+			$pdf->SetFont("$fontname","",10);
+			$pdf->Cell(0,7,"",0,0,'R');
+			$pdf->Ln(); 
+			
+			
+			//end total
+		}
+		else
+		{
+			if ($isproduct)
+			{              
+				
+				$showvisible = ($did=="KNISALEIZUR")?"":" and d.visible=1";
+				$factory = ($did=="KNISALEIZUR")?"(case when d.visible=0 then 1 else 0 end)":"0";
+				$visible = ($did=="KNISALEIZUR")?"1":"d.visible";
+				
+				$sorder = ($shortmode==2)?"sourcedocproductid,sort_order":"sort_order";
+				//get existing products
+				$sql = "select
+						$factory as isfactory, 1 as sorder,
+						d.id,d.doc_id,d.listing_id,d.sort_order,d.barcode,d.name,d.currency_price,d.currency_id,d.currency_rate,
+						d.quantity,d.price,d.discount,d.quantity_change,d.cost,d.masterindex,d.childquantity,d.sourcedocproductid,
+						d.factory_listing_id,$visible as visible,                    
+						ds.doc_id as sourceid,ordered,reserved,c.symbolbefore,l.misparzar,
+						(case when u.id = 0 or u.id is null then '' else abbreviation end) as abbreviation, decimals,
+						grams_rate
+						from document_products d
+						left outer join document_products ds on ds.id = d.sourcedocproductid
+						left outer join listingsDB l on l.id = d.listing_id
+						left outer join $TABLE_UNITS u on u.id = l.unit
+						left outer join currencies c on c.id = d.currency_id and c.user_id = $userID
+						where d.doc_id = $docid $showvisible ";
+				
+				if ($did=="YETZIAMIIZUR")
+				{
+					$sql.=" union all
+							select 1 as isfactory, 2 as sorder, 
+							d2.id,d2.doc_id,d2.listing_id,d2.sort_order,l2.barcode,l2.title as name,
+							l2.cost/(1+".$config["VAT"]."/100) as currency_price,
+							d2.currency_id,
+							d2.currency_rate,d2.quantity,
+							l2.cost*d2.quantity as price,
+							d2.discount,d2.quantity_change,d2.cost,d2.masterindex,d2.childquantity,
+							d2.sourcedocproductid,d2.factory_listing_id,d2.visible,
+							d2.sourcedocproductid as sourceid, ordered,reserved, c.symbolbefore,l2.misparzar,
+							(case when u2.id = 0 or u2.id is null then '' else abbreviation end) as abbreviation, u2.decimals,
+							grams_rate
+							from document_products d2
+							inner join listingsDB l2 on l2.id = d2.factory_listing_id
+							inner join $TABLE_UNITS u2 on u2.id = l2.unit
+							left outer join currencies c on c.id = d2.currency_id and c.user_id = $userID
+							where doc_id = $docid and factory_listing_id > 0
+							";
+				}                    
+				$sql.=" order by sorder, $sorder";
+				$docproducts = $conn->Execute($sql);if ($docproducts === false){log_error($sql);}
+				
+				$pdf->SetFont("$fontname","B",10);
+				if (!$_GET["hidePrices"]){					
+					$pdf->Cell($showmisparzar?20:30,7,reverse("סה\"כ"),1,0,'R');
+					$pdf->Cell(20,7,reverse("מחיר"),1,0,'R');
+				}
+				$pdf->Cell($showmisparzar?20:25,7,reverse("כמות"),1,0,'R');
+				$pdf->Cell($_GET["hidePrices"]?125:75,7,reverse("תיאור"),1,0,'R');
+                                if($showmisparzar){
+        				$pdf->Cell(18,7,reverse("מספר זר"),1,0,'R');
+                                }
+				$pdf->Cell(30,7,reverse("ברקוד"),1,0,'R');
+				$pdf->Cell(0,7,reverse("מס'"),1,0,'R');
+				$pdf->Ln();
+				$pdf->SetFont("$fontname","",10);
+				
+				$PRICE=0;
+				$sss=1;
+				$maxproductnamelength = 34;
+				$PRICEBEFORE=0;
+				$sourceid = 0;
+				$totalQuantity = 0;
+				while (!$docproducts->EOF)
+				{
+					
+					if($shortmode==2 && $docproducts->fields["sourceid"] != $sourceid)
+					{                  
+						$sourceid = $docproducts->fields["sourceid"];
+						if($sourceid)
+						{
+							$subdoc = DBQuery("select doc_date, doc_number, dt.name, comment from documents d, $TABLE_DOCUMENT_TYPE dt where dt.id = d.doc_type and d.id = $sourceid");
+							if (!$subdoc->EOF)    
+							{
+								$subtitle = $subdoc->fields["name"]." מס' ".$subdoc->fields["doc_number"]." מתאריך: ".dateFromSQL($subdoc->fields["doc_date"]);
+								if ($subdoc->fields["comment"])
+								{
+									$subtitle.=" אסמכתא: ".$subdoc->fields["comment"];
+								}
+								$pdf->SetFont("$fontname","B",10); 
+								$pdf->Cell(0,7,reverse($subtitle),1,0,'C');
+								$pdf->SetFont("$fontname","",10); 
+								$pdf->Ln();
+							}
+						}
+					}
+					
+					if ($docproducts->fields["grams_rate"])
+					{
+						$docproducts->fields["quantity"]/=$docproducts->fields["grams_rate"];
+					}  
+					
+					$abbr = $docproducts->fields["abbreviation"]?(" ".$docproducts->fields["abbreviation"]):"";           
+					$price = $docproducts->fields["currency_price"]-($docproducts->fields["currency_price"]*$docproducts->fields["discount"]/(100));
+					//$total=$price*$docproducts->fields["quantity"];
+					$total=$docproducts->fields["price"]/(1+$vat/100);
+					if (!$docproducts->fields["isfactory"])
+					{
+						$PRICEBEFORE+=$total;
+					}
+					
+					$pricewithsymbol = $docproducts->fields["symbolbefore"]."".number_format($price,2);
+					
+					if (($did=="YETZIAMIIZUR"&&$docproducts->fields["isfactory"]) || ($did=="KNISALEIZUR"&&!$docproducts->fields["isfactory"]))
+					{
+						$pdf->SetFont("$fontname","b",11);
+					}
+					else 
+					{
+						$pdf->SetFont("$fontname","",10);
+					}
+					
+					if (!$_GET["hidePrices"]){
+						$pdf->Cell($showmisparzar?20:30,7,number_format($total,2),1,0,'R');
+						$pdf->Cell(20,7,$pricewithsymbol,1,0,'R');
+					}
+					$pdf->Cell($showmisparzar?20:25,7,reverse(number_format($docproducts->fields["quantity"],$docproducts->fields["decimals"]).$abbr),1,0,'R');
+					$pdf->Cell($_GET["hidePrices"]?125:75,7,reverse(substr($docproducts->fields["name"],0,$maxproductnamelength)),1,0,'R');
+                                        if($showmisparzar){
+                                                $pdf->Cell(18,7,$docproducts->fields["misparzar"],1,0,'R');
+                                        }
+                                        $pdf->Cell(30,7,reverse($docproducts->fields["barcode"]),1,0,'R');
+					$pdf->Cell(0,7,$sss,1,0,'R');
+					$pdf->Ln();
+					
+					$totalQuantity += $docproducts->fields["quantity"];
+					$maxDecimals = max($maxDecimals,$docproducts->fields["decimals"]);
+					
+					$docproducts->MoveNext();
+					$sss++;
+				}
+				
+				
+				if ($document->fields["print_paydate"])
+				{
+					$s = ($document->fields["print_paydate"]=="PAY_UNTIL")?"לתשלום עד":"מסמך בתוקף עד";
+					if ($document->fields["payment_date"])
+					{
+						$paystr = $s.": ".DateFromSQL($document->fields["payment_date"]);
+					}
+					if (trim($document->fields["agent_name"]))
+					{
+						$agentstr = "סוכן: ".$document->fields["agent_name"];
+					}
+					if (trim($document->fields["payment_type"]))
+					{
+						$paycondstr = "תנאי תשלום: ".$document->fields["payment_type"];    
+					}
+				}
+				
+				if ($did=="KNIYA" && $document->fields["stock_date"] && $document->fields["stock_date"]!="0000-00-00")
+				{
+					$stockdatestr = "כניסה למלאי: ".dateFromSQL($document->fields["stock_date"],true);
+				}
+				
+				
+				$pdf->Ln(2);
+				if (!$_GET["hidePrices"]){
+					$pdf->SetFont("$fontname","B",10);
+					$pdf->Cell(30,7,"₪ ".number_format($PRICEBEFORE,2),1,0,'R');
+					$pdf->Cell(45,7,reverse("סה\"כ לפני הנחה",2),1,0,'R');
+					$pdf->SetFont("$fontname","",10);
+					$pdf->Cell(0,7,reverse($paystr),0,0,'R');
+					$pdf->Ln();
+				}
+				
+				
+				$DISCOUNT = $PRICEBEFORE * $document->fields["discount"]/100;
+				
+				if ($did!="HAAVARATPRITIM")
+				{
+					$pdf->SetFont("$fontname","B",10);
+					$pdf->Cell(30,7,"₪ ".number_format($DISCOUNT,2),1,0,'R');
+					$pdf->Cell(45,7,reverse("הנחה ".number_format($document->fields["discount"],4)."% "),1,0,'R');
+					$pdf->SetFont("$fontname","",10);
+					$pdf->Cell(0,7,reverse($paycondstr),0,0,'R');
+					$pdf->Ln();
+					
+					$pdf->SetFont("$fontname","B",10);
+					$pdf->Cell(30,7,"₪ ".number_format($document->fields["amount"] - $document->fields["amount"]*$vat/(100+$vat),2),1,0,'R');
+					$pdf->Cell(45,7,reverse("סה\"כ אחרי הנחה"),1,0,'R');
+					$pdf->SetFont("$fontname","",10);
+					$pdf->Cell(0,7,reverse($agentstr),0,0,'R');
+					$pdf->Ln();
+				}
+				
+				if (!$_GET["hidePrices"]){
+					$pdf->SetFont("$fontname","B",10);
+					$pdf->Cell(30,7,"₪ ".number_format($document->fields["amount"]*$vat/(100+$vat),2),1,0,'R');
+					$pdf->Cell(45,7,reverse("מע\"מ ".$vat."% "),1,0,'R');
+					$pdf->SetFont("$fontname","",10);
+					$pdf->Cell(0,7,reverse($stockdatestr),0,0,'R');
+					$pdf->Ln();
+					$pdf->Ln(2);
+					
+					$pdf->SetFont("$fontname","B",10);
+					$pdf->Cell(30,7,"₪ ".number_format($document->fields["amount"],2),1,0,'R');
+					$pdf->Cell(45,7,reverse("סה\"כ לתשלום"),1,0,'R');
+					$pdf->SetFont("$fontname","",10);
+					$pdf->Cell(0,7,"",0,0,'R');
+					$pdf->Ln();
+				}
+				
+				if ($UserData->fields["ShowDocTotalQuantity"])
+				{
+					$pdf->Ln(2);
+					$pdf->SetFont("$fontname","B",10);
+					$pdf->Cell($_GET["hidePrices"]?25:30,7,"".number_format($totalQuantity,$maxDecimals),1,0,'R');
+					$pdf->Cell(45,7,reverse("סה\"כ פריטים"),1,0,'R');
+					$pdf->SetFont("$fontname","",10);
+					$pdf->Cell(0,7,"",0,0,'R');
+					$pdf->Ln();   
+				}                 
+			}
+			if ($ispayment)
+			{
+				//get existing payments
+				$sql = "select p.*, dt.name as TypeName, k.name as KupaName from document_payments p
+						left outer join kupot k on k.id = p.kupa_id
+						left outer join $TABLE_DOCPAYMENTTYPES dt on dt.id = p.payment_type
+						where doc_id = $docid order by sort_order";
+				$docpayments = $conn->Execute($sql);if ($docpayments === false){log_error($sql);}
+				$numpayments = $docpayments->RecordCount();
+				$ind=1;
+				
+				$pdf->SetFont("$fontname","B",10);
+				if ($isproduct){
+					$pdf->Ln(2);
+					$pdf->Cell(0,7,reverse("פרות תשלומים"),0,1,'R');
+				}
+				
+				$pdf->Cell(30,7,reverse("סכום"),1,0,'R');
+				$pdf->Cell(21,7,reverse("חשבון"),1,0,'R');
+				$pdf->Cell(15,7,reverse("סניף"),1,0,'R');
+				$pdf->Cell(9,7,reverse("בנק"),1,0,'R');
+				$pdf->Cell(20,7,reverse("שיק/שובר"),1,0,'R');
+				$pdf->Cell(25,7,reverse("תאריך פרעון"),1,0,'R');
+				$pdf->Cell(35,7,reverse("קופה"),1,0,'R');
+				$pdf->Cell(25,7,reverse("סוג תשלום"),1,0,'R');
+				$pdf->Cell(0,7,reverse("מס'"),1,0,'R');
+				$pdf->Ln();
+				$pdf->SetFont("$fontname","",10);
+				
+				while(!$docpayments->EOF)
+				{
+					$pdf->Cell(30,7,number_format($docpayments->fields["Amount"],2),1,0,'R');
+					$pdf->Cell(21,7,$docpayments->fields["checkaccount"],1,0,'R');
+					$pdf->Cell(15,7,$docpayments->fields["checksnif"],1,0,'R');
+					$pdf->Cell(9,7,$docpayments->fields["checkbank"],1,0,'R');
+					$pdf->Cell(20,7,$docpayments->fields["checknumber"],1,0,'R');
+					if ($docpayments->fields["checkdate"]!="" && $docpayments->fields["checkdate"]!="0000-00-00")
+					{
+						$paydate = DateFromSQL($docpayments->fields["checkdate"]);
+					}
+					else
+					{
+						$PTYPE_CHEQUE = 0;
+						$paydate = ($docpayments->fields["payment_type"]==$PTYPE_CHEQUE)?reverse("לא הוכנס"):DateFromSQL($document->fields["doc_date"]);
+					}
+					$pdf->Cell(25,7,$paydate,1,0,'R');
+					//$pdf->SetFontSize(8); 
+					$pdf->Cell(35,7,reverse($docpayments->fields["KupaName"]),1,0,'R');
+					$pdf->SetFontSize(10);
+					$pdf->Cell(25,7,reverse($docpayments->fields["TypeName"]),1,0,'R');
+					$pdf->Cell(0,7,$ind,1,0,'R');
+					$pdf->Ln();
+					$docpayments->MoveNext();
+					$ind++;
+					
+				}
+				
+				$pdf->Ln(2);
+				$pdf->SetFont("$fontname","B",10);
+				$pdf->Cell(30,7,"₪ ".number_format($document->fields["amount"],2),1,0,'R');
+				$pdf->Cell(21,7,reverse("סה\"כ",2),1,0,'R');
+				$pdf->SetFont("$fontname","",10);
+				$pdf->Cell(0,7,(!$isproduct)?reverse($paystr):"",0,1,'R');
+				
+				
+				if (trim($document->fields["agent_name"]))
+				{ 
+					$agentstr = "סוכן: ".$document->fields["agent_name"];
+					$pdf->Cell(0,7,reverse($agentstr),0,1,'R'); 
+				}
+				else
+				{
+					$pdf->Ln(10);  
+				}
+				
+			}
+			
+		}
+		
+		$pdf->Ln(5);
+		if ($document->fields["comment1"])
+		{
+			$pdf->MultiCell(0,3,reverseMultiline("הערות: ".$document->fields["comment1"]),0,'R');
+		} 
+		
+		$pdf->Ln(1);
+		$s = "נוצר ע\"י: ".$document->fields["authorname"];
+		$pdf->Cell(145,7,reverse($s),0,0,'L');
+		$pdf->Cell(30,7,"","B:1",0,'R');
+		$pdf->Cell(0,7,reverse("חתימה:"),0,0,'R');
+		$pdf->Ln();
+		
+		if ($client && $_GET["itra"]){
+			$pdf->Ln(10);
+			$itrastr = "יתרה: ".number_format($itrars->fields["amount"],2)." , ";
+			$itrastr .= " שיקים פתוחים: ".number_format($chequesrs->fields["amount"],2);
+			$pdf->Cell(0,10,reverse($itrastr),"0",0,'C');
+			$pdf->Ln();
+		}
+		
+		if ($documenttext){
+			$pdf->Ln(10);
+			$pdf->SetFontSize(8);
+			$pdf->MultiCell(0,3,reverse($documenttext),"0",'R');
+		}
+		
+		$pdf->Ln(8);
+		$pdf->Cell(30,7,"","B:1",0,'R');
+		$pdf->Cell(35,7,reverse("חתימה וחותמת:"),0,0,'L');
+		$pdf->Cell(30,7,"","B:1",0,'R');
+		$pdf->Cell(25,7,reverse("תאריך:"),0,0,'L');
+		$pdf->Cell(30,7,"","B:1",0,'R');
+		$pdf->Cell(0,7,reverse("שם המקבל )המזמין(:"),0,0,'L');
+		$pdf->Ln();
+		
+		//ob_end_clean();
+		
+		if (PROVIDER_MODE)		
+		{
+			$sql = "update documents set first_copy = 0 where id = $docid";
+		}
+		else
+		{
+			//don't update MAKOR state if document will be shown for client in  PROVIDER_MODE
+			$sql = "update documents d set first_copy = 0 where id = $docid and not exists 
+					(select id from listingsSuppliers where id = d.client_id and (username like 'vcx%' or username in 
+					(select username from $officedbname.users where provider_user = $userID)))";
+		}
+		$dtype = DBQuery($sql);
+		
+	}
+	
+	$old_umask = umask(000);
+	$dir = "tmp";
+	mkdir("$dir/$userID",0777);
+	umask($oldumask);
+	//unlink("$dir/$userID/doc.pdf");
+	$pdf->Close();
+	$docfilename = strtolower($did)."_".$docnum.".pdf";
+	$filename= "$dir/$userID/".$docfilename;
+	$pdf->Output($filename,"F");
+	return $filename;
+}
+
+
+function reverse ($string)
+{
+	return reverseHebrew($string);
+}
+
+function reverseMultiline($string)
+{
+	return reverseHebrew(wordwrap($string,90));
+}
+
+
+
+?>

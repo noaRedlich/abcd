@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="" BillId="226" ClientId="500985.00">
+  <Products>
+    <Product Id="81">
+      <Name>טורטיה ממרח אבוקדו</Name>
+      <Barcode />
+      <SalePrice>32</SalePrice>
+      <SaledPrice>128</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>4</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>128</Cash>
+  </Pay>
+</Bill>

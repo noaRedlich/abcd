@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="16282" isWeight="0" isDeleted="0" title="חבק פלסטי 1.5X150" category="0" saleprice="6" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1381145749">
+  </Product>
+  <Product barcode="168166" isWeight="0" isDeleted="0" title="חבק פלסטי 3.6X200" category="0" saleprice="12" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1381145749">
+  </Product>
+  <Product barcode="84517" isWeight="0" isDeleted="0" title="חבק פלסטי 4.8X400" category="0" saleprice="29.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1381145737">
+  </Product>
+  <Product barcode="4891199027598" isWeight="0" isDeleted="0" title="סוללות רביעייה GP AA" category="0" saleprice="15" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1381145728">
+  </Product>
+  <Product barcode="7290013390943" isWeight="0" isDeleted="0" title="דבק סופר גלו 3 גרם על לוח" category="0" saleprice="3.5" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1381145727">
+  </Product>
+  <Product barcode="12297" isWeight="0" isDeleted="0" title="דבק סופר גלו 13 גרם" category="0" saleprice="15" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1381145742">
+  </Product>
+  <Product barcode="7291044034974" isWeight="0" isDeleted="0" title="מנורה חסכונית  HYUNDAI ECO E27 26W" category="0" saleprice="12.9" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1381145744">
+  </Product>
+  <Product barcode="4891199034688" isWeight="0" isDeleted="0" title="סוללה GP 9V" category="0" saleprice="19" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1381145728">
+  </Product>
+  <Product barcode="73920" isWeight="0" isDeleted="0" title="פנס 24+3 לד+מגנט" category="0" saleprice="39" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1381145736">
+  </Product>
+  <Product barcode="7290002694038" isWeight="0" isDeleted="0" title="זוג ידיות ברז גלה לבן" category="0" saleprice="24.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1381145728">
+  </Product>
+  <Product barcode="140523" isWeight="0" isDeleted="0" title="שלישייה נורת חיסכון 20W סאן לייט/ג'קו" category="0" saleprice="39" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1381145745">
+  </Product>
+  <Product barcode="7290001738177" isWeight="0" isDeleted="0" title="פומפה + מקל" category="0" saleprice="10" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1381145730">
+  </Product>
+  <Product barcode="277" isWeight="0" isDeleted="0" title="מברשת בגדים/נעלים" category="0" saleprice="12.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1381145730">
+  </Product>
+  <Product barcode="9663" isWeight="0" isDeleted="0" title="מברשת מגהץ" category="0" saleprice="7.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1381145738">
+  </Product>
+</Products>

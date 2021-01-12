@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="" BillId="207" ClientId="500003.00">
+  <Products>
+    <Product Id="76">
+      <Name>ירקות בטמפורה</Name>
+      <Barcode />
+      <SalePrice>41</SalePrice>
+      <SaledPrice>41</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="77">
+      <Name>אדממה</Name>
+      <Barcode />
+      <SalePrice>47</SalePrice>
+      <SaledPrice>47</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="81">
+      <Name>טורטיה ממרח אבוקדו</Name>
+      <Barcode />
+      <SalePrice>3</SalePrice>
+      <SaledPrice>132</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>44</Quantity>
+    </Product>
+    <Product Id="34">
+      <Name>אינסייד אאוט צמחוני מלפפון  גז</Name>
+      <Barcode />
+      <SalePrice>5</SalePrice>
+      <SaledPrice>5</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>225</Cash>
+  </Pay>
+</Bill>

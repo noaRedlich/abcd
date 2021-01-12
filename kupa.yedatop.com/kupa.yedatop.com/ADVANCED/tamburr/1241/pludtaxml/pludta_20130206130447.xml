@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="7290102456109" isWeight="0" isDeleted="0" title="מבשם אויר נטול גז 500 מ&quot;ל" category="0" saleprice="28.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668333">
+  </Product>
+  <Product barcode="80925" isWeight="0" isDeleted="0" title="נייר טואלט טישו אביבית 48 גל'" category="0" saleprice="39" cost="" stockQuantity="-20" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="4891199126628" isWeight="0" isDeleted="0" title="סוללות רביעייה נתענות GP AA" category="0" saleprice="75.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="4891199027659" isWeight="0" isDeleted="0" title="סוללות רביעייה GP AAA" category="0" saleprice="15" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="7290001596517" isWeight="0" isDeleted="0" title="שקיות אשפה 60 יח'" category="0" saleprice="17.9" cost="" stockQuantity="-11" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+</Products>

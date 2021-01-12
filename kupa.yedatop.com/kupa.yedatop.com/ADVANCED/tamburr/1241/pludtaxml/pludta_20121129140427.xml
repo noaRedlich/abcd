@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="7290102621415" isWeight="0" isDeleted="0" title="שפכטל טמבור &quot;6" category="0" saleprice="14.5" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668342">
+  </Product>
+  <Product barcode="42119" isWeight="0" isDeleted="0" title="שפכטל חוץ לבן 633 5 ק&quot;ג" category="0" saleprice="28.5" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="7290004116590" isWeight="0" isDeleted="0" title="קלסימו 5 ק&quot;ג" category="0" saleprice="28.9" cost="" stockQuantity="-165" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="90640" isWeight="0" isDeleted="0" title="דיסק יהלום &quot;4.5" category="0" saleprice="69" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1339668341">
+  </Product>
+  <Product barcode="321" isWeight="0" isDeleted="0" title="מאריך נחושת 15-&quot;1/2" category="0" saleprice="6.5" cost="" stockQuantity="-13" minStockQuantity="" lastUpdated="1339668334">
+  </Product>
+  <Product barcode="320" isWeight="0" isDeleted="0" title="מאריך נחושת 10-&quot;1/2" category="0" saleprice="5.5" cost="" stockQuantity="-21" minStockQuantity="" lastUpdated="1339668334">
+  </Product>
+  <Product barcode="31512" isWeight="0" isDeleted="0" title="רשת מרובעת הברגה &quot;4 כרום" category="0" saleprice="23.9" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1339668334">
+  </Product>
+  <Product barcode="8583" isWeight="0" isDeleted="0" title="קליפס 8 עגול" category="0" saleprice="8" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668341">
+  </Product>
+</Products>

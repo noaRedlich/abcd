@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="1258" BillId="345" ClientId="500452">
+  <Products>
+    <Product Id="10018">
+      <Name>BRENDY STAKANCHIKI--AIST-- 100</Name>
+      <Barcode />
+      <SalePrice>2</SalePrice>
+      <SaledPrice>2</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="10100">
+      <Name>VODKA STOLICHNAYA  0.7 L      </Name>
+      <Barcode />
+      <SalePrice>51</SalePrice>
+      <SaledPrice>51</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>53.00</Cash>
+  </Pay>
+</Bill>

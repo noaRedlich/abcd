@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="7290004116590" isWeight="0" isDeleted="0" title="קלסימו 5 ק&quot;ג" category="0" saleprice="28.9" cost="" stockQuantity="-65" minStockQuantity="" lastUpdated="1329143212">
+  </Product>
+  <Product barcode="43025" isWeight="0" isDeleted="0" title="טיח גבס 791 30 ק&quot;ג" category="0" saleprice="40" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1329143215">
+  </Product>
+  <Product barcode="14637" isWeight="0" isDeleted="0" title="פינה מישתנה 30 מטר" category="0" saleprice="51.9" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1329143211">
+  </Product>
+  <Product barcode="422" isWeight="0" isDeleted="0" title="דבק פיקס לבן 109" category="0" saleprice="35" cost="" stockQuantity="-42" minStockQuantity="" lastUpdated="1329143215">
+  </Product>
+  <Product barcode="3904" isWeight="0" isDeleted="0" title="ספייסרים 2 מ&quot;מ 250 יח'" category="0" saleprice="7.5" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1329143214">
+  </Product>
+</Products>

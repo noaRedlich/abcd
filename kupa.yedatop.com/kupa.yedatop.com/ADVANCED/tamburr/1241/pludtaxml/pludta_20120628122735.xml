@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="264" isWeight="0" isDeleted="0" title="מחבר מהיר 1/2" category="0" saleprice="4.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668333">
+  </Product>
+  <Product barcode="266" isWeight="0" isDeleted="0" title="מחבר לברז &quot;1 ומעבר 3/4" category="0" saleprice="4.5" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1339668333">
+  </Product>
+</Products>

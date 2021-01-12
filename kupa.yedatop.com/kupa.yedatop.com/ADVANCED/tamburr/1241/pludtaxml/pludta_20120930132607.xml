@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="4007875851771" isWeight="0" isDeleted="0" title="מברג טסטר lux" category="0" saleprice="8.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668342">
+  </Product>
+  <Product barcode="84517" isWeight="0" isDeleted="0" title="חבק פלסטי 4.8X400" category="0" saleprice="29.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668341">
+  </Product>
+  <Product barcode="5863" isWeight="0" isDeleted="0" title="דיבל 7 אדום 100 יח'" category="0" saleprice="8" cost="" stockQuantity="-11" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+</Products>

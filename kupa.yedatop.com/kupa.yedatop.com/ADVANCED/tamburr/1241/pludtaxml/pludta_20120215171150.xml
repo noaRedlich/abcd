@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="7290004116590" isWeight="0" isDeleted="0" title="קלסימו 5 ק&quot;ג" category="0" saleprice="28.9" cost="" stockQuantity="-29" minStockQuantity="" lastUpdated="1329143212">
+  </Product>
+  <Product barcode="109" isWeight="0" isDeleted="0" title="מסקינג טייפ TESA 4323 50/50" category="0" saleprice="12.9" cost="" stockQuantity="-54" minStockQuantity="" lastUpdated="1329143210">
+  </Product>
+  <Product barcode="8711595028028" isWeight="0" isDeleted="0" title="סופר 7 לבן" category="0" saleprice="28.8" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1329143211">
+  </Product>
+  <Product barcode="7290002997351" isWeight="0" isDeleted="0" title="נירוקיט לבן נירלט" category="0" saleprice="6.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1329143213">
+  </Product>
+  <Product barcode="9266" isWeight="0" isDeleted="0" title="אקדח סיליקון כחול" category="0" saleprice="13.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143220">
+  </Product>
+  <Product barcode="54119" isWeight="0" isDeleted="0" title="מסיר צבע בוסני" category="0" saleprice="29.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143216">
+  </Product>
+  <Product barcode="4887" isWeight="0" isDeleted="0" title="רביעיית מטליות מיקרופייבר" category="0" saleprice="10" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1329143215">
+  </Product>
+  <Product barcode="68511" isWeight="0" isDeleted="0" title="רולר אקסטרה basic פאר &quot;9" category="0" saleprice="25.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1329143217">
+  </Product>
+  <Product barcode="38239" isWeight="0" isDeleted="0" title="מושב אסלה 3 לבן ליפסקי" category="0" saleprice="77" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1329143214">
+  </Product>
+  <Product barcode="42119" isWeight="0" isDeleted="0" title="שפכטל חוץ לבן 633 5 ק&quot;ג" category="0" saleprice="28.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1329143215">
+  </Product>
+  <Product barcode="7290001076118" isWeight="0" isDeleted="0" title="סופרקריל מט לבן 18 ליטר" category="0" saleprice="290" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1329143213">
+  </Product>
+  <Product barcode="1" isWeight="0" isDeleted="0" title="כללי" category="0" saleprice="1" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1329143213">
+  </Product>
+  <Product barcode="7290005345524" isWeight="0" isDeleted="0" title="סופרקריל 5 ליטר" category="0" saleprice="99" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1329143212">
+  </Product>
+</Products>

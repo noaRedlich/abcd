@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+  <main_table>listingsSuppliers</main_table>
+  <condition>id=1</condition> 
+  <name>#suppliers#</name>
+  <options>
+    <opt name="create_record" type="none"></opt>
+    <opt name="search" type="none"></opt>
+    <opt name="main_view" type="always"></opt>
+    <opt name="delete_record" type="none"></opt>
+  </options>
+  <view>
+    <vcol name="SupplierName">שם</vcol>
+    <vcol name="ClientNum" >מספר לקוח</vcol>
+  </view>
+  <edit>
+    <ecol name="ClientNum" type="string">מספר לקוח</ecol>
+  </edit>
+
+  <sql_actions>
+    <opt name="order" val="SortOrder,SupplierName"></opt>
+  </sql_actions>
+</xml>  

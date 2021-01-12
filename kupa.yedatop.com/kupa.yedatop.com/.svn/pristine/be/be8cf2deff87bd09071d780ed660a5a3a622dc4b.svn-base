@@ -1,0 +1,110 @@
+<?php
+
+ini_set("error_reporting","E_ERROR & E_CORE_ERROR & E_COMPILE_ERROR");
+$noheader=1;
+
+if($action=="dat")
+{
+    ob_start();
+    $noheader=1;
+	include("include/common.php");
+    include("../stock/include/functions.php");
+    ob_end_clean();
+    
+	// Date in the past
+     header("Pragma: ");
+     header("Cache-Control: ");
+     header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
+     header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
+     header("Cache-Control: no-store, no-cache, must-revalidate"); // HTTP/1.1
+     header("Cache-Control: post-check=0, pre-check=0", false);
+     //header("Content-Type: text/plain");
+     header("Content-Disposition: attachment; filename=\"time.csv\"");      
+
+}
+
+
+
+$simple=1;
+$page_subtitle = "יבוא ויצוא";
+
+if (!$action)
+{
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+	echo
+	"
+	<head>
+	<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+	</head><body><pre dir=rtl>";
+	
+
+	echo "יש להזין תאריכי יצוא וללחוץ על אישור";
+
+	
+	exit;
+}
+
+elseif ($action=="do")
+{
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+	print"
+	<head>
+	<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+	</head><body>
+	<pre dir=rtl>";	
+
+	if(($sDate==""||$eDate=="") && !$auto) 
+    {
+		die("יש להזין תאריכי יצוא ");
+	}
+	else               
+    {
+  		echo "<a target=_blank href='".$rootpath."importworkers.php?action=dat&auto=$auto&stock=$stock&sDate=$sDate&eDate=$eDate&username=$username&uid=$userID&rnd=".rand()."'><strong>יש ללחוץ כאן להורדת קובץ <span dir=ltr>time.csv</span></strong></a><br>";
+    }
+	
+	exit;
+}
+
+elseif($action=="dat")
+{
+           
+    if (!$sDate)$sDate=date("d/m/Y",strtotime("-1 month"));
+    if (!$eDate)$eDate=date("d/m/Y");
+    $sql = "select worker_num, day, entertime, exittime from attendance where user_id = $userID and day between '".dateToSQL($sDate)."' and '".dateToSQL($eDate)." 23:59:59' order by day, entertime";
+                
+    $res = DBQuery($sql);
+    
+    $out = "";
+    while (!$res->EOF)
+    {
+        $out .= $res->Fields("worker_num").",";
+        $out .= DateFromSQL($res->Fields("day")).","; 
+        $out .= $res->Fields("entertime").","; 
+        $out .= $res->Fields("exittime")."\n"; 
+        $res->MoveNext();
+    }
+	
+
+    echo $out;
+	exit();
+}
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+function putField($s,$len)
+{
+    global $nf;
+    // return ($nf++).":".str_pad(substr($s,0,$len),$len," ",STR_PAD_RIGHT).chr(9);
+    return str_pad(substr($s,0,$len),$len," ",STR_PAD_RIGHT).chr(9);
+}
+    
+
+?>

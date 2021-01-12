@@ -1,0 +1,752 @@
+<?
+	//include "temp_include.inc.php";
+	
+	$show_login = 0;
+	
+	if($profile_id)
+	{
+		settype($member_id, "integer");
+		$login = $member_info["login"];
+		$query = "select id from dt_members where login = '$login' and id != '$member_id'";
+		$res = q($query);
+		$i = 1;
+		while(nr($res) > 0)
+		{
+			$login = $member_info["login"].$i;
+			$i++;
+			$msg = "User with login '".$member_info["login"]."' exists. Login was changed to '$login'. You may change it to yours.";
+			$query = "select id from dt_members where login = '$login' and id != '$member_id'";
+			$res = q($query);
+		}
+		
+		$reg_date_arr = preg_split("/\//",$member_info[reg_date], 3, PREG_SPLIT_NO_EMPTY);
+		$member_info[reg_date] = mktime(0, 0, 0, $reg_date_arr[0], $reg_date_arr[1], $reg_date_arr[2]);
+		
+		$reg_date_arr = preg_split("/\//",$member_info[system_status_end], 3, PREG_SPLIT_NO_EMPTY);
+		$member_info[system_status_end] = mktime(0, 0, 0, $reg_date_arr[0], $reg_date_arr[1], $reg_date_arr[2]);
+
+        $reg_date_arr = preg_split("/\//",$member_info[unlimited_end], 3, PREG_SPLIT_NO_EMPTY);
+        $member_info[unlimited_end] = mktime(0, 0, 0, $reg_date_arr[0], $reg_date_arr[1], $reg_date_arr[2]);
+
+        if($member_info[reg_date] == -1) $member_info[reg_date] = 0;
+        if($member_info[unlimited_end] == -1) $member_info[unlimited_end] = $member_info[reg_date];
+        
+		if($member_info[reg_date] == -1) $member_info[reg_date] = 0;
+		if($member_info[system_status_end] == -1) $member_info[system_status_end] = $member_info[reg_date];
+		
+		if($profile_id == "new")
+		{
+			$query = "insert into dt_members (name) values ('$member_info[name]')";
+			q($query);
+			$member_id = mysql_insert_id();
+			
+			$query = "insert into dt_profile (member_id) values ('$member_id')";
+			q($query);
+			$profile_id = mysql_insert_id();
+		}
+		settype($profile_id, "integer");
+		$age = date("Y") - $profile_info[birth_year];
+		$query = "update dt_members set
+					login = '$login',
+					verified = 1,
+					pswd = '$member_info[pswd]',
+					email = '$member_info[email]',
+					phone1 = '$member_info[phone1]',
+					phone2 = '$member_info[phone2]',
+					name = '$member_info[name]',
+					gender = '$member_info[gender]',
+					age = '$age',
+					country = '$member_info[country]',
+					looking_for = '$member_info[looking_for]',
+					reg_date = '$member_info[reg_date]',
+					system_status = '$member_info[system_status]',
+					system_status_end = '$member_info[system_status_end]',
+					unlimited = '$member_info[unlimited]',
+					language = '$member_info[language]',
+					unlimited_end = '$member_info[unlimited_end]'
+					where id = '$member_id'";
+					
+		q($query);
+
+		$query = "update dt_profile set
+					status = '1',
+					finish_status ='4',
+					name = '$profile_info[name]',
+					gender = '$profile_info[gender]',
+					state = '$profile_info[state]',
+					city = '$profile_info[city]',
+					zipcode = '$profile_info[zipcode]',
+					country = '$profile_info[country]',
+					country_orig = '$profile_info[country_orig]',
+					email = '$profile_info[email]',
+					birth_month = '$profile_info[birth_month]',
+					birth_day = '$profile_info[birth_day]',
+					birth_year = '$profile_info[birth_year]',
+					marital_status = '$profile_info[marital_status]',
+					looking_marital_status = '$profile_info[looking_marital_status]',
+					children = '$profile_info[children]',
+					drinking = '$profile_info[drinking]',
+					smoking = '$profile_info[smoking]',
+					weight = '$profile_info[weight]',
+					income = '$profile_info[income]',
+					living = '$profile_info[living]',
+					health = '$profile_info[health]',
+					food = '$profile_info[food]',
+					eye_color = '$profile_info[eye_color]',
+					hair_color = '$profile_info[hair_color]',
+					height = '$profile_info[height]',
+					body_type = '$profile_info[body_type]',
+					race = '$profile_info[race]',
+					religion = '$profile_info[religion]',
+					faith = '$profile_info[faith]',
+					looking_religion = '$profile_info[looking_religion]',
+					looking_faith = '$profile_info[looking_faith]',
+					occupation = '$profile_info[occupation]',
+					education = '$profile_info[education]',
+					lang_1 = '$profile_info[lang_1]',
+					lang_1_rate = '$profile_info[lang_1_rate]',
+					lang_2 = '$profile_info[lang_2]',
+					lang_2_rate = '$profile_info[lang_2_rate]',
+					lang_3 = '$profile_info[lang_3]',
+					lang_3_rate = '$profile_info[lang_3_rate]',
+					lang_4 = '$profile_info[lang_4]',
+					lang_4_rate = '$profile_info[lang_4_rate]',
+					looking_for = '$profile_info[looking_for]',
+					age_from = '$profile_info[age_from]',
+					age_to = '$profile_info[age_to]',
+					fage_min = '$profile_info[fage_min]',
+					fage_max = '$profile_info[fage_max]',
+					general_info = '$profile_info[general_info]',
+					appearance_info = '$profile_info[appearance_info]',
+					looking_for_info = '$profile_info[looking_for_info]'
+					where id = '$profile_id'";
+//					zipcode = '$profile_info[zipcode]',
+
+		q($query);
+
+		echo mysql_error();
+
+		$id = $profile_id;
+
+		$query = "delete from dt_relationship_x where profile_id = '$profile_id'";
+		q($query);
+		settype($profile_info[relationship], "array");
+		while(list($k, $v) = each($profile_info[relationship]))
+		{
+			if($v == "")
+				continue;
+			$query = "insert into dt_relationship_x (profile_id, relationship_id) values
+						('$profile_id', '$v')";
+			q($query);
+		}
+		
+		//saving interests
+		$query = "delete from dt_interests_x where profile_id = '$profile_id'";
+		q($query);
+		settype($profile_info[interests], "array");
+		while(list($k, $v) = each($profile_info[interests]))
+		{
+			if($v == "")
+				continue;
+			$query = "insert into dt_interests_x (profile_id, interest_id) values
+						('$profile_id', '$v')";
+			q($query);
+		}
+		
+		//saving filter
+		$query = "delete from dt_marital_status_x where profile_id = '$profile_id'";
+		q($query);
+		settype($profile_info[fmaritalstatus], "array");
+		while(list($k, $v) = each($profile_info[fmaritalstatus]))
+		{
+			if($v == "")
+				continue;
+			$query = "insert into dt_marital_status_x (profile_id, marital_status_id) values
+						('$profile_id', '$v')";
+			q($query);
+		}		
+		
+		$query = "delete from dt_religions_x where profile_id = '$profile_id'";
+		q($query);
+		settype($profile_info[freligion], "array");
+		while(list($k, $v) = each($profile_info[freligion]))
+		{
+			if($v == "")
+				continue;
+			$query = "insert into dt_religions_x (profile_id, religion_id) values
+						('$profile_id', '$v')";
+			q($query);
+		}			
+		
+		$query = "delete from dt_faiths_x where profile_id = '$profile_id'";
+		q($query);
+		settype($profile_info[ffaith], "array");
+		while(list($k, $v) = each($profile_info[ffaith]))
+		{
+			if($v == "")
+				continue;
+			$query = "insert into dt_faiths_x (profile_id, faith_id) values
+						('$profile_id', '$v')";
+			q($query);
+		}	
+		
+		$query = "delete from dt_characters_x where profile_id = '$profile_id'";
+		q($query);
+		settype($profile_info[characters], "array");
+		while(list($k, $v) = each($profile_info[characters]))
+		{
+			if($v == "")
+				continue;
+			$query = "insert into dt_characters_x (profile_id, character_id) values
+						('$profile_id', '$v')";
+			q($query);
+		}
+
+        $fstamp_res = f(q("select * from dt_stamps_balance where member_id='$member_id'"));
+		if($fstamp_res["id"] != "")
+		{
+			$query = "update dt_stamps_balance set balance = '$profile_info[balance]' where member_id='$member_id'";
+		}
+		else
+		{
+			$query = "insert into dt_stamps_balance (member_id, balance) values ('$member_id', '$profile_info[balance]')";
+		}
+        q($query);
+		
+		//photos
+		include('lib/thumb.lib');
+		for ($number=1;$number<=4;$number++){
+			if ($HTTP_POST_FILES["filename_$number"]['tmp_name']){
+				$fMember = f(q("select * from dt_members where id='$member_id'"));
+                $member_code = sysGetProfileCode();
+				if ($number<4){
+					$file_source = $member_code."_$number.".man_MIME2Ext($HTTP_POST_FILES["filename_$number"]['type']);
+					upload_file($HTTP_POST_FILES["filename_$number"]['tmp_name'], "../photos/$file_source", man_MIME2Ext($HTTP_POST_FILES["filename_$number"]['type']));
+					create_thumbnail("$file_source","../photos");
+					$field = "filename_$number";
+				}
+				else{
+					$file_source = $member_code."_v.".man_MIME2Ext($HTTP_POST_FILES["filename_$number"]['type']);
+					upload_file($HTTP_POST_FILES["filename_$number"]['tmp_name'], "../videos/$file_source", man_MIME2Ext($HTTP_POST_FILES["filename_$number"]['type']));
+					$field = "video";
+				}
+				$rPhotos = q("SELECT id FROM dt_photos WHERE member_id='$member_id'");
+				if(e($rPhotos))
+				{
+					q("INSERT INTO dt_photos ($field, member_id) VALUES('$file_source', '$member_id')");
+				}
+				else
+				{
+					q("UPDATE dt_photos SET $field='$file_source' WHERE member_id='$member_id'");
+				}
+			}
+			elseif ($HTTP_POST_VARS["delete_$number"]){
+					$fPhoto = f(q("SELECT filename_1, filename_2, filename_3,video as filename_4 FROM dt_photos WHERE member_id='$member_id'"));
+					if ($number<4){
+						@unlink("../photos/".$fPhoto[ "filename_$number"]);
+						@unlink("../photos/thumb-".$fPhoto[ "filename_$number" ]);
+						q("UPDATE dt_photos SET filename_$number=null WHERE member_id='$member_id'");
+					}
+					else{
+						@unlink("../videos/".$fPhoto[ "filename_$number"]);
+						q("UPDATE dt_photos SET video=null WHERE member_id='$member_id'");
+					}
+			}
+		}
+		//end photos
+	}
+	
+	settype($id, "integer");
+	if($id)
+	{
+		$fProfile = f(q("select * from dt_profile where id='$id'"));
+		$fMember = f(q("select * from dt_members where id='$fProfile[member_id]'"));
+		$fStamp_balance = f(q("select balance from dt_stamps_balance where member_id='$fProfile[member_id]'"));
+	
+		$fInterests_res = q("select * from dt_interests_x where profile_id='$fProfile[id]'");
+		while($row = f($fInterests_res))
+		{
+			$interests[] = $row["interest_id"];
+		}
+
+		$fMaritalStatus_res = q("select * from dt_marital_status_x where profile_id='$fProfile[id]'");
+		while($row = f($fMaritalStatus_res))
+		{
+			$fmaritalstatus[] = $row["marital_status_id"];
+		}		
+
+		$fReligion_res = q("select * from dt_religions_x where profile_id='$fProfile[id]'");
+		while($row = f($fReligion_res))
+		{
+			$freligion[] = $row["religion_id"];
+		}		
+
+		$fFaith_res = q("select * from dt_faiths_x where profile_id='$fProfile[id]'");
+		while($row = f($fFaith_res))
+		{
+			$ffaith[] = $row["faith_id"];
+		}		
+
+		
+		$fCharacters_res = q("select * from dt_characters_x where profile_id='$fProfile[id]'");
+		while($row = f($fCharacters_res))
+		{
+			$characters[] = $row["character_id"];
+		}
+	
+		$fRelationship_res = q("select * from dt_relationship_x where profile_id='$fProfile[id]'");
+		while($row = f($fRelationship_res))
+		{
+			$relationship[] = $row["relationship_id"];
+		}
+	}
+	else
+	{
+		$id = "new";
+		$fMember["login"] = "New member";
+		$show_login = 1;
+	}
+	if($msg)
+	{
+		echo "<strong>$msg</strong>";
+	}
+?>
+
+<table width="95%" border="0" cellspacing="1" cellpadding="0" align="center" bgcolor="#999999">
+  <tr>
+    <td>
+      <table width="100%" border="0" cellspacing="4" cellpadding="4" bgcolor="#FFFFFF">
+        <tr>
+          <td>
+            <table width="95%" border="0" cellspacing="1" cellpadding="0" align="center" bgcolor="#ffffff">
+              <form action="main.php?service=edit_profile.php" method=post enctype="multipart/form-data" >
+			  <input type="hidden" name="profile_id" value="<?php echo $id?>">
+			  <input type="hidden" name="member_id" value="<?php echo $fProfile[member_id]?>">
+                <tr>
+                  <td valign="top" colspan="2" height="20" bgcolor="#CCCCCC"><b>&nbsp;&nbsp;<?php echo $fMember["login"] ?> - User Info</b></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Login</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="member_info[login]" value="<?php echo $fMember["login"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Password</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="member_info[pswd]" value="<?php echo $fMember["pswd"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;E-mail</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="member_info[email]" value="<?php echo $fMember["email"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Name</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="member_info[name]" value="<?php echo $fMember["name"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Phone1</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="member_info[phone1]" value="<?php echo $fMember["phone1"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Phone2</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="member_info[phone2]" value="<?php echo $fMember["phone2"] ?>"></td>
+                </tr>
+		<?if (false){?>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Gender</td>
+                  <td width="50%" bgcolor="F0F0F0">
+                    <select name="member_info[gender]">
+                      <option value="Male"<?php echo (strtolower($fMember["gender"]) == "male") ? " selected" : ""?>>Male</option>
+                      <option value="Female"<?php echo (strtolower($fMember["gender"]) == "female") ? " selected" : ""?>>Female</option>
+                    </select>
+				  </td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Age</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="member_info[age]" value="<?php echo $fMember["age"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Resident Country</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="member_info[country]" value="<?php echo $fMember["country"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Origin Country</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="member_info[origin_country]" value="<?php echo $fMember["origin_country"] ?>"></td>
+                </tr>
+				<tr><td colspan=2><hr size=2 color=blue></td></tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Looking For</td>
+                  <td width="50%" bgcolor="F0F0F0">
+                    <select name="member_info[looking_for]">
+                      <option value="Male"<?php echo (strtolower($fMember["looking_for"]) == "male") ? " selected" : ""?>>Male</option>
+                      <option value="Female"<?php echo (strtolower($fMember["looking_for"]) == "female") ? " selected" : ""?>>Female</option>
+                    </select>
+				  </td>
+                </tr>
+				<?}?>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Registration Date (mm/dd/yyyy)</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="member_info[reg_date]" value="<?php echo date("m/d/Y", $fMember["reg_date"]) ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Contact for free</td>
+                  <td width="50%" bgcolor="F0F0F0">
+                    <select name="member_info[system_status]">
+                      <option value="0"<?php echo ($fMember["system_status"] == "0") ? " selected" : ""?>>Not Active</option>
+                      <option value="1"<?php echo ($fMember["system_status"] == "1") ? " selected" : ""?>>Active</option>
+                    </select>
+				  </td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Subscription End (mm/dd/yyyy)</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="member_info[system_status_end]" value="<?php echo @date("m/d/Y", $fMember["system_status_end"]) ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Unlimited Contacts</td>
+                  <td width="50%" bgcolor="F0F0F0">
+                    <select name="member_info[unlimited]">
+                      <option value="0"<?php echo ($fMember["unlimited"] == "0") ? " selected" : ""?>>Not Active</option>
+                      <option value="1"<?php echo ($fMember["unlimited"] == "1") ? " selected" : ""?>>Active</option>
+                    </select>
+				  </td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Subscription End (mm/dd/yyyy)</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="member_info[unlimited_end]" value="<?php echo @date("m/d/Y", $fMember["unlimited_end"]) ?>"></td>
+                </tr>
+				<tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Stamp Balance</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="profile_info[balance]" value="<?php echo $fStamp_balance["balance"] ?>"></td>
+                </tr>
+				<tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Preferred language</td>
+                  <td width="50%" bgcolor="F0F0F0">
+                    <select name="member_info[language]">
+                      <option value="rus"<?php echo (strtolower($fMember["language"]) == "rus") ? " selected" : ""?>>Russian</option>
+                      <option value="eng"<?php echo (strtolower($fMember["language"]) == "eng") ? " selected" : ""?>>English</option>
+                      <option value="heb"<?php echo (strtolower($fMember["language"]) == "heb") ? " selected" : ""?>>Hebrew</option>
+                    </select>		
+					</td>		
+                </tr>
+                <tr>
+                  <td valign="top" colspan="2" height="20" bgcolor="#CCCCCC"><b>&nbsp;&nbsp;<?php echo $fMember["login"] ?> - Profile Info</b></td>
+                </tr>
+				
+				
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Profile Name</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="profile_info[name]" value="<?php echo $fProfile["name"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Gender</td>
+                  <td width="50%" bgcolor="F0F0F0">
+                    <select name="profile_info[gender]">
+      <?php
+    $gender_list = array(
+    	"Male" => "Male",
+    	"Female" => "Female"
+    );
+
+	$gender_list1 = $gender_list;
+    // $gender_list is set in the index.php
+
+//    $gender_list[""] = "Any";
+    
+	reset($gender_list);
+    while(list($k, $v) = each($gender_list))
+    {
+    	$sel = "";
+    	if($fProfile["gender"] == $k)
+    	{
+    		$sel = "selected";
+    	}
+?>
+        <option value='<? echo $k; ?>' <? echo $sel; ?>><? echo $v; ?></option>
+<?php    	
+    }
+      ?>
+                    </select>
+				  </td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Resident country</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[country]", "dt_countries", $fProfile["country"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Origin country</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[country_orig]", "dt_countries", $fProfile["country_orig"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;State</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="profile_info[state]" value="<?php echo $fProfile["state"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;City</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="profile_info[city]" value="<?php echo $fProfile["city"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Zipcode</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="profile_info[zipcode]" value="<?php echo $fProfile["zipcode"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;E-mail</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="profile_info[email]" value="<?php echo $fProfile["email"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Birthdate (mm/dd/yyyy)</td>
+                  <td width="50%" bgcolor="F0F0F0">
+				  	<input type="text" name="profile_info[birth_month]" size="2" maxlength="2" value="<?php echo  $fProfile["birth_month"] ?>">
+				  	<input type="text" name="profile_info[birth_day]" size="2" maxlength="2" value="<?php echo  $fProfile["birth_day"] ?>">
+				  	<input type="text" name="profile_info[birth_year]" size="4" maxlength="4" value="<?php echo  $fProfile["birth_year"] ?>">
+				  </td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Marital Status</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[marital_status]", "dt_marital_status", $fProfile["marital_status"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Children</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="profile_info[children]" value="<?php echo $fProfile["children"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Drinking</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[drinking]", "dt_drinking", $fProfile["drinking"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Smoking</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[smoking]", "dt_smoking", $fProfile["smoking"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Food</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[food]", "dt_food", $fProfile["food"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Eye Colour</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[eye_color]", "dt_eye_colors", $fProfile["eye_color"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Hair Color</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[hair_color]", "dt_hair_colors", $fProfile["hair_color"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Height</td>
+				  <td width="50%" bgcolor="F0F0F0"><input size=5 maxlength=5 name="profile_info[height]" value="<?=$fProfile["height"]?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Weight</td>
+                  <td width="50%" bgcolor="F0F0F0"><input size=5 maxlength=5 name="profile_info[weight]" value="<?=$fProfile["weight"]?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Health</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[health]", "dt_healthes", $fProfile["health"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Body Type</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[body_type]", "dt_body_types", $fProfile["body_type"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Religion</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[religion]", "dt_religions", $fProfile["religion"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Faith</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[faith]", "dt_faiths", $fProfile["faith"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Occupation</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[occupation]", "dt_occupations", $fProfile["occupation"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Education</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[education]", "dt_educations", $fProfile["education"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Income</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[income]", "dt_incomes", $fProfile["income"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Housing</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[living]", "dt_livings", $fProfile["living"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Languages</td>
+                  <td width="50%" bgcolor="F0F0F0">
+					<? sysMGetSelect("profile_info[lang_1]", "dt_languages", $fProfile["lang_1"], 2)?><? sysMGetSelect("profile_info[lang_1_rate]", "dt_lang_rates", $fProfile["lang_1_rate"], 0)?><br>
+					<? sysMGetSelect("profile_info[lang_2]", "dt_languages", $fProfile["lang_2"], 2)?><? sysMGetSelect("profile_info[lang_2_rate]", "dt_lang_rates", $fProfile["lang_2_rate"], 0)?><br>
+					<? sysMGetSelect("profile_info[lang_3]", "dt_languages", $fProfile["lang_3"], 2)?><? sysMGetSelect("profile_info[lang_3_rate]", "dt_lang_rates", $fProfile["lang_3_rate"], 0)?><br>
+					<? sysMGetSelect("profile_info[lang_4]", "dt_languages", $fProfile["lang_4"], 2)?><? sysMGetSelect("profile_info[lang_4_rate]", "dt_lang_rates", $fProfile["lang_4_rate"], 0)?>
+				  </td>
+                </tr>
+				<tr><td colspan=2 align=center><hr size=2 color=blue><b>&nbsp;&nbsp;Looking For</b></td></tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Looking For</td>
+                  <td width="50%" bgcolor="F0F0F0">
+                    <select name="profile_info[looking_for]">
+                      <option value="Male"<?php echo (strtolower($fProfile["looking_for"]) == "male") ? " selected" : ""?>>Male</option>
+                      <option value="Female"<?php echo (strtolower($fProfile["looking_for"]) == "female") ? " selected" : ""?>>Female</option>
+                    </select>
+				  </td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Age From</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="profile_info[age_from]" value="<?php echo $fProfile["age_from"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Age To</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="profile_info[age_to]" value="<?php echo $fProfile["age_to"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;His/her marital status</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[looking_marital_status]", "dt_marital_status", $fProfile["looking_marital_status"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;His/her religion</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[looking_religion]", "dt_religions", $fProfile["looking_religion"], 0) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;His/her faith</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysMGetSelect("profile_info[looking_faith]", "dt_faiths", $fProfile["looking_faith"], 0) ?></td>
+                </tr>						
+				<tr><td colspan=2 align=center><hr size=2 color=blue><b>&nbsp;&nbsp;Filter</b></td></tr>
+				
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Minimal Age</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="profile_info[fage_min]" value="<?php echo $fProfile["fage_min"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Maximal Age</td>
+                  <td width="50%" bgcolor="F0F0F0"><input type="text" name="profile_info[fage_max]" value="<?php echo $fProfile["fage_max"] ?>"></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Marital status is not</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysGetMultSelect("profile_info[fmaritalstatus]", "dt_marital_status", 5, $fmaritalstatus,"name_eng <> 'Other'") ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Religion is not</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysGetMultSelect("profile_info[freligion]", "dt_religions", 5, $freligion,"name_eng <> 'Other'") ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Faith is not</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysGetMultSelect("profile_info[ffaith]", "dt_faiths", 5, $ffaith,"name_eng <> 'Other'") ?></td>
+                </tr>
+				
+				
+				<tr><td colspan=2><hr size=2 color=blue></td></tr>
+						
+				<?if (false){?>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;General Info</td>
+                  <td width="50%" bgcolor="F0F0F0"><textarea name="profile_info[general_info]" cols="50" rows="5"><?php echo $fProfile["general_info"] ?></textarea></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Appearance Info</td>
+                  <td width="50%" bgcolor="F0F0F0"><textarea name="profile_info[appearance_info]" cols="50" rows="5"><?php echo $fProfile["appearance_info"] ?></textarea></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Looking For Info</td>
+                  <td width="50%" bgcolor="F0F0F0"><textarea name="profile_info[looking_for_info]" cols="50" rows="5"><?php echo $fProfile["looking_for_info"] ?></textarea></td>
+                </tr>
+				<?}?>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Interests</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysGetMultSelect("profile_info[interests]", "dt_interests", 5, $interests) ?></td>
+                </tr>
+				<tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Character</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysGetMultSelect("profile_info[characters]", "dt_characters", 5, $characters) ?></td>
+                </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;&nbsp;Relationship</td>
+                  <td width="50%" bgcolor="F0F0F0"><? sysGetMultSelect("profile_info[relationship]", "dt_relationship", 5, $relationship) ?></td>
+                </tr>
+
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;</td>
+                  <td width="50%" bgcolor="F0F0F0">
+                    <input type="submit" value="Submit">
+                    <input type="reset" value="Reset">
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan=2>
+				  <table>
+				  <?
+					$fPhoto = f(q("SELECT filename_1, filename_2, filename_3,video  filename_4 FROM dt_photos WHERE member_id='$fProfile[member_id]'"));
+				  ?>
+			<?for ($i=1;$i<=4;$i++){?>
+                <tr>
+                  <td><b><font color="#990000"><?=$la_photo?> <?=$i?></font></b>
+                    <hr noshade size="1" color=#6F75C1>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+						<?
+						if($fPhoto[ "filename_".$i ] != "")
+						{
+						if ($i<4)
+							echo "<a target=_blank href='../photos/".$fPhoto["filename_".$i]."''><img border=0 src=../photos/thumb-".$fPhoto["filename_".$i]."></a>";
+						else
+							echo "<a  href='../videos/".$fPhoto["filename_".$i]."''>Video File</a>";
+					
+						}
+						else
+						{
+							//echo "<img src=../images/default_photo.gif alt='No photo avaliable'>";
+						}
+						?>
+					</td>
+                </tr>
+				<tr>
+                  <td>
+                    <input type="file" name="filename_<?=$i?>" size="40">
+					<input type=hidden name=action value=upload>
+					<input type=checkbox name="delete_<?=$i?>"> Remove
+				  </td>
+                </tr>
+ 				<?}?>
+				</table>
+			 </td>
+              </tr>
+                <tr>
+                  <td valign="top" width="50%" bgcolor="F0F0F0">&nbsp;</td>
+                  <td width="50%" bgcolor="F0F0F0">
+                    <input type="submit" value="Submit">
+                    <input type="reset" value="Reset">
+                  </td>
+                </tr>			  
+              </form>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<br>
+<br>
+
+<?
+function upload_file($in, $out, $type)
+{
+         move_uploaded_file($in,$out);
+}
+
+function man_MIME2Ext($mime)
+{
+  switch($mime)
+	{
+    case "image/gif" :
+		return "gif";
+
+    case "image/pjpeg" :
+		return "jpg";
+
+    case "image/jpeg" :
+		return "jpg";
+		
+	case "video/mpeg" :	case "video/mpg" :
+		return "mpeg";
+  }
+
+	return "";
+}
+?>

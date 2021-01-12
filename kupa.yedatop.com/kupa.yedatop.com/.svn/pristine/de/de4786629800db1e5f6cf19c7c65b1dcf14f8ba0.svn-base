@@ -1,0 +1,111 @@
+<?php
+
+$simple=1;
+
+$page_subtitle = "פריטים אינם קיימים";
+
+require("include/common.php"); 
+require("include/business_functions.php");
+require("include/document.php");
+if(!loginCheck('User'))exit;
+
+include("$config[template_path]/admin_top.html");
+
+?>
+<style>
+    .tableheader2
+    {
+        background-color:darkblue;
+        color:white;
+        font-weight:bold;
+    }
+</style>
+<table width=100% height=180>
+    <tr style='height:1%'>
+        <td>
+            <b>
+                הפריטים הבאים אינם קיימים במערכת:
+            </b>
+        </td>
+    </tr>
+
+    <tr>
+        <td>
+            <div style='border:inset 1; background-color:white;overflow:auto;width:100%;height:100%' id=reason>
+                <table width=100% class=prods style='border-collapse:collapse' border=1 bordercolor=gray cellpadding=3>
+                    <tr>
+                        <td class=tableheader2>ברקוד</td>
+                        <td class=tableheader2>שם פריט</td>
+                    </tr>
+                    <?
+                    if (substr($prods,strlen($prods)-5)!="</tr>")
+                    {
+                        $prods = substr($prods, 0, strrpos($prods,"</tr>"));
+                        $prods .="<tr><td colspan=2 align=center>ועד...</td></tr>";
+                    }
+                    ?>
+<?=utf8RawUrlDecode($prods)?>
+                </table>
+            </div>
+        </td>
+    </tr>
+    <?if (true||$docgroup=="PURCHASE")
+{?>
+    <tr style='height:1%'>
+        <td align=center style="font-weight:bold">
+            מחיר מכירה =
+             <input type="pricefactor" size="3" maxlength="5" name="pricefactor" id="pricefactor" value="1">
+            X העלות
+&nbsp;&nbsp;&nbsp;
+            <input type="checkbox" name="nocountvat" id="nocountvat">
+            לספוג מע"מ בכפילה
+            &nbsp;
+            <?=$lang["discount"]?> <input type="text" size="3" maxlength="5" name="discount" id="discount" value=""> %
+
+        </td>
+    </tr>
+    <script>
+        $("#pricefactor").focus().select();
+    </script>
+    <?}?>
+    <script>
+        function confirmForm(){
+<?if (true||$docgroup=="PURCHASE")
+{?>
+        var v = $("#pricefactor").val();
+        if (v==""||isNaN(parseFloat(v))||v<=0)
+        {
+            alert("נא להזין ערך נומרי");
+            $("#pricefactor").focus().select();
+            return false;
+        }
+        var d = $("#discount").val();
+        if (d!=""&&(isNaN(parseFloat(d))||d<=0))
+        {
+            alert("<?=$lang["enter_number"]?>");
+            $("#discount").focus().select();
+            return false;
+        }
+        window.returnValue=$("#pricefactor").val()+"|"+($("#nocountvat").attr("checked")?1:0)+"|"+$("#discount").val();
+    <?}else
+{?>
+        window.returnValue=1;
+    <?}?>
+            window.close();
+        }
+    </script>
+
+    <tr style='height:1%'>
+        <td align=center>
+            <input type=button id=btnOK value='לייצר פריטים חדשים' onclick='confirmForm();' style='background:url(<?=$imgPath?>ok.gif);background-repeat:no-repeat' class=button>
+            <input type=button value='לא לייצר פריטים' onclick='window.returnValue=0;window.close();' style='background:url(<?=$imgPath?>delete.gif);background-repeat:no-repeat' class=button>
+            <input type=button value='סגור' onclick='window.close();' style='background:url(<?=$imgPath?>back.gif);background-repeat:no-repeat' class=button>
+        </td>
+    </tr>
+
+</table>
+
+<?
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

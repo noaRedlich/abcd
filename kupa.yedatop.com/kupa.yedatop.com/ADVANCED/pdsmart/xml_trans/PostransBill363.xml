@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="1258" BillId="363" ClientId="1">
+  <Products>
+    <Product Id="60005">
+      <Name>KOMPOT PERSIK 820 GR    ליפטן </Name>
+      <Barcode />
+      <SalePrice>5.5</SalePrice>
+      <SaledPrice>5.5</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="60005">
+      <Name>KOMPOT PERSIK 820 GR    ליפטן </Name>
+      <Barcode />
+      <SalePrice>5.5</SalePrice>
+      <SaledPrice>5.5</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="60005">
+      <Name>KOMPOT PERSIK 820 GR    ליפטן </Name>
+      <Barcode />
+      <SalePrice>5.5</SalePrice>
+      <SaledPrice>5.5</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="60005">
+      <Name>KOMPOT PERSIK 820 GR    ליפטן </Name>
+      <Barcode />
+      <SalePrice>5.5</SalePrice>
+      <SaledPrice>5.5</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="60005">
+      <Name>KOMPOT PERSIK 820 GR    ליפטן </Name>
+      <Barcode />
+      <SalePrice>5.5</SalePrice>
+      <SaledPrice>5.5</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>2.64</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>27.50</Cash>
+  </Pay>
+</Bill>

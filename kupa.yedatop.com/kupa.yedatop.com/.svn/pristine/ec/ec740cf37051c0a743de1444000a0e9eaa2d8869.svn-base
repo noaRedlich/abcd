@@ -1,0 +1,320 @@
+<?
+	class CModXMLTranslator
+	{
+		var $xtTree;
+		var $sCode;
+		var $nCounter = 0;
+        var $tCounter = 0;
+
+		function mxtTranslateCode($xtParent)
+		{
+			$xtChilds = array();
+
+			for($i = 0; $i < sizeof($this->xtTree);$i++)
+			{
+				if($this->xtTree[ $i ]->xtParent->nId == $xtParent->nId)
+				{
+					$this->mxtGetTranslation($this->xtTree[ $i ], 0);
+					$this->mxtTranslateCode($this->xtTree[ $i ]);
+					$this->mxtGetTranslation($this->xtTree[ $i ], 1);
+				}
+			}
+
+		}  //  mxtTranslateCode
+
+		function mxtCleanCode()
+		{
+			$this->sCode = ereg_replace(",)", ")", $this->sCode);
+			$this->sCode = ereg_replace(", )", ")", $this->sCode);
+		}  //  mxtCleanCode
+
+		function CModXMLTranslator($xtTree)
+		{
+			$this->xtTree = $xtTree;
+			$this->mxtTranslateCode(0);
+			$this->mxtCleanCode();
+		}  //  CModXMLTranslator
+
+		function mxtGetTranslation($xtObj, $sFlag)
+		{
+			$s = "";
+            global $main_db;
+            
+			switch($xtObj->sName)
+			{
+				case XML:
+					if(!$sFlag)
+					{
+						$s = "";
+					}
+					else
+					{
+						$s = "";
+					}
+					break;
+
+				case MAIN_TABLE:
+					if(!$sFlag)
+					{
+                        $z = $xtObj->sData;
+                        if ($z=="userdata"||$z=="listingsStocks")
+                        {
+                            $z = $main_db.".".$z;
+                        }
+						$s = '$sServiceMainTable = "'.$z.'";';
+					}
+					break;
+				case CONDITION:
+					if(!$sFlag)
+					{
+                        $z = $xtObj->sData;
+						$s = '$sServiceCondition = "'.$z.'";';
+					}
+					break; 					
+                
+				case RELOAD_PARENT:
+					if(!$sFlag)
+					{
+						$s = '$sReloadParent = "'.$xtObj->sData.'";';
+					}
+					break;
+
+				case ADD_LABEL:
+					if(!$sFlag)
+					{
+						$s = '$sAddLabel = "'.$xtObj->sData.'";';
+					}
+					break;
+                                        
+				case NAME:
+					if(!$sFlag)
+					{
+						$s = '$sServiceLegalName = "'.$xtObj->sData.'";';
+					}
+					break;
+				case VIEW:
+				case EDIT:
+				case OPTIONS:
+					if(!$sFlag)
+					{
+						switch($xtObj->sName)
+						{
+							case VIEW:
+								$s = '$sViewColoumns';
+								break;
+
+							case EDIT:
+								$s = '$sEditColoumns';
+								break;
+
+							case OPTIONS:
+								$s = '$sOptions';
+								break;
+
+						}
+
+						$s .= ' = array(';
+					}
+					else
+					{
+						$s = ');';
+					}
+					break;
+
+				case OPT:
+					if(!$sFlag)
+					{
+						$s = $xtObj->sAttr[ name ].' => '.$xtObj->sAttr[ type ];
+
+						if($xtObj->sAttr[ type ] == "" && $xtObj->sAttr[ val ] == "")
+						{
+							$s .= 'array(';
+						}
+						else
+						{ 
+							if($xtObj->sAttr[ val ] != "")
+							{
+								$s .= '"'.$xtObj->sAttr[ val ].'"';
+							}
+						}
+					}
+					else
+					{
+						if($xtObj->sAttr[ type ] == "" && $xtObj->sAttr[ val ] == "")
+						{
+							$s = ')';
+						}
+
+						$s .= ', ';
+
+						if($xtObj->sAttr[ type ] == promt)
+						{
+							$s .= $xtObj->sAttr[ name ].'_promt => "'.$xtObj->sAttr[ promt ].'", ';
+						}
+					}
+					break;
+                case TAB:
+                	if(!$sFlag)
+					{
+						$this->tCounter++;
+
+                        if ($xtObj->sAttr[index]){
+						    $s = $xtObj->sAttr[index].' => array(';
+                        }
+                        else{
+                            $s = $this->tCounter.' => array(';
+                        }
+
+						while(list($k, $v) = each($xtObj->sAttr))
+						{
+                            if ($k!=index){
+								if (!function_exists("iconv_substr"))
+									$s .= $k.' => "'.$v.'", ';
+								else
+						    		$s .= $k.' => "'.iconv("UTF-8","WINDOWS-1255",$v).'", ';
+                            }
+						}
+						$s = substr($s,0,strlen($s)-2).' ),';
+
+					}
+					break;
+				case OPTD:
+					if(!$sFlag)
+					{
+						$this->nCounter++;
+
+						$s = $this->nCounter.' => array(';
+
+						while(list($k, $v) = each($xtObj->sAttr))
+						{
+							$s .= $k.' => "'.$v.'", ';
+						}
+						$s .= 'ln => "'.$xtObj->sData.'"),';
+					}
+					break;
+                case TABS:
+					if(!$sFlag)
+					{
+						$s = '$sTabs = array(';
+					}
+					else
+					{
+						$s = ');';
+					}
+                    break;
+
+				case ECOL:
+					if(!$sFlag)
+					{
+						$this->nCounter++;
+
+						$s = $this->nCounter.' => array( ';
+
+						$sTmpAttr = $xtObj->sAttr;
+						while(list($k, $v) = each($sTmpAttr))
+						{
+							$s .= $k.' => "'.$v.'", ';
+						}
+						$s .= 'ln => "'.$xtObj->sData.'"';
+
+						if($xtObj->sAttr[ type ] == enum)
+						{
+							$s .= ', enum => array(';
+						}
+
+						if($xtObj->sAttr[ list_name ] != "")
+						{
+							$s .= ', '.$xtObj->sAttr[ list_name ].' => array(';
+						}
+					}
+					else
+					{
+						if($xtObj->sAttr[ type ] == enum)
+						{
+							$s .= ')';
+						}
+
+						if($xtObj->sAttr[ list_name ] != "")
+						{
+							$s .= ')';
+						}
+
+						$s .= '),';
+					}
+
+					break;
+
+				case VCOL:
+
+					if(!$sFlag)
+					{
+						$s = $xtObj->sAttr[ name ].' => ';
+
+						if($xtObj->sAttr[ type ] == "")
+						{
+							 $s .= '"'.$xtObj->sData.'"';
+						}
+						else
+						{
+							$s .= 'array(';
+
+							$sTmpAttr = $xtObj->sAttr;
+
+							while(list($k, $v) = each($sTmpAttr))
+							{
+								$s .= $k.' => "'.$v.'", ';
+							}
+
+							$s .= 'ln => "'.$xtObj->sData.'"';
+
+							if($xtObj->sAttr[ type ] == enum)
+							{
+								$s .= ', enum => array(';
+							}
+						}
+					}
+					else
+					{
+						if($xtObj->sAttr[ type ] != "")
+						{
+							$s = ')';
+						}
+
+						if($xtObj->sAttr[ type ] == enum)
+						{
+							$s .= ')';
+						}
+
+						$s .= ', ';
+					}
+					break;
+
+				case ENUM:
+					if(!$sFlag)
+					{
+						$s = $xtObj->sAttr[ val ].' => "'.$xtObj->sData.'",';
+					}
+					else
+					{
+						$s = '';
+					}
+					break;
+
+				case SQL_ACTIONS:
+					if(!$sFlag)
+					{
+						$s = '$sSQLActions = array(';
+					}
+					else
+					{
+						$s = ');';
+					}
+					break;
+			}
+
+//			$s .= "\n";
+
+			$this->sCode .= $s;
+		}  //  mxtGetTranslation
+	}
+?>

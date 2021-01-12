@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="" BillId="221" ClientId="500985.00">
+  <Products>
+    <Product Id="51">
+      <Name>קומבינציה 60</Name>
+      <Barcode />
+      <SalePrice>60</SalePrice>
+      <SaledPrice>60</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="37">
+      <Name>סושי טמפורה    אבוקדו טמאגו גז</Name>
+      <Barcode />
+      <SalePrice>32</SalePrice>
+      <SaledPrice>32</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="24">
+      <Name>אינסייד אאוט סושי עטוף   סלמון</Name>
+      <Barcode />
+      <SalePrice>4</SalePrice>
+      <SaledPrice>4</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="81">
+      <Name>טורטיה ממרח אבוקדו</Name>
+      <Barcode />
+      <SalePrice>32</SalePrice>
+      <SaledPrice>224</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>7</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>320</Cash>
+  </Pay>
+</Bill>

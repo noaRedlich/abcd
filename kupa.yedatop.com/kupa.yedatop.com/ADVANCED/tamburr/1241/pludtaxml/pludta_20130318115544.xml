@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="83722" isWeight="0" isDeleted="0" title="סיקפלקס אפור 11FC" category="0" saleprice="31.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1363512469">
+  </Product>
+  <Product barcode="147" isWeight="0" isDeleted="0" title="סכין יפני רחב" category="0" saleprice="4.5" cost="" stockQuantity="-80" minStockQuantity="" lastUpdated="1363512459">
+  </Product>
+  <Product barcode="12658" isWeight="0" isDeleted="0" title="אקדח סיליקון כתום" category="0" saleprice="15" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1363512475">
+  </Product>
+</Products>

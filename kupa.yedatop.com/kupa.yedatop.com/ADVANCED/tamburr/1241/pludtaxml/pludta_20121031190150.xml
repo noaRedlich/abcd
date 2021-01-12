@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="10984" isWeight="0" isDeleted="0" title="קרחום 350 איטלקי" category="0" saleprice="9.9" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1339668345">
+  </Product>
+  <Product barcode="7290001716465" isWeight="0" isDeleted="0" title="צלחת ענקית צבעוני 25 יח'" category="0" saleprice="12.5" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+  <Product barcode="105884" isWeight="0" isDeleted="0" title="פטיש 5 ק&quot;ג ידית פיבר" category="0" saleprice="139" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668344">
+  </Product>
+  <Product barcode="73819" isWeight="0" isDeleted="0" title="פטיש 1 ק&quot;ג" category="0" saleprice="38" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="7290004116590" isWeight="0" isDeleted="0" title="קלסימו 5 ק&quot;ג" category="0" saleprice="28.9" cost="" stockQuantity="-162" minStockQuantity="" lastUpdated="1339668332">
+  </Product>
+  <Product barcode="112793" isWeight="0" isDeleted="0" title="כיסויי לרכב L" category="0" saleprice="220" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668345">
+  </Product>
+  <Product barcode="7290006882110" isWeight="0" isDeleted="0" title="צינור למקלח מתכת שרשורי 1.5 מ'" category="0" saleprice="39.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="5429" isWeight="0" isDeleted="0" title="גבס גשר 5 ק&quot;ג" category="0" saleprice="18.8" cost="" stockQuantity="-21" minStockQuantity="" lastUpdated="1339668337">
+  </Product>
+  <Product barcode="7944" isWeight="0" isDeleted="0" title="מסמרי פלדה 3X50" category="0" saleprice="9.5" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="711" isWeight="0" isDeleted="0" title="קופסה 3 מקום לקיר רגיל" category="0" saleprice="4" cost="" stockQuantity="-6" minStockQuantity="" lastUpdated="1339668339">
+  </Product>
+  <Product barcode="8711595028028" isWeight="0" isDeleted="0" title="סופר 7 לבן" category="0" saleprice="28.8" cost="" stockQuantity="-16" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="8639" isWeight="0" isDeleted="0" title="מתאם 4 גויס" category="0" saleprice="15" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1339668341">
+  </Product>
+  <Product barcode="769127100252" isWeight="0" isDeleted="0" title="מברשת פולאר &quot;2.5" category="0" saleprice="12.9" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+</Products>

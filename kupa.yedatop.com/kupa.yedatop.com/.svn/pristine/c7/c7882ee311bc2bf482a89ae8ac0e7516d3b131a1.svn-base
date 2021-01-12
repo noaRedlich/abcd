@@ -1,0 +1,124 @@
+<?php
+if (!$rmodule){
+	$simple=1;
+}
+$page_subtitle = "דוחות";
+include("include/common.php");
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+$sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+$eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+
+if ($_GET["usr"]){ 
+	$uid = "&usr=".$usr;
+}
+if ($rmodule){
+	$uid = "&rmodule=".$rmodule;
+}
+
+?>
+<style>
+.z {color:gray} 
+.b {font-weight:bold}
+th {background-color:silver}
+.reportbutton{
+    border:outset 1;
+    background-color:buttonface
+}
+.reportbuttonpressed{
+    border:inset 1;
+    background-color:lightgreen;
+    color:yellow
+}
+a.reportlink{
+   text-decoration:none 
+}
+a.reportlink:hover,a.reportlink:active{
+    text-decoration:none;
+    color:yellow
+}
+</style>
+<script>
+		function openReport1(url,name,excelmode){
+			var ss="";
+			fF = document.F;
+			
+			if (fF.sDate.value!=""){
+				ss+='&sDate='+fF.sDate.value;
+			}
+			if (fF.eDate.value!=""){
+				ss+='&eDate='+fF.eDate.value;
+			}
+			if (excelmode)
+			{
+				ss+='&excelmode=1';
+			}
+
+			s = window.open(url+'&simple=1'+ss,name,'top=50,left=100,height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+			s.focus();
+		}	
+</script>
+	<body>
+	<table height=<?=($rmodule)?"400":"480"?> 480 cellpadding=5 border=0 width=480 align=center>
+	<tr style='height:1%'>
+		<td bgcolor=#ffffcc align=center>
+		<center><strong><?=$lang[admin_menu_reports]?> <?if ($_GET["usr"]){echo $username;}?></strong></center>
+	</td>
+	</tr>
+	<tr style='height:1%'>
+		<td align=center>
+		<form name=F>
+		<?=$lang["make_report"]?> <?=$lang["from"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+		<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.sDate")
+		'>
+		 <?=$lang["to"]?> <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+		<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.eDate")
+		'>
+		</form>
+		</td>
+	</tr>
+	
+	<tr>
+	<td>
+	<div style='height:100%;width:100%;border:solid 1 gray;overflow:auto'>
+    <table width=100% cellpadding=3 >
+	
+<?
+$q=" and showinlist = 1 ";
+if ($rmodule){
+	$q .= " and stock_only=0";
+}
+$sql = "select * from $TABLE_REPORTS where status = 1 $q order by sortorder";
+
+$reports=$conn->Execute($sql);
+if ($reports === false){log_error($sql);}  
+while (!$reports->EOF){
+	if (HasReportPermission($reports->fields["id"]))
+	{
+        ?>
+        <tr>
+        	<td>
+	    		<img  onclick='openReport1("/modules/stock/<?=$reports->fields["link"]?>.php?<?=$reports->fields["params"]?><?=$uid?>","<?=$reports->fields["link"]?>",1);window.event.cancelBubble=true;' style='cursor:hand<?if (!$reports->fields["excelout"]){?>;visibility:hidden<?}?>' src="<?=$imgPath?>excel.gif" alt='פלט ל-Excel'></a>
+		    </td>
+		    <td width=99% nowrap title='<?=$reports->fields["description"]?>' onmouseover='this.className="reportbuttonpressed"' onmouseout='this.className="reportbutton"'  class=reportbutton align=center>
+				<a class=reportlink href=# style='width:100%;color:black' onclick='openReport1("/modules/stock/<?=$reports->fields["link"]?>.php?<?=$reports->fields["params"]?><?=$uid?>","<?=$reports->fields["link"]?>")'><strong><?=$reports->fields["name"]?></strong></a>
+			</td>
+	    </tr>
+		<?
+	}
+	$reports->MoveNext();
+} 
+    ?>
+    
+	</table>
+    </div>
+    </td></tr>
+	
+	</table>
+<?
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

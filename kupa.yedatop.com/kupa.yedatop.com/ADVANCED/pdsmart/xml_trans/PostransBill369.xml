@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="1258" BillId="369" ClientId="1">
+  <Products>
+    <Product Id="30007">
+      <Name>WHISKY OLEN VKOROBKE 0.7 L    </Name>
+      <Barcode />
+      <SalePrice>55</SalePrice>
+      <SaledPrice>55</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>55.00</Cash>
+  </Pay>
+</Bill>

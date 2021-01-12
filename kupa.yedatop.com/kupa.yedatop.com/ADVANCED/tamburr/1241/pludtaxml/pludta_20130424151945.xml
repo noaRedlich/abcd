@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="4050300327235" isWeight="0" isDeleted="0" title="נורה OSRAM PL 4 PIN 26W" category="0" saleprice="23.9" cost="" stockQuantity="-9" minStockQuantity="" lastUpdated="1363512464">
+  </Product>
+  <Product barcode="84517" isWeight="0" isDeleted="0" title="חבק פלסטי 4.8X400" category="0" saleprice="29.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1363512469">
+  </Product>
+  <Product barcode="8447" isWeight="0" isDeleted="0" title="חבק פלסטי 3.6X250" category="0" saleprice="13" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1363512469">
+  </Product>
+  <Product barcode="823" isWeight="0" isDeleted="0" title="סטרטר 40W לפלוריסנט OSRAM" category="0" saleprice="3" cost="" stockQuantity="-15" minStockQuantity="" lastUpdated="1363512469">
+  </Product>
+  <Product barcode="7290001076118" isWeight="0" isDeleted="0" title="סופרקריל מט לבן 18 ליטר" category="0" saleprice="290" cost="" stockQuantity="-7" minStockQuantity="" lastUpdated="1363512464">
+  </Product>
+</Products>

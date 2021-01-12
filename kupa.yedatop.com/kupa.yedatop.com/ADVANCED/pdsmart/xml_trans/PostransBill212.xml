@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="" BillId="212" ClientId="500452.00">
+  <Products>
+    <Product Id="4">
+      <Name>מאקי  סלמון מעושן</Name>
+      <Barcode />
+      <SalePrice>15</SalePrice>
+      <SaledPrice>15</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="74">
+      <Name>מוקפץ  בקר  עם ירקות העונה חמו</Name>
+      <Barcode />
+      <SalePrice>10</SalePrice>
+      <SaledPrice>10</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="77">
+      <Name>אדממה</Name>
+      <Barcode />
+      <SalePrice>5</SalePrice>
+      <SaledPrice>20</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>4</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>45</Cash>
+  </Pay>
+</Bill>

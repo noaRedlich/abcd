@@ -1,0 +1,144 @@
+function closeProductNames() {
+    if (document.activeElement.id != "productNames") {
+        document.all.productNames.style.display = 'none';
+        inProc = false;
+    }
+}
+
+function checkProduct(idElement) {
+    currentInput = window.event.srcElement;
+    currentInputID = (typeof (idElement) == "undefined") ? document.all.productid : idElement;
+    currentInput.style.color = "gray";
+    currentInputID.value = "";
+    var productName = currentInput.value;
+    if (event.keyCode == 38 || event.keyCode == 40 && document.all.productNames.style.display == 'block') {
+        document.all.productNames.focus();
+    }
+    else if ((event.keyCode == 40 && event.ctrlKey) || (event.keyCode != 13 && productName != "" && productName != prevProductName)) {
+        if (!inProc) {
+            window.setTimeout("callProduct();", (event.keyCode == 40) ? 1 : 500);
+            inProc = true;
+        }
+    }
+}
+
+function checkProductByBarcode(idElement) {
+    currentInput = window.event.srcElement;
+    currentInputID = (typeof (idElement) == "undefined") ? document.all.productid : idElement;
+    currentInput.style.color = "gray";
+    currentInputID.value = "";
+    var productName = currentInput.value;
+    if (event.keyCode == 38 || event.keyCode == 40 && document.all.productNames.style.display == 'block') {
+        document.all.productNames.focus();
+    }
+    else if ((event.keyCode == 40 && event.ctrlKey) || (event.keyCode != 13 && productName != "" && productName != prevProductName)) {
+        if (!inProc) {
+            window.setTimeout("callProductByBarcode();", (event.keyCode == 40) ? 1 : 500);
+            inProc = true;
+        }
+    }
+}
+
+function callProduct() {
+    inProc = false;
+    if (currentInput.value != "") {
+        agent.call('doc_services.php', 'GetProducts', 'GetProduct_Callback', escape(currentInput.value))
+        prevProductName = currentInput.value;
+    }
+}
+
+function callProductByBarcode() {
+    inProc = false;
+    if (currentInput.value != "") {
+        agent.call('doc_services.php', 'GetProductsByBarcode', 'GetProductBarcode_Callback', escape(currentInput.value))
+        prevProductName = currentInput.value;
+    }
+}
+
+function GetProduct_Callback(s) {
+
+    try {
+        xmlDoc.loadXML(s)
+        productList = xmlDoc.documentElement;
+        document.all.productNames.options.length = 0;
+        for (i = 0; i < productList.childNodes.length; i++) {
+            var productTitle = productList.childNodes(i).text;
+            document.all.productNames.options[document.all.productNames.options.length] = new Option(productTitle);
+            document.all.productNames.options[document.all.productNames.options.length - 1].barcode = productList.childNodes(i).attributes[0].value;
+        }
+        $("#productNames").width(250).css("background-color", "").css("display", "block").attr("selectedIndex", 0);
+        $("#productNames").css("top", $("#" + currentInput.id).offset().top + $("#" + currentInput.id).height() + 3);
+        $("#productNames").css("left", $("#" + currentInput.id).offset().left + $("#" + currentInput.id).width() - 250 + 3);
+    }
+    catch (e) {
+        alert(e.description + "\n\n" + s);
+        return true;
+    }
+}
+
+function GetProductBarcode_Callback(s) {
+
+    try {
+        xmlDoc.loadXML(s)
+        productList = xmlDoc.documentElement;
+        document.all.productNames.options.length = 0;
+        for (i = 0; i < productList.childNodes.length; i++) {
+            barcode = productList.childNodes(i).attributes[0].value;
+            document.all.productNames.options[document.all.productNames.options.length] = new Option(barcode);
+            document.all.productNames.options[document.all.productNames.options.length - 1].barcode = barcode;
+        }
+        $("#productNames").width(250).css("background-color", "").css("display", "block").attr("selectedIndex", 0);
+        $("#productNames").css("top", $("#" + currentInput.id).offset().top + $("#" + currentInput.id).height() + 3);
+        $("#productNames").css("left", $("#" + currentInput.id).offset().left + $("#" + currentInput.id).width() - 250 + 3);
+    }
+    catch (e) {
+        alert(e.description + "\n\n" + s);
+        return true;
+    }
+}
+
+
+function checkPrNames() {
+    if (event.keyCode == 13) {
+        getProduct();
+    }
+    else if (event.keyCode == 27) {
+        document.all.productNames.style.display = "none";
+        if (currentInput != null) {
+            currentInput.focus();
+        }
+    }
+}
+
+function getProduct() {
+    if (document.all.productNames.selectedIndex != -1) {
+        currentInput.value = prevProductName = document.all.productNames.options[document.all.productNames.selectedIndex].text;
+        currentInputID.value = document.all.productNames.options[document.all.productNames.selectedIndex].value;
+        document.all.productNames.style.display = "none";
+        if (currentInput != null) {
+            currentInput.style.color = "";
+            document.F.submit();
+        }
+    }
+}
+
+
+function getOffsetTop(el) {
+    var e = el;
+    var s = el.offsetTop;
+    while (e.offsetParent != null) {
+        s += e.offsetTop;
+        e = e.offsetParent;
+    }
+    return s;
+}
+
+function getOffsetLeft(el) {
+    var e = el;
+    var s = el.offsetLeft;
+    while (e.offsetParent != null) {
+        s += e.offsetLeft;
+        e = e.offsetParent;
+    }
+    return s + 15;
+}	

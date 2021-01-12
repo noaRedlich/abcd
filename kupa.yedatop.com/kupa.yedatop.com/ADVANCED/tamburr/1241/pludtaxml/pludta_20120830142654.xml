@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="4823003501703" isWeight="0" isDeleted="0" title="מנורת ליבון כדור 60W E14" category="0" saleprice="4.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668337">
+  </Product>
+  <Product barcode="38614" isWeight="0" isDeleted="0" title="פטיש טפסן" category="0" saleprice="27.5" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668335">
+  </Product>
+  <Product barcode="147" isWeight="0" isDeleted="0" title="סכין יפני רחב" category="0" saleprice="4.5" cost="" stockQuantity="-57" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="7290003710522" isWeight="0" isDeleted="0" title="גבס גשר 1 ק&quot;ג" category="0" saleprice="4.5" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668338">
+  </Product>
+  <Product barcode="4576" isWeight="0" isDeleted="0" title="מתלה מוט הברגה למזגן 3/8X500" category="0" saleprice="10.9" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+</Products>

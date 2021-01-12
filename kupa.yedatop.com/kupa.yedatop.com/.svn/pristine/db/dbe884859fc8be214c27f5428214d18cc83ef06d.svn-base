@@ -1,0 +1,84 @@
+<?php
+$noheader=1;
+
+require("db.php");
+
+if(!mysql_connect($db_host,$db_user,$db_pass))
+{
+	echo "SQL_ERROR: Cannot connect to DB: $db_name"; exit();
+}
+mysql_select_db($db_name) or die("SQL_ERROR: Cannot select DB: $db_name");
+
+$sql = "select 
+				l.id,
+				title,
+				l.export,
+				l.active,
+				c.CategoryName,
+				cost,
+				saleprice as price,
+				sap.SupplierName as sapak,
+				barcode,
+				u.username
+			from
+				 listingsDB l		
+				 inner join listingsCategories  c on	ProductGroup = c.ID
+				 inner join listingsSuppliers  sap on Sapak = sap.ID,
+				 $officedbname.users u 
+	 		where
+				l.synccatalog=0 and
+				u.id = l.user_id
+			order by binary CategoryName, binary title";
+			
+//echo $sql;
+$products = mysql_query($sql) or die(mysql_error);
+
+while ($product = mysql_fetch_array($products)){
+	$prodid = $product["id"];
+	$sql = "select sum(Quantity) as Quantity from listingsStocksElements where ListingID = $prodid";
+	$p = mysql_query($sql) or die(mysql_error);
+	$p = mysql_fetch_array($p);
+	$product["quantity"] = $p["Quantity"];
+
+	$arr = array(
+		$product["id"],
+		$product["export"],
+		$product["title"],
+		$product["price"],
+		$product["quantity"],
+		$product["username"],
+		$product["cost"],
+		$product["barcode"],
+		$product["active"]
+	);
+
+	$sql = "update listingsDB set synccatalog = 1 where id = ".$prodid;
+	mysql_query($sql) or die(mysql_error);
+	
+	echo fputcsv($arr);
+}
+
+#-------------------------------------
+function fputcsv ($array, $deliminator=",") {
+ $line = "";
+ foreach($array as $val) {
+   # remove any windows new lines, 
+# as they interfere with the parsing at the other end
+   $val = str_replace("\r\n", "\n", $val);
+   # if a deliminator char, a double quote char or a newline 
+   # are in the field, add quotes
+   if(ereg("[$deliminator\"\n\r]", $val)) {
+     $val = '"'.str_replace('"', '""', $val).'"';
+   }#end if
+   $line .= $val.$deliminator;
+ }#end foreach
+ # strip the last deliminator 
+ $line = substr($line, 0, (strlen($deliminator) * -1));
+ # add the newline 
+ $line .= "\n";
+ # we don't care if the file pointer is invalid, 
+ # let fputs take care of it
+ return $line;
+}#end fputcsv()
+#-------------------------------------
+?>

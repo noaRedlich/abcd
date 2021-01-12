@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="" BillId="204" ClientId="1">
+  <Products>
+    <Product Id="302">
+      <Name>צלי בקר ברוטב בשר</Name>
+      <Barcode />
+      <SalePrice>52</SalePrice>
+      <SaledPrice>52</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="405">
+      <Name>כוסמת</Name>
+      <Barcode />
+      <SalePrice>0</SalePrice>
+      <SaledPrice>0</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="404">
+      <Name>כרוב מאודה</Name>
+      <Barcode />
+      <SalePrice>0</SalePrice>
+      <SaledPrice>0</SaledPrice>
+      <DiscountPerc>0</DiscountPerc>
+      <DiscountNIS>0</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>52</Cash>
+  </Pay>
+</Bill>

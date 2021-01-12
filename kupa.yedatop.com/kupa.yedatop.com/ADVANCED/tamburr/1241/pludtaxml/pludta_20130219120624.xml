@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="1227" isWeight="0" isDeleted="0" title="דיבל 6" category="0" saleprice="6" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1361268096">
+  </Product>
+  <Product barcode="1385" isWeight="0" isDeleted="0" title="קרבינה קפיצי 60" category="0" saleprice="4" cost="" stockQuantity="-5" minStockQuantity="" lastUpdated="1361268098">
+  </Product>
+</Products>

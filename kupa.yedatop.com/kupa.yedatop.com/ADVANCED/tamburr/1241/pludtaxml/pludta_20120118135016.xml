@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="1" isWeight="0" isDeleted="0" title="כללי" category="0" saleprice="1" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1326886229">
+  </Product>
+  <Product barcode="4738" isWeight="0" isDeleted="0" title="אום &quot;5/16 100 יח'" category="0" saleprice="22" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1326886232">
+  </Product>
+  <Product barcode="4011890051580" isWeight="0" isDeleted="0" title="דיסק ברזל ונירוסטה 4.5  דק רודיוס" category="0" saleprice="11.9" cost="" stockQuantity="-2" minStockQuantity="" lastUpdated="1326886232">
+  </Product>
+  <Product barcode="240" isWeight="0" isDeleted="0" title="מברג PH2-150mm" category="0" saleprice="12.5" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1326886229">
+  </Product>
+  <Product barcode="7049" isWeight="0" isDeleted="0" title="שקע כוח מוגן מים NW1" category="0" saleprice="17.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1326886236">
+  </Product>
+  <Product barcode="6945780603307" isWeight="0" isDeleted="0" title="סכין יפני + 3 להבים" category="0" saleprice="15" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1326886226">
+  </Product>
+  <Product barcode="8711595028028" isWeight="0" isDeleted="0" title="סופר 7 לבן" category="0" saleprice="28.8" cost="" stockQuantity="-4" minStockQuantity="" lastUpdated="1326886226">
+  </Product>
+</Products>

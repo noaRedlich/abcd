@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="80925" isWeight="0" isDeleted="0" title="נייר טואלט טישו אביבית 48 גל'" category="0" saleprice="39" cost="" stockQuantity="-9" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="81216" isWeight="0" isDeleted="0" title="נייר מגבת שישייה כפול" category="0" saleprice="22" cost="" stockQuantity="-3" minStockQuantity="" lastUpdated="1339668340">
+  </Product>
+  <Product barcode="83852" isWeight="0" isDeleted="0" title="גליל קרטון" category="0" saleprice="89" cost="" stockQuantity="-18" minStockQuantity="" lastUpdated="1339668341">
+  </Product>
+  <Product barcode="114" isWeight="0" isDeleted="0" title="מסקינג טייפ מעוז" category="0" saleprice="6.9" cost="" stockQuantity="-19" minStockQuantity="" lastUpdated="1339668331">
+  </Product>
+  <Product barcode="419" isWeight="0" isDeleted="0" title="שק יוטה 45X58" category="0" saleprice="0.95" cost="" stockQuantity="-1085" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="422" isWeight="0" isDeleted="0" title="דבק פיקס לבן 109" category="0" saleprice="35" cost="" stockQuantity="-63" minStockQuantity="" lastUpdated="1339668336">
+  </Product>
+  <Product barcode="7290008049573" isWeight="0" isDeleted="0" title="פוליסיד טמבור 18 ליטר" category="0" saleprice="159" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1339668334">
+  </Product>
+</Products>

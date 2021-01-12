@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>billing</main_table>
+	<name>הסכמים</name>
+	<options>
+		<opt name="create_record" type="sometime"></opt>
+		<opt name="edit_record" type="sometime"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="doc_type" type="enum">סוג מסמך
+            <enum val="CHESHBONIT">חשבונית מס</enum>
+            <enum val="CHESHBONITPINKAS">חשבונית מפנקס ידני</enum>
+            <enum val="CHESHBONISKA">חשבון עיסקה</enum>
+            <enum val="MASKABALA">חשבונית מס קבלה</enum>
+		</vcol>
+		<vcol name="month_frequency" type="enum" >תקופה
+            <enum val="1">כל חודש</enum>
+            <enum val="2">כל חודשיים</enum>
+            <enum val="3">כל 3 חודשים</enum>
+            <enum val="4">כל 4 חודשים</enum>
+            <enum val="5">כל 5 חודשים</enum>
+            <enum val="6">כל 6 חודשים</enum>
+            <enum val="7">כל 7 חודשים</enum>
+            <enum val="8">כל 8 חודשים</enum>
+            <enum val="9">כל 9 חודשים</enum>
+            <enum val="10">כל 10 חודשים</enum>
+            <enum val="11">כל 11 חודשים</enum>
+            <enum val="12">כל שנה</enum>
+		</vcol>
+		<vcol name="Status" type="yes_no">פעיל</vcol>
+	</view>
+	<edit>
+    		<ecol tab="4" name="supplier_id" type="cross" cross="listingsSuppliers" cross_field="ID" lookup_field="SupplierName" >ספק</ecol>
+			<ecol tab="1" name="doc_type" type="enum" >סוג מסמך
+	            <enum val="CHESHBONIT">חשבונית מס</enum>
+	            <enum val="CHESHBONITPINKAS">חשבונית מפנקס ידני</enum>
+	            <enum val="CHESHBONISKA">חשבון עיסקה</enum>
+	            <enum val="MASKABALA">חשבונית מס קבלה</enum>
+			</ecol> 
+			<ecol tab="1" name="stock_id" type="cross" cross="prf_weberp.listingsStocks" cross_field="ID" lookup_field="StockName" condition="status=1" mandatory="yes" >נקודה</ecol>
+			<ecol tab="1" name="month_frequency" type="enum" >תקופה
+	            <enum val="1">כל חודש</enum>
+	            <enum val="2">כל חודשיים</enum>
+	            <enum val="3">כל 3 חודשים</enum>
+	            <enum val="4">כל 4 חודשים</enum>
+	            <enum val="5">כל 5 חודשים</enum>
+	            <enum val="6">כל 6 חודשים</enum>
+	            <enum val="7">כל 7 חודשים</enum>
+	            <enum val="8">כל 8 חודשים</enum>
+	            <enum val="9">כל 9 חודשים</enum>
+	            <enum val="10">כל 10 חודשים</enum>
+	            <enum val="11">כל 11 חודשים</enum>
+	            <enum val="12">כל שנה</enum>
+			</ecol>
+			<ecol tab="1" name="comment" type="text">הערות</ecol>
+			<ecol tab="1" name="Status" type="yes_no" defaultvalue="Yes">פעיל</ecol>
+			<ecol name="Products"  type="cross_parent" service="billing_products" cross_field="billing_id" tab="2"></ecol>
+			<ecol tab="3" name="payment_type" type="cross" cross="prf_weberp.docpaymenttypes" nouserid="yes" cross_field="id" lookup_field="name" mandatory="yes" >סוג תשלום</ecol>
+			<ecol tab="3" name="kupa_id" type="cross" cross="kupot" cross_field="id" lookup_field="name" condition="status=1"  >קופה</ecol>
+
+
+
+	</edit>
+	<sql_actions>
+		<opt name="order" val="SortOrder"></opt>
+	</sql_actions>
+	<tabs>
+        <tab index="1" name="כללי"></tab>
+        <tab index="2" name="פריטים" disableoncreate="Yes"></tab>
+        <tab index="3" name="תשלום" disableoncreate="Yes"></tab>
+    </tabs>
+</xml>

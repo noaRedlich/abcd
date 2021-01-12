@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<Bill StockId="1258" BillId="365" ClientId="1">
+  <Products>
+    <Product Id="20001">
+      <Name>WINE SHERRY 0.7 L        יין ש</Name>
+      <Barcode />
+      <SalePrice>24</SalePrice>
+      <SaledPrice>24</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="20004">
+      <Name>WINE LIRIA SHIRAZ 0.7 L       </Name>
+      <Barcode />
+      <SalePrice>24</SalePrice>
+      <SaledPrice>24</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+    <Product Id="20007">
+      <Name>WINE SAPERAVI 1.5 L      יין ס</Name>
+      <Barcode />
+      <SalePrice>23.5</SalePrice>
+      <SaledPrice>23.5</SaledPrice>
+      <DiscountPerc>0.00</DiscountPerc>
+      <DiscountNIS>0.00</DiscountNIS>
+      <Quantity>1</Quantity>
+    </Product>
+  </Products>
+  <Pay Rounding="0.00">
+    <DiscountPerc>0</DiscountPerc>
+    <DiscountNIS>0.00</DiscountNIS>
+    <Cash>71.50</Cash>
+  </Pay>
+</Bill>

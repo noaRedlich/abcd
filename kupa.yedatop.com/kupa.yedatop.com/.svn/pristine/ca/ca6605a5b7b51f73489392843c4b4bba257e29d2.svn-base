@@ -1,0 +1,24 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+require("Group-Office.php");
+require($GO_LANGUAGE->get_language_file('users'));
+$GO_SECURITY->authenticate(true);
+switch ($action)
+{
+	case "reboot":
+		system($GO_CONFIG->sudo." ".$GO_CONFIG->reboot);
+	break;
+
+	case "poweroff";
+		system($GO_CONFIG->sudo." ".$GO_CONFIG->poweroff);
+	break;
+
+}
+echo "<script type=\"text/javascript\">\nwindow.close();\n</script>";
+?>

@@ -1,0 +1,23 @@
+<?
+ $page_subtitle = "סל פרטים";
+ob_start();
+ 
+$noheader=1;
+$page_subtitle = "סל פריטים";
+include("include/common.php");
+if (!loginCheck('User'))exit; 
+global $action, $id, $cur_page, $lang, $conn, $config;
+
+ob_end_clean();
+if ($_GET["id"]){
+ 		$sql="update document_payments set basket=".(($action=="del")?0:1)." where ID in (".$_GET["id"].") ";
+		$r=$conn->Execute($sql);
+		if ($r === false){	log_error($sql);}
+		
+		$sql="select count(*) as cnt from document_payments dp, documents d where dp.doc_id = d.id and dp.basket=1 and not (doc_type = 'TASHLUM' and d.doc_status = $STATUS_CANCELLED) and d.user_id= $userID";
+		$r=$conn->Execute($sql);
+		if ($r === false){	log_error($sql);}
+
+		echo $r->fields["cnt"];
+ }
+?>

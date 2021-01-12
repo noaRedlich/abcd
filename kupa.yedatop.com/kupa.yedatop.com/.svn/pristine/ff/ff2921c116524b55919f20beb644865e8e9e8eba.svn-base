@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<guardProject xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" appName="Mlaitech" appVersion="2.0" targetDir="D:\Site\groupoffice\vcxencoded" xsi:noNamespaceSchemaLocation="guard.xsd">
+	
+	<options>
+		<phpVersion value="5"/>
+
+		<phpFilesExtensions>
+			<extension>php</extension>
+			<extension>inc</extension>
+			<extension>php3</extension>
+			<extension>php4</extension>
+			<extension>ihtml</extension>
+			<extension>service</extension>
+			<extension>lib</extension>
+		</phpFilesExtensions>
+
+		<supportShortTags value="true"/>
+		<supportASPTags value="false"/>
+		<workWithEncodedFilesOnly value="false"/>
+		
+		<expiration>
+			<none/>
+		</expiration>
+
+		<licenseType value="none"/>
+		<privateKey>
+			<keyData/>
+		</privateKey>
+
+		<headerInformation>
+			<default/>
+		</headerInformation>
+
+		<optimizationLevel value="full"/> 
+		<ignoreErrors value="true"/>
+		<verbosityLevel value="silent"/>
+		<allowEncodedFileModification value="true"/>
+		<resolveSymlinks value="true"/>
+		
+		<securityMethodList>
+			<securityMethod name="encodePhpFiles" value="true"/>
+			<securityMethod name="removeLineNumbers" value="false"/>
+			<securityMethod name="removePhpDoc" value="true"/>
+			<securityMethod name="obfuscateVariables" value="true"/>
+			<securityMethod name="obfuscateFunctions" value="true"/>
+			<securityMethod name="obfuscateClasses" value="true"/>
+			<securityMethod name="obfuscatePhpEntities" value="true"/>
+		</securityMethodList>
+
+		<ignorePatterns>
+			<pattern>CVS</pattern>
+			<pattern>.svn</pattern>
+			<pattern>.#*</pattern>
+			<pattern>.cvsignore</pattern>
+			<pattern>group-office.php</pattern>
+			<pattern>config.php</pattern>
+			<pattern>db.php</pattern>
+			<pattern>Group-Office.php</pattern>
+			<pattern>Thumbs.db</pattern>
+		</ignorePatterns>
+		<excludeList>
+			<list>
+				<function>import</function>
+				<function>adodb_transmonitor</function>
+				<function>parameter</function>
+				<function>execute</function>
+				<function>genid</function>
+				<function>cacheexecute</function>
+				<function>getupdatesql</function>
+				<function>getinsertsql</function>
+				<function>adodb_sess_open</function>
+				<function>adodb_sess_close</function>
+				<function>adodb_sess_read</function>
+				<function>adodb_sess_write</function>
+				<function>adodb_sess_destroy</function>
+				<function>adodb_sess_gc</function>
+				<function>adodb_error_handler</function>
+				<function>adodb_error_pear</function>
+				<function>free</function>
+				<function>move</function>
+				<function>fields</function>
+				<function>adorecordset_array</function>
+				<function>adonewconnection</function>
+				<function>adodb_db2</function>
+				<function>adorecordset_array_mssql</function>
+				<function>bind</function>
+				<function>adodb_vfp</function>
+				<function>err</function>
+				<function>do_strtolower</function>
+				<function>countexecs</function>
+				<function>countcachedexecs</function>
+				<function>adodb_test_err</function>
+				<function>notifyexpire</function>
+				<function>name_value</function>
+				<function>services_json_error</function>
+				<function>call</function>
+				<function>listen</function>
+				<function>bookmarks</function>
+				<function>contacts</function>
+				<function>authorise</function>
+				<function>synchronise</function>
+				<function>button</function>
+				<function>files</function>
+				<function>paste</function>
+				<function>filesystem</function>
+				<function>size</function>
+				<function>filetypes</function>
+				<function>fpdf</function>
+				<function>error</function>
+				<function>header</function>
+				<function>line</function>
+				<function>link</function>
+				<function>text</function>
+				<function>cell</function>
+				<function>write</function>
+				<function>image</function>
+				<function>ln</function>
+				<function>output</function>
+				<function>pdf</function>
+				<function>groups</function>
+				<function>count</function>
+				<function>status</function>
+				<function>sort</function>
+				<function>f</function>
+				<function>subscribe</function>
+				<function>imap</function>
+				<function>set_language</function>
+				<function>authenticate</function>
+				<function>delete_module</function>
+				<function>debug</function>
+				<function>send</function>
+				<function>soap_fault</function>
+				<function>start_element</function>
+				<function>end_element</function>
+				<function>character_data</function>
+				<function>service</function>
+				<function>soapval</function>
+				<function>get</function>
+				<function>schemastartelement</function>
+				<function>schemaendelement</function>
+				<function>schemacharacterdata</function>
+				<function>circle</function>
+				<function>bookmark</function>
+				<function>displaypreferences</function>
+				<function>load</function>
+				<function>cgif</function>
+				<function>width</function>
+				<function>height</function>
+				<function>comment</function>
+				<function>loaded</function>
+				<function>reset</function>
+				<function>save</function>
+				<function>set_properties</function>
+				<function>select</function>
+				<function>write_row</function>
+				<function>write_number</function>
+				<function>write_string</function>
+				<function>write_blank</function>
+				<function>write_formula</function>
+				<function>write_url</function>
+				<function>write_url_range</function>
+				<function>_write_url_web</function>
+				<function>_write_url_internal</function>
+				<function>_write_url_external</function>
+				<function>_write_url_external_net</function>
+				<function>bbcode</function>
+				<function>file</function>
+				<function>_file</function>
+				<function>fsocket</function>
+				<function>general</function>
+				<function>httpsocket</function>
+				<function>pop3</function>
+				<function>session</function>
+				<function>templateparser</function>
+				<function>projects</function>
+				<function>add_project</function>
+				<function>delete_project</function>
+				<function>delete_fee</function>
+				<function>delete_material</function>
+				<function>scheduler</function>
+				<function>delete_scheduler</function>
+				<function>save_event</function>
+				<function>unsubscribe_event</function>
+				<function>delete_event</function>
+				<function>logout</function>
+				<function>login</function>
+				<function>config_file</function>
+				<function>clear</function>
+				<function>smarty_modifier_capitalize_ucfirst</function>
+				<function>smarty</function>
+				<function>assign</function>
+				<function>trigger_error</function>
+				<function>fetch</function>
+				<function>config_load</function>
+				<function>_process_compiled_include_callback</function>
+				<function>smarty_compiler</function>
+				<function>_syntax_error</function>
+				<function>_smarty_sort_length</function>
+				<function>db_get_template</function>
+				<function>db_get_timestamp</function>
+				<function>db_get_secure</function>
+				<function>db_get_trusted</function>
+				<function>smtp</function>
+				<function>uptime</function>
+				<function>users</function>
+				<function>sysinfo</function>
+				<function>set_theme</function>
+				<function>element</function>
+				<function>sql</function>
+				<function>insert</function>
+				<function>update</function>
+				<function>form</function>
+				<function>db</function>
+				<function>query_id</function>
+				<function>seek</function>
+				<function>p</function>
+				<function>createfolder</function>
+				<function>fileupload</function>
+				<function>mail_to</function>
+				<function>filemimefriendly</function>
+				<function>log</function>
+				<function>info</function>
+				<function>attach</function>
+				<function>sendreport</function>
+				<function>end</function>
+				<function>sum</function>
+				<function>hitcount</function>
+				<function>lang</function>
+				<function>lcs</function>
+				<function>_trimnewlines</function>
+				<function>diff</function>
+				<function>text_diff_op_copy</function>
+				<function>text_diff_op_delete</function>
+				<function>text_diff_op_add</function>
+				<function>text_diff_op_change</function>
+				<function>input</function>
+				<function>amt</function>
+				<function>deletefiles</function>
+				<function>trimword</function>
+				<function>show</function>
+				<function>check</function>
+				<function>GO_LANGUAGE</function>
+				<function>GO_THEME</function>
+				<function>GO_MODULES</function>
+				<function>GO_SECURITY</function>
+				<function>GO_CONFIG</function>
+				<function>get_language_file</function>
+				<function>accountIsDisabled</function>
+				<function>has_admin_permission</function>
+				<function>set_*</function>
+				<function>c</function>
+				<function>q</function>
+				<function>BD3*</function>
+				<function>sysCrypt</function>
+				<function>sysHardEncrypt</function>
+				<function>dateToSQL</function>
+				<function>GetClients</function>
+				<function>GetProducts</function>
+				<function>GetAgents</function>
+				<function>GetWorkers</function>
+				<function>AddProductsToBasket</function>
+				<function>GetPersons</function>
+				<function>getClientDataById</function>
+				<function>getPersonDataById</function>
+				<function>MakeClientXML</function>
+				<function>getClientData</function>
+				<function>setStockInitBalance</function>
+				<function>getProductData</function>
+				<function>getAgentData</function>
+				<function>getStockData</function>
+				<function>getDocumentId</function>
+				<function>getBaseDocumentProducts</function>
+			</list>
+		</excludeList>
+	</options>
+
+	<!-- Source entries: -->
+	<source path="D:\Site\groupoffice\groupoffice">
+		<options/>
+	</source>
+</guardProject>

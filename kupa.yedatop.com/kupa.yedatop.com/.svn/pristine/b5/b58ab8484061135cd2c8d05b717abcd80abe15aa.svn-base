@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>userdata</main_table>
+	<name>הגדרות משתמשים</name>
+	<options>
+		<opt name="create_record" type="none"></opt>
+		<opt name="search" type="always"></opt>
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="UserName" >שם משתמש</vcol>
+		<vcol name="UpdateMode">אופן עדקון</vcol>
+		<vcol name="WorkMode">אופן עבודה</vcol>
+		<vcol name="IsracardMode">מסלול ישראקארד</vcol>
+	</view>
+	<edit>
+		<ecol name="UserName" type="string" >שם משתמש</ecol>
+		<ecol name="WorkMode" type="enum">אופן עבודה
+			<enum val="A">A - קופה</enum>
+			<enum val="B">B - מרקז (אופן עדקון = NONE)</enum>
+		</ecol>
+		<ecol name="UpdateMode" type="enum">אופן עדקון מלאי מקופה
+			<enum val="A">ALL</enum>
+			<enum val="U">UPDATE</enum>
+			<enum val="N">NONE</enum>
+		</ecol>
+		<ecol name="ForceAllCodes" type="enum">לשלוח כל הפרטים לקופה )חד פעמי(
+			<enum val="0">לא</enum>
+			<enum val="1">כן</enum>
+		</ecol>
+		<ecol name="IsracardMode" type="enum">מסלול ישראקארד
+			<enum val="2">2 זיכוים</enum>
+			<enum val="4">4 זיכוים</enum>
+		</ecol>
+		<ecol name="email" type="string">E-mail</ecol>
+		<ecol name="faxmail" type="string">Fax mail</ecol>
+		
+	</edit>
+	<sql_actions>
+		<opt name="order" val="UserName"></opt>
+		<opt name="search_by" type="UserName"></opt>
+	</sql_actions>
+</xml>

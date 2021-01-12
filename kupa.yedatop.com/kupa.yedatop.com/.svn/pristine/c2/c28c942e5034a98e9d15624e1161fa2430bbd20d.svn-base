@@ -1,0 +1,44 @@
+<?php
+/*////////////////////////////////////////////////////////////////////
+//																	//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>			//
+// Version: 1.0 Release date: 14 March 2003							//
+//																	//
+////////////////////////////////////////////////////////////////////*/
+
+//////////////////////////////////////////////////////////////////////
+////////////// PLEASE LEAVE THIS ABOUT PAGE INTACT ///////////////////
+//////////////////////////////////////////////////////////////////////
+
+require("Group-Office.php");
+$GO_SECURITY->authenticate();
+require($GO_LANGUAGE->get_language_file('about'));
+$page_title = $menu_about;
+require($GO_THEME->theme_path."header.inc");
+?>
+<table border="0" cellspacing="0" cellpadding="10">
+<tr>
+	<td>
+	<h1>Netcity-Office <?php echo $GO_CONFIG->version; ?></h1>
+	<?php echo $about_text; ?>
+	<br />
+	<br />
+	<h3><?php echo $about_authors; ?>:</h3>
+	<?php
+	$filename = $GO_CONFIG->root_path.'DEVELOPERS';
+	$handle = fopen ($filename, "r");
+	echo text_to_html(fread($handle, filesize($filename)));
+	fclose ($handle);
+	?>
+	<br /><br />
+	<?php echo $about_thanks; ?>:
+	<br /><br />
+	<a href="http://www.apache.org" target="new"><img src="<?php echo $GO_THEME->image_url; ?>apache_logo.gif" border="0"></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="http://www.php.net" target="new"><img src="<?php echo $GO_THEME->image_url; ?>php_logo.gif" border="0"></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="http://www.mysql.com" target="new"><img src="<?php echo $GO_THEME->image_url; ?>mysql_logo.gif" border="0"></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="http://www.redhat.com" target="new"><img src="<?php echo $GO_THEME->image_url; ?>redhat_logo.gif" border="0"></a>
+	<br /><br />
+	<iframe style="width: 670; height: 250;" src="LICENSE.GPL"></iframe>
+	</td>
+</tr>
+</table>
+<?php
+require($GO_THEME->theme_path."footer.inc");
+?>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Products>
+  <Product barcode="6888" isWeight="0" isDeleted="0" title="מאלטש שניים קטנות" category="0" saleprice="19.9" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1363512468">
+  </Product>
+  <Product barcode="68910" isWeight="0" isDeleted="0" title="מאלטש שניים גדולות" category="0" saleprice="22" cost="" stockQuantity="-1" minStockQuantity="" lastUpdated="1363512468">
+  </Product>
+</Products>
