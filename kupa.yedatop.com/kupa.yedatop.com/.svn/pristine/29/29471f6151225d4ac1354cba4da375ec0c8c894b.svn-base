@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>workers</main_table>
+	<name>עובדים</name>
+	<options>
+		<opt name="create_record" type="sometimes"></opt>
+		<opt name="search" type="sometimes"></opt>
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="WorkerNum" >מספר עובד</vcol>
+		<vcol name="WorkerName">שם פרטי</vcol>
+		<vcol name="WorkerSurName">שם משפחה</vcol>
+		<vcol name="TeudatZehut">ת.ז.</vcol>
+		<vcol name="Status" type="yes_no">פעיל</vcol>
+	</view>
+	<edit>
+		<ecol name="WorkerNum" type="string">מספר עובד</ecol>
+		<ecol name="WorkerName"  type="string">שם פרטי</ecol>
+		<ecol name="WorkerSurName"  type="string">שם משפחה</ecol>
+		<ecol name="TeudatZehut" type="string">ת.ז.</ecol>
+		<ecol name="Birthday" type="date">תאריך לידה (dd/mm/yyyy)</ecol>
+		<ecol name="Address"  type="string">כתובת</ecol>
+		<ecol name="HomePhone" type="string">טלפון בבית</ecol>
+		<ecol name="CellPhone"  type="string">טלפון נייד</ecol>
+		<ecol name="StartDate"  type="date">ת. תחילת עבודה (dd/mm/yyyy)</ecol>
+		<ecol name="EndDate" type="date">ת. סיום עבודה (dd/mm/yyyy)</ecol>
+		<ecol name="HourSalary" type="string">שכר לשעה</ecol>
+		<ecol name="Status" type="yes_no">פעיל</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="WorkerNum"></opt>
+		<opt name="search_by" type="WorkerNum"></opt>
+	</sql_actions>
+</xml>

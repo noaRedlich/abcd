@@ -1,0 +1,17 @@
+<style type=text/css><!--
+
+.Caption {font-family:arial; font-weight:bold; font-size:18px; color:navy; text-decoration:none;}
+
+.Caption:hover {color:red; text-decoration:underline;}
+
+--></style>
+
+
+
+<html><div style='text-align:center;'><table>
+
+<tr><td><a href=realtycontracts_view.php><img src=table.gif border=0></a></td><td class=Caption><a href=realtycontracts_view.php class=Caption>Contracts</a></td></tr>
+<tr><td><a href=listingsDB_view.php><img src=table.gif border=0></a></td><td class=Caption><a href=listingsDB_view.php class=Caption>listingsDB</a></td></tr>
+<tr><td><a href=realtycontractpayments_view.php><img src=table.gif border=0></a></td><td class=Caption><a href=realtycontractpayments_view.php class=Caption>Payments</a></td></tr>
+</table><br><font size=-1 color=silver><b>Powered by <a href=http://www.bigprof.com/appgini>AppGini 2.4</a></b></div></html>
+

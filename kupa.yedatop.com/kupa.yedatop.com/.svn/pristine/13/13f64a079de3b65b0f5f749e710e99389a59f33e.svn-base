@@ -1,0 +1,452 @@
+<?php
+
+$rootPath = $DOCUMENT_ROOT;
+
+@include($rootPath."/Group-Office.php");
+include($rootPath."/classes/phpexcel/class.writeexcel_workbookbig.inc.php");
+include($rootPath."/classes/phpexcel/class.writeexcel_worksheet.inc.php");
+include($rootPath."/classes/adodb/adodb.inc.php");
+include($rootPath."/modules/stock/include/functions.php");
+if (!$debug)
+{
+	ini_set("error_reporting","E_ERROR & E_CORE_ERROR & E_COMPILE_ERROR");
+}
+include($rootPath."/modules/stock/include/permissions.php"); 
+
+//always set hebrew
+$GO_LANGUAGE->set_language("Hebrew");
+require($GO_LANGUAGE->get_language_file('common'));
+//authenticate the user
+//if $GO_SECURITY->authenticate(true); is used the user needs admin permissons
+$isSystemScript = strpos(" ".$PHP_SELF,"gettrans") || strpos(" ".$PHP_SELF,"synccatalog") ||
+	strpos(" ".$PHP_SELF,"runscript") || strpos(" ".$PHP_SELF,"logreturn") || 
+	strpos(" ".$PHP_SELF,"stocksnapshot") || defined("SYSTEM_SCRIPT"); 
+
+
+if (strpos(" ".$PHP_SELF,"template_editor") || strpos(" ".$PHP_SELF,"runscript"))
+{
+	$GO_SECURITY->authenticate(true);
+} 
+elseif (!$isSystemScript) 
+{
+	$GO_SECURITY->authenticate();
+}
+
+
+//see if the user has access to this module
+//for this to work there must be a module named 'example'
+if (!$isSystemScript)
+{
+	$name = basename($PHP_SELF);
+	if ($_GET["rmodule"])
+	{
+		$rmodule=$_GET["rmodule"];
+	}
+	elseif ($_POST["rmodule"])
+	{
+		$rmodule=$_POST["rmodule"];
+	}
+	if ($rmodule==1 || ($rmodule==1 && ($name=="reports.php" || strpos(" ".$name,"rep_")))){
+		
+		$GO_MODULES->authenticate('stock_reports');
+	}
+	elseif ($rmodule==2)
+	{
+		$GO_MODULES->authenticate('stocktaking');
+	}
+	elseif($coupon && $name!="add_trans.php")
+	{
+		$GO_MODULES->authenticate('credit');
+	} 	
+	elseif($name=="clients.php")
+	{
+		$GO_MODULES->authenticate('credit2');
+	} 
+	else
+	{
+		$GO_MODULES->authenticate('stock');
+	}
+}
+
+//set the page title for the header file
+if (!$page_title)
+{
+	$page_title = "מלאיטק";
+}
+//require the header file. This will draw the logo's and the menu
+// there is also the simple_header.inc file without logo's and menu
+if (!$noheader)
+{
+	if ($simple)
+		require($GO_THEME->theme_path."simple_header.inc");
+	else
+		require($GO_THEME->theme_path."header.inc");
+}
+
+require_once($GO_CONFIG->class_path.'users.class.inc');
+//create a users object:
+$users = new users();
+$userID = $GO_SECURITY->user_id;
+$user = $users->get_user($userID);
+$username = $user[username]; 
+
+if ($_GET["usr"]||$_POST["usr"])
+{
+	$GO_MODULES->authenticate('stock_admin');
+	$userID = ($_GET["usr"])?$_GET["usr"]:$_POST["usr"];
+	$user = $users->get_user($userID);
+	$username = $user[username]; 
+}
+
+
+//set original user id  
+$officeUserID = $userID; 
+$officeUserName = $username; 
+
+//redirect of main user
+if ($user["stock_user"])
+{
+	$user = $users->get_user($user["stock_user"]);
+	$userID = $user["id"];
+	$username = $user[username];
+}
+
+
+///////////////////////////////////////////////////
+// common include file
+// you will have to set your preferences below...
+// please be careful with this file -- make a backup if you're at all worried
+// about screwing stuff up.
+include($rootPath."/modules/stock/include/config.php");
+
+include($config['template_path'].'/style.php'); // style definitions
+
+$imgPath = $GO_THEME->image_url."stock/";
+
+///////////////////////////////////////////////////
+//LANGUAGE FILE PATH -- USED FOR MULTI-LANGUAGE SUPPORT
+include($config['basepath'].'/include/language/'.strtolower($GO_LANGUAGE->language).'.php');
+
+function money_formats ($number)
+{
+	global $config;
+	// formats prices correctly
+	// defaults to $123, but other folks in other lands do it differently
+	// uncomment the correct one
+	$output = $config['money_sign'].$number; // usa, uk - $123,345
+	// $output = "$number $config['money_sign']"; // germany, spain -- 123.456,78 €
+	// $output = "$config['money_sign'] $number"; // honduras -- € 123,456.78
+	return $output;
+}
+
+///////////////////////////////////////////////////
+// DATABASE TYPE
+// default is mysql -- make sure you edit this file
+// to make sure DB settings are correct!
+global $db_type; 
+
+$GOCONFIG = new GO_CONFIG();
+
+$db_user = $GOCONFIG->stock_db_user;		
+$db_password = $GOCONFIG->stock_db_pass;		
+$db_database = $GOCONFIG->stock_db_name;	
+$db_server = $GOCONFIG->db_host;		
+$db_type = $GO_CONFIG->db_type;
+
+// main file location 
+include($config['basepath'].'/include/main.php');
+// this is the setup for the ADODB library
+$conn = ADONewConnection($db_type); 
+$conn->Connect($db_server, $db_user, $db_password, $db_database);    
+
+$GOCONFIG = new GO_CONFIG();
+$officedbname = $GOCONFIG->db_name;
+
+$TABLE_DOCUMENT_TYPE = $db_database.".document_type";
+$TABLE_DOCUMENT_TYPE_GROUP = $db_database.".document_type_group"; 
+$TABLE_DOCUMENT_STATUS = $db_database.".document_status";
+$TABLE_PROFILE = $db_database.".profile";
+$TABLE_PROFILEDOCTYPES = $db_database.".profiledoctypes";
+$TABLE_PROFILEREPORTS = $db_database.".profilereports";
+$TABLE_USERPROFILE = $db_database.".userprofile";
+$TABLE_WEBDATE_BD_ACCESS = $db_database.".webdate_bd_access";
+$TABLE_WEBDATE_BD_LOG = $db_database.".webdate_bd_log";
+$TABLE_WEBDATE_BD_SERVICES = $db_database.".webdate_bd_services";
+$TABLE_WEBDATE_BD_USERS = $db_database.".webdate_bd_users";
+$TABLE_DOCPAYMENTTYPES = $db_database.".docpaymenttypes";
+$TABLE_ACTIONS = $db_database.".actions";
+$TABLE_REPORTS = $db_database.".reports";
+$TABLE_USERSTOCKS = $db_database.".userstocks";
+$TABLE_LISTINGSSTOCKS = $db_database.".listingsStocks";
+$TABLE_UNITS = $db_database.".units";
+$TABLE_LISTINGSFORMELEMENTS = $db_database.".listingsFormElements"; 
+$TABLE_TRANSLOG = $db_database.".translog";
+$TABLE_USERDATA = $db_database.".userdata";
+$TABLE_SAVED_QUERY = $db_database.".saved_query"; 
+$TABLE_DOC_STATUS_CHANGE = $db_database.".doc_status_change";
+$TABLE_CARDTYPES = $db_database.".cardtypes";
+$TABLE_VAT = $db_database.".vat"; 
+$TABLE_NEWS = $db_database.".news";
+$TABLE_NEWS_USERS = $db_database.".news_users";
+
+session_start(); 
+if (!$_SESSION["Stock"])
+{
+	
+	//in adminmode - add all users to userdate and Main stock 999999
+	if($GO_SECURITY->has_admin_permission($GO_SECURITY->user_id)){
+		$userarr1 = $GO_MODULES->all_has_read_permission("stock");
+		$userarr2 = $GO_MODULES->all_has_read_permission("shaon");
+		$userarr = array_merge($userarr1,$userarr2);
+		foreach($userarr as $user){
+			if (!$user["stock_user"] || $user["stock_user"]==$user["id"]){
+				$sql = "select * from userdata where username = '".$user["username"]."'";
+				$rsu = DBQuery($sql);
+				if ($rsu->EOF){
+					$sql = "insert into userdata (user_id,office_user_id, UserName,UpdateMode,WorkMode,IsracardMode,ForceAllCodes,lastpludta,UpdateQtyFromPludata) values 
+							('1',".$user["id"].",'".$user["username"]."','$defaultUpdateMode','$defaultWorkMode','$defaultIsracardMode',1,unix_timestamp(),0)";
+					$rsu = DBQuery($sql);
+				}
+				
+				$sql="select id from $TABLE_LISTINGSSTOCKS where terminalID='".$config['MainStock']."' and user_id = ".$user["id"];
+				$rsu = DBQuery($sql);
+				if ($rsu->EOF)
+				{
+					$sql = "insert into $TABLE_LISTINGSSTOCKS (user_id,terminalID,StockName,SortOrder) values (".$user["id"].",'".$config['MainStock']."','מחסן ראשי',
+							999 )";
+					DBQuery($sql);
+				}
+			}
+			
+		}
+	}
+	
+	//get current VAT
+	$sql =
+		"select vat from vat
+			where now() between
+			(case when start_date is null or start_date ='0000-00-00'
+			then '1970-01-01' else start_date end)
+			and
+			(case when end_date is null or end_date ='0000-00-00'
+			then '2100-01-01' else concat(end_date,' 23:59:59') end)
+			order by start_date DESC
+			limit 1";
+	$vatrs = $conn->Execute($sql);
+	if ($vatrs === false){log_error($sql);}
+	$config["VAT"] = $_SESSION["VAT"] = $vatrs->fields["vat"];
+	$_SESSION["Stock"]="yes";
+	
+}
+else
+{
+	$config["VAT"] = $_SESSION["VAT"];
+}
+if (!$config["VAT"])
+{
+	die("VAT rate is not defined! Please contact system administrator.");
+}
+
+//UserData
+$sql = "select *,UserName, email, faxmail, UpdateMode,WorkMode,IsracardMode,
+		AmlaVisaRagil, AmlaVisaPayments, AmlaIsraRagil, AmlaIsraPayments, 
+		AmlaIsraMinimum, AmlaDinersRagil, AmlaDinersPayments, visual_effects,
+		AmlaVisaDinersMinimum, AmlaMasterRagil, AmlaMasterPayments, AmlaMasterTayarRagil, 
+		AmlaMasterTayarPayments, AmlaDirectRagil, AmlaDirectPayments,
+		AmlaAMEXRagil, AmlaAMEXPayments, AmlaAMEXTayarRagil, listings_per_page, RecalcCostOnPurchase,
+		AmlaAMEXTayarPayments,IsraKreditMode,IsraKreditDays,UpdateQtyFromPludata,ExportEnabled,
+		LogoPicture,MlaitekProInitialized,MlaitekProEnabled, vatfree, SfiratMlaiEnabled,IsSampleUser,
+		sql_user,sql_database,sql_password,CodeVAT,CodeMechirot
+		from $TABLE_USERDATA where username = '$username'";
+$UserData = $conn->Execute($sql); 
+if ($UserData === false){log_error($sql);}
+if ($UserData->EOF)
+{
+	$sql = "insert into userdata (user_id,office_user_id,UserName,UpdateMode,WorkMode,IsracardMode,ForceAllCodes,lastpludta,UpdateQtyFromPludata) values 
+			('1',$userID,'$username','$defaultUpdateMode','$defaultWorkMode','$defaultIsracardMode',1,unix_timestamp(),0)";
+	$conn->Execute($sql);
+	$updatemode = $defaultUpdateMode;
+	$workmode = $defaultWorkMode;
+	$isramode = $defaultIsracardMode;	
+	$updateQtyFromPludata = "0";
+	$useremail = "";
+	$userfax = "";
+}
+else
+{
+	$updatemode = $UserData->fields["UpdateMode"];
+	$workmode = $UserData->fields["WorkMode"];
+	$updateQtyFromPludata = $UserData->fields["UpdateQtyFromPludata"];
+	$isramode = $UserData->fields["IsracardMode"];
+	$usermail = $UserData->fields["email"];
+	$userfax = $UserData->fields["faxmail"];
+	$sfiratMlaiEnabled = $UserData->fields["SfiratMlaiEnabled"];
+	$config["VAT"]=($UserData->fields["vatfree"])?0:$config["VAT"];
+	$config["listings_per_page"] = $UserData->fields["listings_per_page"];
+}
+
+
+
+
+//initialize permissions
+InitPermissions($officeUserID);  
+
+if (!$_SESSION["FIRSTTIME"])
+{       
+	//clean temp dir
+	foreach (glob("tmp/$userID/*.*") as $filename) 
+	{
+		@unlink($filename);
+	} 
+	foreach (glob("../../tmp/*_$userID.*") as $filename) 
+	{
+		@unlink($filename);
+	} 	
+	$_SESSION["FIRSTTIME"] = "yes";
+}    
+
+if (!$_SESSION["BACKUPCHECKED"])
+{       
+	
+	if (basename($PHP_SELF)=="pro.php")
+	{   
+		//check backup  
+		if ($UserData->fields["RemindBackup"] && $UserData->fields["MlaitekProEnabled"] && HasActionPermission("PREFERENCES")){
+			$sql = "select datediff(now(),from_unixtime(lastbackup_timestamp)) as diff from userdata where office_user_id = $userID";
+			$lastBackupRS = $conn->Execute($sql);
+			if ($lastBackupRS === false){log_error($sql);}
+			if ($lastBackupRS->fields["diff"]==""||$lastBackupRS->fields["diff"]>30){
+				$BackupWarning = true;    
+				$nofocus = true;
+			}
+			$_SESSION["BACKUPCHECKED"] = "yes";
+		}
+		
+		//check TRANS        
+		/*
+		$sql = "select s.terminalID, StockName
+		$TABLE_LISTINGSSTOCKS s
+		where 
+		user_id = $userID and
+		not exists (select id from $TABLE_TRANSLOG where stock_id = s.id and time_stamp between $timefrom and $timeto and is_trans=1)
+		inner join userdata u on u.office_user_id = s.user_id
+		left outer join translog tl on tl.stock_id = s.id and time_stamp between $timefrom and $timeto $qs
+		left outer join transactionpackages p on p.id = tl.package_id
+		where s.TerminalID is not null 
+		    and s.TerminalID <> '' 
+		    and s.TerminalID <>".$config["MainStock"]." 
+		    and s.Status=1 
+		    and s.RunScript=1        
+		$q
+		order by timestamp, username, terminalID
+		";
+		*/
+		
+	}
+	
+	
+	//initializing
+	if (!$UserData->fields["MlaitekProInitialized"])
+	{
+		$sql = "
+				insert  into  `document_type_counters`
+				(`doc_type_id`, `user_id`, `counter`, `comment`)
+				select `doc_type_id`, $userID, 1, `comment`
+				from `document_type_counters` d where user_id = 0
+				and not exists
+				(select id from document_type_counters where user_id = $userID
+				and doc_type_id=d.doc_type_id)
+				";
+		$res = $conn->Execute($sql);
+		if ($res === false){log_error($sql);}
+		
+		$sql = "insert  into  `currencies`
+				(`name`, `code`, `course`, `course_date`, `updated`, `is_default`, `user_id`, `status`, `SortOrder`)
+				select `name`, `code`, `course`, `course_date`, `updated`, `is_default`, $userID, `status`, `SortOrder`
+				from `currencies` d where user_id = 0 
+				and not exists    
+				(select id from currencies where user_id = $userID and code=d.code)";
+		$res = $conn->Execute($sql);
+		if ($res === false){log_error($sql);}
+		
+		$sql = "update userdata set MlaitekProInitialized = 1 where username = '$username'";
+		$res = $conn->Execute($sql);
+		if ($res === false){log_error($sql);}
+	}
+	
+	//end initializating
+	
+}    
+
+
+$STATUS_DRAFT=1;
+$STATUS_CLOSED=2;
+$STATUS_CANCELLED=3;
+$STATUS_ACTIVE=5;
+
+$PTYPE_CHEQUE = 0;
+$PTYPE_MEZUMAN = 1;
+$PTYPE_ASHRAI = 2;
+$PTYPE_HAAVARA = 3;
+$PTYPE_ORAATKEVA = 4;
+$PTYPE_SHOVAR = 5;
+
+//reconnect to user's database
+
+if ($umode=="provider" && $user["provider_user"])
+{
+	define("PROVIDER_MODE",true);
+	//redefine userdata
+	$UserData = DBQuery("select * from userdata where office_user_id = ".$user["provider_user"]);
+	$conn = ADONewConnection($db_type); 
+	$db_database = $UserData->fields["sql_database"];
+	$conn->Connect($db_server, $db_user, $db_password, $UserData->fields["sql_database"],true); 
+	if ($conn->ErrorMsg())
+	{
+		echo $conn->ErrorMsg();
+	}  
+}
+elseif (!$isSystemScript && !strpos(" ".$PHP_SELF,"stock_admin") && $UserData->fields["sql_database"])
+{ 
+	$conn = ADONewConnection($db_type); 
+	$db_database = $UserData->fields["sql_database"];
+	$conn->Connect($db_server, $db_user, $db_password, $UserData->fields["sql_database"],true); 
+	
+	if ($conn->ErrorMsg())
+	{
+		echo $conn->ErrorMsg();
+	}    
+	define("PROVIDER_MODE",false);
+	//echo "<!--reconnected user-->";
+}
+else
+{
+	define("PROVIDER_MODE",false);
+}
+
+if ($user["provider_user"] && HasActionPermission("HOVSHERUT") && !$isSystemScript)
+{
+	if (time()-$_SESSION["HOVSHERUT"]>7200)
+	{
+		$_SESSION["HOVSHERUT"] = time();
+		//get debts
+		$sql = "select sql_database from $TABLE_USERDATA where office_user_id = '".$user["provider_user"]."'";
+		$providerRS = DBQuery($sql);
+		$providerDB = $providerRS->fields["sql_database"];
+		$sql = "select round(sum(amount * (case when dt.balance='+' then 1 else -1 end)),2) as itra 
+				from $providerDB.documents d, $providerDB.listingsSuppliers s, $TABLE_DOCUMENT_TYPE dt, $TABLE_DOCUMENT_STATUS ds
+				where s.id = d.client_id and doc_status not in ($STATUS_DRAFT) 
+				and dt.id = d.doc_type 
+			    and ds.id = d.doc_status 
+				and ds.countbalance = 1 
+				and dt.balance in ('+','-') 
+				and client_id = 
+				(select id from $providerDB.listingsSuppliers where username <> '' and username = '$username')";
+		$yetraRS = DBQuery($sql);
+		$_SESSION["HOV"]  = -1*$yetraRS->fields["itra"];
+	}
+}		
+
+$sql = "SET session group_concat_max_len = 30000";
+DBQuery($sql);  
+?>

@@ -1,0 +1,563 @@
+<?php 
+//command line interface support
+for($i=0;$i<$argc;$i++)
+{   
+	$argarr = explode("&",$argv[$i]);      
+	foreach($argarr as $pair){                                               
+		$arg = explode("=",$pair);
+		if(strtoupper($arg[0])=="USERID")
+		{
+			$USERID = $arg[1];
+		}
+		if(strtoupper($arg[0])=="action")
+		{
+			$action = $arg[1]; 
+		}
+	}
+}
+
+$knisaMode = $m == "knisa";
+$sfiraMode = $m == "sfira";
+$echzerMode = $m == "echzer";
+
+if ($action=="upload")
+{
+	$noauthorization = true;
+}
+ob_start(); 
+require "excelparser.php";
+$simple=1;
+$page_subtitle = "יבוא ויצוא";
+
+include("include/common.php");
+include("include/business_functions.php");
+include("include/importexcel.php");
+include("include/document.php");
+include("include/product.php");
+
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+if ($action!="do" && $action!="upload")
+{
+	ob_end_flush();
+	echo
+	"<pre dir=".$dir.">
+".$lang["xls_zip_upl"]."
+".$lang["format_file"]." EXCEL:
+-------------------
+<b  style=color:red>A</b>: ".$lang["barcode"]."
+B: ".$lang["admin_listings_editor_title"]." 
+C: קוד נקורת מכירה
+<b  style=color:red>D</b>: ".(($knisaMode||$sfiraMode||$echzerMode)?$lang["quantity"]:$lang["quant_purchase"])."
+<b  style=color:red>E</b>: ".$lang["num_supplier"]." (ID)
+F: ".$lang["purchase_cost_before"]." 
+G: ".$lang["purchase_code_after"]."   
+H: "."מחיר פריט כולל מע\"מ"."
+I: ".$lang["cat_code"]." (ID)
+J: ".$lang["proof"]." 
+K: "."הערות"."
+L: "."מספר זר"."
+M: לשימוש עתידי
+N: לשימוש עתידי 
+O: ".$lang["attr_id"]." 1
+P: ".$lang["attr_value"]." 1
+Q: ".$lang["attr_id"]." 2
+R: ".$lang["attr_value"]." 2
+...
+
+".$lang["select_e_f"]."
+";
+	exit;
+}
+ob_end_clean();
+
+print"
+		<head>
+		<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+		<style>body{background-color:buttonface}</style>
+		</head>
+		<body><pre dir=".$dir.">";
+$debugMode = true;
+$isZipMode = false; 
+if ($USERID && !$userID) $userID = $USERID;
+
+if ($action)
+{		
+	
+	if ($action=="upload")
+	{
+		$createproducts = true;
+		if (!$USERID)
+		{
+			die("No USERID parameter provided");
+		}
+		$UserData = DBQuery("select * from $TABLE_USERDATA where office_user_id = $USERID");
+		if ($UserData->EOF)
+		{
+			die("User does not exist");
+			mailAdmin("Invalid USERID","Invalid USERID provided - $USERID.");
+		}
+		if ($UserData->fields["sql_database"])
+		{
+			$conn->Disconnect();
+			$conn = ADONewConnection($db_type); 
+			$db_database = $UserData->fields["sql_database"];       
+			$conn->Connect($db_server, $db_user, $db_password, $db_database, true); 
+			if($conn->ErrorMsg())
+			{
+				die("\nDatabase connection error: ".$conn->ErrorMsg());
+			}
+		}
+		
+		$debugMode = false;
+		$isManyFiles = true;
+		$dirname = $GO_CONFIG->file_storage_path.$UserData->fields["UserName"]."/exel_purchase";
+		echo "Directory: $dirname\n";
+		if (!file_exists($dirname))
+		{
+			$old_umask = umask(000);
+			mkdir($dirname,0777);
+			umask($oldumask);
+			echo "Directory created\n";
+		}
+		$d = dir($dirname);
+		while ($entry = $d->read()) 
+		{
+			if (strpos($entry,".xls")>-1)
+			{
+				$excel_files[] = $dirname."/".$entry;
+			}
+		}
+	}
+	else
+	{
+		$excel_file = $_FILES['impfile'];  
+		$excel_files = array();
+		if($excel_file)
+		{
+			
+			if (strpos($excel_file['name'],".zip")>-1)
+			{
+				$isManyFiles = true;
+				$isZipMode = true;
+				echo $lang["zip_processing"]."<br>";flush();
+				$rootpath = $GOCONFIG->root_path;
+				$dirname = $rootpath."modules/stock/tmp/".$userID."/".str_replace(".","_",$excel_file['name']);
+				$old_umask = umask(000);
+				$zipname = $excel_file['tmp_name'];
+				mkdir($dirname,0777);
+				umask($oldumask);
+				$command = "/usr/local/bin/unzip $zipname -d ".$dirname;
+				@exec($command,$res,$x);
+				$d = dir($dirname);
+				while ($entry = $d->read()) 
+				{
+					if (strpos($entry,".xls")>-1)
+					{
+						$excel_files[] = $dirname."/".$entry;
+					}
+				}
+			}
+			else
+			{
+				$excel_files[] = $excel_file['tmp_name'];
+			}
+		}
+		if($excel_file == '') die("<center><b style=color:red>".$lang["sel_fiile"]."");
+	}
+	$res = "";
+	
+	if ($isManyFiles)
+	{
+		echo "Files found: ".count($excel_files)."<br>";flush();
+	}
+	//start processing
+	foreach ($excel_files as $excel_file)
+	{
+		
+		if ($isManyFiles)
+		{
+			echo $lang["file"].":".basename($excel_file)."<br>";flush();
+		}		
+		$fh = @fopen ($excel_file,'rb');
+		if( !$fh ) die("<center><b style=color:red>".$lang["sel_fiile"]."");
+		if( filesize($excel_file)==0 ) die("<center><b style=color:red>".$lang["sel_fiile"]."");
+		
+		$stockid = $stock1;
+
+		$fc = fread( $fh, filesize($excel_file) );
+		@fclose($fh);
+		if( strlen($fc) < filesize($excel_file) )
+			die("<pre dir=ltr>Cannot read file");
+		
+		$exc = new ExcelFileParser;
+		if( $exc->ParseFromFile($excel_file)>0 ) die("This is not an Excel file or file stored in Excel < 5.0");
+		//$res = $exc->ParseFromString($fc);
+		switch ($res) {
+			case 0: break;
+			case 1: die("Can't open file");
+			case 2: die("File too small to be an Excel file");
+			case 3: die("Error reading file header");
+			case 4: die("Error reading file");
+			case 5: die("This is not an Excel file or file stored in Excel < 5.0");
+			case 6: die("File corrupted");
+			case 7: die("No Excel data found in file");
+			case 8: die("Unsupported file version");
+			
+			default:
+				die("Unknown error");
+		}
+		
+		if( count($exc->worksheet['name']) < 1 ) die("No worksheets in Excel file.");
+		
+		$codes = "";
+		if ($debugMode){
+			echo "<script>var scroller=window.setInterval('document.body.scrollTop=document.body.scrollHeight','200');</script>";
+		}				
+		for ($worksheet=0;$worksheet<count($exc->worksheet['name']);$worksheet++){
+			
+			if( $exc->worksheet['unicode'][$worksheet] )
+			{
+				$wname = uc2html($exc->worksheet['name'][$worksheet]);
+			}
+			else
+			{
+				$wname = $exc->worksheet['name'][$worksheet];
+			}
+			
+			
+			print "<span style='color:blue' >גיליון:: ". $wname."</span>\n";flush();
+			$ws = $exc->worksheet['data'][$worksheet];
+			
+			if( is_array($ws) && 	 isset($ws['max_row']) &&    isset($ws['max_col']) )
+			{
+				if( $ws['max_col'] < 1 ) {
+					echo("Invalid format.<br>Number of columns is less then 2.");
+					continue;
+				}
+				if( $ws['max_row'] < 0 ){
+					echo("Invalid format.<br>No rows defined in document.");
+					continue;
+				}
+				$data = $ws['cell'];
+				
+				$groupid = array();
+				$cnt = 1;
+				foreach( $data as $i => $row )
+				{ 
+					$misparzar = "";
+					$barcode = trim(get( $exc, $row[0] ));
+					$name = trim(get( $exc, $row[1] )); 
+					$terminal = trim(trim(get( $exc, $row[2] )),"\xA0");
+					$quantitytocalc = $quantity = trim(get( $exc, $row[3] ));
+					$supplierid = trim(get( $exc, $row[4] ));
+					$pricebefore = trim(get( $exc, $row[5] ));
+					$priceafter = trim(get( $exc, $row[6] )); 
+					$saleprice = trim(get( $exc, $row[7] )); 
+					$catid = trim(get( $exc, $row[8] )); 
+					$asmachta = trim(get( $exc, $row[9] )); 
+					$comment = trim(get( $exc, $row[10] )); 
+					$misparzar = trim(get( $exc, $row[11] )); 
+					$reserved = trim(get( $exc, $row[12] )); 
+					$reserved = trim(get( $exc, $row[13] )); 
+					
+					
+					$comment = preg_replace("/&#([0-9]+)/","&#\\1;",$comment);
+					$asmachta = preg_replace("/&#([0-9]+)/","&#\\1;",$asmachta);
+					$misparzar = preg_replace("/&#([0-9]+)/","&#\\1;",$misparzar);
+					$comment = ConvertFromUnicode($comment,"he");
+					$asmachta = ConvertFromUnicode($asmachta,"he"); 
+					$misparzar = ConvertFromUnicode($misparzar,"he"); 
+
+					if (!$name)
+					{
+						$name = $lang["item"]." ".$barcode;
+					}
+					else
+					{
+						$name = preg_replace("/&#([0-9]+)/","&#\\1;",$name);
+						$name = ConvertFromUnicode($name,"he"); 
+					}            
+					
+					if (!$barcode)
+					{
+						echo "<span style='color:red' dir=rtl>שורה שגויה: חוסר ברקוד</span>\n";
+						continue;
+					}
+					elseif (!is_numeric($quantity))
+					{
+						echo "<span style='color:red' dir=rtl>$cnt. שורה שגויה: חוסרת כמות</span>\n";
+						continue;
+					}
+					elseif (!$supplierid)
+					{
+						echo "<span style='color:red' dir=rtl>$cnt.  שגויה: חוסר מספר ספק</span>\n";
+						continue;
+					}
+					elseif (!$pricebefore && !$priceafter && !$sfiraMode && !$knisaMode && !$echzerMode)
+					{
+						echo "<span style='color:red' dir=rtl>$cnt. שורה  שגויה: חוסר עלות - חובה להזין E או F</span>\n";
+						continue;
+					}            
+					elseif ($pricebefore && $priceafter)
+					{
+						echo "<span style='color:red' dir=rtl>$cnt. שורה  שגויה: יש להזין רק אחד מהשדות E או F</span>\n";
+						continue;
+					}            
+					elseif (!$terminal && !$stockid)
+					{
+						echo "<span style='color:red' dir=".$dir.">".$lang["line_err_no_code_stock"]."</span>\n";
+						continue;
+					}
+					
+					
+					if ($terminal)
+					{
+						$sql = "select id from $TABLE_LISTINGSSTOCKS where status = 1 and user_id = $userID and terminalid = '".addslashes($terminal)."'";
+						$rs=DBQuery($sql);
+						
+						if ($rs->EOF)
+						{
+							echo "<span style='color:red' dir=".$dir.">$cnt. ".sprintf($lang["err_line_no_terminal"],$terminal)."</span>\n";
+							continue;
+						}
+						else
+						{
+							$rowStockID = $rs->Fields("id");
+						}
+					}
+					else
+					{
+						$rowStockID = $stockid;
+					}              
+					
+					
+					if ($supplierid)
+					{
+						$sql = "select id from listingsSuppliers where id = '".addslashes($supplierid)."'";
+						$rs=DBQuery($sql);
+						
+						if ($rs->EOF)
+						{
+							echo "<span style='color:red' dir=rtl>$cnt. שורה שגויה: ספק מספר $supplierid לא נמצא</span>\n";
+							continue;
+						}
+					}            
+					if ($catid)
+					{
+						$sql = "select id from listingsCategories where id = '".addslashes($catid)."'";
+						$rs=DBQuery($sql);
+						
+						if ($rs->EOF)
+						{
+							echo "<span style='color:blue' dir=".$dir.">$cnt. ".sprintf($lang["err_line_no_category"],$catid)."</span>\n";
+						}
+					}
+					
+					$sql = "select l.id, grams_rate 
+							from 
+							listingsDB l, $TABLE_UNITS
+							where l.user_id = $userID and 
+							BarCode='".trim($barcode)."' and
+							$TABLE_UNITS.id = unit    
+							";
+					
+					$listingID = "";
+					$rs = DBQuery($sql);
+					if (!$rs->EOF || $createproducts)
+					{
+						$price = $pricebefore?$pricebefore:$priceafter;
+						$itempricebeforevat = $pricebefore?$pricebefore:($priceafter/(1+$config["VAT"]/100));
+						$itempriceaftervat = $priceafter?$priceafter:($pricebefore*(1+$config["VAT"]/100));
+						
+						if (!$saleprice)$saleprice = $itempriceaftervat;
+						
+						if ($rs->EOF)
+						{
+							$prod = new Product($name,$barcode,$saleprice);
+							$prod->category = $catid;
+							$prod->cost = $itempriceaftervat;
+							$prod->supplier = $supplierid;
+							$prod->misparzar = $misparzar;
+							$prod->Create();
+							$listingID = $prod->id;
+							echo "<span style='color:darkblue'>$cnt. נוצר פריט: ". $barcode."</span>\n";flush();
+							$grams_rate = "";
+						}
+						else
+						{
+							$listingID = $rs->Fields("id");
+							$grams_rate = $rs->Fields("grams_rate");
+						}
+						
+						if ($grams_rate)
+						{
+							$quantity *= $grams_rate;
+						}
+						
+						$addvat = $pricebefore?true:false;
+						$doctoken = $rowStockID."_".$supplierid;
+						if ($docpersheet)
+						{
+							$doctoken.="_".$worksheet;
+						}
+						
+						if (!isset($docs[$doctoken]))
+						{
+							if ($knisaMode)
+								$doctype = "KNISALEMLAI";
+							if ($echzerMode)
+								$doctype = "ECHZERLEZAPAKNEW";
+							elseif($sfiraMode)
+								$doctype = "SFIRATMLAI";
+							else
+								$doctype = "KNIYA";
+							$docs[$doctoken] = new Document($doctype,$rowStockID,$supplierid);
+							$docs[$doctoken]->asmachta = $asmachta;
+							$docs[$doctoken]->comment = $comment;
+							$status = $draftonly ? $STATUS_DRAFT : $STATUS_ACTIVE;
+							
+							
+							if ($knisaMode || $sfiraMode || $echzerMode)
+							{
+								$docs[$doctoken]->UpdateStock = true;
+								$docs[$doctoken]->logProductHistory = false;
+							}
+							$docs[$doctoken]->Create($status);
+						}
+						
+						if (!isset($groupid[$doctoken]))
+						{
+							$sql = "select max(group_id) as gid from purchases where supplier_id = ".$supplierid;
+							$gid = DBQuery($sql);
+							
+							$groupid[$doctoken] = $gid->fields["gid"]+1;
+						}                
+						
+						$sql = "select quantity, lse.id as lseid from listingsStocksElements lse
+								where lse.stockid = $rowStockID and listingid=$listingID";
+						$stk=DBQuery($sql);	
+						$prevQuantity =  $stk->fields["quantity"];
+						$newQuantity = ($addmode && $sfiraMode)?($prevQuantity+$quantity):$quantity;
+						$docs[$doctoken]->AddItem($listingID,$newQuantity,$itempricebeforevat);
+						
+						if(!$draftonly && !$knisaMode && !$sfiraMode && !$echzerMode)
+						{
+							purchaseProduct($listingID,$quantity,$supplierid,$rowStockID,$price,0,$workmode,date("d/m/Y"),$addvat,'',$groupid[$doctoken],$docs[$doctoken]->id);
+						}
+						
+						if (($knisaMode || $echzerMode) && !$draftonly)
+						{
+                                                        $docname = $knisaMode?"כניסה למלאי":"החזרה לספק";
+							//save in history
+							$sql = "insert into history (timestamp,datetime,type,listing_id,stock_id_from,stock_id_to,quantity_from,quantity_to,note) values
+									(unix_timestamp(),now(),'knisa',$listingID,$rowStockID,$rowStockID,".$quantity.",".$quantity.",'קובץ EXCEL ".$docname." - מסמך מס\'".($docs[$doctoken]->number)."')";
+							DBQuery($sql);
+							
+						}
+						
+						if ($sfiraMode)
+						{
+							
+							//update quantity
+							$sql = "select lse.id as lseid from listingsStocksElements lse
+									where lse.stockid = $rowStockID and listingid=$listingID";
+							$stk=DBQuery($sql);	
+							
+							$lseID = $stk->fields["lseid"];
+							if (!$lseID)
+							{ 
+								$updSQL = "INSERT INTO listingsStocksElements (ListingID, StockID, Quantity, LatestSyncQuantity,LatestSyncDate) VALUES 
+										($listingID, $rowStockID, '$newQuantity', 0, UNIX_TIMESTAMP())";
+							}
+							else
+							{								
+								$updSQL = "update listingsStocksElements set quantity = '$newQuantity' where id = $lseID";
+							}
+							DBQuery($updSQL);
+							
+							//save to history
+							$sql="insert into history (timestamp,datetime,type,listing_id,quantity_from,supplier_id,stock_id_from,stock_id_to,note) values(
+									unix_timestamp(),now(),'purchase',$listingID,'$newQuantity','-1','$rowStockID','$rowStockID','ספירט מלאי דרך EXCEL')";
+							DBQuery($sql);
+						}
+						
+						//end create document
+						
+						//attributes
+						$pos = 14;
+						$attrID = trim(get( $exc, $row[$pos] )); 
+						$attrValueID = trim(get( $exc, $row[$pos+1] )); 
+						while ($attrID)
+						{
+							$err = false;
+							$sql = "select id,type from attributes where id = '".addslashes($attrID)."'";
+							$rs=DBQuery($sql);
+							if ($rs->EOF)
+							{
+								echo "<span style='color:blue' dir=".$dir.">$cnt. ".sprintf($lang["err_line_no_attribute"],$attrID)."</span>\n";
+								$err = true;
+							}
+							 
+							if (!$err)
+							{
+								if ($rs->Fields("type")=="VLIST")
+								{
+									$sql = "select id from attribute_values where attribute_id = '".addslashes($attrID)."' and id = '".addslashes($attrValueID)."'";
+									$rs=DBQuery($sql);
+									if ($rs->EOF)
+									{
+										echo "<span style='color:blue' dir=".$dir.">$cnt. ".sprintf($lang["err_line_no_attribute_value"],$attrValueID)."</span>\n";
+										$err = true;
+									}		
+								}
+							}			
+							
+							if (!$err)
+							{
+								DBQuery("delete from listing_attributes where listing_id = '".$listingID."' and attribute_id = '".$attrID."'");
+								DBQuery("insert into listing_attributes (listing_id, attribute_id, value) values ('".$listingID."','".$attrID."','".addslashes($attrValueID)."')");
+							}
+							
+							$pos+=2;
+							$attrID = trim(get( $exc, $row[$pos] )); 
+							$attrValueID = trim(get( $exc, $row[$pos+1] )); 
+						}
+						
+						
+						echo "$cnt. ".$lang["item_updated"].": ". $barcode."\n";flush();
+					}
+					else
+					{
+						echo "<span style='color:red'>$cnt. ".$lang["item_not_exists"].": ". $barcode."</span>\n";flush();
+					}
+					
+					$cnt++;		
+				}
+			}
+		}
+		echo "<span style=color:green>".$lang["end_file"]."</span>";
+		if($debugMode){
+			echo "<script>window.clearInterval(scroller);document.body.scrollTop=document.body.scrollHeight;</script>
+					";
+		}
+	}
+	register_shutdown_function("DeleteFiles",$excel_files,$dirname,$isZipMode);
+}
+echo "<span style=color:green>סוף הקובץ</span>";
+function DeleteFiles($excel_files,$dirname,$isZipMode)
+{
+	foreach ($excel_files as $excel_file)
+	{		
+		unlink($excel_file);
+	}
+	if ($dirname && $isZipMode){
+		rmdir($dirname);
+	}
+}
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

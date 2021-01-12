@@ -1,0 +1,51 @@
+<?
+
+$simple=1;
+
+include("include/common.php");
+require("include/business_functions.php");
+require("include/document.php");
+require("include/product.php");
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+
+//$transid;
+
+if ($act=="do"){
+
+  if ($sDate)
+	 $rs = DBQuery("update transactions set TranErechDate = '".  dateToSQL($sDate)."' where id = '".(int)$transid."'");
+  else
+	 $rs = DBQuery("update transactions set TranErechDate = null where id = '".(int)$transid."'");
+
+  echo "<script>window.opener.confirmErechDate('$sDate','$transid');window.close();</script>";
+}
+else{
+  $rsTrans = DBQuery("select TranErechDate from transactions where id = '".(int)$transid."'");
+  $sDate = dateFromSQL($rsTrans->fields["TranErechDate"],true);
+  //if ($sDate=="0000-00-00")$sDate="";
+}
+?>
+
+<div id=RESULTDIV>
+<br><br>
+<p><b><center>
+		<form name=F method=post>
+		<?=$lang["erech_date"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+	   <img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.sDate")'>
+		<br><br>
+		<input type=submit value='<?=$lang["submit"]?>'  class=button style='background-image:url(<?=$imgPath?>ok.gif)'>&nbsp;
+		<input type=button onclick='window.close()' value='<?=$lang["close_button"]?>'  class=button style='background-image:url(<?=$imgPath?>back.gif)'>
+		<input type="hidden" name="act" value="do">
+</center>
+</form>
+</div>
+
+
+<?
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+?>

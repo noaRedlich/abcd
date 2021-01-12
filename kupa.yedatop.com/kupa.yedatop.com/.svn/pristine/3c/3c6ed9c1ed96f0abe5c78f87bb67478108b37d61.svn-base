@@ -1,0 +1,159 @@
+<?
+session_start();
+
+$simple=1;
+$page_subtitle = $lang["stock_point"]; 
+
+include("include/common.php");
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+$stocks = GetStocks(false);
+$stockOK = !$stocks->EOF;
+$maindb = $GO_CONFIG->db_name;
+
+
+$sql = "select s.ID, s.SupplierName, s.username, u.id as user_id from listingsSuppliers  s
+left outer join $maindb.users u on u.username = s.username
+where user_id = $userID and (isAgent=1 or isWorker=1) and status=1 order by binary SupplierName";
+$agents = DBQuery($sql);
+?>
+
+ 
+<script>
+
+function selectStock() 
+{
+	if(isNaN(parseFloat(document.F.initBalance.value)))
+	{
+		alert("<?=$lang["enter_start_balance"]?>");
+		document.F.initBalance.focus();
+		return;
+	} 
+	window.returnValue=document.F.stock.value+"|"+document.F.agentid.value+"|";
+	if (!document.F.initBalance.disabled)
+	{
+		window.returnValue+=document.F.initBalance.value;
+	}
+	window.close();
+}
+
+function checkKey()
+{
+	if (event.keyCode==13 && document.F.stock.value!="")
+	{
+		selectStock()
+	}
+}
+
+function handleStock()
+{
+	document.F.initBalance.value = document.F.stock.options[document.F.stock.selectedIndex].initBalance;
+	document.F.initBalance.disabled = document.F.initBalance.value!="";
+	document.all.openTime.innerHTML = document.F.stock.options[document.F.stock.selectedIndex].initBalanceDate;
+	agentSet = false;
+	var stockCtl = document.F.stock;
+	var agentCtl = document.F.agentid;
+	for(i=0;i<agentCtl.options.length;i++)
+	{
+		if (stockCtl.options[stockCtl.selectedIndex].initBalanceUser != "" && stockCtl.options[stockCtl.selectedIndex].initBalanceUser==agentCtl.options[i].officeuserid)
+		{
+			agentCtl.selectedIndex = i;
+			agentSet = true;
+			break;
+		}
+	}
+	
+	if (!agentSet)
+	{
+		for(i=0;i<agentCtl.options.length;i++)
+		{
+			if (agentCtl.options[i].officeuserid == "<?=$officeUserID?>")
+			{
+				agentCtl.selectedIndex = i;
+				break;
+			}
+		}
+	}
+	
+	document.F.btnSubmit.disabled = document.F.kupaenabled.value=="0" || 
+		(document.F.stock.options[document.F.stock.selectedIndex].initBalanceUser != "" && document.F.stock.options[document.F.stock.selectedIndex].initBalanceUser != "<?=$officeUserID?>");
+		
+	divTime.style.display = document.F.initBalance.disabled?"none":"";
+	divOpened.style.display = document.F.initBalance.disabled?"":"none";
+	document.all.btnSubmit.value = (!document.all.btnSubmit.disabled && !document.F.initBalance.disabled)?"לפתוח קופה":"אישור";
+}
+document.onkeypress = checkKey;
+
+</script>
+<center>
+<form name=F onsubmit="return false;"><b style="font-size:12pt">
+
+
+
+	<?if($stockOK){?>
+	
+	<?=$lang["select_stock_msg"]?>
+	<br><br><table align=center>
+		<tr>
+		<td ><b><?=$lang["stock_point"]?>:</b></td>
+        <td >
+			<select name=stock style=width:150 Onchange='handleStock()'>
+			<?FillStockList($stocks,$stock)?>
+			</select>
+		</td>
+		</tr>
+		
+		<tr>
+		<td ><b><?=$lang["start_balance"]?>:</b></td>
+        <td >
+			<input name=initBalance style=width:150>
+		</td>
+		</tr>
+	
+		<tr>
+		<td ><?=$lang["agent_worker"]?>:</td>
+        <td >
+            <select name=agentid style=width:150 disabled>
+			<option value=""></option>
+	<? 
+	$kupaEnabled = false;
+	while(!$agents->EOF){ 
+		if (strtolower($officeUserName)==strtolower($agents->fields["username"]))
+		{
+			$kupaEnabled = true;
+		}
+				?> 
+        		<option officeuserid="<?=$agents->fields["user_id"]?>" value="<?=$agents->fields["ID"]?>" <?=($officeUserName==$agents->fields["username"])?"selected":""?>><?=$agents->fields["SupplierName"]?>
+		<?$agents->MoveNext();
+        	}?>
+        	</select>
+        </td>
+        </tr>
+        </table>
+	<br> 
+	<div id="divTime"><?=$lang["opening_time"]?> <?=date("H:i")?></div>
+	<div id="divOpened">קופה עדיין פתוחה מיום <span dir="ltr" id="openTime"></span></div>
+	<br>
+	<input  value='<?=$lang["submit"]?>'  style="width:120px" <?=$kupaEnabled?"":"disabled"?> type=button style='background-image:url(<?=$imgPath?>ok.gif)' onclick="selectStock()" class=button id="btnSubmit">
+	&nbsp;
+	<?}else{?>
+	<br>
+	<?=$lang["no_kupa_stocks"]?>
+	<br><br><br>
+	<?}?>
+	<input value='<?=$lang["close_button"]?>' type=button style='background-image:url(<?=$imgPath?>back.gif)' onclick="window.returnValue='';window.close();" class=button >
+	<input type="hidden" name="kupaenabled" value="<?=$kupaEnabled?1:0?>">
+</form>
+<script>
+handleStock();
+
+
+</script>
+
+</center>
+<?
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

@@ -1,0 +1,460 @@
+<?php
+
+$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+
+$stockmode="pro";
+$page_title="מלאיטק פרו"; 
+
+include("include/common.php");
+//$xlsfilename="Pro";
+
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+
+if (!$UserData->fields["MlaitekProEnabled"]){
+    echo "Access denied!";
+    exit;
+}
+ 
+$stocks = GetStocks(true);      
+$testFactory = DBQuery("select id from $TABLE_LISTINGSSTOCKS where user_id = $userID and isfactory=1 and status=1");
+$hasFactories =  !$testFactory->EOF;                                         
+
+include("$config[template_path]/admin_top.html");
+
+    ?>
+   	    <table width=100% height=100% border=0 cellpadding=0 cellspacing=0>
+		<tr>
+        <td>
+        
+        <table height=100% width=100% cellpadding=0 cellspacing=0 border=0>
+        <tr style='height:1%'>
+        
+        <td height=32 bgcolor=buttonface>
+            <?
+            if (HasActionPermission("PREFERENCES"))
+            {
+		        echo "<a style='color:black;font-size:8pt' href=# onclick=parent.wopen('cppro/main.php?cid=1&service=suppliers&bd_event=create_record&isClient=1','tools',550,440,true)><img src=".$imgPath."businessman_add.gif width=16 height=16 align=absmiddle hspace=3 border=0>לקוח חדש</a>";
+		        echo "<a style='color:black;font-size:8pt' href=# onclick=parent.wopen('cppro/main.php?cid=1&service=suppliers&bd_event=create_record&isSupplier=1','tools',550,440,true)><img src=".$imgPath."businessman_add.gif width=16 height=16 align=absmiddle hspace=3 border=0>ספק חדש</a>";
+		        echo "<a style='color:black;font-size:8pt' href=# onclick=parent.wopen('cppro/main.php?cid=1&service=suppliers&bd_event=create_record&isAgent=1','tools',550,440,true)><img src=".$imgPath."businessman_add.gif width=16 height=16 align=absmiddle hspace=3 border=0>סוכן חדש</a>";
+            }
+            ?>
+        </td>
+        
+        <td ROWSPAN=2 valign=top>
+        <table width=100% cellpadding=0 cellspacing=0 bgcolor=buttonface><tr><td height=32>&nbsp;</td></tr></table>
+        </td>
+        
+        <td rowspan=2 valign=top width=100% align=center >
+            <iframe name=LISTING onload="window.status=''" src='documents.php?<?=$_SERVER["QUERY_STRING"]?>' frameborder=0 style='width:100%;height:100%'></iframe>
+        </td>
+        
+        </tr>
+        <tr>
+        
+        <!--SEARCH PANEL-->
+		<td style='padding-top:5px'>
+            <table height=100% width=100% cellpadding=0 cellspacing=0>
+            <tr style=height:1%>
+                <td>
+                <table width=100% cellpadding=0 cellspacing=0>
+                <tr>
+                <td width=1% class=<?=($tabmode=="DOCS"||!$tabmode)?"activetab":"inactivetab"?> id=TAB_DOCS nowrap onclick=toggle("DOCS")>חיפוש מסמכים<td>
+                <td width=1% style='border-bottom:solid 1 gray'>&nbsp;<td>
+                <td width=1% class=<?=($tabmode=="CHN")?"activetab":"inactivetab"?> id=TAB_CHN nowrap onclick=toggle("CHN")>חיפוש תקבולים<td>
+                <td width=100% style='border-bottom:solid 1 gray' align=left>
+                <a href='javascript:saveSearch()'><img src='<?=$imgPath?>star_yellow_add.gif' width=16 height=16 border=0 alt='לשמור שאילתה נוכחית'></a> 
+                <a href='javascript:loadSearch()'><img src='<?=$imgPath?>star_yellow_view.gif' width=16 height=16 border=0  alt='לבחור שאילתה שמורה'></a>  
+                <td>
+                </tr>
+                </table>
+                </td>
+            </tr>
+            <tr>
+            <form name=F method=get target=LISTING action='documents.php' onsubmit='window.status="Loading..."'>
+            <input type=hidden name=tabmode value=<?=$tabmode?>>
+            <input type=hidden name=selectedids value=<?=$selectedids?>>
+            <td>
+    		<div style='background-color:#efefef;border:solid 1 gray;border-top:none;overflow-Y:auto;overflow-X:auto;width:235;height:100%'>
+
+            <table width=100% >
+
+            <tr>
+                <td>לקוח:</td>
+                <td align=left nowrap>
+                    <input  type=hidden name=client value="<?=$client?>">
+                    <input readonly name=clientName style=width:95 value="<?=$clientName?>" <?if ($client && $client>1){?>style='cursor:hand'<?}?> onclick="if (this.value!=''&&document.F.client.value!=1)wopen1('cppro/main.php?service=suppliers&bd_event=bd_event=edit_record&record_id='+document.F.client.value,'tools')">
+                    <input type=button class=button style='font-size:8pt;background-image:url(<?=$imgPath?>find.gif)' value=""  title='חיפוש לקוחות. יש להחזיק לחצן SHIFT לחיפוש ברירת מחדל'  onclick="showClient()">
+                    <input type=button class=button style='width:18px;font-size:8pt;background-image:url(<?=$imgPath?>del.gif)' title='נקה לקוח' onclick="startClient('','')">
+                </td>
+            </tr>
+            </table>
+            <table width=100% id="CONTENT_DOCS" cellpadding=0 style='display:<?=($tabmode=="DOCS"||!$tabmode)?"":"none"?>'>
+ 
+            <tr>
+                <td nowrap>ת.ז./מס' עסק:</td>
+                <td>
+                    <input size=6 style='width:100%' id=businessnum name=businessnum dir=ltr value="<?=$cnum?>"> 
+                </td> 
+            </tr>
+                
+            <tr>
+    			<td nowrap>סוג מסמך:</td>
+    			<td nowrap>
+    				<?
+                    $sql = "select dt.id,dt.name,dt.showinmenu, dtg.id as groupid,dtg.name as groupname
+                     from $TABLE_DOCUMENT_TYPE dt
+                     left outer join document_type_counters dtc on dt.id = doc_type_id and user_id = $userID
+                     left outer join $TABLE_DOCUMENT_TYPE_GROUP dtg on dt.group_id = dtg.id
+                     where dtc.status is null or dtc.status = 1 
+                     order by dtg.sortorder, dt.sortorder";
+                    $dtype=DBQuery($sql);?>
+    				  <select name=dt style='width:100%'>
+    					<option value=''>כל המסמכים</option>
+    				 <?
+                     $dtg = 0;
+                     while (!$dtype->EOF)
+                     {
+                         if (!$hasFactories && ($dtype->fields["id"]=="YETZIAMIIZUR"||$dtype->fields["id"]=="KNISALEIZUR"))
+                         {
+                             $dtype->MoveNext(); 
+                             continue;
+                         }
+                         if (HasDocumentPermission($dtype->fields["id"])){
+                             if ($dtg!=$dtype->fields["groupid"])
+                             {
+                                echo "<optgroup style='background-color:lightyellow' label='".$dtype->fields["groupname"]."'></optgroup>"; 
+                                $dtg = $dtype->fields["groupid"]; 
+                             }
+                             ?>
+                             <option value='<?=$dtype->fields["id"]?>' <?=($dt==$dtype->fields["id"])?"selected":""?> ><?=$dtype->fields["name"]?></option>
+                         <?}
+  
+    				    $dtype->MoveNext();
+                        }?>
+                       </optgroup>
+    				</select>
+    			</td>
+    		</tr>
+            
+            <tr>
+                <td>סטטוס: </td>  
+    			<td nowrap>
+                    <?
+                    $sql = "select id,name from $TABLE_DOCUMENT_STATUS order by id";
+                    $dstatusrs=$conn->Execute($sql);
+                    ?>
+                    <select name=dstatus  style='width:100%'>
+                        <option value="">כל הסטטוסים
+                        <?while (!$dstatusrs->EOF){?>
+                            <option value="<?=$dstatusrs->Fields("id")?>" <?=($dstatus==$dstatusrs->Fields("id"))?"selected":""?>><?=$dstatusrs->Fields("name")?>
+                            <?$dstatusrs->MoveNext();
+                        }?>
+                    </select>
+    			</td>
+    		</tr>
+                        
+            <tr>
+    			<td nowrap>נקודת מכירה:</td>
+    			<td nowrap>
+    				  <select name=stock style='width:100%'>
+    				  <?FillStockList($stocks,$stock)?>
+    				  </select>
+    			</td>
+    		</tr>
+    		<tr>
+    			<td nowrap>מתאריך:</td>
+    			<td><input dir=ltr	size=6 id=sDate name=sDate value="<?=$sDate?>">
+    				<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.sDate")'>
+    			</td>
+    		</tr>
+    		<tr>
+    			<td nowrap> עד תאריך:</td>
+    			<td nowrap><input dir=ltr size=6 id=eDate name=eDate value="<?=$eDate?>">
+    				<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.eDate")'>
+    			</td>
+    		</tr>
+            <tr>
+    			<td nowrap>לתשלום עד:</td>
+    			<td nowrap><input dir=ltr size=6 id=paydate name=paydate value="<?=$paydate?>">
+    				<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.paydate")'>
+    			</td>
+    		</tr>
+            <tr>
+    			<td nowrap> מספר:</td>
+    			<td nowrap>
+                    <input size=2 id=cnum name=cnum dir=ltr value="<?=$cnum?>">
+                    עד:
+                    <input size=2 id=cnum1 name=cnum1 dir=ltr value="<?=$cnum1?>">
+    			</td>
+    		</tr>
+    		<tr>
+    			<td nowrap><?=$lang[amount]?>:</td>
+    			<td><input dir=ltr	size=15 id=amount name=amount value="<?=$amount?>">
+    			</td>
+    		</tr>
+
+    	    <tr>
+    			<td nowrap> אסמכתא:</td>
+    			<td nowrap>
+                    <input size=15 id=asmacta name=asmacta dir=ltr value="<?=$asmacta?>">
+    			</td>
+    		</tr>	
+             <tr>
+    			<td nowrap> ברקוד:</td>
+    			<td nowrap>
+                    <input size=15 id=barcode name=barcode dir=ltr value="<?=$barcode?>">
+    			</td>
+    		</tr>
+            <tr>
+    			<td nowrap> קוד סידורי:</td>
+    			<td nowrap>
+                    <input size=15 id=serial name=serial dir=ltr value="<?=$serial?>">
+    			</td>
+    		</tr>
+
+                <tr>
+                    <td></td>
+                    <td><input type="checkbox" name="vatfree" value=1 <?=$vatfree?"checked":""?>><?=$lang["vat_free"]?></td>
+                </tr>
+    		<tr><td align=center colspan=2>
+                        <br>
+                <input type=submit value='חפש'  style='background-image:url(<?=$imgPath?>view.gif)' class=button>
+                <input type=button onclick='window.location="pro.php"' value='איפוס תנאי חיפוש'  style='background-image:url(<?=$imgPath?>back.gif);width:130;' class=button>
+            </td></tr>
+    		
+    		</table>
+
+    		<table cellpadding=0 width=100% border=0 id="CONTENT_CHN" style='display:<?=($tabmode=="CHN")?"":"none"?>'>
+            <tr>
+    			<td width=1% nowrap>סוג מסמך:</td>
+    			<td  nowrap>
+    				<?
+                    $sql = "select dt.id,dt.name from $TABLE_DOCUMENT_TYPE dt
+                     left outer join document_type_counters dtc on dt.id = doc_type_id and user_id = $userID
+                     where (dtc.status is null or dtc.status = 1)
+                     and is_payment=1 order by sortorder";
+                    $dtype1=$conn->execute($sql);?>
+    				  <select name=dt1 style='width:130'>
+    					<option value=''>כל המסמכים</option>
+                        <optgroup label="—————————">
+    				 <?while (!$dtype1->EOF){
+                            if (HasDocumentPermission($dtype1->fields["id"])){?>
+    				 	    <option value='<?=$dtype1->fields["id"]?>' <?=($dt1==$dtype1->fields["id"])?"selected":""?> ><?=$dtype1->fields["name"]?></option>
+     				        <?}
+                            $dtype1->MoveNext();}?>
+                       </optgroup>
+    				</select>
+    			</td>
+    		</tr> 
+    	    <tr>
+    			<td width=1% nowrap>קופה:</td>
+    			<td  nowrap>
+    				<?
+                    $sql = "select id,name from kupot where status=1 and user_id = $userID order by sortorder";
+                    $kupot=$conn->execute($sql);?>
+    				  <select name=kupa style='width:130'>
+    					<option value=''>כל הקופות</option>
+    				    <?while (!$kupot->EOF){?>
+    				 	    <option value='<?=$kupot->fields["id"]?>' <?=($kupa==$kupot->fields["id"])?"selected":""?> ><?=$kupot->fields["name"]?></option>
+    				    <?$kupot->MoveNext();
+                        }?>
+    				</select>
+    			</td>
+    		</tr> 
+            <tr>
+    			<td width=1% nowrap>סוג תשלום:</td>
+    			<td  nowrap>
+    				<?
+                    $sql = "select id,name from $TABLE_DOCPAYMENTTYPES order by name";
+                    $ptypes=$conn->execute($sql);?>
+    				  <select name=ptype style='width:130'>
+    					<option value=''>כל הסוגים</option>
+    				    <?while (!$ptypes->EOF){?>
+    				 	    <option value='<?=$ptypes->fields["id"]?>' <?=($ptype==$ptypes->fields["id"])?"selected":""?> ><?=$ptypes->fields["name"]?></option>
+    				    <?$ptypes->MoveNext();
+                        }?>
+    				</select>
+    			</td>
+    		</tr> 
+    		<tr>
+    			<td nowrap>סכום:</td>
+    			<td><input dir=ltr	size=6 id=chequeamt name=chequeamt value="<?=$chequeamt?>">
+    			</td>
+    		</tr>   		
+    		<tr>
+    			<td  nowrap>מספר שיק:</td>
+    			<td><input dir=ltr	size=6 id=chequenum name=chequenum value="<?=$chequenum?>">
+    			</td>
+    		</tr>
+    		<tr>
+    			<td  nowrap>מספר בנק:</td>
+    			<td><input dir=ltr	size=6 id=banknum name=banknum value="<?=$banknum?>">
+    			</td>
+    		</tr>
+    		<tr>
+    			<td  nowrap>מספר סניף:</td>
+    			<td><input dir=ltr	size=6 id=snifnum name=snifnum value="<?=$snifnum?>">
+    			</td>
+    		</tr>
+    		<tr>
+    			<td  nowrap>מספר חשבון:</td>
+    			<td><input dir=ltr	size=6 id=accnum name=accnum value="<?=$accnum?>">
+    			</td>
+    		</tr>    		
+    		<tr>
+    			<td nowrap>תאריך פרעון מ:</td>
+    			<td><input dir=ltr	size=6 id=spDate name=spDate value="<?=$spDate?>">
+    				<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.spDate")'>
+    			</td>
+    		</tr>
+    		<tr>
+    			<td nowrap> תאריך פרעון עד:</td>
+    			<td nowrap><input dir=ltr size=6 id=epDate name=epDate value="<?=$epDate?>">
+    				<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.epDate")'>
+    			</td>
+    		</tr>
+    		<tr>
+    			<td nowrap> שיקים יוצאים:</td>
+    			<td nowrap>
+                <input type=checkbox name=outcheques <?=$outcheques?"checked":""?>>
+                </td>
+    		</tr>
+    		<tr><td nowrap align=center colspan=2>
+                <input type=submit value='חפש'  style='background-image:url(<?=$imgPath?>view.gif)' class=button>
+                <input type=button onclick='window.location="pro.php?tabmode=CHN"' value='איפוס תנאי חיפוש'  style='background-image:url(<?=$imgPath?>back.gif);width:130;' class=button>
+            </td></tr>
+    		</table>
+    		
+    		</div>
+            </td>
+            </tr>
+            </form>
+            </table>
+		</td>
+        <!--END OF SEARCH PANEL-->
+        
+        </tr></table>
+		
+		<Div id=NEWDOCPOPUP style='display:none'>
+            <div style='width:100%;height:100%;overflow-y:auto' dir=rtl>
+			<table width=100% border=1 cellpadding=2 cellspacing=1>
+			<?
+            $isdocument=false;
+			$popupHeight=2;
+			$dtype->MoveFirst();
+            $dtg=0;
+			while (!$dtype->EOF)
+            {
+                if ($dtg!=$dtype->fields["groupid"])
+                {
+                    ?>
+                    <tr><td height=16 align=center bgcolor=#efefef style='color:blue;font-family:arial;font-size:8pt;font-weight:bold' style='padding:0' height=0>
+                    <i><?=$dtype->fields["groupname"]?>
+                    </td></tr>
+                    <?
+                    $dtg=$dtype->fields["groupid"];
+                    $popupHeight+=18; 
+                }
+                if (!$dtype->fields["showinmenu"]
+                    ||!HasDocumentPermission($dtype->fields["id"],"C")
+                    ||(!$hasFactories && ($dtype->fields["id"]=="YETZIAMIIZUR"||$dtype->fields["id"]=="KNISALEIZUR")))
+                {
+                    $dtype->MoveNext();
+                    continue;
+                }
+
+                $isdocument=true;?>
+				 	<tr><td height=20
+						onmouseover='this.bgColor="darkblue";this.style.color="white"'
+						onmouseout='this.bgColor="";this.style.color="black"'
+						align=center style='border:outset 1;cursor:hand;color:black;font-family:arial;font-size:9pt;font-weight:bold'
+						onclick="parent.wopen('add_document.php?client='+parent.document.F.client.value+'&did=<?=$dtype->fields["id"]?>','',screen.availWidth-100,520,true,'no')"><?=$dtype->fields["name"]?></td></tr>
+			     <?
+			     $popupHeight+=22;
+                 $dtype->MoveNext();
+			 }
+             if (!$isdocument){
+                 $popupHeight+=22;
+                 ?>
+                <tr><td align=center height=20 style='border:outset 1;cursor:hand;color:red;font-family:arial;font-size:9pt;font-weight:bold'>אין הרשאות</td></tr>
+                 <?
+             }
+             if ($popupHeight>400)$popupHeight=400;
+             ?>
+			</table>
+            </div>
+		</Div>
+
+<script>
+
+function saveSearch()
+{
+    wopen("savequery.php?","savequery",400,180,true,"no");
+    document.F.action='savequery.php'
+    document.F.target='savequery';
+    document.F.submit();
+    document.F.action='documents.php'
+    document.F.target='LISTING';
+}
+
+function loadSearch()
+{
+    wopen("queries.php?","queries",500,400,true,"no"); 
+}
+
+function toggle(id){
+
+	if (id=="DOCS"){
+		document.getElementById("TAB_DOCS").className = "activetab";
+		document.getElementById("TAB_CHN").className = "inactivetab";
+		document.getElementById("CONTENT_DOCS").style.display = "";
+		document.getElementById("CONTENT_CHN").style.display = "none";
+	}
+	if (id=="CHN"){
+		document.getElementById("TAB_DOCS").className = "inactivetab";
+		document.getElementById("TAB_CHN").className = "activetab";
+		document.getElementById("CONTENT_DOCS").style.display = "none";
+		document.getElementById("CONTENT_CHN").style.display = "";
+	}
+
+	document.F.tabmode.value=id;
+    window.status='Loading...'
+	document.F.submit();
+    
+}
+
+var oPopup = window.createPopup();
+
+function addDocument(){
+	var oPopBody = oPopup.document.body;
+    oPopBody.style.backgroundColor = "buttonface";
+    oPopBody.style.border = "solid gray 1px";
+    oPopBody.innerHTML = document.getElementById("NEWDOCPOPUP").innerHTML;
+    oPopup.show(window.event.clientX-100, window.event.clientY+10, 180, <?=$popupHeight+2?>, document.body);
+}
+
+function showClient(readonly){
+    var url = "client_select.php?simple=1&clients=1&suppliers=1";
+    if (window.event!=null && window.event.shiftKey)
+    {
+		url+="&selectdefault=1";
+    }
+    url=url+"&rnd="+Math.random();
+    var s = wopen(url,"client",600,400,true,"resizable=no");
+}
+
+
+function startClient(s,name){
+    document.F.client.value=s;
+    document.F.clientName.value=name;
+    document.F.clientName.style.cursor=(name=="")?"default":"hand";
+}
+
+
+</script>
+
+<?php
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

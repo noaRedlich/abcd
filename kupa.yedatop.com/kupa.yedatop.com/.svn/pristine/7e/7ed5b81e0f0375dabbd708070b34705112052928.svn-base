@@ -1,0 +1,316 @@
+<style>
+.z {color:gray}
+.b {font-weight:bold}
+th {background-color:silver}
+</style>
+<?php
+    
+    $mode = $_GET["mode"];
+    if (!$mode) $mode = $_POST["mode"]; 
+    
+    $STATUS_OPEN=1;
+    $STATUS_CLOSED=2;
+    
+	$simple=1;
+	$page_subtitle = "מסמכים";
+	if (!$mode)
+    {
+		include("include/common.php");
+		if (!loginCheck('User'))exit;
+		global $action, $id, $cur_page, $lang, $conn, $config;
+		include("$config[template_path]/admin_top.html");
+	}
+
+	//if ($coupon || (($_GET["sDate"] || $_GET["ids"] || $mode) && $saction != "sendreport")){
+		$saction="go";
+	//}
+                                                                      
+   	?>
+
+		<script>
+		function PrintReport(){
+			document.getElementById("Query").style.display = "none";
+			window.print();
+			document.getElementById("Query").style.display = "";
+		}
+		</script>
+		<body>
+		<table cellpadding=5 border=0 width=100%>
+		<tr>
+		<form name=F method=post>
+		<input type=hidden name=usr value=<?=$usr?>>
+		<input type=hidden name=toremove value="">
+		<input type=hidden name=rmodule value=<?=$rmodule?>>
+		<?$reporttitle = "מסמכים"; ?>
+		<?if ($usr){$reporttitle.="<br>".$username;}?>
+		<td nowrap>
+		<strong style='font-size:12pt'><?=$reporttitle?></strong>
+		</td><td width=99% style='border:inset 1'>
+
+ 		<?if ($saction=="go" || $saction=="sendreport"){
+			require("sendreport.php");
+            ?>
+            <input type=button value='הדפס עותקים' onclick='printCopies()' class=button style='background-image:url(<?=$imgPath?>printer.gif)'>
+            <?
+		}?>
+
+		<input type=hidden name=saction value=go>
+		<input type=hidden name=reportbody value="">
+		<input type=hidden name=sendmode value="">
+		</td>
+		</form>
+		</tr>
+		</table>
+
+	<?	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+	
+    $url = "rep_documents.php?".queryString("sort,asc")."&asc=".(($asc=="desc")?"":"desc");
+    ?>
+	<div ><br><table id=REPORTTABLE bordercolor=gray border=1 style='border-collapse:collapse' dir=$dir width=100% border=0 cellpadding=2 cellspacing=0 bgcolor=white>
+    <tr>
+		<td class="tableHead2" width=1% nowrap><a class="tableHead2" href="<?=$url?>&sort=Date"><u>תאריד</td>
+		<td class="tableHead2" width=1% nowrap><a class="tableHead2" href="<?=$url?>&sort=Type"><u>סוג</td>
+		<td class="tableHead2" width=1% nowrap><a class="tableHead2" href="<?=$url?>&sort=Number"><u>מספר</td>
+		<td class="tableHead2" nowrap ><a class="tableHead2" href="<?=$url?>&sort=Client"><u>לקוח \    ספק    </td>
+		<td class="tableHead2" width=1% nowrap><img src='<?=$imgPath?>none.gif' width=75 height=1><br><a class="tableHead2" href="<?=$url?>&sort=Amount"><u>סכום</td>
+		<td class="tableHead2 none"  >הערות</td>
+		<td class="tableHead2 none"  >נקודה</td>		
+		<td class="tableHead2 none"   ><a class="tableHead2" href="<?=$url?>&sort=Comment"><u>אסמכתא</td>
+    </tr>
+    <? 
+
+	$day = $startdate;
+	if ($number){
+		$day=$enddate;
+	}
+
+
+
+    if ($ids)
+    {
+        $q = " and d.id in ($ids) ";
+    }
+    elseif ($itramode && !$alldocs)
+    {
+        $q = "and ds.countbalance = 1 and
+		   d.doc_status not in (".$STATUS_DRAFT.") and
+           dt.balance in ('+','-') and
+           d.client_id = $client";
+    }
+    else
+    {
+    	$sDateSQL=substr($sDate,6,4)."-".substr($sDate,3,2)."-".substr($sDate,0,2);
+		$eDateSQL=substr($eDate,6,4)."-".substr($eDate,3,2)."-".substr($eDate,0,2);
+		if ($client){
+			$q = " and client_id = $client ";
+		}
+		if ($sDate){
+			$q.=" and doc_date >= '$sDateSQL' ";
+		}
+		if ($eDate){
+			$q.=" and doc_date <= '$eDateSQL' ";
+		}
+        if ($paydate)
+        {
+            $q.=" and payment_date <= '".DateToSQL($paydate)."' and dt.print_paydate = 'PAY_UNTIL' ";
+        }
+        
+        if ($businessnum){
+           $q = " and (s.businessnum = '".addslashes($businessnum)."' or client_businessnum = '".addslashes($businessnum)."')";
+        }
+        	if ($amount){ 
+                    $q .= "and d.amount='".addslashes($amount)."'";
+                }
+
+             
+		if ($barcode){
+			$q.= "and exists (select id from document_products where barcode like '".addslashes(str_replace("*","%",$barcode))."' and doc_id = d.id)";
+		}
+		if ($asmacta)
+		{
+			$q.=" and d.comment like '".str_replace("*","%",addslashes($asmacta))."'"; 
+		}
+		if ($serial){
+			$q.= "and exists (select id from document_serials where serial='".addslashes($serial)."' and doc_id = d.id)";
+		}
+                if ($vatfree)
+                {
+                    $q.=" and d.vat = 0 ";
+                }
+
+		if ($dstatus){
+			$q.= "and doc_status = $dstatus ";
+		}
+		if ($cnum){
+			if ($cnum1){
+				$q.= " and doc_number between ".addslashes($cnum)." and ".addslashes($cnum1)." ";
+			}
+			else{
+				$q.=" and doc_number = '".addslashes($cnum)."' ";
+			}
+		}
+		elseif (!$cnum && $cnum1){
+				$q.=" and doc_number < '".addslashes($cnum1)."' ";
+		}
+
+		$qc=$q;
+		if ($dt)
+		{
+			$q.=" and doc_type='$dt' ";
+		}
+		if ($stock)
+		{
+			$q.=" and stock_id='$stock' ";
+		}
+
+
+    }                                                            
+    
+    $q .= " and doc_type in (select doc_type from $TABLE_PROFILEDOCTYPES where r=1 and profile_id in 
+    (select profile_id from $TABLE_USERPROFILE where r=1 and userid = $officeUserID))";
+
+
+	if (!$sort)$sort="DateNum";
+	$ascdesc = ($asc)?"":"desc";
+	switch ($sort){
+		case "Date": $sortorder = "doc_date $ascdesc, d.id $ascdesc";break;
+		case "Number": $sortorder = "doc_number+0 $ascdesc";break;
+        case "Type": $sortorder = "binary dt.name $ascdesc";break;
+        case "Comment": $sortorder = "d.comment+0 $ascdesc";break;  
+        case "Client": $sortorder = "binary client_name  $ascdesc";break; 
+        case "Amount": $sortorder = "abs(amount) $ascdesc";break; 
+		case "DateNum": $sortorder = "d.id desc";break;
+	}
+        
+    if ($itramode){
+        $amountfield = "amount*(case when dt.balance='+' then 1 else -1 end) as amount ";
+        $sortorderfield = "";
+    }
+    else{
+        $amountfield = "amount";
+        $sortorderfield = "dt.sortorder,";
+    }
+    
+	$sql = "
+		select dt.id as type, d.comment,d.comment1, d.id,doc_number,doc_date,
+        dt.name as doc_type,dt.is_serials,d.closed_by,
+		client_name, $amountfield,
+        stock.stockname,
+        sfrom.stockname as sourcestock,
+        sto.stockname as targetstock,
+		dt.balance                      
+		from documents d
+		left outer join $TABLE_LISTINGSSTOCKS stock on stock.id = d.stock_id 
+        left outer join $TABLE_LISTINGSSTOCKS sfrom on sfrom.id = d.source_stock_id 
+        left outer join $TABLE_LISTINGSSTOCKS sto on sto.id = d.target_stock_id 
+		, $TABLE_DOCUMENT_TYPE dt, $TABLE_DOCUMENT_STATUS ds, listingsSuppliers s
+		where d.user_id = $userID and d.doc_type = dt.id  and ds.id = doc_status
+		and s.id = d.client_id $q order by $sortorderfield";
+        if ($sortorder){
+            $sql.=" $sortorder";
+        }
+
+
+	$recordSet = $conn->Execute($sql);
+	if ($recordSet === false){log_error($sql);}
+
+
+    $doctype=$recordSet->fields["type"];
+
+	$total=0;
+	while (!$recordSet->EOF){
+		$ID = $recordSet->fields["id"];
+        $docid.=",".$ID;
+		$comment = substr($recordSet->fields["comment1"],0,30);
+		if ($comment!=$recordSet->fields["comment1"]){
+			$comment = substr($comment,0,strrpos($comment," "))."...";
+		}
+		$total+=round($recordSet->fields["amount"],2);
+        $count=0;
+		$title = $recordSet->fields["type_name"]." #".$recordSet->fields["doc_number"];
+        $link = "add_document.php?usr=$usr&docid=$DOCID&tabmode=PAYMENTS&did=".$recordSet->fields["type"];
+
+        if ($recordSet->Fields("sourcestock"))
+        {                                
+             $tooltip .= "נקודת מקור: ".$recordSet->Fields("sourcestock"); 
+             $tooltip .= "\nנקודת יעד: ".$recordSet->Fields("targetstock");
+		     $stockName = $recordSet->Fields("targetstock");
+        }
+        elseif ($recordSet->Fields("stockname"))
+        {
+            $tooltip .= "נקודת מכירה: ".$recordSet->Fields("stockname");
+			$stockName = $recordSet->Fields("stockname");
+        }	
+				
+        if ($doctype!=$recordSet->fields["type"] && !$itramode ){
+        	echo "
+            <tr>
+            <td Colspan=4><b>סה\"כ (".$doctypename.")</td>
+            <td><b>".balance($totaltype,2)."</td>
+            <td colspan=3>&nbsp;</td>
+            </tr>
+            ";
+            $doctype=$recordSet->fields["type"];
+            $doctypename =  $recordSet->fields["doc_type"];
+            $totaltype = 0;
+        }
+        else{
+            $doctypename =  $recordSet->fields["doc_type"];
+        }
+        $totaltype+=$recordSet->fields["amount"];
+        $dayofweek = $days[date("w",strtotime($recordSet->fields["doc_date"]))];   
+
+		echo "<tr style='cursor:hand' onclick=\"s=wopen('add_document.php?usr=$usr&docid=$ID&did=".$recordSet->fields["type"]."','add_doc',screen.availWidth-100,520,true,'no');try{s.focus()}catch(e){}\"  id='tr$ID'>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".DateFromSQL($recordSet->fields["doc_date"])." $dayofweek&nbsp;</td>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["doc_type"]."&nbsp;</td>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["doc_number"]."&nbsp;</td>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><div style='overflow:hidden;width:100%;height:15'>".$recordSet->fields["client_name"]."&nbsp;</div></td>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><span dir=ltr>".balance($recordSet->fields["amount"])."</span>&nbsp;</td>";
+		echo "<td  onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\" title='".str_replace("'","&#39;",$recordSet->fields["comment1"])."'><div style='overflow:hidden;width:100%;height:15'>".($comment)."&nbsp;</div></td>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$stockName."&nbsp;</td>";		
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["comment"]."&nbsp;</td>";
+        echo "</tr>";
+
+		$recordSet->MoveNext();
+	}
+
+    if ($doctype!=$recordSet->fields["type"] && !$itramode ){
+    	echo "
+        <tr>
+        <td Colspan=4><b>סה\"כ (".$doctypename.")</td>
+        <td><b dir=ltr>".balance($totaltype)."</b>&nbsp;</td>
+        <td colspan=3>&nbsp;</td>
+        </tr>
+        ";
+    }
+
+	echo "
+    <tr>
+    <td Colspan=4><b>סה\"כ</td>
+    <td><b dir=ltr>".balance($total)."</b>&nbsp;</td>
+    <td colspan=3>&nbsp;</td>
+    </tr>
+    </table></div>";
+	
+	}
+
+    if ($docid) $docid = substr($docid,1);
+	?>
+	<script>
+    function printCopies(){
+        return showModalDialog("printdoc.php?docid=<?=$docid?>","","dialogWidth:300px;dialogHeight:230px;center:yes;resizable:no;status:no;help:no");
+        //var sd = showModalDialog("printpdfframe.php?rand=<?=rand()?>&docid=<?=$docid?>&itra="+((document.F.printItra.checked)?1:0)+"&form="+((document.F.printForm.checked)?1:0)+"&numcopy="+document.F.numcopy.value,"doc","dialogWidth:800px;dialogHeight:600px;help:no;");
+    }
+	</script>
+	<?
+	
+    include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

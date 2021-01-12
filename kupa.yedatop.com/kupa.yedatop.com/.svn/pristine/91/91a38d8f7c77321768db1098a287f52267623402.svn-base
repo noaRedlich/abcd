@@ -1,0 +1,437 @@
+<?
+ob_start();
+$simple=1;
+$page_subtitle = "סל פריטים";
+include("include/common.php");
+echo "<script src='/javascript/common.js'></script>";
+if (!loginCheck('User'))exit; 
+global $action, $id, $cur_page, $lang, $conn, $config;
+
+
+if ($action=="getitems")
+{
+ ob_end_clean();
+ $s=DBQuery("select id from listingsDB where basket<>0 and user_ID = $userID");
+ while (!$s->EOF)
+ {
+    $res.=",".$s->Fields("id");
+    $s->MoveNext();
+ }
+ die($res);
+}  
+
+ if ($action=="show")$show=1;
+
+if ($quickclear)
+{
+	$r=$conn->Execute("update listingsDB set basket=0 where user_ID = $userID");
+	if ($r === false){	log_error($sql);}
+	echo "<script defer=1 type='text/javascript'>window.frames['LISTING'].window.checkBasket();</script>";
+}
+ if ($action=="clear")
+ {
+	$r=$conn->Execute("update listingsDB set basket=0 where user_ID = $userID");
+	if ($r === false){	log_error($sql);}
+	echo "<script>reloadParentBasket();location='basket.php?show=1';</script>";
+ }
+ elseif ($_GET["id"]){
+        $ids = explode(",",$_GET["id"]);
+        foreach($ids as $pid){
+            $sql = "select max(basket)+1 as lastbasket from listingsDB where user_ID = $userID";
+    		$r=$conn->Execute($sql);
+            $lastbasket = $r->fields["lastbasket"];
+            $lastbasket = ($lastbasket)?$lastbasket:0;
+    		if ($r === false){	log_error($sql);}
+     		$sql="update listingsDB set basket=".(($action=="del")?0:$lastbasket)." where ID = $pid and user_ID = $userID";
+    		$r=$conn->Execute($sql);
+    		if ($r === false){	log_error($sql);}
+        }
+		echo "<script>reloadParentBasket();location='basket.php?show=1';</script>";
+ }
+ elseif ($_POST["IDS"]){
+        $ids = explode(",",$_POST["IDS"]);
+        foreach($ids as $pid){
+            $sql = "select max(basket)+1 as lastbasket from listingsDB where user_ID = $userID";
+    		$r=$conn->Execute($sql);
+            $lastbasket = $r->fields["lastbasket"];
+            $lastbasket = ($lastbasket)?$lastbasket:0;
+    		if ($r === false){	log_error($sql);}
+     		$sql="update listingsDB set basket=".(($action=="del")?0:$lastbasket)." where ID = $pid and user_ID = $userID";
+    		$r=$conn->Execute($sql);
+    		if ($r === false){	log_error($sql);}
+        }
+	echo "<script>alert('".$lang["basket_updated"]."'); try{parent.opener.reloadParentBasket();}catch(e){}</script>";
+        exit();
+ }
+
+ if ($barcode||$othernum){
+	$oi=$othernum?"1":"";
+	if ($barcode)
+	{
+		$q = "BarCode='".trim(addslashes($barcode))."'"; 
+	}
+	else{
+		$q = "(MisparZar='".trim(addslashes($othernum))."' or MisparSiduri='".trim(addslashes($othernum))."'  or MisparChalifi='".trim(addslashes($othernum))."')";
+	}
+ 	$sql="select id as listing_id from listingsDB where $q and ProductType='P' and user_id = $userID";
+	$res = DBQuery($sql);
+	if (!$res->EOF){
+		while (!$res->EOF)
+		{
+        $sql = "select max(basket)+1 as lastbasket from listingsDB where user_ID = $userID";
+			$r=DBQuery($sql);
+        $lastbasket = $r->fields["lastbasket"];
+        $lastbasket = ($lastbasket)?$lastbasket:0;
+			$r=DBQuery("update listingsDB set basket=$lastbasket where ID='".$res->fields["listing_id"]."' and user_ID = $userID");
+			$res->MoveNext();
+		}
+		echo "<script>reloadParentBasket();location='basket.php?show=1&oi=".$oi."';</script>";
+	}
+	else{
+		echo "<div style='position:absolute;top:8;left:10;color:red'><strong>!פריט לא נמצא</strong></div>";
+	}
+ }
+
+ if ($action=="addall"||$action=="batch"||$action=="enable"||$action=="inter"||$action=="disable"||$action=="export_on"||$action=="purchase"||$action=="zikuipurchase"||$action=="sfira"||$action=="alut"||$action=="mechir"||$action=="madbekot"||$action=="export_off"||$action=="discount")
+ {
+ 	$ids="-1";
+	$r=$conn->Execute("select ID from listingsDB where basket<>0 and user_ID = $userID order by basket");
+	while (!$r->EOF)
+	{
+		$ids.=",".$r->fields["ID"];	
+		$r->moveNext();
+	}
+	if ($action=="enable"||$action=="disable"||$action=="inter"){
+		$sql = "update listingsDB set synccatalog = 0, active = '".(($action=="enable")?"yes":(($action=="inter")?"yek":"no"))."' where basket<>0 and user_ID = $userID";
+		echo "<script>window.location='basket.php?show=1&done=1'</script>";
+	}
+	if ($action=="export_on"||$action=="export_off"){
+		$sql = "update listingsDB set synccatalog = 0, export = '".(($action=="export_on")?"1":"0")."' where basket<>0 and user_ID = $userID ";
+		echo "<script>window.location='basket.php?show=1&done=1'</script>";
+	}
+	if ($action=="discount" && $discount)
+	{
+		$discount_type = ($discount_type=="up")?"+":"-";
+		$idsarr = explode(",",$ids);
+		foreach($idsarr as $prodid)
+		{
+			$psql  = "select round(SalePrice,2) as SalePrice from listingsDB where id = $prodid";
+			$oldPriceRS = DBQuery($psql);
+			$oldPrice = $oldPriceRS->fields["SalePrice"]; 
+			$sql = "update listingsDB set SalePrice = ROUND((SalePrice $discount_type SalePrice*$discount/100),2) where id = $prodid ";
+			DBQuery($sql);
+			$newPriceRS = DBQuery($psql);
+			$newPrice = $newPriceRS->fields["SalePrice"]; 
+			if (floatval($oldPrice)!=floatval($newPrice))
+			{
+				$sql = "insert into history (timestamp,datetime,type,listing_id,saleprice_from,saleprice_to,note) values 
+					(unix_timestamp(),now(),'adjustment',$prodid,'".$oldPrice."','".$newPrice."','עדכון הנחה מסל פריטים')";
+                DBQuery($sql);  
+			}
+		}
+		$sql = "";
+		echo "<script>window.location='basket.php?show=1&done=1'</script>";
+	}
+	if ($action=="purchase"){
+		echo "<script>var ss=window.open('purchase.php?mode=basket','purchase','top='+(window.screenTop+15)+',left='+(window.screenLeft+15)+',width=650,height=400');if(ss!=null){ss.focus()};
+		</script>";
+	}
+	if ($action=="zikuipurchase"){
+		echo "<script>var ss=window.open('purchase.php?zikuipurchase=1&mode=basket','purchase','top='+(window.screenTop+15)+',left='+(window.screenLeft+15)+',width=650,height=400');if(ss!=null){ss.focus()};
+		</script>";
+	}
+    if ($action=="batch"){
+		echo "<script>var ss=window.open('batch.php','batch','top='+(window.screenTop+15)+',left='+(window.screenLeft+15)+',width=400,height=280');if(ss!=null){ss.focus()};
+		</script>";
+	}
+	if ($action=="addall"){
+		$r=$conn->Execute("update listingsDB set basket=id where active in ('yes','yek')  and user_ID = $userID");
+		if ($r === false){log_error($sql);}
+		echo "<script>reloadParentBasket();location='basket.php?show=1';</script>";
+	}
+	if ($action=="sfira"){
+		echo "<script>s=window.open('sfira.php?sfira=1&mode=basket','sfira','top='+(window.screenTop+15)+',left='+(window.screenLeft+15)+',width=650,height=400');if(s!=null){s.focus()};
+		</script>";
+	}
+	if ($action=="alut"){
+		echo "<script>s=window.open('sfira.php?mode=basket','sfira','top='+(window.screenTop+15)+',left='+(window.screenLeft+15)+',width=650,height=400');if(s!=null){s.focus()};
+		</script>";
+	}
+    if ($action=="mechir"){
+		echo "<script>s=window.open('mechir.php?mode=basket','mechir','top='+(window.screenTop+15)+',left='+(window.screenLeft+15)+',width=650,height=400');if(s!=null){s.focus()};
+		</script>";
+	}
+	if ($action=="madbekot"){
+        echo "<script>s=window.open('madbekot.php?mode=basket','madbekot','top='+(window.screenTop+15)+',left='+(window.screenLeft+15)+',width=650,height=400');if(s!=null){s.focus()};
+		</script>";
+	}
+	
+	if ($sql)
+	{
+		DBQuery($sql);
+	}
+	$nofocus=1;
+	
+ }
+
+
+if ($show){
+	require($GO_THEME->theme_path."simple_header.inc");
+?>
+<script>
+
+	function wopen1(url){
+			s = window.open(url+'&simple=1','edit','top=70,left=170,height=500,width=500,resizable=yes,scrollbars=yes');
+			s.focus();
+		}
+	</script>
+<?
+}
+
+if ($action!="show" && !$show){
+?>
+	<script type="text/javascript">
+
+		function wopen(url){
+			s = window.open(url+'&simple=1','basket','top=50,left=150,height=500,width=500,resizable=yes,scrollbars=yes');
+			s.focus();
+		}
+		
+
+	</script>
+<?
+	echo "<table dir=$direction border=0 cellspacing=0 width=150 height=38><tr><td bgcolor=#E0DBDC style='border:inset 2' align=center><b>";
+
+
+	$r=$conn->Execute("select count(*) as cnt from listingsDB where basket<>0 and user_ID = $userID");
+	if ($r === false){log_error($sql);}
+	$cnt = $r->fields["cnt"];
+	if ($cnt)
+	{
+		echo "<nobr><a href='javascript:wopen(\"basket.php?action=show\",\"basket\")'><img border=0 src=".$imgPath."shoppingbasket_full.gif hspace=5 align=absmiddle><u>items_in_basket: ".$cnt."</u></a> 
+		[<a href='javascript:clearBasket()' title='clear_basket'>x</a>]";
+	}
+	else{
+		echo "<a href='javascript:wopen(\"basket.php?action=show\",\"basket\")'><img border=0 src=".$imgPath."shoppingbasket.gif hspace=5 align=absmiddle> basket_empty</a>";
+	}
+	echo "</td></tr></table>";
+	exit(); 
+
+}
+ ?>
+ 
+ 
+ 
+<html dir=<?=$dir?>>
+<head>
+
+
+<title>Your Cart</title>
+<style>body{background-color:buttonface}</style>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html" CHARSET="<?=$def_charset?>">
+<link rel=stylesheet href="css.css" type="text/css">
+
+<script>
+	function checkout(rfq){
+		try{
+			s = window.opener;
+			s.location = "order.php?mode=basket"+((rfq==1)?"&rfq=1":"");
+			window.close();
+		}
+		catch(er){
+		}
+	}
+	
+	
+</script>
+</head>
+
+<?
+if ($done==1||$action=="quantity"||$action=="del"||$action=="enable"||$action=="disable"||$action=="inter"||$action=="clear"){
+	echo "<script>reloadParent();</script>";
+}
+?>
+<?if ($reload){?>
+<body <?=$reload?>>
+<?}?>
+
+<table dir=<?=$dir?> cellpadding=0 cellspacing=5 width=100% height=100%>
+<tr style=height:1%><td>
+			<table width=100%><tr>
+			<td bgcolor=#ffffcc style='border:outset 1' align=center><b><?=$lang[basket]?></b></td>
+			</tr></table>
+</td></tr>
+<tr><td>
+<div style='border:inset 1;overflow-Y:scroll;height:100%'>
+<table border=0 cellpadding=2 cellspacing=1 width=100%>
+<form name=f method=post>
+<input type=hidden name=show value=<?=$show?>>
+<input type=hidden name=move value=''>
+<input type=hidden name=madbekot value=''>
+<tr bgcolor=#4a0194>
+    <td  width=1% style=color:white align=center><b>ברקוד</td>
+	<td style=color:white align=center><b>שם</td>
+	<td width=1% style='display:none' nowrap style=color:white align=center><b>כמות לתזוזה</td>
+	<td width=1% style=color:white align=center><b>X</td>
+</tr>
+<?
+	$f=false;
+	$totalnis=0;
+	$totalusd=0;
+	$r=DBQuery("select l.* from listingsDB l where basket<>0 and l.user_ID = $userID order by basket");
+
+	while (!$r->EOF)
+	{
+		$f=1;
+		?>
+	
+		<tr valign=top bgColor=#efefef>
+			<td><?=$r->fields["BarCode"]?></td>
+			<td><a href='javascript:wopen1("edit_my_listings.php?simple=1&edit=<?=$r->fields["ID"]?>")'><u><?=$r->fields["Title"]?></u></td>
+			<td style='display:none' align=center><input maxlength=5 onkeyup='document.getElementById("info").innerHTML="<font style=color:red><?=$lang['update_basket']?></font>"' size=4 style='font-size:8pt;height:20px;width:50px' name="quantity[]" value="<?=$quantity?>"></td>
+			<td nowrap align=center>&nbsp;<b><a style='text-decoration:none' title="Remove" href="?id=<?=$r->fields["ID"]?>&action=del&show=1">x</a>&nbsp;</td>
+		</tr>
+	<?	
+	$r->moveNext();
+	 }
+
+?>
+</table>
+</div>
+</td>
+</tr>
+
+<tr style=height:1%><td>
+
+<center>
+<?if ($f){?>
+<div id=info>
+	&nbsp;<?if ($_POST["quantity"]){?>
+	<font style='color:green'><?=$lang[basket_updated]?></font>
+	<?}?>
+</div>
+
+<? if ($done){?>
+ <strong style=color:green><?=$lang[done]?></strong>
+<?}?>
+
+<fieldset><legend><?=$lang[operations]?></legend></legend>
+<?if (HasActionPermission("EDITLISTING")){?>
+<input type=button style='width:120px;cursor:hand;color:green;' value="<?=$lang[set_active]?>" onclick='location="?action=enable&show=<?=$show?>"'>
+<input type=button style='width:120px;cursor:hand;color:blue;' value="<?=$lang[inter]?>" onclick='location="?action=inter&show=<?=$show?>"'>
+<input type=button style='width:120px;cursor:hand;color:RED;' value="<?=$lang[set_inactive]?>" onclick='location="?action=disable&show=<?=$show?>"'>
+<br>
+<?}?>
+<?if (HasActionPermission("PURCHASE")){?>
+<input type=button style='width:180px;cursor:hand;color:blue;' value="קניות למלאי" onclick='location="?action=purchase&show=<?=$show?>"'>
+<input type=button style='width:180px;cursor:hand;color:blue;' value="זיכוי קניות למלאי" onclick='location="?action=zikuipurchase&show=<?=$show?>"'>
+<br> 
+<?}?>  
+<?if (HasActionPermission("EDITLISTING")){?>                                                                                
+<input type=button style='width:180px;cursor:hand;color:blue;' value="שינוי עלות" onclick='location="?action=alut&show=<?=$show?>"'>
+<input type=button style='width:180px;cursor:hand;color:blue;' value="שינוי מחיר" onclick='location="?action=mechir&show=<?=$show?>"'>
+<br>
+<?}?>
+<?if (HasActionPermission("SFIRATMLAI")){?> 
+<input type=button style='width:180px;cursor:hand;color:blue;' value="ספירת-מלאי" onclick='location="?action=sfira&show=<?=$show?>"'>
+<?}?>
+<?if (HasActionPermission("MOVELISTING")){?> 
+<input type=button style='width:180px;color:blue;cursor:hand;' value="<?=$lang[move_items]?>" onclick='document.f.move.value=1;document.f.submit()'>
+<?}?>
+<br>
+<input type=button style='width:180px;color:blue;cursor:hand;' value="קובץ למדבקות" onclick='location="?action=madbekot&show=<?=$show?>"'>
+<?if (HasReportPermission("PRITIM")){?>
+<input  type=button style='width:180px;color:blue;cursor:hand;' value='דו"ח פריטים'  onclick='opener.wopen("/modules/stock/rep_stockhistory.php?basket=1&start=1","stock",750,500,true)'  >
+<?}?>
+<?if (HasActionPermission("EDITLISTING")){?>
+<br>
+<input type=button style='width:180px;cursor:hand;color:green;' value="<?=$lang[set_export_on]?>" onclick='location="?action=export_on&show=<?=$show?>"'>
+<input type=button style='width:180px;cursor:hand;color:RED;' value="<?=$lang[set_export_off]?>" onclick='location="?action=export_off&show=<?=$show?>"'>
+<br>
+<input type=button style='width:180px;cursor:hand;color:blue;' value="עדכון קבוצתי" onclick='location="?action=batch&show=<?=$show?>"'>
+
+<?}?>
+
+<?if (false && HasActionPermission("EDITLISTING")){?>
+<hr>
+<?=$lang[set_discount]?>&nbsp;
+<input name='discount' size=5> %
+<select name=discount_type>
+<option value='down'><?=$lang[down]?>
+<option value='up'><?=$lang[up]?>
+</select>
+&nbsp;
+<input type=button value="<?=$lang[submit]?>" onclick='if(document.f.discount.value==""||isNaN(document.f.discount.value)){alert("<?=$lang["discount_alert"]?>")}else{location="?action=discount&discount_type="+(document.f.discount_type.value)+"&discount="+document.f.discount.value+"&show=<?=$show?>"}'>
+<?}?>
+</fieldset>
+<?}?>
+<div style="padding-top:5px">
+<b><?=$lang["add_item_by_barcode"]?></b>: 
+<input size=12 style='width:120' id=BARCODEINPUT name=BARCODE onkeypress='processbarcode()'>
+<input type='button' value='<?=$lang["submit"]?>' onclick='sendBarCode()'>
+&nbsp;
+<b><?=$lang["by_other_num"]?></b>:
+<input size=12 style='width:60' id=OTHERNUMINPUT name=OTHERNUM onkeypress='processothernum()'>
+<input type='button' value='<?=$lang["submit"]?>' onclick='sendOtherNum()'>
+
+</div>
+<hr>
+<input type=button value="<?=$lang["add_all"]?>" onclick='location="?action=addall&show=<?=$show?>"'>
+<!--input type=button value="<?=$lang[update_button]?>" onclick='document.f.submit()'-->
+<input type=button value="<?=$lang[clear_button]?>" onclick='location="?action=clear&show=<?=$show?>"'>
+
+
+<input type=button value="<?=$lang[close_button]?>" onclick='window.close()'>
+&nbsp;&nbsp;
+</center>
+</td>
+</tr></form>
+</table>
+<script>
+<?if (!$nofocus){?>
+document.getElementById("<?=$oi?"OTHERNUMINPUT":"BARCODEINPUT"?>").focus();
+<?}?>
+function processbarcode(){
+	if (window.event.keyCode==13){
+		sendBarCode();
+	}
+}
+
+function processothernum(){
+	if (window.event.keyCode==13){
+		sendOtherNum();
+	}
+}
+function sendBarCode(){
+	if(document.getElementById("BARCODEINPUT").value==""){
+		alert("<?=$lang["enter_barcode"]?>");return;
+	}
+	else
+	{
+		f.action="basket.php?action=show&barcode="+document.getElementById("BARCODEINPUT").value;
+		f.submit();
+	}
+}
+
+function sendOtherNum(){
+	if(document.getElementById("OTHERNUMINPUT").value==""){
+		alert("<?=$lang["enter_othernum"]?>");return;
+	}
+	else
+	{
+		f.action="basket.php?action=show&othernum="+document.getElementById("OTHERNUMINPUT").value;
+		f.submit();
+	}
+}
+</script>
+
+<?if ($move==1){?>
+<script>
+ location="move_listings.php?edit=1&simple=1&mode=basket";
+</script>
+<?}?>
+
+
+
+</body>
+</html>

@@ -1,0 +1,426 @@
+<style>
+.z {color:gray}
+.b {font-weight:bold}
+th {background-color:silver}
+.noc {background-color:#efefef}
+</style>
+<?php
+	$simple=1;
+	$page_subtitle = "מלאי ומכירות לפי נקודות מכירה ";
+	include("include/common.php");
+	include("include/business_functions.php");
+
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+	$xlsfilename = "stocksales";
+
+	if ($_GET["sDate"] && $saction!="sendreport"){
+		$saction="go";
+	}
+	
+	if (!$sDate){
+		$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+		$sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+		$eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+	}
+	
+	
+	$startDay = dateToSQL($sDate);
+	$endDay = dateToSQL($eDate);
+	
+	$cats = $conn->Execute("select * from listingsCategories where user_ID = $userID  and Status=1 order by binary CategoryName");
+	if ($cats === false){log_error($sql);}
+	
+
+	?>
+    <style>
+    .z {color:gray}
+    .s {<?if (HasReportPermission("CHESHBONIT")){?>cursor:hand<?}?>}
+    .b {font-weight:bold;<?if (HasReportPermission("CHESHBONIT")){?>cursor:hand<?}?>}
+    .bt {font-weight:bold;}
+    th {background-color:silver}
+    </style>
+	<script>
+	function PrintReport(){
+		document.getElementById("Query").style.display = "none";
+		window.print();
+		document.getElementById("Query").style.display = "";
+	}
+    
+    function showChn(ids,docids){
+    <?if (HasReportPermission("CHESHBONIT")){?>
+	ids1 = ids.replace(/-1/g,"")
+	ids2 = docids.replace(/-1/g,"")
+	if (ids1!=""){
+        document.FF.ids.value = ids
+        document.FF.target="CHN";
+		openReport1("blank.htm","CHN")
+        document.FF.submit()
+	}
+	if (ids2!=""){
+		document.FF.action = "rep_documents.php";
+        document.FF.ids.value = ids2
+        document.FF.target="DOCS";
+		openReport1("blank.htm","DOCS")
+        document.FF.submit()
+	}
+    <?}?>
+    }
+    
+    function mov(e){
+        <?if (HasReportPermission("CHESHBONIT")){?>
+	    if(e.className=="s"||e.className=="b ") e.style.backgroundColor='yellow';
+        <?}?>
+    }
+    function mou(e){
+        <?if (HasReportPermission("CHESHBONIT")){?>  
+	    e.style.backgroundColor='';
+        <?}?>
+    }
+    
+    function openReport1(url,target){
+	    var ss="";
+	    s = window.open(url,target,'top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+	    s.focus();
+    }
+	</script>
+	<body>
+	<table cellpadding=5 border=0 width=100%>
+	<tr>
+	<form method=post name=F action="rep_stockpoints.php">
+	<input type=hidden name=usr value=<?=$usr?>>
+	<input type=hidden name=rmodule value=<?=$rmodule?>>
+	<td nowrap>
+	<?
+	$reporttitle = $page_subtitle;		
+	?>
+	<?if ($usr){$reporttitle.="<br>".$username;}?>
+	<strong style='font-size:12pt'><?=$reporttitle?></strong>
+	</td><td width=99% style='border:inset 1'>
+	<?=$lang["from"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.sDate")
+'>
+ <?=$lang["to"]?> <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.eDate")
+'>
+ 
+	
+	<select name=category>
+	<option value=""><?=$lang["all_cats"]?>
+    <?FillCategoriesList($category);?>
+	</select>
+	
+	
+	<input type=submit value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top" >
+
+	<br>
+	<?=$lang["including_sub_cat"]?> <Input type=checkbox <?=($subcats||!IsPostBack())?"checked":""?> name=subcats>
+	
+	 רק פרטים שנמכרו <input type=checkbox name=onlysold value=1 <?=($onlysold==1)?"checked":""?>>
+	 רק פרטים שישנם במלאי <input type=checkbox name=onlystock value=1 <?=($onlystock==1)?"checked":""?>>
+
+&nbsp;&nbsp;
+     נתוני קופה <input type=checkbox name=fromkupa value=1 <?=($fromkupa==1)?"checked":""?>>
+     נתוני חשבוניות נוספות<input type=checkbox name=fromdocs value=1 <?=($fromdocs==1)?"checked":""?>>
+	
+	
+	<?if ($saction=="go" || $saction=="sendreport"){
+		require("sendreport.php");
+	}?>
+	<input type=hidden name=saction value=go>
+	<input type=hidden name=reportbody value="">
+	<input type=hidden name=sendmode value="">
+
+	</td>
+	</form>
+	</tr>
+	</table>
+	<?	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+	
+	
+    $ssql = "select ID, StockName from $TABLE_LISTINGSSTOCKS s where
+    status = 1  
+    and (id in (select stock_id from $TABLE_USERSTOCKS where userid = $officeUserID and r=1) or $officeUserID=$userID)
+    and user_ID = $userID order by sortorder, binary StockName";
+    //echo $ssql;
+	$stocks = DBQuery($ssql);
+	echo "<div ><table id=REPORTTABLE dir=$dir border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+	
+	$worksheet->set_column('A:A', 15);
+	$worksheet->set_column('B:B', 20);
+	$worksheet->set_column('C:Z', 12);
+
+	$headings = array('ברקוד','שם פריט');
+
+	echo "
+	<tr>
+	<th width=1% rowspan=2>ברקוד</th>
+	<th width=1% rowspan=2>שם פריט</th>";
+
+	while (!$stocks->EOF)
+	{
+		echo "<th colspan=2>".$stocks->fields["StockName"]."</th>";
+		$headings[] = $stocks->fields["StockName"]."\n"."נוכחי";
+		$headings[] = $stocks->fields["StockName"]."\n"."נמכר";
+		$stocks->MoveNext();
+	}
+	
+	echo "<th colspan=2>סה\"כ</th></tr>";
+	$headings[] = "סה\"כ נוכחי";
+	$headings[] = "סה\"כ נמכר";
+    $worksheet->write_row('A'.($rrow++), $headings, $heading);
+	
+
+	echo "<tr>";
+
+	$stocks->MoveFirst();
+	while (!$stocks->EOF)
+	{
+		echo "<th>נוכחי</th>";
+		echo "<th>נמכר</th>";
+		$stocks->MoveNext();
+	}
+	echo "<th>נוכחי</th><th>נמכר</th></tr>";
+	
+	
+	$STA = array();
+	$STC = array();
+	
+	$q="";
+	if ($category)
+	{
+		$q.= " and ProductGroup in (".getCategoryIDs($category,$subcats).") ";
+	}
+	
+    if ($onlysold)
+    {
+        $q.=" and (1=0   ";
+        if ($fromkupa)
+        {
+			$q.=  " or exists (select tc.id from transactioncomponents tc, transactions t
+                where listing_id = l.id and tc.trans_id = t.id and refundmode <> 2 and trandate between '$startDay' and '$endDay' )";
+        }
+        if ($fromdocs)
+        {
+			$q.= " or exists (select dp.id from document_products dp, documents d, $TABLE_DOCUMENT_TYPE dt
+                where dt.id = d.doc_type  
+                and doc_type in ('CHESHBONIT','MASKABALA','MASZIKUI') and
+                listing_id = l.id and dp.doc_id = d.id  
+                and doc_status not in (".$STATUS_DRAFT.")
+                and doc_date between '$startDay' and '$endDay' ) ";
+        }
+        $q.=")";
+    }	
+    
+    if ($onlystock)
+    {
+		$q.=" and exists (select * from listingsStocksElements lse, $TABLE_LISTINGSSTOCKS s where s.id = lse.stockid and s.status = 1 and listingid=l.id and ifnull(quantity,0) > 0)";
+	}
+	
+	$sql = "select l.ID,l.Title,BarCode,decimals,grams_rate from listingsDB l, $TABLE_UNITS u
+	 where u.id = unit and active in ('yes','yek') and l.user_id = $userID $q order by binary Title";
+	$products = DBQuery($sql);
+		
+	while (!$products->EOF)
+	{
+
+		$PID = $products->Fields("ID");
+        $grams_rate = $products->Fields("grams_rate");
+        if (!$grams_rate)$grams_rate=1;
+        $sqldate = date("Y-m-d",$day);
+		$opdate = date("d/m/Y",$day);
+        $dayofweek = $days[date("w",$day)];      
+		
+	
+		if($fromkupa)
+		{
+			$sql = "select 
+			t.stock_id,
+            group_concat(t.id) as ids,
+			sum((case when WeigthFlag then WeightQty/$grams_rate else StockAmount end)* (case when IsRefund=1  or RefundMode=1 then -1 else 1 end) )    as StockAmount 			
+			from 
+				transactions t inner join transactioncomponents c 
+                on c.trans_id = t.ID and c.listing_id = $PID and c.MasterID = 0 
+			where 
+				t.user_id = $userID and  
+				refundmode <> 2 and
+				trandate between '$startDay' and '$endDay'
+			group by t.stock_id
+			";
+			$transData = DBQuery($sql);
+		}
+		
+		if ($fromdocs)
+		{
+			$sql = "
+				select 
+				d.stock_id,
+				group_concat(d.id) as ids,
+				sum(dp.quantity/$grams_rate * (case when dt.move_stock = '+' then -1 else 1 end)) as StockAmount
+				from document_products dp, documents d, $TABLE_DOCUMENT_TYPE dt
+                where dt.id = d.doc_type and
+                doc_type in ('CHESHBONIT','MASKABALA','MASZIKUI') and
+                listing_id = $PID and dp.doc_id = d.id 
+                and doc_status not in (".$STATUS_DRAFT.")
+                and doc_date between '$startDay' and '$endDay' 
+                group by d.stock_id
+				";
+				//echo $sql;
+           $docData = DBQuery($sql);
+        }
+		
+		
+		$sql = "select stockid,sum(quantity/$grams_rate) as quantity from listingsStocksElements where listingid = $PID group by stockid";
+		$currentData = DBQuery($sql);
+			
+		echo "<tr><td nowrap>".$products->Fields("BarCode")."</td>"; 
+		echo "<td nowrap>".((HasActionPermission("VIEWLISTING")||HasActionPermission("EDITLISTING"))?"<a href=\"javascript:parent.wopen('move_listings.php?simple=1&usr=$usr&edit=$PID','edit')\"":"").">".$products->Fields("Title")."</a></td>";
+		
+		$b=$body;
+		$f=$numformat;
+		$letter=0;
+		$worksheet->write(getLetter($letter++).$rrow,$products->Fields("BarCode"),$b);
+		$worksheet->write(getLetter($letter++).$rrow,$products->Fields("Title"),$b);
+		$stocks->MoveFirst();
+		$TA = 0; $TC = 0;
+		
+		while (!$stocks->EOF)
+        {
+            $StockAmount=0;
+
+			if ($fromkupa)
+			{
+				$found = false;
+				$transData->MoveFirst();
+				while (!$transData->EOF)
+				{
+					if ($transData->fields["stock_id"]==$stocks->fields["ID"])
+					{
+						$found=true;
+						break;
+					}
+					$transData->MoveNext();
+				}
+				
+				$ids="";$docids="";
+				if ($found)
+				{
+					$ids = $transData->fields["ids"];
+					$StockAmount += ($transData->fields["StockAmount"])?$transData->fields["StockAmount"]:0;
+				}
+			}
+			
+			if ($fromdocs)
+			{
+				$docfound = false;
+				$docData->MoveFirst();
+				while (!$docData->EOF)
+				{
+					if ($docData->fields["stock_id"]==$stocks->fields["ID"])
+					{
+						$docfound=true;
+						break;
+					}
+					$docData->MoveNext();
+				}
+				
+				if ($docfound)
+				{
+					$docids = $docData->Fields("ids");
+					$StockAmount+=$docData->Fields("StockAmount");
+				}
+			}
+			
+			$currentfound = false;
+			$currentData->MoveFirst();
+			while (!$currentData->EOF)
+			{
+				if ($currentData->fields["stockid"]==$stocks->fields["ID"])
+                {
+					$currentfound=true;
+					break;
+				}
+				$currentData->MoveNext();
+			}
+			
+			$currentAmount = ($currentfound)?$currentData->fields["quantity"]:0;
+			
+			$STA[$stocks->fields["ID"]]+=$StockAmount;
+			$TA+=$StockAmount;
+			$STC[$stocks->fields["ID"]]+=$currentAmount;
+			$TC+=$currentAmount;
+			
+			echo "<td class=noc><span  dir=ltr>".number_format($currentAmount,$products->Fields("decimals"))."</td>";
+			echo "<td class=".((!$ids && !$docids)?"z":"s")." onmouseover='mov(this)' onmouseout='mou(this)' onclick='showChn(\"$ids\",\"$docids\")'><span  dir=ltr>".number_format($StockAmount,$products->Fields("decimals"))."</td>";
+			$worksheet->write(getLetter($letter++).$rrow,$currentAmount,$b);
+			$worksheet->write(getLetter($letter++).$rrow,$StockAmount,$b);
+			$stocks->MoveNext();
+		}
+	
+		echo "<td class=noc><b dir=ltr>".number_format($TC,$products->Fields("decimals"))."</b></td>";
+		echo "<td><b dir=ltr>".number_format($TA,$products->Fields("decimals"))."</b></td>";
+		echo "</tr>";	
+		$worksheet->write(getLetter($letter++).$rrow,$TC,$b);
+		$worksheet->write(getLetter($letter++).$rrow,$TA,$b);
+        
+        $products->MoveNext();
+        $rrow++;
+	}
+		
+		
+		//total
+		echo "<tr><td colspan=2>סה\"כ</td>";
+	
+	    $letter=0;
+	    $worksheet->write(getLetter($letter++).$rrow,"",$b);
+	    $worksheet->write(getLetter($letter++).$rrow,'סה"כ',$b);
+		$stocks->MoveFirst();
+		$TA = 0; $TC = 0;
+		while (!$stocks->EOF){
+			$TA+=$STA[$stocks->fields["ID"]];
+			$TC+=$STC[$stocks->fields["ID"]]; 
+			
+			echo "<td class=noc><b><span  dir=ltr>".number_format($STC[$stocks->fields["ID"]],0)."</b></td>";
+			echo "<td><b><span  dir=ltr>".number_format($STA[$stocks->fields["ID"]],0)."</b></td>";
+			$worksheet->write(getLetter($letter++).$rrow,$STC[$stocks->fields["ID"]],$b);
+			$worksheet->write(getLetter($letter++).$rrow,$STA[$stocks->fields["ID"]],$b);
+			$stocks->MoveNext();
+		}
+		echo "<td class=noc><b><span  dir=ltr>".number_format($TC,0)."</b></td>";
+		echo "<td><b><span  dir=ltr>".number_format($TA,0)."</b></td>";
+		$worksheet->write(getLetter($letter++).$rrow,$TC,$b);
+		$worksheet->write(getLetter($letter++).$rrow,$TA,$b);
+		echo "</tr>";
+	
+	
+	
+	echo "</table></div>";
+	
+	$workbook->close();
+	copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+    unlink($fname);
+    
+	}
+    
+    ?>
+    
+    
+    <form name=FF method=post target=CHN action="rep_cheshbonit.php">
+    <input type=hidden name=ids>
+    <input type=hidden name=simple value=1>
+    <input type=hidden name=usr value="<?=$usr?>"> 
+    <input type=hidden name=rmodule value="<?=$rmodule?>">
+    </form>
+    <?
+	
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

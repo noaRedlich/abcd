@@ -1,0 +1,473 @@
+<?
+
+
+// DON'T CHANGE THIS
+
+ include("defaults.php");
+  include("connect.php");
+
+// Language
+$def_paypal_success="PayPal payment successful";
+$def_paypal_reg_text="<b>Thanks.</b> We've added your listing to the temporary database.<br>If you want a STANDARD listing, please, stop your registration now.<br><br>To upgrade to PREMIUM listing you have to pay for it, just press the button below.<br><br>The price for the $def_paypal_expiration day Premium Membership is <b>USD $$def_paypal_amount.</b><br><br><br>";
+$def_paypal_success_text="Thanks. The payment was successful!<br>Your company will be added in 48 hours.<br><br>";
+
+$def_pending_unknown="PayPal payment pending, unknown reason, login to your account for manual apply";
+$def_pending_echeck="Pending. Payment was made with an eCheck. Please, allow some time<br>for PayPal to process the payment, your account will be<br>converted into Premium right after receiving confirmation from PayPal.";
+$def_pending_currency="Different currency, please, apply manually";
+$def_pending_verify="Pending, you are not yet verified as a merchant";
+$def_pending_address="Pending, address manual validation required";
+$def_pending_upgrade="Pending, please, upgrade your PayPal account to Business or Premier";
+$def_paypal_error="There was an error with your PayPal payment.";
+
+
+ $incomingline="$def_reg";
+ include ("./hidden/header.inc");
+
+ echo"$help_header";
+ echo"$help_footer";
+
+?>
+
+  </td>
+
+ <td valign=top align=center width="60%" bgcolor=<? echo"$def_background";?>>
+
+<? if ($def_banner_allowed == "YES") { ?>
+
+ <table width="100%">
+
+ <tr>
+  <td valign=center align=center width=100%>
+   <? //include("banner.inc"); ?>
+  </td>
+ </tr>
+
+</table>
+
+<? } ?>
+
+ <br>
+
+<?
+
+	if (isset($_POST["payment_status"]))
+
+{
+
+                   $postvars = array();
+                   $restrict = array('receiver_email','business','item_name','item_name_','item_number','item_number_','quantity','invoice','custom','option_name','option_selection','option_name_','option_selection_','num_cart_items','payment_status','pending_reason','payment_date','settle_amount','settle_currency','exchange_rate','payment_gross','payment_fee','mc_gross','mc_fee','mc_currency','txn_id','tax','txn_type','for_auction','memo','first_name','last_name','address_street','address_city','address_state','address_zip','address_country','address_status','payer_email','payer_id','payer_status','payment_type','notify_version','verify_sign','subscr_date','subscr_effective','period','amount','mc_amount','recurring','reattempt','retry_at','recur_times','username','password','subscr_id');
+                   // Restrict array Should not Contain numerical Characters because IPN related to the PayPal "_cart" Will be INVALID *** Always keep This array Updated with New IPN variables and Maintain full Filtered control Over what this Script and PayPal are Allowed to Talk about ;-) Why? ->>> http://www.php.net/manual/en/security.registerglobals.php
+
+            foreach ($_POST as $ipnkey => $ipnvalue)
+            { if (in_array (ereg_replace("[0-9]", '', $ipnkey), $restrict)) {
+                   $GLOBALS[$ipnkey] = $ipnvalue; // Posted variable Localization
+                   $postvars[] = $ipnkey;
+                                  }}
+
+                   $postipn = 'cmd=_notify-validate';
+
+            for ($x=0; $x < count($postvars); $x++)
+            { $y=$x+1;
+                   $postkey = $postvars[$x];
+                   $postval = $$postvars[$x];
+                   $postipn.= "&" . $postkey . "=" . urlencode($postval);
+                                  }
+
+$socket = fsockopen ("www.paypal.com", 80, $errno, $errstr, 30);
+$header = "POST /cgi-bin/webscr HTTP/1.0\r\n";
+$header.= "Host: www.paypal.com\r\n";
+$header.= "Content-Type: application/x-www-form-urlencoded\r\n";
+$header.= "Content-Length: " . strlen($postipn) . "\r\n\r\n";
+
+// Problem: Now is this your Firewall or your Ports?
+
+            if (!$socket && !$error)
+            {
+echo "Problem: Error Number: " . $errno . " Error String: " . $errstr;
+exit;
+                                  }
+
+
+// If No Problems have Occured then We proceed With the Processing
+
+            else
+            {
+
+fputs ($socket, $header . $postipn);
+
+            while (!feof($socket))
+	    {
+                   $reply = fgets ($socket, 1024);
+                   $reply = trim ($reply); // Required on some Environments
+                                  }
+
+// Standard - Instant Payment Notifiction Variables
+
+
+                   $receiver_email = $_POST['receiver_email'];
+                   $business = $_POST['business'];
+                   $item_name = $_POST['item_name'];
+                   $item_number = $_POST['item_number'];
+                   $quantity = $_POST['quantity'];
+                   $invoice = $_POST['invoice'];
+                   $custom = $_POST['custom'];
+                   $option_name1 = $_POST['option_name1'];
+                   $option_selection1 = $_POST['option_selection1'];
+                   $option_name2 = $_POST['option_name2'];
+                   $option_selection2 = $_POST['option_selection2'];
+                   $num_cart_items = $_POST['num_cart_items'];
+                   $payment_status = $_POST['payment_status'];
+                   $pending_reason = $_POST['pending_reason'];
+                   $payment_date = $_POST['payment_date'];
+                   $settle_amount = $_POST['settle_amount'];
+                   $settle_currency = $_POST['settle_currency'];
+                   $exchange_rate = $_POST['exchange_rate'];
+                   $payment_gross = $_POST['payment_gross'];
+                   $payment_fee = $_POST['payment_fee'];
+                   $mc_gross = $_POST['mc_gross'];
+                   $mc_fee = $_POST['mc_fee'];
+                   $mc_currency = $_POST['mc_currency'];
+                   $tax = $_POST['tax'];
+                   $txn_id = $_POST['txn_id'];
+                   $txn_type = $_POST['txn_type'];
+                   $for_auction = $_POST['for_auction'];
+                   $memo = $_POST['memo'];
+                   $first_name = $_POST['first_name'];
+                   $last_name = $_POST['last_name'];
+                   $address_street = $_POST['address_street'];
+                   $address_city = $_POST['address_city'];
+                   $address_state = $_POST['address_state'];
+                   $address_zip = $_POST['address_zip'];
+                   $address_country = $_POST['address_country'];
+                   $address_status = $_POST['address_status'];
+                   $payer_email = $_POST['payer_email'];
+                   $payer_id = $_POST['payer_id'];
+                   $payer_status = $_POST['payer_status'];
+                   $payment_type = $_POST['payment_type'];
+                   $notify_version = $_POST['notify_version'];
+                   $verify_sign = $_POST['verify_sign'];
+
+// Subscription - Instant Payment Notifiction Variables
+
+                   $subscr_date = $_POST['subscr_date'];
+                   $subscr_effective = $_POST['subscr_effective'];
+                   $period1 = $_POST['period1'];
+                   $period2 = $_POST['period2'];
+                   $period3 = $_POST['period3'];
+                   $amount1 = $_POST['amount1'];
+                   $amount2 = $_POST['amount2'];
+                   $amount3 = $_POST['amount3'];
+                   $mc_amount1 = $_POST['mc_amount1'];
+                   $mc_amount2 = $_POST['mc_amount2'];
+                   $mc_amount3 = $_POST['mc_amount3'];
+                   $recurring = $_POST['recurring'];
+                   $reattempt = $_POST['reattempt'];
+                   $retry_at = $_POST['retry_at'];
+                   $recur_times = $_POST['recur_times'];
+                   $username = $_POST['username'];
+                   $password = $_POST['password'];
+                   $subscr_id = $_POST['subscr_id'];
+
+		   $amount = $_POST['amount'];
+
+// IPN was Confirmed as both Genuine and VERIFIED
+
+            if (!strcmp ($reply, "VERIFIED"))
+            {
+
+if (($payment_status == "Completed") and ($receiver_email == "$def_paypal_email") and ($amount == "$def_paypal_amount"))
+
+{
+
+$date = date("Y-m-d");
+$result="$def_paypal_success";
+
+  mysql_query("UPDATE $db_users SET flag='A', comment='$result', date_upgrade='$date' where login='$custom'");
+
+  echo "$def_paypal_success_text ($result)";
+
+			          }
+
+if ($payment_status == "Pending") {
+
+  $result="$def_pending_unknown";
+
+  if ($pending_reason == "echeck") $result="$def_pending_echeck";
+  if ($pending_reason == "multi_currency") $result="$def_pending_currency";
+  if ($pending_reason == "verify") $result="$def_pending_verify";
+  if ($pending_reason == "address") $result="$def_pending_address";
+  if ($pending_reason == "upgrade") $result="$def_pending_upgrade";
+
+  mysql_query("UPDATE $db_users SET flag='B', comment='$result' where login='$custom'");
+
+  echo "$def_paypal_error<br>($result)";
+
+}
+
+if (($payment_status == "Failed") or ($payment_status == "Denied")) {
+
+ echo "$def_paypal_error";
+
+  mysql_query("UPDATE $db_users SET flag='B', comment='Payment Failed' where login='$custom'");
+
+ 					}
+}
+
+            if (!strcmp ($reply, "INVALID"))
+            {
+
+ echo "$def_paypal_error";
+
+  mysql_query("UPDATE $db_users SET flag='B', comment='Payment Failed' where login='$custom'");
+
+	}
+
+ fclose ($socket);
+
+ include ("./hidden/footer.inc");exit();
+
+}
+}
+
+
+
+ if ($_POST["regbut"] == "$def_reg")
+  {
+
+  $search = array ("'<script[^>]*?>.*?</script>'si","'<[\/\!]*?[^<>]*?>'si","'&#(\d+);'e");
+  $replace = array ("","","chr(\\1)");
+
+  $firmname_he = ereg_replace ($search, $replace, $_POST["firmname_he"]);
+  $firmname_he = addslashes($firmname_he);
+  $firmname_en = ereg_replace ($search, $replace, $_POST["firmname_en"]);
+  $firmname_en = addslashes($firmname_en);
+  $firmname_ru = ereg_replace ($search, $replace, $_POST["firmname_ru"]);
+  $firmname_ru = addslashes($firmname_ru);
+  $business_he = ereg_replace ($search, $replace, $_POST["business_he"]);
+  $business_he = addslashes($business_he);
+  $business_en = ereg_replace ($search, $replace, $_POST["business_en"]);
+  $business_en = addslashes($business_en);
+  $business_ru = ereg_replace ($search, $replace, $_POST["business_ru"]);
+  $business_ru = addslashes($business_ru);
+
+if ($def_country_allow == "YES") {
+
+  $city = ereg_replace ($search, $replace, $_POST["city"]);
+  $city=addslashes($city);
+
+}
+
+  $address_he=ereg_replace ($search, $replace, $_POST["address_he"]);
+  $address_he=addslashes($address_he);
+  $address_en=ereg_replace ($search, $replace, $_POST["address_en"]);
+  $address_en=addslashes($address_en);
+  $address_ru=ereg_replace ($search, $replace, $_POST["address_ru"]);
+  $address_ru=addslashes($address_ru);
+
+  $zip = ereg_replace ($search, $replace, $_POST["zip"]);
+  $zip=addslashes($zip);
+
+  $phone = ereg_replace ($search, $replace, $_POST["phone"]);
+  $phone=addslashes($phone);
+  $manager_he = ereg_replace ($search, $replace, $_POST["manager_he"]);
+  $manager_he =addslashes($manager_he);
+  $manager_en = ereg_replace ($search, $replace, $_POST["manager_en"]);
+  $manager_en =addslashes($manager_en);
+  $manager_ru = ereg_replace ($search, $replace, $_POST["manager_ru"]);
+  $manager_ru =addslashes($manager_ru);
+  $mail = ereg_replace ($search, $replace, $_POST["mail"]);
+  $mail=addslashes($mail);
+  $www = ereg_replace ($search, $replace, $_POST["www"]);
+  $www=addslashes($www);
+
+
+  $r=mysql_query("SELECT selector FROM $db_users WHERE login='$_POST[login]'");
+  $logins=mysql_numrows($r);
+  mysql_free_result($r);
+
+  $r=mysql_query("SELECT selector FROM $db_users WHERE mail='$_POST[mail]'");
+  $mails=mysql_numrows($r);
+  mysql_free_result($r);
+
+
+ $curr = explode("::", $_POST["curblock"]); 
+ $curblock1=$curr[0];
+ $curblock2=$curr[1];
+
+ echo "<b style=color:red>";
+
+// elseif ((($curblock1 == $curblock21) and ($curblock2 == $curblock22)) and ($curblock1 <> "0")) {echo " $def_reg_err_cat_duplicate<br>";}
+
+// elseif ((($curblock1 == $curblock31) and ($curblock2 == $curblock32)) and ($curblock1 <> "0")) {echo " $def_reg_err_cat_duplicate<br>";}
+
+// elseif ((($curblock21 == $curblock31) and ($curblock22 == $curblock32)) and ($curblock21 <> "0")) {echo " $def_reg_err_cat_duplicate<br>";}
+
+
+ if ($_POST["pass"] <> $HTTP_POST_VARS["pass2"]) {echo " $def_passwords_missmatch.<br><br>";}
+ //elseif (strlen($_POST["login"]) < "4") {echo " $def_login_short<br><br>";}
+ //elseif (strlen($_POST["pass"]) < "4") {echo " $def_pass_short<br><br>";}
+ //elseif (ereg (" ",$_POST["login"])) {echo " $def_reg_nospaces_commas.<br><br>";}
+ //elseif (ereg (" ",$_POST["pass"])) {echo "  $def_reg_nospaces_commas<br><br>";}
+ //elseif (ereg ("\"",$_POST["login"])) {echo "  $def_reg_nospaces_commas<br><br>";}
+ //elseif (ereg ("\"",$_POST["pass"])) {echo "  $def_reg_nospaces_commas<br><br>";}
+ //elseif ($logins > 0) {echo " $def_reg_login_used.<br><br>";}
+ //elseif ($_POST["curblock"] == ""){echo " $def_reg_err_cat<br><br><br>";}
+ elseif (trim($firmname_he) == ""  ) {echo "$def_specify $def_company.<br><br>";}
+ //elseif (trim($business_en.$business_ru.$business_he) == "") {echo "$def_specify $def_description.<br><br>";}
+ elseif ($phone == "") {echo " $def_specify $def_phone.<br><br>";}
+ //elseif (trim($manager_en.$manager_ru.$manager_he) == "") {echo "$def_specify $def_manager.<br><br>";}
+ elseif ($mail == "") {echo " $def_specify $def_email.<br><br>";}
+ //elseif (($def_country_allow == "YES") and ($city == "")) {echo " $def_specify $def_city.<br><br>";}
+ elseif (!$agreement){echo " $def_specify $la_license.<br><br>";}
+ //elseif ($mails > 0) {echo " $def_reg_mail_used.<br>";}
+
+
+else
+
+ {
+
+  $ip=$_SERVER["REMOTE_ADDR"];
+
+  include("connect.php");
+  $date = date("Y-m-d");
+
+if ($def_country_allow == "YES") {$location=$_POST["location"]; $postedcity=$city;} else {$location=$_POST["location"]; $postedcity="";}
+if ($def_states_allow == "YES") {$state=$_POST["state"];}
+
+ $pass=md5($_POST[pass]);
+
+ if ($servicearea){
+ 	$servicearea = implode(",",$servicearea);
+ }
+ $sql="INSERT INTO $db_users (firmstate, category1, subcategory1,  
+ login, 
+ firmname_he,  firmname_en,  firmname_ru, 
+ business_he,  business_en, business_ru,
+ location, servicearea, state, city, 
+ address_he,  address_en,  address_ru, 
+ zip, phone, fax, cellular,
+ manager_he,  manager_en,  manager_ru, 
+ mail, www, pass, 
+ prices,sales, ip, flag, date, counter, banner_show, banner_click, price_show) 
+ VALUES ('off', '$curblock1', '$curblock2', '$_POST[login]', 
+ '$firmname_he', '$firmname_en','$firmname_ru',
+ '$business_he', '$business_en','$business_ru',
+ '$location','$servicearea', '$state', '$postedcity', 
+ '$address_he', '$address_en', '$address_ru', 
+ '$zip', '$phone', '$fax','$cellular',
+ '$manager_he', '$manager_en', '$manager_ru', 
+ '$mail', '$www', '$pass', 
+ 10000, 5, '$ip', '$flag', '$date', 1, 0, 0, 0)";
+ mysql_query($sql) or die($sql."<br>".mysql_error());
+ 
+ $additional_headers = "From: $def_adminmail\r\n".
+ "Reply-To: $def_adminmail\r\n".
+ "Content-type: text/html; charset=$def_charset\r\n"; 
+ 
+ $message = "New user registration at NC-DB.<br><br>
+ Company name: $firmname_he<br>
+ e-mail: $mail<br>
+ Phone: $phone<br>
+ Contact person: $manager_he<br>
+ WWW: $www<br>
+ ";
+ 
+ mail($def_adminmail,  "New registration at NC-DB!",  $message,  $additional_headers);
+
+$inv_date=date("YmdHis");
+
+if ($def_paypal_allowed == "YES")
+
+ echo "<br>$def_paypal_reg_text<br>
+
+<form action=\"https://www.paypal.com/cgi-bin/webscr\" method=\"post\">
+<input type=\"hidden\" name=\"cmd\" value=\"_xclick\">
+<input type=\"hidden\" name=\"business\" value=$def_paypal_email>
+<input type=\"hidden\" name=\"return\" value=$def_return_url>
+<input type=\"hidden\" name=\"notify_url\" value=$def_return_url>
+<input type=\"hidden\" name=\"cancel_return\" value=$def_cancel_return> 
+
+<input type=\"hidden\" name=\"invoice\" value=\"$inv_date\">
+
+<input type=\"hidden\" name=\"custom\" value=\"$_POST[login]\">
+<input type=\"hidden\" name=\"item_name\" value=\"$def_paypal_item ($_POST[login])\">
+<input type=\"hidden\" name=\"quantity\" value=\"1\">
+<input type=\"hidden\" name=\"amount\" value=\"$def_paypal_amount\">
+<input type=\"hidden\" name=\"no_shipping\" value=\"0\">
+<input type=submit Value=\"$def_paypal_button\">
+</form>
+
+";
+
+
+else
+
+echo "<br>$def_reg_ok<br>";
+include ("./hidden/footer.inc");
+exit();
+
+}
+}
+
+{
+?>
+ <table cellpadding=1 cellspacing=1 border=0 width="97%">
+ <form name="reg" action="reg.php" method=post>
+
+  <tr><td bgColor=<? echo"$def_form_back_color";?> align="<?=($lang=="he")?"left":"right"?>"><? echo"$def_company";?>: <font color=red>*</font><input type=text value="<?=$firmname_he?>" name=firmname_he size=50  maxlength=100></td></tr>
+
+
+ <?
+
+  
+ 
+ 
+if ($def_states_allow == "YES") {
+
+?>
+ <tr><td bgColor=<? echo"$def_form_back_color";?> align="<?=($lang=="he")?"left":"right"?>"><? echo "$def_state";?>: <font color=red>*</font><SELECT NAME=state style="width:316;">
+
+<?                                                                                                                                                                                                                                                                                             
+
+ include("connect.php");
+
+ $r=mysql_query("select * from $db_states order by state");
+ $results_amount=mysql_numrows($r);
+  for($i=0;$i<$results_amount;$i++)
+   {
+   $f=mysql_fetch_array($r);
+   echo "<OPTION VALUE=\"$f[stateselector]\">$f[state]";
+   }
+
+ mysql_free_result($r);
+ echo "</SELECT></td></tr>";
+
+}
+
+if ($def_country_allow == "YES") {
+?>
+  <tr><td bgColor=<? echo"$def_form_back_color";?> align="<?=($lang=="he")?"left":"right"?>"><? echo"$def_city";?>: <font color=red>*</font><input type=text value="<?=$city?>" name=city size=50 maxlength=100></td></tr>
+<? } ?>
+
+   
+  <tr><td bgColor=<? echo"$def_form_back_color";?> align="<?=($lang=="he")?"left":"right"?>"><? echo"$def_phone";?>: <font color=red>*</font><input type=text value="<?=$phone?>" name=phone maxlength=100 size=50></td></tr>
+  <tr><td bgColor=<? echo"$def_form_back_color";?> align="<?=($lang=="he")?"left":"right"?>"><? echo"$def_email";?>: <font color=red>*</font><input type=text name=mail value="<?=$mail?>" maxlength=100 size=50 onBlur="checkemail(this.value)"></td></tr>
+
+  <tr><td bgColor=<? echo"$def_form_back_color";?> align="<?=($lang=="he")?"left":"right"?>"><? echo"$def_cellular";?>: <input type=text value="<?=$cellular?>" name=cellular maxlength=100 size=50></td></tr>
+
+  <tr><td bgColor=<? echo"$def_form_back_color";?> align="<?=($lang=="he")?"left":"right"?>"><? echo"$def_manager";?>: <input type=text maxlength=100 value="<?=$manager_he?>" name=manager_he size=50></td></tr>
+
+  <tr><td bgColor=<? echo"$def_form_back_color";?> align="<?=($lang=="he")?"left":"right"?>"><? echo"$def_webpage";?>: <input type=text name=www value="<?=$www?>" value="http://" size=50 maxlength=100></td></tr>
+  <tr><td align=center bgColor=<? echo "$def_form_header_color"; ?>>
+  <input type=checkbox name=agreement> <?=$la_agree?> <font color=red>*</font><br><br>
+  <input type=submit name="regbut" value="<? echo"$def_reg";?>" border=0></td></tr>
+  </form>
+ </table>
+<br>
+<div <?="align=".(($dir=="rtl")?"right":"left")?>>
+<? echo"$reg_help";?>
+</div>
+<?
+}
+  include ("./hidden/footer.inc");
+?>

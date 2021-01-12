@@ -1,0 +1,24 @@
+<?
+
+    $simple=1;
+	$page_subtitle = "הדפסה";
+	include("include/common.php");
+	if (!loginCheck('User'))exit; 
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+?>
+<style>
+.printonly{display:block}
+.tableHead2{border-bottom:solid 1 black;border-left:solid 1 black;background-color:#efefef;color:black}
+img{display:none}
+.none{display:none}
+body{background-color:white}
+</style>
+<body>
+<div style='border-right:solid 1 black'>
+<script>
+document.write(window.opener.document.all.REPORT_TAB.outerHTML.replace(/<a /gi,"<as ").replace(/<u>/gi,"<us>").replace(/onmouse/gi," ").replace(/onclick/gi," "));
+print();
+</script>
+</div>
+</body>

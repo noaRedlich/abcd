@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+  <main_table>listingsSuppliers</main_table>
+  <name>ספקים</name>
+  <options>
+    <opt name="create_record" type="sometimes"></opt>
+    <opt name="search" type="always"></opt>
+    <opt name="main_view" type="always"></opt>
+    <opt name="delete_record" type="none"></opt>
+  </options>
+  <view>
+    <vcol name="ID" >ID</vcol>
+    <vcol name="SupplierName" >שם</vcol>
+    <vcol name="BusinessNum" type="string" hidden="yes">מספר עסק או ת.ז. איש קשר</vcol>
+    <vcol name="ClientNum" >מספר לקוח</vcol>
+    <vcol name="GroupId" type="cross" cross="clientgroups" cross_field="ID" lookup_field="GroupName" tab="1">קבוצה</vcol>
+    <vcol name="isClient" type="yes_no">לקוח</vcol>
+    <vcol name="isSupplier" type="yes_no">ספק</vcol>
+    <vcol name="isAgent" type="yes_no">סוכן</vcol>
+    <vcol name="isWorker" type="yes_no">עובד</vcol>
+    <vcol name="username" type="string" hidden="yes">שם משתמש</vcol>
+    <vcol name="WorkerNum" type="string" hidden="yes">מספר עובד</vcol>
+    <vcol name="Phone">טלפון</vcol>
+    <vcol name="Status" type="yes_no">פעיל</vcol>
+    <vcol name="PaymentTypeVerified" type="yes_no_select" hidden="yes">אמצעי תשלום מעודכן</vcol>
+  </view>
+  <edit>
+    <ecol name="SupplierName" ismandatory="yes" type="string" tab="1">שם</ecol>
+    <ecol name="BusinessNum" ismandatory="yes"  type="string" tab="1" check="unique" message="מספר עסק זה  כבר קיים במערכת">עסק מורשה</ecol>
+    <ecol name="SpecialNum" type="string" tab="1" >מספר עסק מיוחד</ecol>
+    <ecol name="isClient" type="yes_no" tab="1">לקוח</ecol>
+    <ecol name="isSupplier" type="yes_no" tab="1">ספק</ecol>
+    <ecol name="isAgent" type="yes_no" tab="1">סוכן</ecol>
+    <ecol name="isWorker" type="yes_no" tab="1">עובד</ecol>
+    <ecol name="username" type="string" tab="1">שם משתמש</ecol>
+    <ecol name="ClientNum" type="string" tab="1" samerow="1" check="unique" message="מיספר לקוח זה  כבר קיים במערכת">מספר לקוח</ecol>
+    <ecol name="WorkerNum" type="string" tab="1" check="unique" message="מספר עובד זה  כבר קיים במערכת">מספר עובד</ecol>
+    <ecol name="AccountNum" type="string" tab="1" check="unique" message="חשבון חיצוני זה כבר קיים במערכת">מספר חשבון הנה''ח חיצוני</ecol>
+    <ecol name="GroupId" type="cross" cross="clientgroups" cross_field="ID" lookup_field="GroupName" tab="1">קבוצה</ecol>
+    <ecol name="pricelist_id" type="cross" cross="pricelists" cross_field="id" lookup_field="name"  tab="1">מחירון</ecol>
+    <ecol name="Address"  type="text" rows="2" tab="8">כתובת</ecol>
+    <ecol name="PostAdress"  type="text" rows="2" tab="8">כתובת דואר</ecol>
+    <ecol name="Phone"  type="string" tab="8">טלפון</ecol>
+    <ecol name="Phone2"  type="string" tab="8">טלפון נוסף</ecol>
+    <ecol name="CellPhone"  type="string" tab="8">טלפון נייד</ecol>
+    <ecol name="Fax"  type="string" tab="8">פקס</ecol>
+    <ecol name="Email"  type="string" tab="8">דואר אלקטרוני</ecol>
+    <ecol name="Web"  type="string" tab="8">כתובת אינטרנט</ecol>
+    <ecol name="PaymentTypeId" type="cross" cross="payment_type" cross_field="id" lookup_field="name" tab="2">תנאי תשלום</ecol>
+    <ecol name="ClientComission"  type="string" tab="1">עמלת לקוח (%)</ecol>
+    <ecol name="AgentComission"  type="string" tab="1">עמלת סוכן (%)</ecol>
+    <ecol name="WorkerComission"  type="string" tab="1">עמלת עובד (%)</ecol>
+    <ecol name="Comment"  type="text" tab="1">סוג עיסוק</ecol>
+    <ecol name="IsBilling" type="yes_no" tab="1" defaultvalue="0">לקוח בהסכם</ecol>
+    <ecol name="allowhakafa"  type="yes_no" defaultvalue="no"  >מותר למכור בהקפה</ecol>
+    <ecol name="Status" type="yes_no" tab="1" defaultvalue="1">פעיל</ecol>
+
+    <ecol name="PaymentSupplierId" tab="2" type="cross" cross="listingsSuppliers" cross_field="ID" lookup_field="SupplierName">תשלום באמצאות</ecol>
+    <ecol name="PaymentTypeVerified" type="yes_no" tab="2">אמצעי תשלום מעודכן</ecol>
+    <ecol name="AgentID" tab="2" type="cross" cross="listingsSuppliers" cross_field="ID" lookup_field="SupplierName" condition="isAgent=1">סוכן</ecol>
+    <ecol name="VatFree" type="yes_no" tab="2">פטור מע''מ</ecol>
+    <ecol name="Discount" type="string" tab="2">הנחה קבועה (%)</ecol>
+    <ecol name="ClearanceDate"  type="date" tab="2">ניקוי מס במקור עד תאריך</ecol>
+    <ecol name="ClearancePercent"  type="string" tab="2">אחוז ניקוי מס במקור</ecol>
+
+    <ecol name="Persons"  type="cross_parent" service="persons" cross_field="supplier_id" tab="4"></ecol>
+
+    <ecol name="OpenCheques"  type="string" tab="5">שיקים פתוחים</ecol>
+    <ecol name="Obligo"  type="string" tab="5">אובליגו</ecol>
+
+    <ecol name="Bank"  type="string" tab="5">מספר בנק</ecol>
+    <ecol name="Snif"  type="string" tab="5">מספר סניף</ecol>
+    <ecol name="Account"  type="string" tab="5">מספר חשבון</ecol>
+
+    <ecol name="Attachments"  type="cross_parent" service="supplier_attachments" cross_field="supplier_id" tab="7"></ecol>
+
+
+    <ecol name="Billing"  type="cross_parent" service="billing" cross_field="supplier_id" tab="9"></ecol>
+  </edit>
+
+  <sql_actions>
+    <opt name="order" val="SortOrder,SupplierName"></opt>
+    <opt name="search_by"  val="SupplierName,username,WorkerNum,ClientNum,GroupId,!1,isSupplier,isClient,isAgent,isWorker,!2,BusinessNum:('{0}'='' or BusinessNum = '{0}' or exists (select * from persons where personnum='{0}' and supplier_id = listingsSuppliers.id)),PaymentTypeVerified"></opt>
+  </sql_actions>
+  <tabs>
+    <tab index="1" name="כללי"></tab>
+    <tab index="8" name="תקשורת"></tab>
+    <tab index="2" name="תנאים מיוחדים"></tab>
+    <tab index="5" name="אובליגו ואשראי"></tab>
+    <tab index="4" name="אנשי קשר" disableoncreate="Yes"></tab>
+    <tab index="7" name="קבצים" disableoncreate="Yes"></tab>
+    <tab index="9" name="הסכמים" disableoncreate="Yes"></tab>
+  </tabs>
+</xml>

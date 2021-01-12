@@ -1,0 +1,269 @@
+<?php
+
+    $mode = $_GET["mode"]; 
+    if (!$mode) $mode = $_POST["mode"]; 
+    
+	$xlsfilename = "billing_clients";
+ 
+	$simple=1;
+
+	$page_subtitle = "billing_clients";
+	
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+
+	$reporttitle = $lang["billing_clients"];
+	
+	include("$config[template_path]/admin_top.html");
+	
+	
+	if ($saction!="sendreport")
+    {
+		$saction="go"; 
+	}
+	
+	if (!IsPostBack())
+	{
+		$actives = true;	
+		$noactives = true;
+	}
+
+	?>
+    
+	<script>
+	function PrintReport(){
+		document.getElementById("Query").style.display = "none";
+		window.print();
+		document.getElementById("Query").style.display = "";
+	}
+	</script>
+    <style>
+    th {background-color:silver}
+    </style>
+	
+	<body>
+	<table cellpadding=5 border=0 width=100%>
+	<tr>
+	<form name=F method=post refreshable=1>
+	<input type=hidden name=mode value=<?=$mode?>>
+	<input type=hidden name=usr value=<?=$usr?>>
+	<input type=hidden name=rmodule value=<?=$rmodule?>>
+	<td nowrap>
+	<strong style='font-size:12pt'>
+	<?if ($usr){$reporttitle.="<br>".$username;}?>
+	<?=$reporttitle?>
+	</strong>
+    <br><br>
+    
+	</td><td width=99% style='border:inset 1'>
+
+	<?=$lang["to_show"]?> 
+	<select name=filter>
+		<option value=0 <?=!$filter?"selected":""?>><?=$lang["all_clients"]?></option>
+		<option value=1 <?=$filter==1?"selected":""?>><?=$lang["no_contract"]?></option>
+		<option value=2 <?=$filter==2?"selected":""?>><?=$lang["active_contratcs"]?></option>
+		<option value=3 <?=$filter==3?"selected":""?>><?=$lang["inactive_contracts"]?></option>
+	</select>
+
+
+   	<input type=submit value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top" >
+    
+    <br>
+    
+	<?if ($saction=="go" || $saction=="sendreport"){
+		require("sendreport.php");
+	}?>
+	<input type=hidden name=saction value=go>
+	<input type=hidden name=reportbody value="">
+	<input type=hidden name=sendmode value="">
+
+	</td>
+	</form>
+	</tr>
+	</table>
+	<?	
+	if ($saction=="sendreport")
+    {
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go")
+    {
+    
+            
+        $worksheet->set_column('A:A', 10);
+        $worksheet->set_column('B:G', 20);
+	    $headings = array("#",$lang["client_name"],$lang["contract_start_date"],$lang["contract_count"],$lang["contract_amt"],$lang["bus_num"],$lang["username"]);
+	    $worksheet->write_row('A'.($rrow++), $headings, $heading);
+	    ;
+	    
+	    echo "<div ><table id=REPORTTABLE dir=$dir border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+	    echo "<tr>";
+        echo "<th width=1% nowrap>"."#"."</th>";
+        echo "<th >".$lang["client_name"]."</th>";
+        echo "<th width=15% >".$lang["contract_start_date"]."</th>";
+        echo "<th >".$lang["contract_count"]."</th>";
+        echo "<th >".$lang["contract_amt"]."</th>"; 
+        echo "<th >".$lang["bus_num"]."</th>"; 
+        echo "<th >".$lang["username"]."</th>";  
+ 	    echo "</tr>";
+	    echo "<tr>";
+
+	    echo"</tr>";
+        
+		$join = "left outer join";
+        
+        
+        if ($filter==1)
+        {
+			$qh = " having count(b.id) = 0 ";
+		}
+		else if ($filter==2)
+		{
+			$qq = " and ifnull(b.status,0) = 1";
+			$join = "inner join";
+			//$qh = " having sum(case when b.status = 1 then 1 else 0 end) > 0";
+		}
+		else if ($filter==3)
+		{
+			$qq = " and ifnull(b.status,0) = 0";
+			$join = "inner join";
+			//$qh = " having sum(case when b.status = 0 then 1 else 0 end) > 0";
+		}
+        
+        $sql = "
+        
+        select s.id, s.SupplierName, s.UserName, s.BusinessNum, count(distinct b.id) as BillingCount,
+		min(docs.doc_date) as MinDate,
+		group_concat(distinct b.id) as bids
+        from listingsSuppliers s
+        $join billing b on supplier_id = s.id  $qq
+        left outer join documents docs on docs.billing_id = b.id
+        where isBilling = 1
+        and s.status = 1
+        group by s.id
+        $qh 
+        order by binary s.SupplierName        
+        ";
+                
+            //echo $sql;  
+                
+	        $res = DBQuery($sql);
+
+			$cnt=1;
+			$AMT=0;
+            while (!$res->EOF)
+            {
+				$bids = explode(",",$res->fields["bids"]);
+				$amount = 0;
+				foreach($bids as $bid)
+				{
+					if ($bid)
+					{
+					$sql = "
+						select round(sum(
+						bp.quantity *
+						(case when bp.listing_id then
+						ifnull(
+						(case when dt.metric='SalePrice' then lse.saleprice else null end),
+						(case when dt.metric='SalePrice' then l.saleprice else l.cost end)
+						)
+						else product_price*(1+".$config["VAT"]."/100) end
+						) * ((100-ifnull(bp.discount,0))/100))
+						,2) as Amount
+						from billing b
+						left outer join billing_products bp on bp.billing_id = b.id
+						left outer join listingsDB l on l.id = bp.listing_id
+						left outer join listingsStocksElements lse on lse.listingid = bp.listing_id and lse.stockid = b.stock_id
+						left outer join $TABLE_DOCUMENT_TYPE dt on dt.id = b.doc_type 
+						where b.id = $bid
+						";										
+						$amtres = DBQuery($sql);
+						$amount+=$amtres->fields["Amount"];
+					}
+				}
+				
+                $ID = $res->Fields("id");
+                $link="";
+		        echo "<tr align=right>";
+		        if ($ID && HasActionPermission("PREFERENCES"))
+		        {
+					$link = "<a href=\"javascript:parent.wopen('cppro/main.php?service=suppliers&cid=1&bd_event=edit_record&record_id=$ID','edit',750,440,true)\">";
+				}
+                echo "<td width=1%>".$cnt."</td>";
+                echo "<td nowrap>".$link.$res->Fields("SupplierName")."</a></td>";
+                echo "<td >".DateFromSQL($res->Fields("MinDate"),true)."</td>"; 
+		        echo"<td ><span dir=ltr>".$res->Fields("BillingCount")."</td>";
+		        echo"<td nowrap ><span dir=ltr>".number_format($amount,2,".","")."</td>";
+		        echo"<td nowrap ><span dir=ltr>".$res->Fields("BusinessNum")."</td>";
+		        echo"<td nowrap ><span dir=ltr>".$res->Fields("UserName")."</td>";
+		        echo "</tr>"; 
+		        $AMT+=$amount;
+		        
+		        
+		        $b=$body;
+		        $f=$numformat;
+		        $worksheet->write("A".$rrow," ".$cnt,$b);
+                $worksheet->write("B".$rrow,$res->Fields("SupplierName"),$b); 
+                $worksheet->write("C".$rrow,DateFromSQL($res->Fields("MinDate"),true),$b); 
+                $worksheet->write("D".$rrow," ".$res->Fields("BillingCount"),$b); 
+		        $worksheet->write("E".$rrow,$amount,$f);
+                $worksheet->write("F".$rrow," ".$res->Fields("BusinessNum"),$b);
+                $worksheet->write("G".$rrow,$res->Fields("UserName"),$b);
+
+		        $rrow++;
+		        $cnt++;
+	            
+                $res->MoveNext();
+
+	    }
+        
+		echo "
+		<tr>
+		<td colspan=4><b>".$lang["total"]."</td>
+		<td nowrap ><span dir=ltr><b>".number_format($AMT,2,".","")."</td>
+		<td colspan=2></td>
+		</tr>
+		";
+
+	    echo "</table>";
+	    
+	    $worksheet->write("D".($rrow),$lang["total"],$numformatb);
+        $worksheet->write("E".($rrow),$AMT,$numformatb);   
+	}
+	
+	$workbook->close();
+	copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+    unlink($fname);
+    
+	
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+	
+	
+	function sum($rs,$field,&$ids){
+		$s=0;
+		$ids="";
+		$rs->MoveFirst();
+		while(!$rs->EOF){
+			$s+=$rs->fields[$field];
+			if (!strpos(" ".$ids,",".$rs->fields["ID"])){
+				$ids.=",".$rs->fields["ID"];
+			}
+			$rs->MoveNext();
+		}
+		$ids = substr($ids,1);
+		return $s;
+	}
+?>
+
+
+<form name=FF method=post target=CHN action="rep_documents.php">
+<input type=hidden name=ids>
+<input type=hidden name=simple value=1>
+<input type=hidden name=usr value="<?=$usr?>">
+<input type=hidden name=rmodule value="<?=$rmodule?>">
+</form>

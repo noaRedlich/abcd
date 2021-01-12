@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>holidays</main_table>
+	<name>חגים</name>
+	<options>
+		<opt name="create_record" type="always"></opt>
+		<opt name="search" type="sometimes"></opt>
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="always"></opt>
+	</options> 
+	<view>
+		<vcol name="day" type="date">תאריך החג </vcol>
+		<vcol name="Name">החג שם</vcol>
+	</view>
+	<edit>
+		<ecol name="day" type="date">תאריך החג (dd/mm/yyyy)</ecol>
+		<ecol name="Name"  type="string"> שם החג </ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="day"></opt>
+		<opt name="search_by" val="day,Name"></opt>
+	</sql_actions>
+</xml>

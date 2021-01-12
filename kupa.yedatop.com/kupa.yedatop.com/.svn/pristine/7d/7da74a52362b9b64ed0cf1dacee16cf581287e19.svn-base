@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>clientgroups</main_table>
+	<name>קבוצות לקוחות</name>
+	<options>
+		<opt name="create_record" type="sometime"></opt>
+		<opt name="edit_record" type="sometime"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+        <vcol name="SortOrder">#</vcol>
+		<vcol name="GroupName">שם קבוצה</vcol>
+		<vcol name="pricelist_id" type="cross" cross="pricelists" cross_field="id" lookup_field="name" >מחירון</vcol>
+        <vcol name="Status" type="yes_no">פעיל</vcol>
+	</view>
+	<edit>
+		<ecol name="GroupName" type="string">שם קבוצה</ecol>
+		<ecol name="pricelist_id" type="cross" cross="pricelists" cross_field="id" lookup_field="name" >מחירון</ecol>
+        <ecol name="Status" type="yes_no" defaultvalue="1">פעיל</ecol>
+        <ecol name="SortOrder" type="string">מיקום</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="SortOrder"></opt>
+	</sql_actions>
+</xml>

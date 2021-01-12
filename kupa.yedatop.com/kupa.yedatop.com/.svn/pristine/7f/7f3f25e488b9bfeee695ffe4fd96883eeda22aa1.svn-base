@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+  <main_table>shovar_rules</main_table>
+  <name>כללי שוברים</name>
+  <options>
+    <opt name="create_record" type="sometime"></opt>
+    <opt name="edit_record" type="sometime"></opt>
+    <opt name="search" type="none"></opt>
+    <opt name="view" type="always"></opt>
+    <opt name="delete_record" type="always"></opt>
+  </options>
+  <view>
+    <vcol name="SortOrder">#</vcol>
+    <vcol name="shovar_number">מספר שובר</vcol>
+    <vcol name="zhut">חשבון זחות</vcol>
+    <vcol name="hova">חשבון חובה</vcol>
+    <vcol name="rate_type" type="enum">שער מט''ח
+      <enum val="S">מכירה </enum>
+      <enum val="B">קנייה </enum>
+    </vcol>
+  </view>
+  <edit>
+    <ecol name="shovar_number" type="string" ismandatory="yes">מספר שובר</ecol>
+    <ecol name="zhut" type="string">מפתח חשבון זחות</ecol>
+    <ecol name="hova" type="string">מפתח חשבון חובה</ecol>
+    <ecol name="rate_type" type="enum">שער מט''ח
+      <enum val="S">מכירה </enum>
+      <enum val="B">קנייה </enum>
+    </ecol>
+    <ecol name="SortOrder" type="string">מיקום</ecol>
+  </edit>
+  <sql_actions>
+    <opt name="order" val="SortOrder"></opt>
+  </sql_actions>
+</xml>

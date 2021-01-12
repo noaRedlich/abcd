@@ -1,0 +1,230 @@
+<?php
+
+$ftpaddress = "194.90.153.69";
+$ftpuser = "hodran";
+$ftppass = "c6#E%d";
+
+$noheader = 1;
+define("SYSTEM_SCRIPT","Y");
+
+ob_start();
+require($DOCUMENT_ROOT."/modules/stock/include/common.php");
+ob_end_clean();
+
+$userID = $USERID;
+$UserData = DBQuery("select * from $TABLE_USERDATA where office_user_id = $USERID");
+$userName = $UserData->fields["UserName"];
+echo "User: ".$userName."<br>";
+
+if ($UserData->EOF)
+{
+	die("User does not exist");
+	mailAdmin("Invalid USERID","Invalid USERID provided for segment/export.php - $USERID.");
+}
+
+if ($UserData->fields["sql_database"])
+{
+	$conn->Disconnect();
+	$conn = ADONewConnection($db_type); 
+	$db_database = $UserData->fields["sql_database"];       
+	$conn->Connect($db_server, $db_user, $db_password, $db_database, true); 
+	if($conn->ErrorMsg())
+	{
+		die("\nDatabase connection error: ".$conn->ErrorMsg());
+	}
+} 
+
+if (!$from && !$to)
+{
+	$from = $to = date("d/m/Y",strtotime("-1 day"));
+}
+else
+{
+	if (!$from) $from = date("d/m/Y");
+	if (!$to) $to = date("d/m/Y");
+}
+
+$sDate = DateToSQL($from);
+$eDate = DateToSQL($to);
+
+echo "Export dates: from ".$sDate." to ".$eDate."<br>";
+
+$userTempDir = $GO_CONFIG->root_path."modules/stock/tmp/".$userID;
+
+if (!file_exists($userTempDir))
+{
+	$old_umask = umask(000);
+	mkdir($userTempDir,0777);
+	umask($oldumask);
+}
+
+$conn_id = ftp_connect($ftpaddress);
+ftp_set_option($conn_id, FTP_TIMEOUT_SEC, 20);
+
+// login with username and password
+$login_result = ftp_login($conn_id, $ftpuser, $ftppass);
+if (!$login_result)
+{
+	die("Cannot connect to FTP server");
+}
+
+ftp_pasv($conn_id, true);
+
+
+//STOCK
+
+$suffix = "_".$userName."_".date("Ymd");
+
+$sql = "select lse.Quantity, concat('isr',s.TerminalID) as TerminalID, l.BarCode, u.decimals
+		from listingsDB l
+		inner join listingsStocksElements lse on lse.listingid = l.id
+		inner join $TABLE_LISTINGSSTOCKS s on s.id = lse.stockid 
+		inner join $TABLE_UNITS u on u.id = l.unit
+		where l.user_id = $userID and ifnull(lse.quantity,0) <> 0 
+		order by barcode+0,barcode";
+
+$rs = DBQuery($sql);
+$cnt = 0;
+
+$fname = $userTempDir.'/stock'.$suffix.'.csv';
+$fp = fopen($fname, 'w');
+
+while (!$rs->EOF)	
+{
+	$rs->fields["TerminalID"] = "ISR028";
+	$arr = array($rs->fields["TerminalID"],$rs->fields["BarCode"], number_format($rs->fields["Quantity"],$rs->fields["decimals"],".",""),date("dmY"));
+	fputcsv($fp,$arr);
+	$rs->MoveNext();
+	$cnt++;
+}
+
+fclose($fp);
+echo "Stock exported, $cnt rows<br>";
+Upload($fname);
+
+//SALES
+
+if ($sDate==$eDate)
+{
+	$suffix = "_".$userName."_".str_replace("-","",$sDate);
+}
+else
+{
+	$suffix = "_".$userName."_".str_replace("-","",$sDate)."_".str_replace("-","",$eDate);
+}
+
+$sql = "select 
+		c.PluCode as BarCode,
+		concat('isr',s.TerminalID) as TerminalID,
+		t.tranDate,
+		sum((case when WeigthFlag then WeightQty/1 else StockAmount end)*(case when isrefund = 1 or RefundMode=1 then -1 else 1 end))  as Quantity, 
+		round(sum((case when 
+		AmountPercentDiscount <> 0 and (DiscountType=1 or SecondDiscFlag=1 or OtherDiscountFlag=1 or ClubDiscount=1) 
+		then CompAmount - (CompAmount*AmountPercentDiscount/100) 
+		when TranCashDiscount <> 0 then CompAmount - (CompAmount*(TranCashDiscount*100/TranAmount)/100) 
+		when TranDiscount <> 0 then CompAmount - (CompAmount*TranDiscount/100) 
+		when CompCashDiscount <> 0 then CompAmount - CompCashDiscount 
+		when CompDiscount <> 0 then CompAmount - (CompAmount*CompDiscount/100) else CompAmount end) *
+		(case when IsRefund=1 or RefundMode=1 or StockAmount <0 then -1 else 1 end)),2) as Mahzor 
+		from 
+		transactioncomponents c, transactions t , $TABLE_LISTINGSSTOCKS s
+		where 
+		t.ID = c.trans_id and 
+		refundmode<>2 and 
+		s.id = t.stock_id and
+		t.trandate between '$sDate' and '$eDate' and IsTree = 0 
+		group by BarCode,TerminalID,tranDate
+		";
+
+$sql.="union select
+		dp.BarCode,
+		concat('isr',s.TerminalID) as TerminalID,
+		d.doc_date as tranDate,
+		sum((case when ifnull(u.grams_rate,0) = 0 then dp.quantity else dp.quantity/u.grams_rate end) * (case when doc_type='MASZIKUI' then -1 else 1 end)) as Quantity,
+		sum((price*(100-d.discount)/100) * (case when doc_type='MASZIKUI' then -1 else 1 end)) as Mahzor
+		from document_products dp
+		left outer join listingsDB l on l.id = dp.listing_id
+		left outer join  $TABLE_UNITS u on u.id = l.unit
+		, documents d, $TABLE_LISTINGSSTOCKS s
+		where d.id = dp.doc_id
+		and s.id = d.stock_id
+		and d.user_id = $userID
+		and doc_type in ('CHESHBONIT','CHESHBONITPINKAS','MASKABALA','MASZIKUI','MASKABALAPINKAS')
+		and doc_date between '$sDate' and '$eDate' 
+		group by dp.BarCode,TerminalID,tranDate
+		order by barcode+0,barcode,trandate";
+
+$rs = DBQuery($sql);
+$cnt = 0;
+$fname = $userTempDir.'/sales'.$suffix.'.csv';
+$fp = fopen($fname, 'w');
+
+while (!$rs->EOF)	
+{
+	$date = str_replace("/","",DateFromSQL($rs->fields["tranDate"]));
+	$rs->fields["TerminalID"] = "ISR028";	
+	$arr = array($rs->fields["TerminalID"],trim($rs->fields["BarCode"]),$date,round($rs->fields["Quantity"]),round($rs->fields["Mahzor"],2));
+	fputcsv($fp,$arr);
+	$rs->MoveNext();
+	$cnt++;
+}
+
+fclose($fp);
+echo "Sales exported, $cnt rows<br>";
+Upload($fname);
+
+//PURCHASES
+/*
+$sql="select
+		dp.BarCode,
+		concat('isr',s.TerminalID) as TerminalID,
+		d.doc_date as tranDate,
+		sum((case when ifnull(u.grams_rate,0) = 0 then dp.quantity else dp.quantity/u.grams_rate end) * (case when doc_type='MASZIKUI' then -1 else 1 end)) as Quantity
+		from document_products dp
+		left outer join listingsDB l on l.id = dp.listing_id
+		left outer join  $TABLE_UNITS u on u.id = l.unit
+		, documents d, $TABLE_LISTINGSSTOCKS s
+		where d.id = dp.doc_id
+		and s.id = d.stock_id
+		and d.user_id = $userID
+		and doc_type in ('KNIYA','KNISALEMLAI')
+		and doc_date between '$sDate' and '$eDate' 
+		group by dp.BarCode,TerminalID,tranDate
+		order by dp.barcode+0,dp.barcode,trandate";
+
+$rs = DBQuery($sql);
+$cnt = 0;
+$fname = $userTempDir.'/purchases'.$suffix.'.csv';
+$fp = fopen($fname, 'w');
+
+while (!$rs->EOF)	
+{
+	$date = str_replace("/","",DateFromSQL($rs->fields["tranDate"]));
+	$rs->fields["TerminalID"] = "ISR028";	
+	$arr = array($rs->fields["TerminalID"],trim($rs->fields["BarCode"]),$date,round($rs->fields["Quantity"]));
+	fputcsv($fp,$arr);
+	$rs->MoveNext();
+	$cnt++;
+}
+
+fclose($fp);
+echo "Purchases exported, $cnt rows<br>";
+Upload($fname);
+*/
+
+function Upload($file)
+{
+	global $conn_id;
+	$copymode = FTP_ASCII;
+	$remote_file = "".substr($file,strrpos($file,"/")+1);
+	
+	if (ftp_put($conn_id, $remote_file, $file, $copymode)) {
+		echo "Successfully uploaded $file to $remote_file<br>";
+	} else {
+		echo "There was a problem while uploading $file to $remote_file<br>";
+	}
+	flush();
+	ob_flush();
+}
+
+?>

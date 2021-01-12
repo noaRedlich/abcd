@@ -1,0 +1,444 @@
+<?php
+	$simple=1;
+	global $action, $id, $lang, $conn, $config;
+
+	$page_subtitle = "חיפוש פריטים";
+
+	include("include/common.php");
+    include("include/business_functions.php");   
+	if(!loginCheck('User'))exit;
+
+	include("$config[template_path]/admin_top.html");
+        
+    if ($_GET["cname"]){
+        $cname = utf8RawUrlDecode($_GET["cname"]);
+    }                                    
+
+    $arr_selected = explode(",",$selected);
+    
+	$q=" ";
+    
+    
+    if ($_GET["client"])
+    {
+        $testCl = DBQuery("select id from listingsSuppliers where id = ".$_GET["client"]." and isSupplier = 1");
+        if (!$testCl->EOF)
+        {
+            $sapak = $supplier = $_GET["client"];
+        }
+    }
+    
+    if (!$dosearch && !$price && !$cname && !$sapak)
+    {
+		$q.=" and 1=0";
+	}
+    
+    if ($price)
+    {
+        $q.=" and saleprice=".addslashes($price);  
+    }
+	if ($cname){ 
+		$q.=" and title like binary '%".addslashes($cname)."%'";
+	} 
+	if ($category!=""){
+		$q.= " and productGroup in (".getCategoryIDs($category,$subcats).") ";
+	}
+    if ($supplier){
+		$q.= " and sapak = $supplier ";
+	}
+	if ($barcode!=""){
+		$q.= " and barcode = '".addslashes($barcode)."'";
+	}
+	if ($misparzar!=""){
+		$q.= " and misparzar = '".addslashes($misparzar)."'";
+	}
+	if ($misparsiduri!=""){
+		$q.= " and misparsiduri = '".addslashes($misparsiduri)."'";
+	}
+	if ($misparchalifi!=""){
+		$q.= " and misparchalifi = '".addslashes($misparchalifi)."'";
+	}    
+    if ($notree || $multiple)
+    {
+        $q.=" and is_tree = 0 ";
+    }
+
+	if ($istree)
+	{
+		$q = "and is_tree = 1";	
+	}
+
+	$sql = "select l.id,l.title,barcode,saleprice,is_tree,from_unixtime(lastinserted,'%Y-%m-%d') as creation_date from
+		listingsDB l
+	where 
+		l.user_id = $userID and active in ('yes','yek')  $q ";
+
+	if (!$sort)$sort = "Title";
+	switch($sort)
+	{
+		case "CreationDate":$sortex="lastinserted";break;
+		case "Title":$sortex = "binary title";break;
+		case "BarCode": $sortex = "BarCode+0 $ascdesc, Barcode";break;
+		default: $sortex = $sort;
+	}
+
+	$sql.=" order by $sortex $ascdesc limit 300 ";
+
+	$recordSet = DBQuery($sql);
+
+    $cats = DBQuery("select * from listingsCategories where user_ID = $userID and Status=1 order by binary CategoryName");
+    $suppliers = DBQuery("select id, suppliername from listingsSuppliers where user_id = $userID and isSupplier = 1 order by binary supplierName");
+    
+	if ($multiple)
+	{
+		
+		if ($doadd && $selid){
+			$added=implode(",",$selid);
+			
+			if ($selectedids){
+				$selectedids = $selectedids.",".$added;
+			}
+			else{
+				$selectedids = $added;
+			}
+		}
+		if ($doremove){
+			$selectedids ="";
+		}
+		
+		$q="";
+		if ($selectedids)$q=",".$selectedids;
+		
+        $cnt=0;
+        $productidsarr = explode(",",$selectedids);
+        $orderstr = "case l.id ";
+        foreach ($productidsarr as $productid)
+        {
+            $orderstr.=" when $productid then ".($cnt++);
+        }
+        $orderstr.=" end";
+        
+		if ($selectedids)
+        {
+			//retrieve selected products
+			$sql = "select l.id,l.title,barcode,saleprice,from_unixtime(lastinserted) as creation_date from
+				listingsDB l
+			where
+				l.user_id = $userID and l.id in (-1$q) order by $orderstr";
+			$selectedRS = $conn->Execute($sql);
+			if ($selectedRS === false){log_error($sql);}
+		}
+    }
+	
+    ?>
+
+    <base target=_self>
+
+    <table width=100% height=430 border=0>
+
+    <tr style='height:1%'>
+    <td>
+    <form name=F method=post action='product_select.php'>
+    <script>
+    function sortBy(field)
+    {
+		document.F.sort.value = field;
+		document.F.ascdesc.value = (document.F.ascdesc.value=="DESC")?"ASC":"DESC";
+		document.F.submit();
+    }
+    </script>
+    <input type=hidden name=notree value="<?=$notree?>">
+    <input type=hidden name=sort value="<?=$sort?>">
+    <input type=hidden name=ascdesc value="<?=$ascdesc?>">
+    <fieldset><legend>מסנן</legend>
+        <table width=100% border=0><tr>
+           <td>ברקוד:</td>
+            <td><input name=barcode size=20 value="<?=$barcode?>" onkeydown="doSearch()"></td>
+            <td>שם:</td>
+            <td><input name=cname size=10 value="<?=$cname?>" onkeydown="doSearch()"></td>
+ 
+            <td>
+                <input type=button onclick='document.F.dosearch.value=1;document.F.sort.value="";document.F.ascdesc.value="";document.F.submit();' value="חפש" style='width:60;padding-left:15px;background:url(<?=$imgPath?>view.gif);background-repeat:no-repeat;'>
+            </td>
+             <td width=99% align=left>
+             <?if (HasActionPermission("NEWLISTING")){?>
+             <a href="javascript:addProduct()"><img src='<?=$imgPath?>productadd.gif'  align=absmiddle hspace=5 border=0><u>פריט חדש</u></a>
+             <?}?>
+             </td>
+        </tr>
+        <tr>    
+            <td>מחלקה:</td>
+            <td  colspan=20>
+            	<select name=category>
+            	<option value=""><?=$lang["all_cats"]?>
+                <?FillCategoriesList($category);?> 
+            	</select>
+                <Input type=checkbox <?=($subcats||!$posted)?"checked":""?> name=subcats>כולל תת מחלקות
+
+            </td>
+        </tr>
+        <tr>
+            <td nowrap>ספק:</td>
+            <td colspan=20>
+                <select name=supplier>
+                <option value="">כל הספקים
+                <?while(!$suppliers->EOF){?>
+                    <option value="<?=$suppliers->fields["id"]?>" <?=($supplier==$suppliers->fields["id"])?"selected":""?>><?=$suppliers->fields["suppliername"]?>
+                    <?$suppliers->MoveNext();
+                }?>
+                </select>
+                מחיר מכירה: <input name=price size=8 value="<?=$price?>" > 
+                <?if(!$notree && !$multiple){?>
+                עץי מוצר בלבד<input type=checkbox name=istree <?=$istree?"checked":""?>>
+				<?}?>
+            </td>
+        </tr>
+		<tr>
+			<td nowrap>מספר זר:</td>
+			<td colspan="20">
+				<input name="misparzar" style="width:80px" value="<?=$misparzar?>">
+				מספר סידורי:
+				<input name="misparsiduri" style="width:80px" value="<?=$misparsiduri?>">
+				מספר חליפי:
+				<input name="misparchalifi" style="width:80px" value="<?=$misparchalifi?>">
+			</td>
+		</tr>
+        <input type=hidden name=posted value="1">
+        <input type=hidden name=multiple value="<?=$multiple?>">
+        <input type=hidden name=assignmode value="<?=$assignmode?>">
+        <input type=hidden name=assignprice value="<?=$assignprice?>">   
+        <input type=hidden name=rmodule value="<?=$rmodule?>">
+        <input type=hidden name=selectedids value="<?=$selectedids?>">
+        <input type=hidden name=dosearch value="<?=$dosearch?>">
+
+        </table>
+    </fieldset>
+    </td></tr>
+
+    <tr>
+    <td>
+    <div style='background-color:white;overflow:auto;border:inset 2;width:100%;height:100%'>
+    <table width=100% border=1 cellpadding=2 style='border-collapse:collapse'>
+		<tr class=tableHead2 align=center>
+        <td class="tableHead2" width=1% nowrap>&nbsp;</td>
+        <td class="tableHead2" width=1% nowrap ><a href='javascript:sortBy("BarCode")' style='color:white'><u>ברקוד</td>
+		<td class="tableHead2" width=99%  nowrap><a href='javascript:sortBy("Title")' style='color:white'><u>שם</td>
+        <td class="tableHead2" width=99%  nowrap><a href='javascript:sortBy("CreationDate")' style='color:white'><u>תאריך יצירה</td>
+        <td class="tableHead2" width=1%  nowrap><a href='javascript:sortBy("SalePrice")' style='color:white'><u>מחיר מכירה</td>
+		</tr>
+<?
+    if ($dosearch && $recordSet->EOF)
+    {
+        echo "<tr><td colspan=5 align=center><BR><B Style=color:red>לא נימצאו פריטים לפי תנאי החיפוש<BR><BR></td></tr>";
+    }
+    if ($recordSet)
+    {
+		while (!$recordSet->EOF)
+        {
+			$ID =$recordSet->fields["id"];
+            $color = $recordSet->fields["is_tree"]?"blue":"black";
+			$ondbl=(!$multiple)?"ondblclick='refreshParent()'":"";
+			echo "<tr id='tr$ID' ".((!$readonly)?"onclick='this.cells[0].all[0].checked=!this.cells[0].all[0].checked;checkall(\"".JSEncode($recordSet->fields["barcode"])."~".$ID."~".JSEncode($recordSet->fields["title"])."\")'":"")." $ondbl>\n";
+			if ($multiple)
+			{
+				echo "<td align=center nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><input type=checkbox  value='$ID' ".(($readonly)?"disabled":"")." onclick='checkall(\"".JSEncode($recordSet->fields["barcode"])."~".$ID."~".JSEncode($recordSet->fields["title"])."\");event.cancelBubble=true;' id=SELECTED name='selid[]'></td>\n";
+			}
+			else
+			{
+				echo "<td align=center nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><input type=radio name=SELECTED value='$ID' ".(($readonly)?"disabled":"")." onclick='checkall(\"".JSEncode($recordSet->fields["barcode"])."~".$ID."~".JSEncode($recordSet->fields["title"])."\");event.cancelBubble=true;' id=SELECTED ></td>\n";
+			}
+			
+			$date = ($recordSet->fields["creation_date"])?(DateFromSQL($recordSet->fields["creation_date"],true)):"";
+			echo "<td id=name$ID nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><span style='color:$color'>".$recordSet->fields["barcode"]."&nbsp;</td>\n";
+			echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".($recordSet->fields["title"])."&nbsp;</td>\n";
+			echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$date."&nbsp;</td>\n";
+			echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".number_format($recordSet->fields["saleprice"],2,".","")."&nbsp;</td>\n";
+            echo "</tr>\n";
+			$recordSet->MoveNext();
+		}
+	}
+?>
+    </table>
+    </div>
+    </td>
+    </tr>
+    
+    <?if($multiple){?>
+    <tr style='height:1%'>
+		<td align=center>
+			<input type=submit name=doadd value='  להוסיף פריטים מסומנים' style='width:160;padding-left:15px;background:url(<?=$imgPath?>down.gif);background-repeat:no-repeat;'>
+		</td>
+    </tr>
+    
+	<tr style='height:1%'>
+		<td align=center>
+		<b>	פריטים שנבחרו</b>
+		</td>
+    </tr>
+    
+    <tr>
+    <td>
+	<div style='border:inset 2;overflow:auto;width:100%;height:100%'>
+
+			<?if ($selectedids){?>
+			<table width=100% bgcolor=white border=1 cellpadding=0 cellspacing=0 style='border-collapse:collapse'>
+			<tr class=tableHead2 align=center>
+			<td class="tableHead2" width=1% nowrap >ברקוד</td>
+			<td class="tableHead2" width=99%  nowrap>שם</td>
+            <?if ($assignmode){?>
+            <td class="tableHead2" width=1%  nowrap>מחיר מכירה</td> 
+            <td class="tableHead2" width=1%  nowrap>כמות</td>
+            <td class="tableHead2" width=1%  nowrap>סה"כ</td>
+            <input type=hidden id=saleprice>
+            <input type=hidden id=quantity>
+            <input type=hidden id=total>
+            <input type=hidden id=sproductid>
+            <?}?>
+			</tr>
+		<?
+            $cq=0;
+			while (!$selectedRS->EOF)
+            {
+				$ID =$selectedRS->fields["id"];
+				echo "<tr >";
+                echo "<input type=hidden id=sproductid value=$ID>";
+				echo "<td nowrap class=\"row3_1\">&nbsp;".$selectedRS->fields["barcode"]."&nbsp;</td>";
+				echo "<td nowrap class=\"row3_1\">&nbsp;".($selectedRS->fields["title"])."&nbsp;</td>";
+                if ($assignmode)
+                {
+                    echo "<td nowrap class=\"row3_1\" id=saleprice>&nbsp;".number_format($selectedRS->fields["saleprice"],2,".","")."&nbsp;</td>";    
+                    echo "<td nowrap class=\"row3_1\"><input size=1 id=quantity onchange='recalcTotal()'  onkeyup='recalcTotal()' style='background-color:lightyellow' name=quantity[] value='".($quantity[$cq]?$quantity[$cq]:1)."'></td>"; 
+                    echo "<td nowrap class=\"row3_1\"><input size=4 readonly id=total></td>"; 
+                }
+                echo "</tr>";
+				$selectedRS->MoveNext();
+                $cq++;
+			}
+		?>
+			</table>
+			<?}?>
+
+    </div>
+
+    
+    </td></tr>
+    
+    <?}?>
+
+    <tr style='height:1%'>
+    <td align=center>
+     <table width=100%><tr><td align=center>
+     <?if (!$readonly){?>
+     <input type=button id=btnOK <?=(!$multiple||!$selectedids)?"disabled":""?> value='אישור' onclick='refreshParent();' style='width:60;padding-left:15px;background:url(<?=$imgPath?>ok.gif);background-repeat:no-repeat;'>
+     <?}?>
+     <input type=submit <?=($selectedids)?"":"disabled"?> name=doremove value='לנקות פריטים שנבחרו' style='width:160;padding-left:15px;background:url(<?=$imgPath?>delete.gif);background-repeat:no-repeat;'>
+     <input type=button value='סגור' onclick='window.close();' style='width:60;padding-left:15px;background:url(<?=$imgPath?>back.gif);background-repeat:no-repeat;'>
+     </td>
+
+     <?if ($assignmode){?>
+     <td align=left width=1% nowrap>
+     סכום עסקה:
+     <input size=6 value='<?=number_format($assignprice,2,".","")?>' readonly  style='background-color:silver'>   
+     סה"כ:
+     <input size=6 id=TOTAL readonly>
+     </td>   
+     <?}?>
+     </tr>
+     </table>
+    </td>
+    </tr>       
+    
+    </form>
+
+    </table>
+
+    <script>
+    var str="";
+    
+    function addProduct()
+    {
+        s = showModalDialog('add_listing.php?simple=1&dialog=1','','dialogWidth:500px;dialogHeight:550px')
+        if (typeof(s)!="undefined")
+        {
+            document.F.barcode.value = s;
+            document.F.cname.value="";
+            document.F.price.value="";  
+            document.F.category.selectedIndex = 0;
+            document.F.dosearch.value=1;
+            document.F.submit();
+
+        }
+    }
+
+    function doSearch(){
+        if (window.event.keyCode==13)
+        {
+            document.F.dosearch.value=1;
+            document.F.submit();
+        }
+    }
+    
+
+    
+    <?if ($assignmode){?>
+    var assignids="";
+    function recalcTotal()
+    {
+        s=0;
+        assignids="";
+        try{
+        for (i=1;i<document.all("quantity").length;i++)
+        {
+            document.all("total")[i].value =+ document.all("quantity")[i].value * document.all("saleprice")[i].innerText;
+            s+=parseFloat(document.all("total")[i].value);
+            assignids+=","+document.all("sproductid")[i].value+"|"+document.all("quantity")[i].value;
+        }
+        if (assignids!="")assignids=assignids.substr(1);
+
+        document.F.TOTAL.value=s.toFixed(2);  
+        document.all.btnOK.disabled = s<parseFloat(document.F.assignprice.value);
+        }
+        catch(e){}
+    }
+    
+    recalcTotal();
+    <?}?>
+    
+    function refreshParent()
+    {
+		<?if (!$multiple){?>
+        window.returnValue = str;
+        <?}else{?>
+        <?if ($assignmode){?>
+        if(parseFloat(document.F.TOTAL.value) > parseFloat(document.F.assignprice.value))
+        {
+            if (!confirm('סה"כ פריטים שנבחרו פחות מסכום העסקא. הנחה לעסקא תחשב בהתאם. להמשיך?'))
+            {
+                return;
+            }
+        }
+        window.returnValue = assignids;
+        <?}else{?>
+        window.returnValue = document.F.selectedids.value;
+        <?}}?>
+        window.close();
+    }
+
+    function checkall(id){
+		<?if (!$multiple){?>
+        str = id
+        document.all.btnOK.disabled= false;
+        <?}?>
+    }
+
+    <?if ($_GET["cname"]){?>
+    document.F.submit();
+    <?}?>
+    </script>
+
+                             
+<?
+  
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

@@ -1,0 +1,767 @@
+<?php
+$simple = 1;
+
+ob_start();
+
+require("../../classes/xmlwriter.class.inc");
+require("include/common.php"); 
+require("include/business_functions.php");
+require("include/document.php");           
+require("include/product.php");                        
+require("include/client.php");                        
+
+                      
+//if(!loginCheck('User'))exit; 
+
+include("$config[template_path]/admin_top.html");
+
+ob_end_clean();
+
+
+function  getClientDataById($clientid)
+{
+	global $lang;		
+	global $userID,$TABLE_USERSTOCKS,$TABLE_DOCUMENT_TYPE,$TABLE_DOCUMENT_STATUS,$officeUserID;
+	$rs = DBQuery("select clientnum, id, allowhakafa, balance, OpenCheques,Obligo, SupplierName,BusinessNum,Phone,Discount from listingsSuppliers where id = '".addslashes($clientid)."' and user_id = $userID");
+	return MakeClientXML($rs);
+}
+
+function getClientData($clientNum)
+{
+	global $lang; 
+	global $userID,$TABLE_USERSTOCKS,$TABLE_DOCUMENT_TYPE,$TABLE_DOCUMENT_STATUS,$officeUserID;
+	if ($clientNum=="0")
+	{
+		return getClientDataById(1);
+	}
+	if (trim($clientNum)=="")
+	{ 
+		$clientNum = "~notexists~";
+	}
+	$rs = DBQuery("select clientnum, id, allowhakafa, balance, OpenCheques,Obligo, SupplierName,BusinessNum,Phone,Discount from listingsSuppliers where clientnum = '".addslashes($clientNum)."' and user_id = $userID");
+	return MakeClientXML($rs); 
+}
+ 
+function addClient($clientnum,$businessnum,$name,$phone,$address,$email)
+{
+	global $conn,$userID;
+	$sql = "select clientnum from listingsSuppliers where businessnum = '".dbsafe(utf8RawUrlDecode($businessnum))."'";
+	$rs = DBQuery($sql);
+	if (!$rs->EOF)
+	{
+		return "E:".$rs->fields["clientnum"];
+	}
+	else
+	{
+		$sql = "insert into listingsSuppliers (SupplierName, user_id, isClient, businessnum, clientnum, address, phone, email) values (";
+		$sql.="'".dbsafe(utf8RawUrlDecode($name))."',";
+		$sql.="'".dbsafe(utf8RawUrlDecode($userID))."',";
+		$sql.="'1',";
+		$sql.="'".dbsafe(utf8RawUrlDecode($businessnum))."',";
+		$sql.="'".dbsafe(utf8RawUrlDecode($clientnum))."',";
+		$sql.="'".dbsafe(utf8RawUrlDecode($address))."',";
+		$sql.="'".dbsafe(utf8RawUrlDecode($phone))."',";
+		$sql.="'".dbsafe(utf8RawUrlDecode($email))."')";
+		DBQuery($sql);
+		return getClientDataById($conn->Insert_ID());
+	}
+}
+
+function MakeClientXML($rs)
+{
+	global $lang;
+	$xml = new MyXmlWriter();
+	$xml->push("client");
+	$xml->element("id",$rs->fields["id"]);
+	$xml->element("name",$rs->fields["SupplierName"]);
+	$xml->element("phone",$rs->fields["Phone"]); 
+	$xml->element("address",$rs->fields["PostAddress"]); 
+	$xml->element("clientnum",$rs->fields["clientnum"]); 
+	$xml->element("businessnum",$rs->fields["BusinessNum"]);
+	$xml->element("discount",number_format($rs->fields["Discount"],"","",""));
+	
+	if ($rs->fields["id"]>1){
+		$balance = Client::GetBalance($rs->fields["id"],"","",$docids);
+	}
+	$xml->element("balance",$balance);
+	$xml->element("docids",$docids);
+	$xml->element("balancesign",$balance<0?"-":"+");
+	
+	$r = ($rs->fields["allowhakafa"]==1 &&($rs->fields["OpenCheques"]==""||$rs->fields["Obligo"]==""||($rs->fields["OpenCheques"]+$rs->fields["Obligo"]>$balance)))? number_format($rs->fields["OpenCheques"]+$rs->fields["Obligo"]-$balance,2,".","") :0;
+	
+	$xml->element("allowhakafa",$r);
+	$xml->pop(); 
+	return $xml->getXml();
+}
+
+function setStockInitBalance($stockID, $balance)
+{
+	global $lang;
+	global $TABLE_LISTINGSSTOCKS,$officeUserID;
+	DBQuery("update $TABLE_LISTINGSSTOCKS set initBalance = '$balance',initBalanceDate=curdate(),initBalanceTimestamp=unix_timestamp(),initBalanceOfficeUserId=$officeUserID where id = $stockID");
+	DBQuery("insert into cashboxhistory (stock_id, office_user_id,opentime,start_balance) values ($stockID,$officeUserID,unix_timestamp(),'$balance')");
+} 
+
+function clearStockInitBalance($stockID)
+{
+	global $lang;
+	global $TABLE_LISTINGSSTOCKS;
+	DBQuery("update $TABLE_LISTINGSSTOCKS set initBalance = null,initBalanceDate=null,initBalanceTimestamp=null,initBalanceOfficeUserId=null where id = $stockID");
+} 
+
+function closeCashbox($stockID)
+{
+	global $officeUserID,$TABLE_DOCPAYMENTTYPES,$userID,$TABLE_LISTINGSSTOCKS,$TABLE_DOCUMENT_TYPE,$PTYPE_ASHRAI,$PTYPE_SHOVAR,$PTYPE_MEZUMAN,$PTYPE_CHEQUE;
+	
+	$rs = DBQuery("select stockname,initBalance,initbalancetimestamp from $TABLE_LISTINGSSTOCKS where id = $stockID and initbalanceOfficeUserId = $officeUserID and initbalancedate=CURDATE()");
+	$initBalanceTimestamp = $rs->Fields("initbalancetimestamp"); 
+	if (!$initBalanceTimestamp) 
+	{ 
+		$initBalanceTimestamp = 0;
+	}
+
+	$sql = "select dpt.id as paytypeid, dpt.name, 
+				round(sum(
+				dp.amount * (case when dt.balance='+' then -1 else 1 end)
+				),2) as amount, group_concat(d.id) as docids from $TABLE_DOCPAYMENTTYPES dpt
+				left outer join document_payments dp on dp.payment_type = dpt.id 
+					and doc_id in (select id from documents where user_id = $userID and stock_id = $stockID and created > ".$initBalanceTimestamp." and doc_date = '".date("Y-m-d")."' )
+				left outer join documents d on dp.doc_id = d.id 
+				left outer join $TABLE_DOCUMENT_TYPE dt on d.doc_type = dt.id  
+				where dpt.id in (".$PTYPE_ASHRAI.",".$PTYPE_CHEQUE.",".$PTYPE_MEZUMAN.",".$PTYPE_SHOVAR.")
+				group by dpt.name order by dpt.id";
+	
+				
+	$docRS = DBQuery($sql);
+	
+	while (!$docRS->EOF)
+	{
+		if ($docRS->fields["paytypeid"]==$PTYPE_ASHRAI)
+		{
+			$totalCredit=$docRS->fields["amount"];
+			$totalCreditIds=$docRS->fields["docids"];
+		}
+		elseif ($docRS->fields["paytypeid"]==$PTYPE_CHEQUE)
+		{
+			$totalCheque=$docRS->fields["amount"];
+			$totalChequeIds=$docRS->fields["docids"];
+		}
+		elseif ($docRS->fields["paytypeid"]==$PTYPE_MEZUMAN)
+		{
+			$totalCash=$docRS->fields["amount"];
+			$totalCashIds=$docRS->fields["docids"];
+		}
+		elseif ($docRS->fields["paytypeid"]==$PTYPE_SHOVAR)
+		{
+			$totalCoupons=$docRS->fields["amount"];
+			$totalCouponsIds=$docRS->fields["docids"];
+		}				
+		$docRS->MoveNext();
+	}
+		
+		
+	$sql = "update cashboxhistory set closetime = unix_timestamp(), 
+			total_credit = '$totalCredit', total_cheque = '$totalCheque', total_cache = '$totalCash', total_coupons = '$totalCoupons',
+			credit_ids = '$totalCreditIds', cheque_ids = '$totalChequeIds', cache_ids = '$totalCashIds',  coupons_id = '$totalCouponsIds'
+			where stock_id = $stockID and office_user_id = $officeUserID and closetime = 0";
+	DBQuery($sql);
+	
+	clearStockInitBalance($stockID);
+	
+	return "";
+}
+
+function getProductData($barcode,$rowIndex,$stock,$pricelistId, $vatFree)
+{
+	global $TABLE_UNITS,$userID,$lang,$config;   
+	
+	if ($barcode=="0")
+	{
+		$name = $lang["general_item"];
+		$barcode = str_repeat("0",13);
+	}
+	else
+	{
+		if ($stock)
+		{
+			$stk=" left outer join listingsStocksElements lse on lse.listingid = l.id and lse.stockid = $stock";
+			$stkselect = "ifnull(lse.saleprice,l.saleprice) ";
+		}
+		else
+		{
+			$stkselect = "SalePrice";
+		}
+		$sql = "
+			select barcode, l.id, cost,l.title as products_name, l.is_tree,l.misparzar,l.discount_listing_id, l.discount_type,l.discount,
+			$stkselect as products_price,
+			reserved,ordered, abbreviation,grams_rate, (case when de.expdate >= curdate() or de.expdate is null then 1 else 0 end) as discount_valid,de.expdate , dl.listing_id as otherlistingid
+			from listingsDB l 
+			left outer join discount_expirations de on discount_expiration_id = de.id
+			left outer join discount_listing dl on dl.id = discount_listing_id
+			$stk,$TABLE_UNITS u
+			where
+			barcode = '$barcode' and
+			active = 'yes' and 
+			u.id = unit and
+			l.user_id = $userID
+			";
+		$product = DBQuery($sql);
+		
+		$plistingid = $product->fields["id"]; 
+		$name = $product->fields["products_name"];
+		$misparzar = $product->fields["misparzar"];
+		if ($plistingid)
+		{
+			if ($pricelistId)
+			{
+				$fprice = GetPriceByPricelist($plistingid,$pricelistId);
+			}
+			else
+			{
+				$fprice = $product->fields["products_price"];
+			}  
+			
+		}
+		else
+		{
+			$name = $lang["item_not_exists"];
+		}
+	}
+	
+	if ($vatFree)
+	{
+		$fprice = $fprice/(1+($config["VAT"]/100));
+	}
+	
+	
+	if ($product->fields["discount_valid"])
+	{
+		$discountpercent = $product->fields["discount_type"]==1 ? number_format($product->fields["discount"],0,".","") :"";
+		$discountcash = $product->fields["discount_type"]==5 ? number_format($product->fields["discount"],2,".","") :"";
+		$discounttype = $product->fields["discount_type"];
+		$discount = $product->fields["discount"];
+		$discountotherlistingid = $product->fields["otherlistingid"];
+	}
+	else
+	{
+		$discountpercent = "";
+		$discountcash = "";
+		$discounttype = "";
+		$discount = "";
+		$discountotherlistingid = "";
+	}
+	
+	$xml = new MyXmlWriter();
+	$xml->push("product"); 
+	$xml->element("rowindex",$rowIndex);
+	$xml->element("id",$plistingid);
+	$xml->element("name",$name);
+	$xml->element("misparzar",$misparzar);
+	$xml->element("barcode",$barcode);
+	$xml->element("price",$fprice);
+	$xml->element("discountpercent",$discountpercent);
+	$xml->element("discountcash",$discountcash);
+	$xml->element("discounttype",$discounttype);	
+	$xml->element("discountamount",$discount);
+	$xml->element("discountotherlistingid",$discountotherlistingid);	
+	$xml->pop();
+	return $xml->getXml();
+}
+
+function getAgentData($agentid)
+{
+	global $lang;
+	global $TABLE_LISTINGSSTOCKS;
+	$rs = DBQuery("select suppliername from listingsSuppliers where id = $agentid");
+	
+	$xml = new MyXmlWriter();
+	$xml->push("agent");
+	$xml->element("name",$rs->fields["suppliername"]);
+	$xml->pop();
+	return $xml->getXml();
+}
+
+function getStockData($stockid)
+{
+	global $lang;
+	global $TABLE_LISTINGSSTOCKS;
+	$rs = DBQuery("select stockname,roundBill,gatewaycode,initBalanceOfficeUserId from $TABLE_LISTINGSSTOCKS where id = $stockid");
+	 
+	$xml = new MyXmlWriter();
+	$xml->push("stock");
+	$xml->element("name",$rs->fields["stockname"]);
+	$xml->element("kupa","");
+	$xml->element("gatewaycode",$rs->fields["gatewaycode"]);
+	$xml->element("roundbill",$rs->fields["roundBill"]);
+	$xml->element("currentuser",$rs->fields["initBalanceOfficeUserId"]);
+	$xml->pop();
+	return $xml->getXml();
+}
+
+function getDocumentId($docnum, $doctype)
+{
+	global $userID;
+	$rs = DBQuery("select id from documents where doc_number = '".addslashes($docnum)."' and doc_type = '$doctype' and user_id = $userID");
+	if ($rs->EOF)
+	{ 
+		return "-1";
+	}
+	return $rs->fields["id"];
+}
+
+function getBaseDocumentProducts($docnum,$doctype) 
+{
+	global $lang;
+	global $userID;
+	$rs = DBQuery("select vat,id,discount from documents where doc_number = '".addslashes($docnum)."' and doc_type = '$doctype' and user_id = $userID");
+	if ($rs->EOF)
+	{ 
+		return "-1";
+	}
+	$vat = $rs->fields["vat"];
+	
+	$xml = new MyXmlWriter();
+	$xml->push("productlist",array("discount"=>number_format($rs->fields["discount"],2,".",""),"docid"=>$rs->fields["id"]));
+	$rs = DBQuery("select * from document_products where doc_id = ".$rs->fields["id"]." order by id");
+	while (!$rs->EOF)
+	{
+		$xml->push("product");
+		$xml->element("name",$rs->fields["name"]);
+		$xml->element("id",$rs->fields["listing_id"]);
+		$xml->element("barcode",$rs->fields["barcode"]);
+		$xml->element("price",$rs->fields["currency_price"]*(1+$vat/100));
+		$xml->element("discount",$rs->fields["discount"]);
+		$xml->element("quantity",$rs->fields["quantity"]);
+		$xml->pop();
+		$rs->MoveNext();
+	}
+	$xml->pop();
+	
+	return $xml->getXml();
+	
+}
+
+if (!$action)
+{
+	include_once("../../classes/agent.php");
+}
+
+if ($action=="save")
+{ 
+
+	if (!$clientid)$clientid=1;
+	
+	//$stockRS = DBQuery("select kupa_id from $TABLE_LISTINGSSTOCKS where id = $stock");
+	//$kupa = $stockRS->fields["kupa_id"];
+	$kupa = 0;
+	
+	/*
+	if (!$kupa)
+	{
+		$error = $lang["payment_deal_nokupa"].$stock;
+		exit ("
+				<script>
+				window.parent.disableForm(false,true);
+				window.parent.disablePaymentButtons(false);
+				window.parent.HideWaiting();
+				window.parent.showError(\"".str_replace("\n"," ",$error)."\"); 
+				</script>
+				");
+	}
+	*/
+
+	$amtHakafa = floatval($amtHakafa);
+	$amtRefund = floatval($amtRefund);
+	$amtCash = floatval($amtCash);
+	$amtVoucher = floatval($amtVoucher);
+	$amtCheque = floatval($amtCheque);
+	$amtCreditSimple = floatval($amtCreditSimple);
+	$amtTotal = floatval($amtTotal);
+	$totalDiscount = floatval($totalDiscount);
+	$totalCashDiscount = floatval($totalCashDiscount);
+	$amtCredit = floatval($amtCredit);
+	$amtChange = floatval($amtChange);
+	
+	if ($amtCash && $amtChange && $amtChange <= $amtCash)
+	{
+		$amtCash = $amtCash-$amtChange;
+	}
+	 
+	 
+	if ($mode=="sale" && $amtHakafa+$amtRefund+$amtCash+$amtVoucher+$amtCheque+$amtCreditSimple+$amtCredit!=$amtTotal)
+	{
+		$error = $lang["payments_deal_wrong"];
+		exit ("
+				<script>
+				window.parent.disableForm(false,true);
+				window.parent.disablePaymentButtons(false);
+				window.parent.HideWaiting();
+				window.parent.showError(\"".str_replace("\n"," ",$error)."\"); 
+				</script>
+				");
+	}
+	
+	$rawData = var_export($_POST,true);
+	
+	//echo "<pre>".$rawData;
+	
+	$test = DBQuery("select doc_type,doc_number from documents where created > (unix_timestamp() - 120) and raw_data = '".addslashes($rawData)."'");
+	if (!$test->EOF && !$debug)
+	{ 
+			$title = "Duplicate document found in POS: ".$test->fields["doc_type"]." ".$test->fields["doc_number"];
+			mail("$config[admin_email]", $title, $title,"From: $config[admin_email]");
+			$error = $lang["deal_in_db"];
+			exit ("
+				<script>
+				window.parent.disableForm(false,true);
+				window.parent.disablePaymentButtons(false);
+				window.parent.HideWaiting();
+				window.parent.alert(\"".str_replace("\n"," ",$error)."\"); 
+				window.parent.cancelDeal();
+				</script>
+				");
+	}
+	
+	//echo "<pre>"; 
+	//print_r($_POST); 
+	//die();
+	switch ($mode) 
+	{
+		case "sale":
+		{
+			if (($amtHakafa>0||$amtRefund>0) && $amtHakafa + $amtRefund < $amtTotal)
+			{
+				$createSecondDocument = "KABALA";
+				$did="CHESHBONIT";
+			}
+			elseif ($amtHakafa>0||$amtRefund>0)
+			{
+				$did="CHESHBONIT";
+			}
+			else
+			{
+				$did="MASKABALA";
+			}
+			break;
+		}
+		case "payment":
+		{
+			$did="KABALA";
+			break;
+		}
+		case "refundMoneyBack":
+		{
+			$did="MASZIKUI";
+			if ($amtCash || $amtCredit || $amtCreditSimple || $chequedata)
+			{
+				$createSecondDocument = "TASHLUM";
+			}
+			else
+			{
+				exit ("
+					<script>
+					window.parent.disableForm(false,true);
+					window.parent.disablePaymentButtons(false);
+					window.parent.HideWaiting();
+					window.parent.showError(\"".str_replace("\n"," ",$lang["pls_enter_zikui_amt"])."\"); 
+					</script>
+					");
+			}
+			break;
+		}
+		case "refundNoMoneyBack":
+		{
+			$did="MASZIKUI"; 
+			break;
+		}
+		case "petekAchlafa":
+		{
+			$did="PETEKACHLAFA"; 
+			break;
+		}		
+		case "hazmana":
+			$did="HAZMANA"; 
+			break;
+	}
+	
+	$responseOK = true;
+	$gatewayConfirmationCode = '';
+	$gatewayProof = '';
+	if ($creditcarddata)
+	{
+		$cdata = explode("|",$creditcarddata); 
+		$sql = "select doc_number from documents where user_id = $userID and doc_type='$did' order by doc_number desc limit 1";
+		$docnumRS = DBQuery($sql);
+		$docnum = ($docnumRS->fields["doc_number"])+1;
+		$responseOK = SendGatewayPayment($cdata); 
+	}
+	
+	if (!$responseOK)
+	{
+		$error = $lang["no_credit_answer"].$gatewayResponse." ".$edescr;	
+		exit ("
+				<script>
+				window.parent.disableForm(false,true);
+				window.parent.disablePaymentButtons(false);
+				window.parent.HideWaiting(); 
+				window.parent.showCCError(\"".str_replace("\n"," ",$error)."\"); 
+				</script>
+				");
+	}
+	
+	
+	$doc = new Document($did,$stock,$clientid);
+	$doc->parentdocid = $parentdocid; 
+	$doc->agentid = $agentid; 
+	$doc->rawData = $rawData;
+	$doc->comment = $gatewayComment; 
+	$doc->asmachta = $gatewayProof;
+	$doc->change = $amtChange;
+	
+	if ($clientid==1)
+	{
+		if ($inpClientName)
+		{
+			$doc->clientname = $inpClientName;
+		}
+		$doc->clientaddress = $inpClientAddress;
+		$doc->clientphone = $inpClientPhone;
+		$doc->clientemail = $inpClientMail;
+		$doc->clientzehut = $inpClientZehut;
+	}
+	
+	
+	if ($totalDiscount)
+	{
+		$doc->discount = $totalDiscount;
+	}
+	elseif($totalCashDiscount)
+	{
+		$doc->discount = ($totalCashDiscount/($amtTotal+$totalCashDiscount))*100;
+	}
+	//echo $doc->agentid;
+	$doc->UpdateStock = true;
+	if ($IsVatFree)
+	{
+		$doc->vat = 0;
+	}
+	$doc->Create($STATUS_ACTIVE);
+	$ids = $firstdocid = $doc->id;
+	$firstdocnum = $doc->number;
+
+	$shovarAmount = 0;
+	
+	if ($mode!="payment")
+	{
+		for($i=1;$i<count($barcode);$i++)
+		{
+			$discount = 0; 
+			if($productprice[$i]!="")
+			{ 
+				$productdiscount[$i] = floatval($productdiscount[$i]);
+				$productcashdiscount[$i] = floatval($productcashdiscount[$i]);
+				if ($productdiscount[$i])
+				{
+					$discount = $productdiscount[$i];
+				}
+				elseif ($productcashdiscount[$i]) 
+				{
+					$discount = $productcashdiscount[$i]/($productprice[$i]*$productquantity[$i])*100;
+				}
+				if(!$IsVatFree)
+				{
+					$price = $productprice[$i]/(1+$config["VAT"]/100); 
+				}
+				else
+				{
+					$price = $productprice[$i];
+				}
+				
+				if ($discounttype[$i]==4 && $discountamount[$i]>0)
+				{
+					$shovarAmount+=round($discountamount[$i]*$productquantity[$i],2);
+					$shovarItemNames.="\n".$productname[$i];
+				}
+				
+				$doc->AddItem($productid[$i],$productquantity[$i],$price,$discount,$productname[$i],$barcode[$i]);
+			}
+		}
+	}
+	
+	
+	if ($amtTotal)
+	{
+		$doc->setAmount($amtTotal);
+	}
+	
+		
+
+
+	if ($createSecondDocument)
+	{
+		$doc = new Document($createSecondDocument,$stock,$clientid);
+		if ($IsVatFree)
+		{
+			$doc->vat = 0;
+		}
+		$doc->rawData = $rawData;
+		$doc->comment = $gatewayComment;
+		$doc->Create($STATUS_ACTIVE);
+		$ids .= ",".$doc->id;
+		$sumKabala = 0;
+		//echo $ids;
+	}
+	
+
+	
+	if ($amtCash)
+	{
+		$doc->AddPayment($amtCash,$PTYPE_MEZUMAN,$kupa,date("Y-m-d"));
+		$sumKabala+=$amtCash;
+	}
+	
+	if ($amtVoucher)
+	{
+		$doc->AddPayment($amtVoucher,$PTYPE_SHOVAR,$kupa,date("Y-m-d"),"","","",$numVoucher);
+		$sumKabala+=$amtVoucher;
+	}
+	
+	if ($amtCreditSimple)
+	{
+		$doc->AddPayment($amtCreditSimple,$PTYPE_ASHRAI,$kupa,date("Y-m-d"),$numIshur,"","","","","1");
+		$sumKabala+=$amtCreditSimple;
+	}
+	
+	if ($amtCredit && $creditcarddata)
+	{
+		$arr=explode("|",$creditcarddata);
+		$amtCredit = $arr[0];
+		$numpayments=($arr[2]==8)?$arr[1]:1;
+		$creditterms = $arr[2];
+		$sum1=($arr[2]==8)?$arr[6]:$arr[0];
+		$sum2=($arr[2]==8)?$arr[7]:0;
+		//$cardtype=$arr[13];
+		$cardtype = $transillaCard;
+		$expiration = $arr[4]."/".$arr[5];
+		$ct = DBQuery("select id from $TABLE_CARDTYPES where code = '$cardtype'");
+		$cardtype = $ct->fields["id"];
+		$cardnumber=substr($arr[3],strlen($cardnumber)-4);
+		$day = mktime();
+		$date = date("Y-m-d",$day);
+		for($i=1;$i<=$numpayments;$i++)
+		{
+			$date = date("Y-m-d",$day);
+			$amt=($i==1)?$sum1:$sum2;
+			$doc->AddPayment($amt,$PTYPE_ASHRAI,$kupa,$date,"",$expiration,$cardnumber,"",$cardtype,$creditterms,$expiration);
+			$sumKabala+=$amt;
+			$day = strtotime("+1 MONTH",$day);
+		}
+	}
+	
+	
+	
+	if ($amtCheque && $chequedata)
+	{
+		$arr=explode("|",$chequedata);
+		$totalsum=$arr[0];
+		$numpayments=$arr[1];
+		$date=$arr[2];
+		$cheque=$arr[3];
+		$bank=$arr[4];
+		$snif=$arr[5];
+		$acc=$arr[6];
+		$sum1=$arr[7];
+		
+		$time=mktime(0,0,0,substr($date,3,2),substr($date,0,2),substr($date,6,4));
+		for($i=1;$i<=$numpayments;$i++)
+		{
+			if($sum1!=0)
+			{
+				$sumdoc=($i==1)?$sum1:(($totalsum-$sum1)/($numpayments-1));
+			}
+			else
+			{
+				$sumdoc=$totalsum/$numpayments;
+			}
+			
+			$paydate=date("Y-m-d",strtotime("+".($i-1)." month",$time));
+			$doc->AddPayment($sumdoc,$PTYPE_CHEQUE,$kupa,$paydate,$bank,$snif,$acc,$cheque);
+			$sumKabala+=$sumdoc;
+			$cheque++;
+		}
+	}
+	
+	if (!$amtTotal)
+	{
+		if ($sumKabala)
+		{
+			$doc->setAmount($sumKabala);
+		}
+	} 
+	
+	
+	if ($createSecondDocument)
+	{
+		if ($sumKabala)
+		{
+			$doc->setAmount($sumKabala); 
+		}
+	}
+	
+	
+	if ($shovarAmount > 0 && ($did=="MASKABALA" || $did=="CHESHBONIT" ))
+	{
+		$doc = new Document("SHOVAR",$stock,$clientid);
+		$doc->vat = 0;
+		$doc->asmachta = $firstdocnum;
+		$doc->comment = "מבצע בקנייה פריט(ים):".$shovarItemNames;
+
+		if ($clientid==1)
+		{
+			if ($inpClientName)
+			{
+				$doc->clientname = $inpClientName;
+			}
+			$doc->clientaddress = $inpClientAddress;
+			$doc->clientphone = $inpClientPhone;
+			$doc->clientemail = $inpClientMail;
+			$doc->clientzehut = $inpClientZehut;
+		}
+
+		$doc->Create($STATUS_ACTIVE);
+		$doc->AddPayment($shovarAmount,$PTYPE_MEZUMAN,"","","","","");
+		$doc->setAmount($shovarAmount); 
+		$ids .= ",".$doc->id;
+	}
+	
+	
+	echo "
+		<script> 
+		
+		function printDocument(ids)
+		{ 
+		var s;
+		s = showModalDialog('printdoc.php?cashbox=1&docid='+ids,'','dialogWidth:400px;dialogHeight:250px;center:yes;resizable:no;status:no;help:no');
+		if (s!='no')
+		{
+		";
+	if(!$debug)
+	{
+		echo "window.parent.reloadWindow();";
+	}
+	echo "
+		}
+		}
+		
+		
+		window.parent.disableForm(false,true);
+		window.parent.HideWaiting();
+		window.parent.disablePaymentButtons(false);
+		window.parent.document.F.lastDocIds.value = '$ids';
+		printDocument('$ids');
+		</script>
+		";
+	
+}
+
+?>

@@ -1,0 +1,106 @@
+<?php
+
+
+
+ini_set("error_reporting","E_ERROR & E_CORE_ERROR & E_COMPILE_ERROR");
+$noheader=1; 
+
+$filename = "transactions";
+
+if($action=="dat")
+{
+    ob_start();
+    require("include/transexport.php");
+    $noheader=1;
+	include("include/common.php");
+    ob_end_clean();
+    
+	// Date in the past
+     header("Pragma: ");
+     header("Cache-Control: ");
+     header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
+     header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
+     header("Cache-Control: no-store, no-cache, must-revalidate"); // HTTP/1.1
+     header("Cache-Control: post-check=0, pre-check=0", false);
+     //header("Content-Type: text/plain");
+
+    header("Content-Disposition: attachment; filename=\"$filename.xml\"");      
+
+    if(!mysql_connect($db_server,$db_user,$db_password))
+	{
+		echo "SQL_ERROR: Cannot connect to DB: $db_database"; exit();
+	}
+	mysql_select_db($db_database) or die("SQL_ERROR: Cannot select DB: $db_database");
+}
+
+
+$simple=1;
+$page_subtitle = "יבוא ויצוא";
+
+if (!$action)
+{
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+	echo
+	"
+	<head>
+	<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+	</head><pre dir=rtl>";
+	
+	echo "יש להזין תווך יצוא וללחוץ על אישור";
+	
+	exit;
+}
+
+elseif ($action=="do")
+{
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+	print"
+	<head>
+	<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+	</head>
+	<pre dir=rtl>";	
+
+	if(!$packageid)  
+    {
+		die("יש להזין תווך יצוא ");
+	}
+	else
+    {
+
+		echo "<a target=_blank href='".$rootpath."export_xml.php?action=dat&packageid=$packageid&username=$username&uid=$userID&rnd=".rand()."'><strong>יש ללחוץ כאן להורדת קובץ <span dir=ltr>$filename.xml</span></strong></a><br>";
+    
+    }
+	
+	exit;
+}
+
+elseif($action=="dat")
+{
+		
+	   $transExport = new TransExport($packageid);
+	   $transExport->sendXML = true;
+	   $transExport->Export(); 	
+	   echo trim($transExport->output);
+	
+	   exit();
+}
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+function dateSQL($date)
+{
+	return substr($date,8,2) ."/".substr($date,5,2)."/".substr($date,0,4);
+}
+
+function toCSV($s)
+{
+	return str_replace('"','""',$s);
+}
+?>

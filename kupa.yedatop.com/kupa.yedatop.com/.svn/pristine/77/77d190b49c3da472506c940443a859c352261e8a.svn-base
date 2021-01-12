@@ -1,0 +1,405 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+require("../Group-Office.php");
+require($GO_LANGUAGE->get_language_file('users'));
+
+//$GO_SECURITY->authenticate(true);
+
+require($GO_CONFIG->class_path."files.class.inc");
+require($GO_CONFIG->class_path."users.class.inc");
+require($GO_CONFIG->class_path."validate.class.inc");
+$val = new validate();
+$users = new users;
+$files = new files;
+
+
+if ($REQUEST_METHOD == "POST")
+{
+
+	if ($pass1 != '')
+	{
+		$val->error_min_length = $error_min_length;
+        $val->error_max_length = $error_max_length;
+        $val->error_match = $admin_pass_match;
+
+		$val->name="pass1";
+		$val->input=$pass1;
+		$val->min_length=3;
+		$val->max_length=8;
+		$val->validate_input();
+
+		$val->name="pass2";
+		$val->input=$pass2;
+		$val->min_length=3;
+		$val->max_length=8;
+        $val->validate_input();
+
+		$val->name="pass";
+		$val->match1=$pass1;
+		$val->match2=$pass2;
+		$val->validate_input();
+
+		if ($val->validated)
+		{
+			if($users->update_password($id, $pass1))
+			{
+				$feedback = '<p class="Success">'.$strSaveSuccess.'</p><br />';
+			}else
+			{
+				$feedback = '<p class="Error">'.$strSaveError.'</p><br />';
+			}
+		}else
+		{
+			$feedback = '<p class="Error">'.$errors_in_form.'</p><br />';;
+		}
+	}
+	$samba_user = isset($samba_user) ? $samba_user : '';
+	$has_samba_account = isset($has_samba_account) ? $has_samba_account : false;
+
+	if ($has_samba_account == 'true' && $samba_user != '1')
+	{
+		$users->delete_samba_account($id);
+	}
+
+	if ($has_samba_account != 'true' && $samba_user == '1')
+	{
+		$users->create_samba_account($id);
+	}
+
+	$GO_MODULES->get_modules();
+	while ($GO_MODULES->next_record())
+	{
+		$was_granted = $GO_SECURITY->has_permission($id, $GO_MODULES->f('acl_read'));
+		$is_granted = isset($module_acl) ? in_array($GO_MODULES->f('acl_read'), $module_acl) : false;
+
+		if ($was_granted && !$is_granted)
+		{
+			$GO_SECURITY->delete_user_from_acl($id, $GO_MODULES->f('acl_read'));
+		}
+
+		if ($is_granted && !$was_granted)
+		{
+			$GO_SECURITY->add_user_to_acl($id, $GO_MODULES->f('acl_read'));
+		}
+	}
+	$users->update_expiration($id,$expiration);
+	$users->update_diskquota($id,$diskquota);
+	$users->update_stockuser($id,$stock_user,$credit_user);
+
+}
+
+$profile = $users->get_user($id);
+$page_title = $menu_users;
+require($GO_THEME->theme_path."header.inc");
+
+
+$profile = $users->get_user($id);
+if (!$profile)
+{
+        $feedback = '<p class="Error">'.$strDataError.'</p>';
+}
+if ($profile["samba_user"] == 1) $samba_user_check = "checked";
+?>
+<form method="post" name="user" action="<?php echo $PHP_SELF; ?>">
+<input type="hidden" name="id" value="<?php echo $id; ?>" />
+<table border="0" cellpadding="10" cellspacing="0">
+<tr>
+	<td valign="top">
+	<?php
+	if (isset($feedback))
+	{
+		echo $feedback.'<br />';;
+	}
+	?>
+	<table border="0" cellpadding="0" cellspacing="3" width="600">
+	<tr>
+		<td colspan="2"><h1><?php echo $user_profile; ?></h1></td>
+	</tr>
+	<tr>
+		<td valign="top" width="50%">
+		<table border="0" cellpadding="0" cellspacing="3" width="100%">
+
+		<tr>
+			<td align="right" nowrap><?php echo $strUsername; ?>:&nbsp;</td>
+			<td width="100%"><?php echo empty_to_stripe($profile["username"]); ?></td>
+		</tr>
+		<tr>
+			<td align="right" nowrap><?php echo $strName; ?>:&nbsp;</td>
+			<td width="100%"><?php echo empty_to_stripe($profile["name"]); ?></td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap><?php echo $strAddress; ?>:&nbsp;</td>
+			<td width="100%"><?php echo empty_to_stripe($profile["address"]); ?></td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap><?php echo $strZip; ?>:&nbsp;</td>
+			<td width="100%"><?php echo empty_to_stripe($profile["zip"]); ?></td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap><?php echo $strCity; ?>:&nbsp;</td>
+			<td width="100%"><?php echo empty_to_stripe($profile["city"]); ?></td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap><?php echo $strState; ?>:&nbsp;</td>
+			<td width="100%"><?php echo empty_to_stripe($profile["state"]); ?></td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap><?php echo $strCountry; ?>:&nbsp;</td>
+			<td width="100%"><?php echo empty_to_stripe($profile["country"]); ?></td>
+		</tr>
+		<tr>
+			<td colspan="2">&nbsp;</td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap><?php echo $strEmail; ?>:&nbsp;</td>
+			<td><?php echo mail_to(empty_to_stripe($profile["email"])); ?></td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap><?php echo $strPhone; ?>:&nbsp;</td>
+			<td><?php echo empty_to_stripe($profile["home_phone"]); ?></td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap><?php echo $strFax; ?>:&nbsp;</td>
+			<td><?php echo empty_to_stripe($profile["fax"]); ?></td>
+		</tr>
+
+
+		<tr>
+			<td align="right" nowrap><?php echo $strCellular; ?>:&nbsp;</td>
+			<td><?php echo empty_to_stripe($profile["cellular"]); ?></td>
+		</tr>
+		
+		<tr>
+			<td align="right" nowrap><?php echo $strBusinessNum; ?>:&nbsp;</td>
+			<td><?php echo empty_to_stripe($profile["businessnum"]); ?></td>
+		</tr>		
+		</table>
+		</td>
+		<td valign="top" width="50%">
+		<table border="0" cellpadding="0" cellspacing="3" width="100%">
+		<tr>
+			<td align="right" nowrap><?php echo $strCompany; ?>:&nbsp;</td>
+			<td><?php echo empty_to_stripe($profile["company"]); ?></td>
+		</tr>
+		<tr>
+			<td align="right" nowrap><?php echo $strAddress; ?>:&nbsp;</td>
+			<td width="100%"><?php echo empty_to_stripe($profile["work_address"]); ?></td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap><?php echo $strZip; ?>:&nbsp;</td>
+			<td width="100%"><?php echo empty_to_stripe($profile["work_zip"]); ?></td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap><?php echo $strCity; ?>:&nbsp;</td>
+			<td width="100%"><?php echo empty_to_stripe($profile["work_city"]); ?></td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap><?php echo $strState; ?>:&nbsp;</td>
+			<td width="100%"><?php echo empty_to_stripe($profile["work_state"]); ?></td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap><?php echo $strCountry; ?>:&nbsp;</td>
+			<td width="100%"><?php echo empty_to_stripe($profile["work_country"]); ?></td>
+		</tr>
+		<tr>
+			<td colspan="2">&nbsp;</td>
+		</tr>
+		<tr>
+			<td align="right" nowrap><?php echo $strPhone; ?>:&nbsp;</td>
+			<td><?php echo empty_to_stripe($profile["work_phone"]); ?></td>
+		</tr>
+		<tr>
+			<td align="right" nowrap><?php echo $strFax; ?>:&nbsp;</td>
+			<td><?php echo empty_to_stripe($profile["work_fax"]); ?></td>
+		</tr>
+		<tr>
+			<td align="right" nowrap><?php echo $strHomepage; ?>:&nbsp;</td>
+			<td><?php echo empty_to_stripe(text_to_html($profile["homepage"])); ?></td>
+		</tr>
+		<tr>
+			<td colspan="2">&nbsp;</td>
+		</tr>
+		<tr>
+			<td align="right" nowrap><?php echo $strDepartment; ?>:&nbsp;</td>
+			<td><?php echo empty_to_stripe($profile["department"]); ?></td>
+		</tr>
+
+		<tr>
+			<td align="right" nowrap><?php echo $strFunction; ?>:&nbsp;</td>
+			<td><?php echo empty_to_stripe($profile["function"]); ?></td>
+		</tr>
+		</table>
+	</td>
+	</tr>
+	<tr>
+		<td colspan="2">
+
+                <table border="0" cellpadding="0" cellspacing="3">
+                <tr>
+                        <td colspan="2"><h2><?php echo $ac_login_info; ?></h2></td>
+                </tr>
+                <tr>
+                        <td><?php echo $ac_registration_time; ?>:</td>
+                        <td><?php echo date($ses_date_format, $profile["registration_time"]); ?></td>
+                </tr>
+                <tr>
+                        <td><?php echo $ac_lastlogin; ?>:</td>
+                        <td><?php echo date($ses_date_format, $profile["lastlogin"]); ?></td>
+                </tr>
+                <tr>
+                        <td><?php echo $ac_logins; ?>:</td>
+                        <td><?php echo $profile["logins"]; ?></td>
+                </tr>
+                </table>
+        </td>
+ </tr>
+<tr>
+	 <td colspan="2"><br /><h2><?php echo $admin_modules; ?></h2></td>
+</tr>
+<tr>
+ 	<td colspan="2"><?php echo $admin_module_access; ?></td>
+</tr>
+<?php
+if ($GO_CONFIG->enable_samba_accounts)
+{
+	if ($profile["samba_user"] == 1)
+	{
+		echo '<input type="hidden" name="has_samba_account" value="true" />';
+		$samba_user_check = "checked";
+	}else
+	{
+		$samba_user_check = "";
+	}
+	echo '<tr><td colspan="2"><input type="checkbox" name="samba_user" value="1" '.$samba_user_check.' />File & Print server</td></tr>';
+}
+$count = $GO_MODULES->get_modules();
+while ($GO_MODULES->next_record())
+{
+    //echo $GO_MODULES->f('acl_read')."<HR>";
+	$check = $GO_SECURITY->has_permission($id, $GO_MODULES->f('acl_read')) ? 'checked' : '';
+	$lang_var = 'module_'.$GO_MODULES->f('id');
+	$lang_var = isset($$lang_var) ? $$lang_var : $GO_MODULES->f('id');
+	echo '<tr><td colspan="2"><input type="checkbox" name="module_acl[]" value="'.$GO_MODULES->f('acl_read').'" '.$check.' />'.$lang_var.'</td></tr>';
+}
+
+?>
+<tr>
+	<td colspan="2">
+	<br />
+	<h2><?php echo $strMlaitek; ?></h2>
+	</td>
+</tr>
+<tr>
+<tr>
+	<td colspan=2><?php echo $strMlaitekUser; ?>:&nbsp;&nbsp;&nbsp;
+	<select class="textbox" name="stock_user" >
+	<option value=''>
+	<?
+	$userarr1 = $GO_MODULES->all_has_read_permission("stock");
+	foreach($userarr1 as $user){
+		echo "<option value='".$user["id"]."' ".(($user["id"]==$profile["stock_user"])?"selected":"").">".$user["username"];
+	}
+	?>
+	</select>
+	</td>
+</tr>
+<tr>
+	<td colspan=2><?php echo $strCreditUser; ?>:&nbsp;&nbsp;&nbsp;
+	<select class="textbox" name="credit_user" >
+	<option value=''>
+	<?
+	$userarr1 = $GO_MODULES->all_has_read_permission("credit");
+	foreach($userarr1 as $user){
+		echo "<option value='".$user["id"]."' ".(($user["id"]==$profile["credit_user"])?"selected":"").">".$user["username"];
+	}
+	?>
+	</select>
+	</td>
+</tr>
+
+<tr>
+	<td colspan="2">
+	<br />
+	<h2><?php echo $strExpiration; ?></h2>
+	</td>
+</tr>
+<tr>
+	<td colspan=2><?php echo $strExpiration; ?>:&nbsp;&nbsp;&nbsp; <input class="textbox" name="expiration" value="<?php echo $profile["expiration"]; ?>" /> (yyyy-mm-dd, blank will never expire)</td>
+</tr>
+	<tr>
+		<td colspan=2><?php echo $strDiskQuota; ?>:&nbsp;&nbsp;&nbsp; <input class="textbox" name="diskquota" value="<?php echo $profile["diskquota"]; ?>" /> </td>
+	</tr>
+<tr>
+	<td colspan="2">
+	<br />
+	<h2><?php echo $admin_change_password; ?></h2>
+	</td>
+</tr>
+<tr>
+	<td colspan="2">
+	<table border="0">
+	<?php
+	if (isset($val->error['pass']))
+	{
+		echo '<tr><td colspan="2" class="Error">'.$val->error['pass'].'</td></tr>';
+
+	}
+
+	if (isset($val->error['pass1']))
+	{
+		echo '<tr><td colspan="2" class="Error">'.$val->error['pass1'].'</td></tr>';
+
+	}
+	?>
+	<tr>
+		<td><?php echo $admin_password; ?>:</td>
+		<td><input class="textbox" name="pass1" type="password" /></td>
+	</tr>
+	<?php
+	if (isset($val->error['pass2']))
+	{
+		echo '<tr><td colspan="2" class="Error">'.$val->error['pass2'].'</td></tr>';
+
+	}
+	?>
+	<tr>
+		<td><?php echo $admin_confirm_password; ?>:</td>
+		<td><input class="textbox" name="pass2" type="password" /></td>
+	</tr>
+	</table>
+	</td>
+</tr>
+<tr>
+		<td colspan="2" class="cmd">
+		<br />
+		<?php
+		$button = new button($cmdSave, 'javascript:document.forms[0].submit()');
+		echo '&nbsp;&nbsp;';
+		$button = new button($cmdBack, 'javascript:document.location=\'index.php\';');
+		?>
+	</td>
+</tr>
+</table>
+</td></tr></table>
+</form>
+<?php
+require($GO_THEME->theme_path."footer.inc");
+?>

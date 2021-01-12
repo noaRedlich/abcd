@@ -1,0 +1,363 @@
+<style>
+.z {color:gray}
+.b {font-weight:bold}
+th {background-color:silver}
+</style>
+<?php
+	$simple=1;
+	$page_subtitle = "מכירות לפי נקודות מכירה ";
+	include("include/common.php");
+	include("include/business_functions.php");	
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+	if ($_GET["sDate"] && $saction!="sendreport"){
+		$saction="go";
+	}
+	
+	if (!$sDate){
+		$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+		$sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+		$eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+	}
+	
+	$asDate = explode("/",$sDate);
+	$aeDate = explode("/",$eDate);
+	
+	$startdate = mktime(0,0,0,$asDate[1],$asDate[0],$asDate[2]);
+	$enddate = mktime(23,59,59,$aeDate[1],$aeDate[0],$aeDate[2]);
+	$startDay = date("Y/m/d",$startdate);
+	$endDay = date("Y/m/d",$enddate);
+	
+	$cats = $conn->Execute("select * from listingsCategories where user_ID = $userID  and Status=1 order by binary CategoryName");
+	if ($cats === false){log_error($sql);}
+	
+	$q="";
+	if ($category){
+		$q = " and ProductGroup = '$category' ";
+	}
+	
+$sql = "select l.ID,l.Title from listingsDB l where active  in ('yes','yek')  and l.user_id = $userID $q order by binary Title";
+	$products = $conn->Execute($sql);
+	if ($products === false){log_error($sql);}
+	?>
+    <style>
+    .z {color:gray}
+    .s {<?if (HasReportPermission("CHESHBONIT")){?>cursor:hand<?}?>}
+    .b {font-weight:bold;<?if (HasReportPermission("CHESHBONIT")){?>cursor:hand<?}?>}
+    .bt {font-weight:bold;}
+    th {background-color:silver}
+    </style>
+	<script>
+	function PrintReport(){
+		document.getElementById("Query").style.display = "none";
+		window.print();
+		document.getElementById("Query").style.display = "";
+	}
+    
+    function showChn(ids){
+    <?if (HasReportPermission("CHESHBONIT")){?>
+	ids1 = ids.replace(/-1/g,"").replace(/\,/g,"")
+	if (ids1){
+        document.FF.ids.value = ids
+		openReport1("blank.htm")
+        document.FF.submit()
+	}
+    <?}?>
+    }
+    
+    function mov(e){
+        <?if (HasReportPermission("CHESHBONIT")){?>
+	    if(e.className=="s"||e.className=="b ") e.style.backgroundColor='yellow';
+        <?}?>
+    }
+    function mou(e){
+        <?if (HasReportPermission("CHESHBONIT")){?>  
+	    e.style.backgroundColor='';
+        <?}?>
+    }
+    
+    function openReport1(url){
+	    var ss="";
+	    s = window.open(url,'CHN','top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+	    s.focus();
+    }
+	</script>
+	<body>
+	<table cellpadding=5 border=0 width=100%>
+	<tr>
+	<form method=post name=F>
+	<input type=hidden name=usr value=<?=$usr?>>
+	<input type=hidden name=rmodule value=<?=$rmodule?>>
+	<td nowrap>
+	<?
+	$reporttitle = $lang["report_stocks"];		
+	?>
+	<?if ($usr){$reporttitle.="<br>".$username;}?>
+	<strong style='font-size:12pt'><?=$reporttitle?></strong>
+	</td><td width=99% style='border:inset 1'>
+	<?=$lang["from"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.sDate")
+'>
+ <?=$lang["to"]?> <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.eDate")
+'>
+ 
+	
+	<select name=category onchange='if (this.value!=""){F["prodid"].value=""}F.submit();'>
+	<option value=""><?=$lang["all_cats"]?>
+    <?FillCategoriesList($category);?>
+	</select>
+	<?=$lang["including_sub_cat"]?> <Input type=checkbox <?=($subcats||!IsPostBack())?"checked":""?> name=subcats>
+	&nbsp;
+	<select name=prodid onchange='F.submit();'>
+	<option value=""><?=$lang["all_items"]?>
+	<?while(!$products->EOF){?>
+		<option value="<?=$products->fields["ID"]?>" <?=($prodid==$products->fields["ID"])?"selected":""?>><?=$products->fields["Title"]?>
+		<?$products->MoveNext();
+	}?>
+	</select>
+	
+	<input type=submit value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top" >
+
+	
+	<?if ($saction=="go" || $saction=="sendreport"){
+		require("sendreport.php");
+	}?>
+	<input type=hidden name=saction value=go>
+	<input type=hidden name=reportbody value="">
+	<input type=hidden name=sendmode value="">
+
+	</td>
+	</form>
+	</tr>
+	</table>
+	<?	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+	
+	
+    $ssql = "select ID, StockName from $TABLE_LISTINGSSTOCKS s where
+    (s.terminalId <> '".$config["MainStock"]."' or s.terminalId is null)
+    and status = 1  
+    and (id in (select stock_id from $TABLE_USERSTOCKS where userid = $officeUserID and r=1) or $officeUserID=$userID)
+    and user_ID = $userID order by sortorder, binary StockName";
+    //echo $ssql;
+	$stocks = DBQuery($ssql);
+	echo "<div ><table id=REPORTTABLE dir=$dir border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+	echo "
+	<tr>
+	<th width=1% ".(($category || $prodid)?"rowspan=2":"").">Date</th>";
+
+	while (!$stocks->EOF){
+		echo "<th ".(($category || $prodid)?"colspan=2":"").">".$stocks->fields["StockName"]."</th>";
+		$stocks->MoveNext();
+	}
+	echo "<th ".(($category || $prodid)?"colspan=2":"").">סה\"כ</th></tr>";
+	
+	if ($category || $prodid){
+	
+		echo "<tr>";
+
+		$stocks->MoveFirst();
+		while (!$stocks->EOF){
+			echo "<th>כמות</th>";
+			echo "<th>פדיון</th>";
+			$stocks->MoveNext();
+		}
+		echo "<th>כמות</th><th>פדיון</th></tr>";
+	}
+	
+	
+	$STA = array();
+	$STS = array();
+	
+	$day = $startdate;
+	while ($day <= $enddate){
+
+		$sqldate = date("Y-m-d",$day);
+		$opdate = date("d/m/Y",$day);
+        $dayofweek = $days[date("w",$day)];      
+		
+		
+		if ($prodid){
+			$pq  = "and c.listing_id = $prodid";
+			$cq = "";
+		}
+		elseif ($category){
+			$pq = "";
+			$cq = "inner join listingsDB l on l.id = c.listing_ID  and l.ProductGroup in (".getCategoryIDs($category,$subcats).")  ";
+		}
+		
+		if ($prodid || $category)
+        {
+			$sql = "select 
+				t.stock_id,
+                group_concat(t.id) as ids,
+				sum(StockAmount)  as StockAmount ,
+				sum(
+						(case 
+                        when AmountPercentDiscount <> 0 and (c.DiscountType=1 or c.SecondDiscFlag=1 or c.OtherDiscountFlag=1  or c.ClubDiscount=1)
+                            then CompAmount - (CompAmount*AmountPercentDiscount/100)
+						when CompCashDiscount <> 0
+							then CompAmount - CompCashDiscount 
+						when CompDiscount <> 0
+							then CompAmount - (CompAmount*CompDiscount/100)
+						when TranDiscount <> 0
+							then CompAmount - (CompAmount*TranDiscount/100)
+						when TranCashDiscount <> 0	
+							then CompAmount - (CompAmount*(TranCashDiscount*100/TranAmount)/100)
+						else CompAmount end) 
+					) 
+				as TotalSale,
+				sum(
+						(case
+						when TranCashDiscount <> 0
+							then TranAmount - TranCashDiscount 
+						when TranDiscount <> 0
+							then TranAmount - (TranAmount*TranDiscount/100)
+						else TranAmount end) 
+					) 
+				as TotalTranSale
+				from 
+					transactions t left outer join transactioncomponents c 
+                    on c.trans_id = t.ID and c.MasterID = 0 $cq
+				where  
+					t.refundmode <> 2 and 
+					t.user_id = $userID and 
+					trandate = '$sqldate'
+					$pq
+				group by t.stock_id
+				";
+		}
+		else
+        {
+			$sql = "select 
+				t.stock_id,
+                group_concat(t.id) as ids,   
+				sum(
+					 (case 
+						when TranCashDiscount <> 0
+							then TranAmount - TranCashDiscount 
+						when TranDiscount <> 0
+							then TranAmount - (TranAmount*TranDiscount/100)
+						else TranAmount end) * (case when IsRefund=1  or RefundMode=1 then -1 else 1 end)
+					) 
+				as TotalSale
+				from 
+					transactions t  
+				where 
+					t.refundmode <> 2 and t.refundmode <> 1   and
+					t.user_id = $userID and 
+					trandate = '$sqldate'
+				group by t.stock_id
+				";
+		}
+		
+		$transData = $conn->Execute($sql);
+		if ($transData === false){log_error($sql);}
+			
+		echo "<tr><td nowrap>$opdate $dayofweek</td>";
+		$stocks->MoveFirst();
+		$TA = 0; $TS = 0;
+		while (!$stocks->EOF)
+        {
+			$found = false;
+			$transData->MoveFirst();
+			while (!$transData->EOF)
+			{
+				if ($transData->fields["stock_id"]==$stocks->fields["ID"])
+                {
+					$found=true;
+					break;
+				}
+				$transData->MoveNext();
+			}
+			
+            $ids="";
+			if ($found)
+            {
+                $ids = $transData->fields["ids"];
+				$StockAmount = ($transData->fields["StockAmount"])?$transData->fields["StockAmount"]:0;
+				$TotalSale = ($transData->fields["TotalSale"])?$transData->fields["TotalSale"]: (($transData->fields["TotalTranSale"])?$transData->fields["TotalTranSale"]:0);
+				
+			}
+			else
+            {
+				$StockAmount=0;
+				$TotalSale = 0;
+			}
+			
+			$STA[$stocks->fields["ID"]]+=$StockAmount;
+			$STS[$stocks->fields["ID"]]+=$TotalSale;
+			$TA+=$StockAmount; $TS+=$TotalSale;
+			
+			if ($category || $prodid)
+            {
+				echo "<td>".number_format($StockAmount,0)."</td>";
+			}
+			echo "<td class=".((!$ids)?"z":"s")." onmouseover='mov(this)' onmouseout='mou(this)' onclick='showChn(\"$ids\")'>".number_format($TotalSale,2)."</td>";
+
+			$stocks->MoveNext();
+		}
+	
+		if ($category || $prodid)
+        {
+				echo "<td><b>".number_format($TA,0)."</b></td>";
+		}
+		echo "<td><b>".number_format($TS,2)."</b></td>";
+		echo "</tr>";	
+		
+		 //$day += (60*60*24);
+         $day= strtotime("+1 day",$day);
+	}
+		
+		
+		//total
+		echo "<tr><td>סה\"כ</td>";
+	
+	
+		$stocks->MoveFirst();
+		$TA = 0; $TS = 0;
+		while (!$stocks->EOF){
+			$TA+=$STA[$stocks->fields["ID"]];
+			$TS+=$STS[$stocks->fields["ID"]]; 
+			
+			if ($category || $prodid){
+						echo "<td><b>".number_format($STA[$stocks->fields["ID"]],0)."</b></td>";
+			}
+			echo "<td><b>".number_format($STS[$stocks->fields["ID"]],2)."</b></td>";
+
+			$stocks->MoveNext();
+		}
+		if ($category || $prodid){
+				echo "<td><b>".number_format($TA,0)."</b></td>";
+		}
+		echo "<td><b>".number_format($TS,2)."</b></td>";
+		echo "</tr>";
+	
+	
+	
+	echo "</table></div>";
+	
+	}
+    
+    ?>
+    
+    <form name=FF method=post target=CHN action="rep_cheshbonit.php">
+    <input type=hidden name=ids>
+    <input type=hidden name=simple value=1>
+    <input type=hidden name=usr value="<?=$usr?>">
+    <input type=hidden name=rmodule value="<?=$rmodule?>">
+    </form>
+    <?
+	
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

@@ -1,0 +1,74 @@
+<?
+	sysActivateService($current_service);
+
+	//	SECURITY CHECKING
+	$fModulePermissions = "";
+                                                        
+	if($sModuleLoadingStatus == access_granted)
+	{
+		$fService = f(q("select * from $main_db.webDate_bd_services where link='$current_service'"));
+
+		if(!$nLoggedAsRoot)
+		{
+			//	Checking not administrator users
+			//	Quick checking by 'admin_only' flag in 'webDate_bd_services' table
+
+			if($fService[ admin_only ])
+			{
+				$sModuleLoadingStatus = access_denied;
+			}
+			else
+			{
+				//	Verifying in 'webDate_bd_access' table
+				//	By default if READ flag in 'webDate_bd_access' for specified service is not selected
+				//   then ACCESS GRANTED!
+				$fAccess = f(q("select r,w,d,adds from $main_db.webDate_bd_access where sid='$fService[id]' and uid='$user[id]'"));
+
+				if($fAccess[ r ] == 0)
+				{
+					if($fAccess == "")
+					{
+						$fModulePermissions[ r ] = 1;
+						$fModulePermissions[ w ] = 1;
+						$fModulePermissions[ d ] = 1;
+						$fModulePermissions[ adds ] = 1;
+					}
+					else
+					{
+						$sModuleLoadingStatus = access_denied;
+					}
+				}
+				else
+				{
+					$fModulePermissions = $fAccess;
+				}
+			}
+		}
+		else
+		{
+			$fModulePermissions[ r ] = 1;
+			$fModulePermissions[ w ] = 1;
+			$fModulePermissions[ d ] = 1;
+			$fModulePermissions[ adds ] = 1;
+		}
+	}
+
+
+
+	switch($sModuleLoadingStatus)
+	{
+	 	case access_granted:
+			include "services/BD3ServicesAgent.service";
+			break;
+
+		case access_denied:
+			sysLogUserEvent(on_error, "Access denied to execute service: $current_service");
+			include "services/BD3ModuleAccessDenied.service";
+			break;
+
+	 	case module_not_found:
+			sysLogUserEvent(on_error, "Not found service: $current_service");
+			@include "services/BD3ModuleNotFound.service";
+			break;
+	}
+?>

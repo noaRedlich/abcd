@@ -1,0 +1,229 @@
+<?php
+$noheader=1;
+
+if($action=="dat"||$action=="prm")
+{
+	ob_start();
+	$noheader=1;
+	include("include/common.php");
+	ob_end_clean();
+	
+	// Date in the past 
+	header("Pragma: ");
+	header("Cache-Control: "); 
+	header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
+	header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
+	header("Cache-Control: no-store, no-cache, must-revalidate"); // HTTP/1.1
+	header("Cache-Control: post-check=0, pre-check=0", false);
+	//header("Content-Type: text/plain");
+	header("Content-Disposition: attachment; filename=HESHIN.".strtoupper($action));
+	//echo "<pre dir=".$dir.">";
+	
+	if(!mysql_connect($db_server,$db_user,$db_password))
+	{
+		echo "SQL_ERROR: Cannot connect to DB: $db_database"; exit();
+	}
+	mysql_select_db($db_database) or die("SQL_ERROR: Cannot select DB: $db_database");
+	
+}
+
+$simple=1;
+$page_subtitle = $lang["admin_menu_imports"];
+
+
+$currency=array(
+		0=>"ש",
+		1=>"ש",
+		2=>"$"
+		);
+
+
+$padding = STR_PAD_RIGHT;
+$emptychar = " ";
+
+
+if (!$action)
+{
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+	
+	echo
+	"
+			<head>
+			<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+			</head>
+			<pre dir=".$dir.">";
+	if (!$UserData->fields["ExportEnabled"]){
+		die( $lang["no_permission1"]);
+	}
+	echo $lang["enter_ok_start"];
+	
+	exit;
+}
+
+elseif ($action=="do")
+{
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+	print"
+			<head>
+			<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+			</head>
+			<pre dir=".$dir.">";	
+	if (!$UserData->fields["ExportEnabled"]){
+		die( $lang["no_permission1"]);
+	}
+	if(($sDate==""||$eDate=="") && !$auto){
+		die($lang["enter_dates_msg1"]);
+	}    
+	else
+	{
+		echo "<a target=_blank href='".$rootpath."export_hash_clients.php?action=dat&uid=$userID&rnd=".rand()."'><strong>".$lang["click_to_download"]." <span dir=ltr>HESHIN.DAT</span></strong></a><br>";
+		echo "<a target=_blank href='".$rootpath."export_hash_clients.php?action=prm&uid=$userID&rnd=".rand()."'><strong>".$lang["click_to_download"]." <span dir=ltr>HESHIN.PRM</span></strong></a><br>";
+		
+	}           
+	exit;
+}
+
+elseif($action=="prm"){
+	$out=str_pad("205 ",6," ",STR_PAD_RIGHT).str_pad(";אורך הרשומה",20," ",STR_PAD_RIGHT) . chr(13).chr(10) .		
+		$out.=str_pad("1",4," ",STR_PAD_RIGHT) .  str_pad("8",4," ",STR_PAD_RIGHT)	.str_pad(";מפתח חשבון",20," ",STR_PAD_RIGHT) . chr(13).chr(10)	;	
+	$out.=str_pad("9",4," ",STR_PAD_RIGHT) .  str_pad("38",4," ",STR_PAD_RIGHT)	.str_pad(";שם חשבון",20," ",STR_PAD_RIGHT) .	chr(13).chr(10)	;	
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";קוד מיון",20," ",STR_PAD_RIGHT) . chr(13).chr(10)		;	
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";חתך",20," ",STR_PAD_RIGHT) . chr(13).chr(10);		
+	$out.=str_pad("39",4," ",STR_PAD_RIGHT) . str_pad("68",4," ",STR_PAD_RIGHT)	.str_pad(";טלפון",20," ",STR_PAD_RIGHT) . chr(13).chr(10);	
+	$out.=str_pad("69",4," ",STR_PAD_RIGHT) . str_pad("98",4," ",STR_PAD_RIGHT)	.str_pad(";כתובת",20," ",STR_PAD_RIGHT) . chr(13).chr(10);				
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";שכונה",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";עיר",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";מיקוד",20," ",STR_PAD_RIGHT) . chr(13).chr(10);		
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";עיסוק",20," ",STR_PAD_RIGHT) . 	chr(13).chr(10);	
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";העברה לרו\"ח",20," ",STR_PAD_RIGHT) . chr(13).chr(10);		
+	$out.=str_pad("99",4," ",STR_PAD_RIGHT) . str_pad("148",4," ",STR_PAD_RIGHT)	.str_pad(";פרטים",20," ",STR_PAD_RIGHT) . 	chr(13).chr(10);		
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";תאריך נוסף 1",20," ",STR_PAD_RIGHT) . chr(13).chr(10);	//77 78
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";תאריך נוסף 2",20," ",STR_PAD_RIGHT) . chr(13).chr(10);	//79 80
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";סכום נוסף 1",20," ",STR_PAD_RIGHT) . chr(13).chr(10);
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";סכום נוסף 2",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";סכום נוסף 3",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";סכום נוסף 4",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";מקסימום אשראי",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";מטבע מקס' אשראי",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("149",4," ",STR_PAD_RIGHT) . str_pad("157",4," ",STR_PAD_RIGHT)	.str_pad(";מקסימום אובליגו",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";מטבע מקסימום אובליגו",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("160",4," ",STR_PAD_RIGHT) . str_pad("164",4," ",STR_PAD_RIGHT)	.str_pad(";% הנחה כללית",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";הודעה ללקוח",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";חשבון מרכז",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";סוכן",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("165",4," ",STR_PAD_RIGHT) . str_pad("169",4," ",STR_PAD_RIGHT)	.str_pad(";% ניכוי במקור",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("170",4," ",STR_PAD_RIGHT) . str_pad("177",4," ",STR_PAD_RIGHT)	.str_pad(";בתוקף עד תאריך",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("178",4," ",STR_PAD_RIGHT) . str_pad("189",4," ",STR_PAD_RIGHT)	.str_pad(";מספר עוסק מורשה",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("190",4," ",STR_PAD_RIGHT) . str_pad("191",4," ",STR_PAD_RIGHT)	.str_pad(";קוד בנק",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("192",4," ",STR_PAD_RIGHT) . str_pad("194",4," ",STR_PAD_RIGHT)	.str_pad(";קוד סניף",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("195",4," ",STR_PAD_RIGHT) . str_pad("203",4," ",STR_PAD_RIGHT)	.str_pad(";מספר חשבון בנק",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";מכירות שנה קודמת",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";מטבע מכירות שנה קודמת",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";קניות שנה קודמת",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";מטבע קניות שנה קודמת",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("0",4," ",STR_PAD_RIGHT) . str_pad("0",4," ",STR_PAD_RIGHT)	.str_pad(";",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	
+	echo($out);
+	exit();
+}
+
+elseif($action=="dat")
+{
+	
+	$noreverse = !$forwindows;
+	
+	$sql = "select * from listingsSuppliers where status=1
+			and user_id = $userID
+			and id <> 1 
+			and ifnull(accountnum,0)<>0 
+			and (isClient=1 or isSupplier=1)";
+	
+	$transDataRS = mysql_query($sql) or die(mysql_error());
+	while ($transData=mysql_fetch_array($transDataRS))
+	{
+		$key = DecodeString($transData["AccountNum"],8);
+		$out.= str_pad($key, 8," ",$padding);	//2 mafteach lakoach
+		
+		$name = DecodeString($transData["SupplierName"],30);
+		$out.= str_pad($name,30,$emptychar,$padding);	//3 Shem cheshbon
+		
+		$phone = DecodeString($transData["Phone"],30);
+		$out.= str_pad($phone,30,$emptychar,$padding);	//6 Phone
+		
+		$addr = DecodeString(str_replace(chr(13).chr(10),"",$transData["Address"]),30);
+		$out.= str_pad($addr,30,$emptychar,$padding);	//7 Address
+		
+		$details = DecodeString(str_replace(chr(13).chr(10),"",$transData["Comment"]),30);
+		$out.= str_pad($details,50,$emptychar,$padding);	//13 Pratim
+		
+		$obligo = $transData["Obligo"];
+		$out.= str_pad(number_format($obligo,2,".",""), 9,$emptychar,$padding);	//22 Obligo
+		
+		$curr = "";//$currency[0];
+		$out.=str_pad($curr, 2,$emptychar,$padding); //23 Obligo currency			
+		
+		$discount = $transData["Discount"];
+		$out.= str_pad(number_format($discount,2,".",""), 5,$emptychar,$padding);	//24 Discount
+		
+		$nikui = $transData["ClearancePercent"];
+		$out.= str_pad(number_format($nikui,2,".",""), 5,$emptychar,$padding);	//28 Nikui
+		
+		$nikuiDate = $transData["ClearancePercent"];
+		if ($nukuiDate == "" ||$nukuiDate == "0000-00-00")
+		{
+			$nikuiDate = "";
+		}
+		else
+		{
+			$nikuiDate = substr($nikuiDate,8,2)."/".substr($nikuiDate,5,2)."/".substr($nikuiDate,2,2);	
+		} 
+		$out.= str_pad($nikuiDate, 8,$emptychar,$padding);	//29 NikuiDate
+		
+		
+		$buss = DecodeString($transData["BusinessNum"],12);
+		$out.= str_pad($buss,12,$emptychar,$padding);	//30 BusinessNum
+		
+		$BankNo=($transData["Bank"])?$transData["Bank"]:"";
+		$BankDeptNo=($transData["Snif"])?$transData["Snif"]:"";
+		$BankCntNo=($transData["Account"])?$transData["Account"]:"";
+		
+		$out.= str_pad(substr($BankNo,0,2), 2,$emptychar,$padding);					//9 Mispar bank
+		$out.= str_pad(substr($BankDeptNo,0,3), 3,$emptychar,$padding);			//10 Mispar snif
+		$out.= str_pad(substr($BankCntNo,0,9),9,$emptychar,$padding);				//11 Mispar account
+		
+		$out.=chr(13).chr(10);
+		
+		$cnt++;
+	}
+	
+}
+
+echo $out;
+exit();
+
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+
+function DecodeString($s,$length)
+{
+	global $noreverse; 
+	$key = decodeToDOSHeb($s,"",$noreverse);
+	if ($key!=intval($key).""){$key=strrev($key);};
+	if ($length)
+	{
+		$key = substr($key,0,$length);
+	}
+	return $key;		
+}
+
+?>

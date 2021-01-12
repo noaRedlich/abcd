@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>pricelists</main_table>
+	<reload_parent>No</reload_parent>
+	<name>מחירונים</name>
+	<add_label>מחירון חדש</add_label>
+	<options>
+		<opt name="create_record" type="sometime"></opt>
+		<opt name="edit_record" type="sometime"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="view" type="always"></opt>
+		<opt name="delete_record" type="yes"></opt>
+		<opt name="email" type="send_pricelist"></opt>
+	</options>
+	<view>
+		<vcol name="name">שם מחירון</vcol>
+		<vcol name="basemetric" type="enum" >מבוסס על
+            <enum val="SALEPRICE">מחיר מכירה של פריט</enum>
+            <enum val="COST">עלות שפל פריט</enum>
+            <enum val="PRICELIST">מחירון אחר</enum>
+		</vcol>
+  		<vcol name="base_pricelist_id" type="cross" cross="pricelists" cross_field="id" lookup_field="name"  condition="id!='$record_id'">מחירון בסיסי</vcol>
+		<vcol name="percent">אחוז</vcol>
+		<vcol name="Status" type="yes_no">פעיל</vcol>
+		
+	</view>
+	<edit>
+			<ecol name="name" type="string">שם מחירון</ecol>
+			<ecol name="description" type="text">תאור</ecol>
+			<ecol name="basemetric" type="enum" >מבוסס על
+	            <enum val="SALEPRICE">מחיר מכירה של פריט</enum>
+	            <enum val="COST">עלות של פריט</enum>
+	            <enum val="PRICELIST">מחירון אחר (יש לבחור)</enum>
+			</ecol>
+    		<ecol name="base_pricelist_id" type="cross" cross="pricelists" cross_field="id" lookup_field="name"  condition="id!='$record_id'">מחירון בסיסי|(רק במיקרה ''מבוסס על מחירון אחר'')</ecol>
+			<ecol name="percent" type="string">אחוז מתעריף בסיסי</ecol>
+			<ecol name="roundprice" type="enum" >לעגל מחיר
+	            <enum val="2">עד אגורה</enum>
+	            <enum val="1">עד 10 אגורות</enum>
+	            <enum val="0">עד שקל</enum>
+			</ecol>
+			<ecol name="Status" type="yes_no" defaultvalue="Yes">פעיל</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="binary name"></opt>
+	</sql_actions>
+</xml>

@@ -1,0 +1,312 @@
+<?
+$mode = $_GET["mode"];
+if (!$mode) $mode = $_POST["mode"]; 
+
+$simple=1;
+$page_subtitle = "שינוי מחיר";
+include("include/common.php");
+include("include/business_functions.php");
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+$stocks = GetStocks(true);
+
+    ?>
+    <script>
+            function reloadParent(){
+                var delim = (window.opener.location.href.indexOf("?")>-1)?"&":"?";
+                try{
+                    window.opener.location=window.opener.location.href+delim+'nofocus=1'
+                }
+                catch(e){}
+            }
+
+    function calcPrice(i){
+        var source = (window.event!=null)?window.event.srcElement.tag:'';
+        var vat = <?=$config[VAT]?>;
+        PriceBefore = document.getElementById("before"+i)
+        Vat = document.getElementById("vat"+i)
+        PriceAfter = document.getElementById("after"+i)
+        if (source == 'PriceBefore'){
+            if (PriceBefore.value==''){
+                Vat.value = PriceAfter.value = '0.00';
+            }
+            else
+            {
+                Vat.value = (parseFloat(PriceBefore.value) * vat /100).toFixed(2);
+                PriceAfter.value = (parseFloat(PriceBefore.value) + parseFloat(Vat.value)).toFixed(2);
+            }
+        }
+        else{
+            if (PriceAfter.value==''){
+                Vat.value = PriceBefore.value = '0.00';
+            }
+            else
+            {
+                Vat.value = (parseFloat(PriceAfter.value) * vat /(100+vat)).toFixed(2);
+                PriceBefore.value = (parseFloat(PriceAfter.value) - parseFloat(Vat.value)).toFixed(2);
+            }
+        }
+    }
+
+
+    </script>
+
+<?
+if ($action||$zero)
+{
+	
+	
+	$i = 0;
+	foreach($id as $pid){
+		$pdatearr = explode("/",$purdate);
+		$pdate = $pdatearr[2]."-".$pdatearr[1]."-".$pdatearr[0];
+		
+		if ($price[$i] != "")
+		{
+			//update current saleprice of product
+			if ($stock)
+			{
+				$psql = "select lse.id as id, ifnull(lse.SalePrice,l.SalePrice) as SalePrice from listingsDB l left outer join listingsStocksElements lse 
+						on lse.listingid = l.id and stockid = $stock where l.id = $pid";
+				$res = DBQuery($psql);
+				$oldPrice = $res->fields["SalePrice"]; 
+				if ($res->fields["id"])
+				{
+					$sql = "update listingsStocksElements set saleprice='".round($price[$i],2)."', priceupdated=unix_timestamp() where id = ".$res->Fields("id");
+				}
+				else
+				{
+					$sql = "insert into listingsStocksElements 
+							(stockid,listingid,saleprice,priceupdated) values 
+							($stock,$pid,'".round($price[$i],2)."',unix_timestamp())";
+				}
+				DBQuery($sql);
+				
+				$psql = "select SalePrice from listingsStocksElements where stockid = $stock and listingid = $pid";
+				$res = DBQuery($psql);
+				$newPrice = $res->fields["SalePrice"]; 
+				if (floatval($oldPrice)!=floatval($newPrice))
+				{
+					$sql = "insert into history (timestamp,datetime,type,listing_id,saleprice_from,saleprice_to,note,stock_id_from, stock_id_to) values 
+							(unix_timestamp(),now(),'adjustment',$pid,'".$oldPrice."','".$newPrice."','שינוי מחיר מסל פריטים',$stock,$stock)";
+					DBQuery($sql);  
+				}
+				
+			}
+			else
+			{             
+				$psql = "select SalePrice from listingsDB l where id = $pid";
+				$res = DBQuery($psql);
+				$oldPrice = $res->fields["SalePrice"]; 
+				
+				$sql = "update listingsDB set SalePrice = '".round($price[$i],2)."',priceupdated=unix_timestamp() where id = $pid ";
+				DBQuery($sql);
+				
+				$sql = "update listingsStocksElements set saleprice=null, priceupdated=unix_timestamp() where listingid = $pid ";
+				DBQuery($sql);
+				
+				$res = DBQuery($psql);
+				$newPrice = $res->fields["SalePrice"]; 
+				if (floatval($oldPrice)!=floatval($newPrice))
+				{
+					$sql = "insert into history (timestamp,datetime,type,listing_id,saleprice_from,saleprice_to,note) values 
+							(unix_timestamp(),now(),'adjustment',$pid,'".$oldPrice."','".$newPrice."','שינוי מחיר מסל פריטים')";
+					DBQuery($sql);  
+				}
+			}
+			
+			$sql = "update listingsDB set lastupdated = unix_timestamp() where id = $pid ";
+			DBQuery($sql);
+			
+		}
+		
+		$i++;
+		
+	}
+	//echo "<script>reloadParent();location='sfira.php?sfira=$sfira&ids=$ids&success=1'</script>";
+	
+}
+
+if ($success){
+	echo "<br><h1><center>  הפעלה הסתיימה בהצלחה </h1><br><input type=button value='סגור' onclick='window.close()'></center>";
+}
+else{
+	
+	if ($mode=="basket"){
+		$q = " and l.basket <> 0 ";
+	}
+	else{
+		$q = " and l.id in ($ids) ";
+	}
+	
+	if($stock)
+	{
+		$stkselect = "left outer join listingsStocksElements lse on lse.stockid = $stock and listingid = l.id ";
+		$mechir = " ifnull(lse.saleprice, l.saleprice)";
+	}    
+	else{
+		$mechir = " l.saleprice ";
+	}
+	
+	if($recalc && is_numeric($percent))
+	{
+		if ($calc=="+"){
+			//$mechir.="*(1+$percent/100)";
+                        $mechir .= " + ($percent*$mechir/100)";
+		}
+		if ($calc=="-"){
+			//$mechir.="/(1+$percent/100)";
+                        $mechir .= " - ($percent*$mechir/100)";
+		}
+	}
+	
+	if ($recalc && $round!="")
+	{
+		$mechir = "round(".$mechir.",$round)";
+	}
+	else
+	{
+		$mechir = "round(".$mechir.",2)";
+	}
+	
+	$sql="select l.id, title, barcode,
+			$mechir as cost from listingsDB l  
+			$stkselect
+			where 
+			l.user_id = $userID
+			and is_tree='0'
+			$q order by l.basket, binary title";
+	$products = $conn->Execute($sql);
+	if ($products === false){log_error($sql);die();}
+	$q=($workmode=="B")?(" and terminalID = ".$config["MainStock"]):"";
+	
+	?>
+	<table width=100% border=0 height=100%>
+		<script>
+	function validate(){
+
+		for (i=0;i<document.F.all.length;i++){
+			s = document.F.all(i);
+			<?if ($sfira){?>
+			if (s.name=="quantity[]" && s.value==""){
+				return confirm("ישנם פריטים שלא הוזנה בהם  כמות! הפריטים האלו לא ייחשבו. האם להמשיך?");
+			}
+			<?}else{?>
+			if (s.name=="price[]" && s.value==""){
+				return confirm("ישנם פריטים שלא הזנה בהם עלות ! הפריטים האלו לא ייחשבו. האם להמשיך?");
+			}
+			<?}?>
+		}
+		return true;
+	}
+	
+	function zeroMlai(){
+		if (confirm("האם ברצונך לאפס מלאי לפריטים שנבחרו?")){
+			document.F.zero.value=1;
+			document.F.submit();
+		}
+	}
+
+	function showQuantity(el){
+		q = el.quantities.split("|");
+		el.parentElement.parentElement.cells[3].all(0).value=q[el.selectedIndex];
+	}
+	</script>
+	<FORM NAME=F METHOD=POST id=F onsubmit='return validate()'>
+    <tr style='height:1%'>
+        <td> 
+            <table><tr><td nowrap>
+                לשנות מחיר בנקודה: 
+                <select name=stock onchange='document.F.submit()'>
+                <?FillStockList($stocks,$stock);?>
+                </select>
+            </td>
+            <td width=1% nowrap>
+                <fieldset>
+                    <legend>מחשבון (יחסי למחיר מקורי)</legend>
+                        <input type=radio name=calc value="+" checked>להעלות
+                        <input type=radio name=calc value="-">להוריד
+                        ב <input type=text name=percent size=1>
+                        %
+                        <select name=round> 
+                         <option value="">לא לעגל
+                         <option value="1">לעגל עד 10 אג'
+                         <option value="0">לעגל  עד שקל
+                         </select>
+                         &nbsp;
+                        <input type=submit name=recalc value='חשב' class=button style='background-image:url(<?=$imgPath?>refresh.gif)'>
+                </fieldset>
+            </td>
+            </tr></table>
+        </td>
+    </tr>
+	<tr>
+	<td>
+		<div style='border:inset 2;overflow-x:auto;OVERFLOW-Y:scroll;height:280;width:100%'>
+			<table id=TAB width=100% border=1 style='border-collapse:collapse' bordercolor=buttonface cellpadding=1>
+			<tr STYLE='COLOR:WHITE;BACKGROUND-COLOR:DARKBLUE'>
+				<th>ברקוד</th>
+				<th>שם</th>
+
+				<th> מחיר לפני מע"מ</th>
+				<th> מע"מ </th>
+				<th> מחיר כולל מע"מ</th>
+
+			</tr>
+	<?
+	$cnt=0;
+	while (!$products->EOF){
+		echo "<tr bgColor=".(($cntr++ %2 == 0)?"#efefef":"silver")."><td width=1% nowrap>".$products->fields["barcode"]."</td>
+				<td width=99%><a href='javascript:wopen(\"edit_my_listings.php?simple=1&edit=".$products->fields["id"]."\",400,500)'><u>".$products->fields["title"]."</u></a>";
+				?>
+				<input type=hidden name='id[]' value='<?=$products->fields["id"]?>'>
+				</td>
+
+				<td width=1% ALIGN=CENTER>
+					<input size=6 name='pricebefore[]' tag=PriceBefore id=before<?=$cnt?> value='' onchange=calcPrice(<?=$cnt?>) onkeyup=calcPrice(<?=$cnt?>)>
+                </td>
+				<td width=1% ALIGN=CENTER>
+					<input size=4 name='vat[]' id=vat<?=$cnt?> disabled value=''>
+                </td>
+				<td width=1% ALIGN=CENTER>
+					<input size=6 name='price[]' tag=PriceAfter id=after<?=$cnt?> value='<?=number_format($products->fields["cost"],2,".","")?>' onchange=calcPrice(<?=$cnt?>) onkeyup=calcPrice(<?=$cnt?>)>
+				</td>
+                <script>calcPrice(<?=$cnt?>)</script>
+				</tr>
+		<?
+		$cnt++;
+		$products->MoveNext();
+	}
+			?>
+			</table>
+		</div>
+	</td>
+	</tr>
+	<tr style='display:none;height:1%'>
+	<td align=center>
+		תאריך קניה: <input name=purdate size=6 value='<?=($date)?$date:date("d/m/Y")?>'>
+		<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.purdate")'>
+	</td>
+	</tr>
+	<tr style='height:1%'>
+	<td align=center>
+	<hr>
+		<input type='submit' name='action' value='אישור' class=button style='background-image:url(<?=$imgPath?>ok.gif)'>
+		<BR>
+	</FORM>	
+	</td>
+	</tr>
+	</table>
+
+
+
+	<?
+	
+}//end if success
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+?>

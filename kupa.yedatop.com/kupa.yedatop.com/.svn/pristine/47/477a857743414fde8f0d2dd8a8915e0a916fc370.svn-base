@@ -1,0 +1,137 @@
+<?php
+$simple=1;
+global $action, $id, $lang, $conn, $config;
+
+$page_subtitle = "שעון";
+
+include("include/common.php");
+if(!loginCheck('User'))exit;
+
+include("$config[template_path]/admin_top.html");
+$stocks = GetStocks(false);
+if (!$stock)$stock=$stocks->fields["ID"];
+?>
+
+
+	<style>	
+	body, html
+	{
+		background-color:transparent;
+		overflow:hidden;
+	}
+	.h1{font-size:20pt;color:blue;font-weight:bold;}
+	.h2{font-size:16pt;font-weight:bold;}
+	.button {padding:5 10;font-weight:bold; font-size:14pt !important; background-position: 5px center !important; background-repeat:no-repeat;}
+	.bigselect{font-size:16pt;font-weight:bold}
+	</style>
+	
+<?
+$sql = "select id, SupplierName, workerNum from listingsSuppliers where isWorker=1 and username = '".addslashes($officeUserName)."'";
+$worker = DBQuery($sql); 
+$workerNum = $worker->fields["workerNum"];
+$workerId = $worker->fields["id"];
+
+if ($workerId)
+{
+	$sql = "select id from workers where workerNum = '$workerNum'";
+	$shaonWorker = DBQuery($sql);
+
+	if ($shaonWorker->EOF)
+	{
+		$sql = "insert into workers (WorkerName,WorkerNum,Status,user_ID,HomePhone,CellPhone,Address,TeudatZehut)
+		select SupplierName,workerNum,1,$userID,phone,cellphone,address,businessnum
+		from listingsSuppliers where id = $workerId";
+		DBQuery($sql);
+		$shaonWorkerID = $conn->Insert_ID();
+	}
+	else
+	{
+		$shaonWorkerID = $shaonWorker->fields["id"];
+	}
+	
+	$sql = "select id,entertime,exittime from attendance_original where terminal_id = '$stock' and day = curdate() and worker_id = $shaonWorkerID order by id desc limit 1";
+	$att = DBQuery($sql);
+	$attID = $att->fields["id"];
+	$isKnisa = $att->EOF || !$att->fields["entertime"] || ($att->fields["entertime"] && $att->fields["exittime"]);
+
+	if ($doAction)
+	{
+		
+		if ($isKnisa)
+		{
+			$sql="INSERT INTO attendance_original (sabbat, terminal_id, worker_id, worker_num, day, entertime, user_id,timestamp,valid)
+				  VALUES (case when dayofweek(curdate())=7 then 1 else 0 end, $stock, $shaonWorkerID, $workerNum, curdate(), '".date("H:i")."', $userID,unix_timestamp(),1)";
+			DBQuery($sql);	
+			$attID = $conn->Insert_ID();
+			$sql="INSERT INTO attendance (id, sabbat, terminal_id, worker_id, worker_num, day, entertime, user_id,timestamp,valid)
+				  VALUES ($attID,case when dayofweek(curdate())=7 then 1 else 0 end, $stock, $shaonWorkerID, $workerNum, curdate(), '".date("H:i")."', $userID,unix_timestamp(),1)";
+			DBQuery($sql);	
+
+		}
+		else
+		{
+			$sql = "update attendance_original set exittime = '".date("H:i")."' where id = $attID";
+			DBQuery($sql);	
+			$sql = "update attendance set exittime = '".date("H:i")."' where id = $attID";
+			DBQuery($sql);	
+		}
+		
+		echo "<script>parent.closeCurrentPaymentWindow();</script>";
+		exit;
+	}
+	
+	
+
+?>
+
+<form method="POST" name="F">
+<table cellpadding="5" width="100%">
+<tr>
+	<td align="center">
+		<span class="h2">עובד <?=$workerNum?"מס' $workerNum":""?> <?=$worker->fields["SupplierName"]?></span>
+		<div style="padding-top:5px;">
+		<span class="h2">נקודת מכירה: </span>
+		<select name="stock" class="bigselect" onchange="document.F.submit()"><?FillStockList($stocks,$stock);?></select>
+		
+		</b>
+		</div>
+		<hr>
+	</td>
+</tr>
+<tr>
+	<td align="center">
+	<br>
+	<span class="h1">זמן <?=$isKnisa?"כניסה":"יציאה"?>: <?=date("H:i")?></span>
+	<br>
+	<br>
+	<input type="submit" name="doAction" class="button" value="אישור" style="background-image:url(<?=$imgPath?>ok.gif)">&nbsp;&nbsp;&nbsp;&nbsp;
+	<input type="button" class="button" value="סגור" style="background-image:url(<?=$imgPath?>back.gif)" onclick='parent.closeCurrentPaymentWindow();'>
+	</td>
+</tr>
+</table>
+</form>
+<?}else{?>
+
+<table cellpadding="5" width="100%">
+<tr>
+	<td align="center">
+	<br>
+	<br>
+	<span class="h2">עובד <?=$officeUserName?> לא מוגדר במערכת</span>
+	<br>
+	<br>
+	<br>
+	<br>
+	<input type="button" class="button" value="סגור" style="background-image:url(<?=$imgPath?>back.gif)" onclick='parent.closeCurrentPaymentWindow();'>
+	</td>
+</tr>
+</table>
+
+
+<?}?>
+
+
+<?php
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

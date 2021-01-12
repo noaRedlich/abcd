@@ -1,0 +1,59 @@
+<?
+$sql = "select u.ID, d.id as userdataid, d.UserName from userdata d
+	inner join ".$GO_CONFIG->db_name.".users u on u.username = d.username order by d.UserName";
+$users = q($sql);
+
+$sql = "";
+
+if ($delid)
+{
+	$sql = "delete from news where id = $delid";
+	$news = q($sql);
+}
+
+$sql = "select * from news order by id desc";
+$news = q($sql);
+
+?>
+<form method=post name=F>
+<input type=hidden name=delid>
+<input type=button value="הוסף כתבה" onclick="window.open('article.php','','top=100,left=50,width=800,height=600')">
+<br><br>
+<table width=100% border=1 style="border-collapse:collapse" bordersolor=gray cellpadding=3>
+<tr>
+<th>כותרת</th>
+<th>תאריך</th>
+<th>פעיל</th>
+<th>סוג</th>
+<th>שפה</th>
+<th width=1%>&nbsp;</th>
+</tr>
+<?while ($new = f($news))
+{
+	?>
+	<tr>
+	<td><a href="javascript:void(window.open('article.php?newid=<?=$new["id"]?>','','top=100,left=50,width=800,height=600'))"><u></uasort><?=$new["header"]?></a></td>
+	<td><?=date("Y-m-d",$new["posted"])?></td>
+	<td><?=date($new["visible"])?"Y":"N"?></td>
+	<td><?=date($new["newtype"]=="ALERT")?"אתראה":"חדשה"?></td>
+	<td><?=$new["language"]?></td>
+	<td style=padding:0px><input type=button value="מחק" onclick='Del(<?=$new["id"]?>)'></td>
+	</tr>
+	<?
+}
+?>
+
+<script>
+function Del(id)
+{
+	if (confirm("למחוק כתבה?"))
+	{
+		document.F.delid.value=id;
+		document.F.submit();
+	}
+}
+</script>
+
+</table>
+</form>
+	

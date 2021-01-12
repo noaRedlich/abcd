@@ -1,0 +1,234 @@
+<?php
+	$simple=1;
+	global $action, $id, $lang, $conn, $config;
+
+	$page_subtitle = "קליתה ממסמך";
+
+	include("include/common.php");
+	if(!loginCheck('User'))exit;
+
+	include("$config[template_path]/admin_top.html");
+
+    if ($did)
+    {
+        $sql="select may_inherit_from from $TABLE_DOCUMENT_TYPE where id = '$did'
+        union select id as may_inherit_from from $TABLE_DOCUMENT_TYPE where cancel_type_id = '$did'
+        "; 
+        $recordSet = DBQuery($sql);
+		$filter="";
+        while(!$recordSet->EOF)
+        {
+			$dids = $recordSet->fields["may_inherit_from"];
+			if ($dids)
+			{
+				$dids = explode(",",$dids);
+				foreach($dids as $elem)
+				{
+						$elem = explode("|",$elem);
+						$elem =$elem[0]; 
+						$filter.=",'".$elem."'";
+				}
+			}
+			$recordSet->MoveNext();
+		}
+		$filter = substr($filter,1);
+    }
+
+    if ($readonly)
+    {
+        $sqla =" and d.id in ($selected)";
+    }
+    else
+    {
+        $filter = (!$filter)?"-1":$filter;
+        $sqla = " and doc_status not in ($STATUS_CLOSED,$STATUS_CANCELLED) and d.client_id = $client ";
+        if ($client==1&& $businessnum)
+        {
+            $sqla.=" and client_businessnum='".addslashes($businessnum)."'";
+        }
+    }
+
+    $sql ="select distinct doc_type as id,name from documents d, 
+           $TABLE_DOCUMENT_TYPE dt 
+           left outer join document_type_counters dtc on dt.id = dtc.doc_type_id and dtc.user_id = $userID
+           where d.doc_type = dt.id and d.user_id = $userID 
+           and dt.id in ($filter) 
+           and (dtc.status is null or dtc.status=1) 
+           and dt.id in (select doc_type from $TABLE_PROFILEDOCTYPES where r=1 and profile_id in 
+           (select profile_id from $TABLE_USERPROFILE where r=1 and userid = $officeUserID))
+    ";
+    $sql.=$sqla;
+    //echo $sql;
+    $docTypes = $conn->Execute($sql);
+    if ($docTypes === false){log_error($sql);}
+    if (!$_POST["doctype"])$doctype=$docTypes->fields["id"];
+
+    $arr_selected = explode(",",$selected);
+
+    $doctypessql = ($doctype=="CloseCheshbon")?"'MISHLOACH','KNISALEMLAI'":"'$doctype'";
+
+    $sql = "select dt.id as type, d.id,doc_number,doc_date, dt.name as doc_type,client_id,
+            client_name, amount
+            from documents d, $TABLE_DOCUMENT_TYPE dt, listingsSuppliers s
+            where d.user_id = $userID and d.doc_type = dt.id
+            and doc_type in ($doctypessql)
+            and s.id = d.client_id
+            and doc_type in (select doc_type from $TABLE_PROFILEDOCTYPES where r=1 and profile_id in 
+            (select profile_id from $TABLE_USERPROFILE where r=1 and userid = $officeUserID))
+            and (stock_id in (select stock_id from $TABLE_USERSTOCKS where userid = $officeUserID and r=1) or $officeUserID=$userID)
+    ";
+
+    $sql.=$sqla;
+    $sql.=" order by doc_date desc,doc_number desc";
+
+    //echo $sql;
+    $recordSet = $conn->Execute($sql);
+    if ($recordSet === false){log_error($sql);}
+    ?>
+
+
+
+    <table width=100% height=380>
+
+    <?if (!$readonly && !$docTypes->EOF){?>
+    <tr style='height:1%'>
+    <td align=center>
+    <b>יש לבחור מסמכים וללחוץ "אישור"</b>
+    </td>
+    </tr>
+    <form name=F method=post>
+    <tr style='height:1%'>
+        <td>
+            <fieldset><legend>סינון מסמכים</legend>
+                סוג מסמך:
+            	<select name=doctype onchange='document.F.submit()'>
+            	<?while(!$docTypes->EOF){?>
+            		<option value="<?=$docTypes->fields["id"]?>" <?=($doctype==$docTypes->fields["id"])?"selected":""?>><?=$docTypes->fields["name"]?>
+            		<?$docTypes->MoveNext();
+            	}?>
+                <?if ($did=="CHESHBONIT"||$did=="MASKABALA"||$did=="CHESHBONISKA"){?>
+                <option value="CloseCheshbon" <?=($doctype=="CloseCheshbon")?"selected":""?>>
+                תעודת משלוח / כניסה למלאי
+                (סגירת חשבון)
+                <?}?>
+            	</select>
+            </fieldset>
+        </td>
+    </tr>
+    <?}?>
+
+    <tr>
+    <td>
+    <div style='background-color:white;overflow-x:auto;overflow-y:scroll;border:inset 2;width:100%;height:100%'>
+    <table width=100% border=1 cellpadding=2 style='border-collapse:collapse'>
+		<tr class=tableHead2 align=center>
+        <td class="tableHead2" width=1% nowrap>&nbsp; <input type=hidden id=SELECTED></td>
+		<td class="tableHead2" width=1% nowrap>מספר</td>
+		<td class="tableHead2" width=1% nowrap>תאריד</td>
+		<td class="tableHead2" width=1% nowrap >סוג</td>
+		<td class="tableHead2" nowrap >לקוח</td>
+		<td class="tableHead2 " width=1% nowrap>סכום<span id=AMOUNT style='display:none'>0</span></td>
+		</tr>
+<?
+    $TOTAL=0;
+    while (!$recordSet->EOF){
+        $ID =$recordSet->fields["id"];
+        $clientColor =  $recordSet->fields["client_id"]==1?"gray":"black";
+        $amount = $recordSet->fields["amount"];
+        if ($doctype=="CloseCheshbon" && $recordSet->fields["type"]=="KNISALEMLAI"){
+            $amount=$amount*-1;
+        }
+        if(in_array($ID,$arr_selected)){
+            $TOTAL+=$amount;
+        }
+		echo "<tr id='tr$ID' ".((!$readonly)?"onclick='this.cells[0].all[0].checked=!this.cells[0].all[0].checked;checkall()'":"").">";
+        echo "<td align=center nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><input type=checkbox value='$ID' ".(($readonly)?"disabled":"")." onclick='checkall();event.cancelBubble=true;' ". ((in_array($ID,$arr_selected))?"checked":"") ." id=SELECTED></td>";
+        echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["doc_number"]."&nbsp;</td>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".DateFromSQL($recordSet->fields["doc_date"])."&nbsp;</td>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><a onclick=\"wopen('add_document.php?docid=$ID&did=".$recordSet->fields["type"]."','',screen.availWidth-100,490,true);\"  id='tr$ID' href=#>".$recordSet->fields["doc_type"]."</a>&nbsp;</td>";
+		echo "<td  onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><span style=color:$clientColor>".$recordSet->fields["client_name"]."&nbsp;</span></td>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".number_format($recordSet->fields["amount"],2)."<span id=AMOUNT style='display:none'>".number_format($amount,2,".","")."</span></td>";
+        echo "<tr>";
+        $recordSet->MoveNext();
+    }
+?>
+    </table>
+
+<?    if ($recordSet->RecordCount()==0){
+        $nodocs=true;
+        ?>
+            <p><br><p><center><b>ללקוח זה אין מסמכים שאפשר לקלוט מהם</b></td></center>
+        <?
+    }
+?>
+    </div>
+    </td>
+    </tr>
+
+    <tr style='height:1%'>
+    <td align=center>
+     <table width=100% cellpadding=0 cellspacing=0>
+         <tr>
+             <td width=99%>
+             <?if (!$readonly && !$nodocs){?>
+             <input type=button id=btnOK value='אישור' <?=($TOTAL==0)?"disabled":""?> onclick='if (refreshParent())window.close();' class=button style='background-image:url("<?=$imgPath?>ok.gif")'>
+             <?}?>
+             <input type=button value='סגור' onclick='window.close();' class=button style='background-image:url("<?=$imgPath?>back.gif")'>
+             </td>
+             <td nowrap style='padding-left:18'>
+             <b>סה"כ: </b>
+             <input readonly id=TOTAL size=8 value="<?=number_format($TOTAL,2,".","")?>" style='color:<?=($TOTAL>=0)?"green":"red"?>'>
+             </td>
+         </tr>
+     </table>
+
+    </td>
+    </tr>
+
+    </table>
+
+    <script>
+    var str="";
+    var total="<?=number_format($TOTAL,2,".","")?>";
+
+    function refreshParent(){
+        //if (str=="")str=-1;
+
+        if (document.F.doctype.value=='CloseCheshbon'&&total<=0){
+            alert("אי אפשר ליצור חשבונית על סמך מסמכים שנבחרו");
+            return false;
+        }
+
+        mode = (document.F.doctype.value=='CloseCheshbon')?"CloseCheshbon":"";
+
+        if (window.opener!=null){
+            window.opener.startKlita(str,mode)
+        }
+        return true;
+    }
+
+    function checkall(){
+        str="";
+        total=0;
+        for (i=0;i<document.all("SELECTED").length;i++){
+            if (document.all("SELECTED")[i].checked){
+                str+=","+document.all("SELECTED")[i].value;
+                total+=parseFloat(document.all("AMOUNT")[i].innerText);
+            }
+        }
+        document.all.btnOK.disabled=true;
+        if (str!=""){
+            str=str.substring(1);
+            document.all.btnOK.disabled=false;
+        }
+        document.all.TOTAL.style.color=(total>=0)?"green":"red";
+        document.all.TOTAL.value = Math.abs(total).toFixed(2);
+    }
+
+    </script>
+
+
+<?
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

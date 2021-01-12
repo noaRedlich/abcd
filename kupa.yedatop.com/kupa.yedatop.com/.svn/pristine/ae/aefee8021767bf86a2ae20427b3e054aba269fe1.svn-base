@@ -1,0 +1,82 @@
+<table width="100%" style='<?=($rmodule)?"display:none":""?>' border="0" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="100%" nowrap bgcolor="#FFFFFF"><b>תפריט ראשי&nbsp;&nbsp;</b></td>
+    <td width="10" nowrap bgcolor="#669966"><spacer type=block height=100% width=10></td>
+  </tr>
+  <tr bgcolor="669966">
+    <td height=4 colspan="2"><spacer type=block height=4 width=100%></td>
+  </tr>
+   <tr>
+    <td width="13%" nowrap colspan="2">
+      <table border="0" cellspacing="0" cellpadding="0" width="100%">
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+<?
+	$rCommonServices = q("select name, bold,link from webDate_bd_services where admin_only='0' and hidden=0 order by sort_order, name"); 
+
+	if(!e($rCommonServices))
+	{
+
+		$nCount = 1;
+		while($fCommonService = f($rCommonServices))
+		{
+?>                
+        <tr>
+  	     <td nowrap class="amenumain<?=($fCommonService[link]==$service)?"active":""?> <?=($fCommonService[bold])?"bold":""?>" onMouseOver="this.className='amenumainover<?=($fCommonService[link]==$service)?"active":""?> <?=($fCommonService[bold])?"bold":""?>'" onMouseOut="this.className='amenumain<?=($fCommonService[link]==$service)?"active":""?> <?=($fCommonService[bold])?"bold":""?>'" height="19" width="100%"><a href="<? echo "main.php?service=$fCommonService[link]"?>" class=navbarmain<?=($fCommonService[link]==$service)?"active":""?>>
+            <? echo "&nbsp;".$nCount.". ".$fCommonService[name]; $nCount++; ?>
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+<?
+		} 
+	}
+?>
+<?
+$muserdata = q("select * from userdata where username = '$userName'");
+$muserdata = f($muserdata);
+if ($muserdata["ManualTransEnabled"]==1){?>
+        <tr>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="100%"><a href="javascript:void(open('../add_trans.php','addtrans','top=30,left=30,height=530,width=1000,status=1,resizable=yes'))" class=navbarmain> 
+            &nbsp;<?=$nCount++?> .הזנת עסקה ידנית
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+<?}?>		
+
+
+        <tr>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="100%"><a href="javascript:void(open('../makefiles.php','makefiles','top=100,left=150,height=390,width=500,status=1,resizable=yes'))" class=navbarmain>
+            &nbsp;<?=$nCount++?> .הפקת קבצים לקופה/מסוף
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+
+
+        <tr>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="100%"><a href="javascript:void(open('../attmaster.php','attmaster','top=100,left=150,height=600,width=800,status=1,resizable=yes'))" class=navbarmain>
+            &nbsp;<?=$nCount++?> מסטר מאפיינים
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+		
+      </table>
+    </td>
+  </tr>
+</table>
+<br>

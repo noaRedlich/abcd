@@ -1,0 +1,37 @@
+<xml>
+	<main_table>dt_charge</main_table>
+	<name>Payment information</name>
+	<options>
+		<opt name="search" type="none"></opt>
+		<opt name="main_view" type="always"></opt>
+	</options>
+	<view>
+		<vcol name="bd_counter">#</vcol> 
+		<vcol name="name_eng">Title</vcol>
+		<vcol name="amount">Amount</vcol>
+		<vcol name="quantity">Quantity</vcol>
+		<vcol name="type" type="enum">Type
+			<enum val="0">Contact Stamps</enum>
+			<enum val="1">Contact Free Option</enum>
+			<enum val="2">Unlimited contacts</enum>
+		</vcol>
+	</view>
+	<edit>
+		<ecol name="name_eng" type="string">Title (eng)</ecol>
+		<ecol name="name_rus" type="string">Title (rus)</ecol>
+		<ecol name="name_heb" type="string">Title (heb)</ecol>
+		<ecol name="amount" type="string">Amount</ecol>
+		<ecol name="quantity" type="string">Quantity</ecol>
+		<ecol name="type" type="enum">Type
+			<enum val="0">Contact Stamps</enum>
+			<enum val="1">Contact Free Option</enum>
+			<enum val="2">Unlimited contacts</enum>
+		</ecol>
+		<ecol name="description_eng" type="text">Description (eng)</ecol>
+		<ecol name="description_rus" type="text">Description (rus)</ecol>
+		<ecol name="description_heb" type="text">Description (heb)</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="name_eng"></opt>
+	</sql_actions>
+</xml>

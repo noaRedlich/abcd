@@ -1,0 +1,416 @@
+<?php
+$noheader=1;
+global $db_server,$db_user,$db_password,$db_database,$TABLE_USERDATA,$TABLE_LISTINGSSTOCKS;
+
+if($action=="dat"||$action=="prm")
+{
+    if (!$packageid)
+    {
+		ob_start(); 
+		$noheader=1;
+		include("include/common.php");
+		ob_end_clean();
+	    
+		// Date in the past
+		 header("Pragma: ");
+		 header("Cache-Control: "); 
+		 header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
+		 header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
+		 header("Cache-Control: no-store, no-cache, must-revalidate"); // HTTP/1.1
+		 header("Cache-Control: post-check=0, pre-check=0", false);
+		 //header("Content-Type: text/plain");
+		 header("Content-Disposition: attachment; filename=KUPAIN.".strtoupper($action));
+		//echo "<pre dir=rtl>";
+	}
+    
+	if(!mysql_connect($db_server,$db_user,$db_password))
+	{
+		echo "SQL_ERROR: Cannot connect to DB: $db_database"; exit();
+	}
+	mysql_select_db($db_database) or die("SQL_ERROR: Cannot select DB: $db_database");
+
+}
+
+$simple=1;
+$page_subtitle = "יבוא ויצוא";
+  
+$sugIska = array(
+	1=>"רגיל",
+	2=>"קרדיט",
+	3=>"מיידי",
+	4=>"מועדון",
+	6=>"מיוחד",
+	8=>"תשלומים",
+	9=>"מועדון תשלומים"
+);  
+  
+$company = array(
+	0=>"",
+	1=>"ישראכרט",
+	2=>"ויזה",
+	3=>"דיינרס",
+	4=>"אמריקן אקספ.",
+	5=>"JCB",
+	6=>"ויזה"
+);
+
+$ccCode = array (
+	"21"=>1,
+	"28"=>2,
+	"22"=>3,
+	"11"=>4,
+	"18"=>5,
+	"12"=>6,
+	"31"=>7,
+	"38"=>8,
+	"32"=>9,
+	"41"=>10,
+	"48"=>11,
+	"42"=>12
+);
+
+$sugTnua = array(
+	"1"=>"22",
+	"2"=>"21", 
+	"5"=>"23", 
+);
+$paymSumField = array(
+	"1"=>"CashSum",
+	"2"=>"ChequeSum",
+	"3"=>"CouponSum",
+	"4"=>"FrnCurrSum",
+	"5"=>"CreditCardSum",
+);
+
+$currency=array(
+	0=>"ש",
+	1=>"ש",
+	2=>"$"
+);
+
+$logcode = ($nohalim)?"nk":"h";
+$logfield = ($nohalim)?"export_nohalimkupa":"export_hashkupa";  
+$padding = $nohalim ? STR_PAD_LEFT : STR_PAD_RIGHT;
+$emptychar = $nohalim ? "0" : " ";
+
+
+if (!$action)
+{
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+	$sql="select * from exporthashlog where user_id = $userID  and code='$logcode' order by end_Date desc limit 10";
+	$log=$conn->execute($sql);
+	if ($log === false){log_error($sql);}
+
+	echo
+	"
+	<head>
+	<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+	</head>
+	<pre dir=rtl>";
+	if (!$UserData->fields["ExportEnabled"]){
+		die( "אין הרשאה לפעולה הזאת. יש לפנות למנהל המערכת.");
+	}
+	echo "יש להזין תאריכי יצוא וללחוץ על אישור";
+	if(!$log->EOF){
+		echo "\n\n----------------------------------------------";
+		echo "\n"."תווחי תאריכים שקבר  עברו ליצוא  (10 אחרונים )";
+		while (!$log->EOF){
+			$checkDate =$log->fields["start_date"];
+			$start_date = substr($checkDate,8,2)."/".substr($checkDate,5,2)."/".substr($checkDate,2,2);	//6 Taarich perayon (cheque)
+			$checkDate =$log->fields["end_date"];
+			$end_date = substr($checkDate,8,2)."/".substr($checkDate,5,2)."/".substr($checkDate,2,2);	//6 Taarich perayon (cheque)
+
+			echo "\n".$start_date ." - ".$end_date." (בוצע ".date("d/m/y H:i",$log->fields["timestamp"]).")" ;
+			$log->MoveNext();
+		}
+	}
+	
+	exit;
+}
+
+elseif ($action=="do")
+{
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+	print"
+	<head>
+	<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+	</head>
+	<pre dir=rtl>";	
+	if (!$UserData->fields["ExportEnabled"]){
+		die( "אין הרשאה לפעולה הזאת. יש לפנות למנהל המערכת.");
+	}
+	if(($sDate==""||$eDate=="") && !$auto){
+		die("יש להזין תאריכי יצוא ");
+	}               
+	else
+    {
+        if (!$auto)
+        {
+            $period = "($sDate - $eDate)";
+        }
+		echo "<a target=_blank href='".$rootpath."export_hash.php?nohalim=$nohalim&action=dat&forwindows=$forwindows&auto=$auto&sDate=$sDate&eDate=$eDate&uid=$userID&rnd=".rand()."'><strong>יש ללחוץ כאן להורדת קובץ <span dir=ltr> $period KUPAIN.DAT</span></strong></a><br>";
+		echo "<a target=_blank href='".$rootpath."export_hash.php?nohalim=$nohalim&action=prm&forwindows=$forwindows&uid=$userID&rnd=".rand()."'><strong>יש ללחוץ כאן להורדת קובץ <span dir=ltr>KUPAIN.PRM</span></strong></a><br>";
+	    echo "\n<input class=button onclick='showLog()' style='background-image:url(".$imgPath."table_view.gif)' type=button value='הסטוריה יצוא  אוטומטי'>";
+        echo "<script>
+        function showLog()
+        {
+            url = 'rep_exportlog.php?f=$logfield';
+        	s = window.open(url,'LOG','top=100,left=100,height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+	        s.focus();
+        }
+        </script>
+        ";
+    }
+	
+	$SQLsDate = substr($sDate,6,4)."-".substr($sDate,3,2)."-".substr($sDate,0,2);	
+	$SQLeDate = substr($eDate,6,4)."-".substr($eDate,3,2)."-".substr($eDate,0,2);	
+	
+	$sql="select * from exporthashlog where user_id = $userID  and code='$logcode' and
+	 (('$SQLsDate' between start_date and end_date) or ('$SQLeDate' between start_date and end_date) )
+	 ";
+	//echo $sql;
+	$log=$conn->execute($sql);
+	if ($s === false){log_error($sql);}
+	if(!$log->EOF){
+		echo "\n<b style=color:red>הזהרה: התאריכים כבר עברו ליצוא!</a>";
+		while (!$log->EOF){
+			$checkDate =$log->fields["start_date"];
+			$start_date = substr($checkDate,8,2)."/".substr($checkDate,5,2)."/".substr($checkDate,2,2);	//6 Taarich perayon (cheque)
+			$checkDate =$log->fields["end_date"];
+			$end_date = substr($checkDate,8,2)."/".substr($checkDate,5,2)."/".substr($checkDate,2,2);	//6 Taarich perayon (cheque)
+
+			echo "\n".$start_date ." - ".$end_date." (בוצע ".date("d/m/y H:i",$log->fields["timestamp"]).")"  ;
+			$log->MoveNext();
+		}
+		echo "\n\n";
+	}
+
+
+	exit;
+}
+
+elseif($action=="prm"){
+	$out=str_pad("96 ",6," ",STR_PAD_RIGHT).str_pad(";אורך הרשומה",20," ",STR_PAD_RIGHT) . chr(13).chr(10) .		
+	$out.=str_pad("1",3," ",STR_PAD_RIGHT) .  str_pad("8",3," ",STR_PAD_RIGHT)	.str_pad(";מפתח לקוח",20," ",STR_PAD_RIGHT) . chr(13).chr(10)	;	
+	$out.=str_pad("9",3," ",STR_PAD_RIGHT) .  str_pad("13",3," ",STR_PAD_RIGHT)	.str_pad(";מספר הקבלה",20," ",STR_PAD_RIGHT) .	chr(13).chr(10)	;	
+	$out.=str_pad("14",3," ",STR_PAD_RIGHT) . str_pad("15",3," ",STR_PAD_RIGHT)	.str_pad(";סוג התנועה",20," ",STR_PAD_RIGHT) . chr(13).chr(10)		;	
+	$out.=str_pad("16",3," ",STR_PAD_RIGHT) . str_pad("23",3," ",STR_PAD_RIGHT)	.str_pad(";תאריך הקבלה",20," ",STR_PAD_RIGHT) . chr(13).chr(10);		
+	$out.=str_pad("24",3," ",STR_PAD_RIGHT) . str_pad("31",3," ",STR_PAD_RIGHT)	.str_pad(";תאריך ערך (פירעון)",20," ",STR_PAD_RIGHT) . chr(13).chr(10);	
+	$out.=str_pad("32",3," ",STR_PAD_RIGHT) . str_pad("39",3," ",STR_PAD_RIGHT)	.str_pad(";פרטים",20," ",STR_PAD_RIGHT) . chr(13).chr(10);				
+	$out.=str_pad("40",3," ",STR_PAD_RIGHT) . str_pad("44",3," ",STR_PAD_RIGHT)	.str_pad(";מספר השק",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("45",3," ",STR_PAD_RIGHT) . str_pad("46",3," ",STR_PAD_RIGHT)	.str_pad(";מספר בנק",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	$out.=str_pad("47",3," ",STR_PAD_RIGHT) . str_pad("49",3," ",STR_PAD_RIGHT)	.str_pad(";מספר סניף",20," ",STR_PAD_RIGHT) . chr(13).chr(10);		
+	$out.=str_pad("50",3," ",STR_PAD_RIGHT) . str_pad("58",3," ",STR_PAD_RIGHT)	.str_pad(";מספר חשבון בנק",20," ",STR_PAD_RIGHT) . 	chr(13).chr(10);	
+	$out.=str_pad("59",3," ",STR_PAD_RIGHT) . str_pad("67",3," ",STR_PAD_RIGHT)	.str_pad(";סכום בשקלים",20," ",STR_PAD_RIGHT) . chr(13).chr(10);		
+	$out.=str_pad("68",3," ",STR_PAD_RIGHT) . str_pad("76",3," ",STR_PAD_RIGHT)	.str_pad(";סכום מט\"ח",20," ",STR_PAD_RIGHT) . 	chr(13).chr(10);		
+	$out.=str_pad("0",3," ",STR_PAD_RIGHT) . str_pad("0",3," ",STR_PAD_RIGHT)	.str_pad(";מטבע מוביל בקבלה",20," ",STR_PAD_RIGHT) . chr(13).chr(10);	//77 78
+	$out.=str_pad("0",3," ",STR_PAD_RIGHT) . str_pad("0",3," ",STR_PAD_RIGHT)	.str_pad(";מטבע שערוך בתנועה",20," ",STR_PAD_RIGHT) . chr(13).chr(10);	//79 80
+	$out.=str_pad("81",3," ",STR_PAD_RIGHT) . str_pad("82",3," ",STR_PAD_RIGHT)	.str_pad(";מספר תשלומים באשראי",20," ",STR_PAD_RIGHT) . chr(13).chr(10);
+	$out.=str_pad("83",3," ",STR_PAD_RIGHT) . str_pad("94",3," ",STR_PAD_RIGHT)	.str_pad(";שם כרטיס",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	if ($nohalim)
+	{
+		for ($i=18;$i<=59;$i++)
+		{
+			$out.=str_pad("0",3," ",STR_PAD_RIGHT) . str_pad("0",3," ",STR_PAD_RIGHT)	.str_pad(";",20," ",STR_PAD_RIGHT) . chr(13).chr(10);	
+		}
+		$out.=str_pad("95",3," ",STR_PAD_RIGHT) . str_pad("98",3," ",STR_PAD_RIGHT)	.str_pad(";מספר מחסן",20," ",STR_PAD_RIGHT) . chr(13).chr(10);
+		$out.=str_pad("99",3," ",STR_PAD_RIGHT) . str_pad("102",3," ",STR_PAD_RIGHT)	.str_pad(";סוג כרטיס אשראי",20," ",STR_PAD_RIGHT) . chr(13).chr(10);			
+	}
+	echo($out);
+	if (!$packageid)
+	{
+		exit();
+	}
+}
+
+elseif($action=="dat")
+{
+	$asDate = explode("/",$sDate);
+	$aeDate = explode("/",$eDate);
+	$startdate = mktime(23,59,59,$asDate[1],$asDate[0],$asDate[2]);
+	$enddate = mktime(23,59,59,$aeDate[1],$aeDate[0],$aeDate[2]);
+	$startDay = date("Y/m/d",$startdate);
+	$endDay = date("Y/m/d",$enddate);
+	
+	$out="";
+	$cnt=0;
+	$rowlen=94; 
+	
+	$noreverse = !$forwindows;
+	
+	$sDate = substr($sDate,6,4)."-".substr($sDate,3,2)."-".substr($sDate,0,2);	
+	$eDate = substr($eDate,6,4)."-".substr($eDate,3,2)."-".substr($eDate,0,2);	
+    
+	    
+	if ($packageid)
+	{
+		$qq = " and package_id = $packageid ";
+	}
+	elseif ($auto)
+	{
+        $qq = " and $logfield is null";
+    }
+    else
+    {    
+	    $qq = " and  trandate between '$sDate' and '$eDate' ";
+	    if ($stock)
+        {
+		    $qq.="and t.stock_id=$stock";
+	    }
+    }
+    
+    if ($nohalim)
+    {
+		$qq .= " and pa.PaymID in (1,2,5) ";
+	}
+	elseif($forwindows)
+    {
+		$qq .= " and pa.PaymID <> 5 and pa.PaymID <> 8 and t.IsRefund = 0 and t.RefundMode = 0 ";
+	}
+ 
+	$sql = "select 
+		s.clientKey,t.id as TID, t.stock_id as StockID, t.*,p.journalNum,pa.* from 
+        transactions t ,$TABLE_LISTINGSSTOCKS s,transactionpackages p,
+		transactionpayments pa
+		where 
+			p.id = t.package_id
+			and	p.stock_id = s.ID
+			and pa.trans_id = t.ID
+			and t.user_id = $uid
+			and s.clientKey is not null	and s.clientKey <> ''
+			$qq
+		";
+	//die($sql);
+	$transDataRS = mysql_query($sql) or die(mysql_error());
+	while ($transData=mysql_fetch_array($transDataRS))
+    {
+		$zikui=($transData["IsRefund"]==1||$transData["RefundMode"]==1);
+		$transid = $transData["TID"]; 
+		$chn_num = str_pad( ($transData["journalNum"])*1000 +  $transData["TranNum"] , 8,"0",STR_PAD_LEFT);
+		$tranDate = $transData["TranDate"];
+		$key = decodeToDOSHeb($transData["clientKey"],"",$noreverse);
+		if ($key!=intval($key).""){$key=strrev($key);};
+		$out.= str_pad($key, 8," ",$padding);	//2 mafteach lakoach
+		$out.= str_pad(substr($chn_num,strlen($chn_num)-5), 5,$emptychar,$padding);	//3 Mispar kabala
+		$out.= str_pad($sugTnua[$transData["PaymID"]], 2,$emptychar,$padding);		//4 Sug Tnua
+		$out.= substr($tranDate,8,2)."/".substr($tranDate,5,2)."/".substr($tranDate,2,2);		//5 Taarich kabala dd/mm/yy
+		if ($transData["PaymID"]!=2){
+			$out.= substr($tranDate,8,2)."/".substr($tranDate,5,2)."/".substr($tranDate,2,2);		//6 Taarich perayon
+		}
+		else{
+			$checkDate = $transData["PayDate"];														
+			$pdate = substr($checkDate,8,2)."/".substr($checkDate,5,2)."/".substr($checkDate,2,2);	//6 Taarich perayon (cheque)
+			$out.= $pdate;
+		}
+		$out.=str_pad(" ", 8," ",$padding);	//7 Pratim??
+		$ChequeNumber=($transData["ChequeNumber"])?$transData["ChequeNumber"]:"";
+		$BankNo=($transData["BankNo"])?$transData["BankNo"]:"";
+		$BankDeptNo=($transData["BankDeptNo"])?$transData["BankDeptNo"]:"";
+		$BankCntNo=($transData["BankCntNo"])?$transData["BankCntNo"]:"";
+		
+		$out.= str_pad(substr($ChequeNumber,0,5), 5,$emptychar,$padding);		//8 Mispar check
+		$out.= str_pad(substr($BankNo,0,2), 2,$emptychar,$padding);					//9 Mispar bank
+		$out.= str_pad(substr($BankDeptNo,0,3), 3,$emptychar,$padding);			//10 Mispar snif
+		$out.= str_pad(substr($BankCntNo,0,9),9,$emptychar,$padding);				//11 Mispar account
+		
+		if($transData["PaymID"]!=5 && $transData["PaymID"]!=8){  
+			if($transData["PaymID"]!=4){
+				$field = $paymSumField[$transData["PaymID"]];
+				$total = $transData[$field];
+				if ($zikui)$total=-1*$total;
+			}
+			else{
+				//foreign currency
+				$total = "0";
+			}
+			$out.= str_pad(number_format($total,2,".",""), 9,$emptychar,$padding);	//12 Schum beshkalim
+		}
+		else
+		{
+			//ashrai
+			$out.= str_pad(number_format(($zikui?-1:1)*$transData["CreditCardSum"],2,".",""), 9,$emptychar,$padding);	//12 total schum
+		}
+		
+		if($transData["PaymID"]!=5 && $transData["PaymID"]!=8){
+			if($transData["PaymID"]==4){
+				$total = $transData["FrnCurrSum"];
+				if ($zikui)$total=-1*$total;
+			}
+			else{
+				$total = "0";
+			}
+			$out.= str_pad(number_format($total,2,".",""), 9,$emptychar,$padding);	//13 Schum currency
+		}
+		else
+		{
+			//ashrai
+			$out.= str_pad(number_format(($zikui?-1:1)*$tRansData["FirstPayment"],2,".",""), 9,$emptychar,$padding);	//13 first payment
+		}
+		
+		$curr = decodeToDOSHeb($currency[$transData["Currency"]],"",$noreverse);
+		$curr = "";//no currency!
+		$out.=str_pad($curr, 2," ",$padding); //14 main currency
+		$out.=str_pad($curr, 2," ",$padding); //15 shiaruch currency
+
+		if ($transData["OtherPayment"]==0){	//16 num payments excl 1
+			$out.= str_pad("0", 2,$emptychar,$padding);	
+		}
+		else{
+			$out.= str_pad($transData["NumPayments"], 2," ",$padding);	
+		}
+		
+		$CompanyNum = ($transData["CompanyNum"])?$transData["CompanyNum"]:"1";
+		$compName = decodeToDOSHeb($company[$CompanyNum],"",$noreverse);
+		if ($compName!=intval($compName)."")$compName=strrev($compName);
+		$out.= str_pad($compName, 12," ",$padding);	//17 chevrat ashrai name
+
+		if ($nohalim)
+		{
+			$out.= str_pad($transData["StockID"], 4,$emptychar,$padding);	//60 kod mahsan
+			$out.= str_pad($ccCode[$transData["CompanyNum"].$transData["CreditTerms"]], 4,$emptychar,$padding);	//61 sug kartis ashrai
+		}
+
+		$out.=chr(13).chr(10);
+		
+		//$transData->MoveNext();
+		$cnt++;
+        
+        if ($auto)
+        {
+            $sql = "update transactions set $logfield = now() where id = ".$transid;
+            $hres = mysql_query($sql) or die(mysql_error());
+        }
+	}
+
+	
+	//$out=str_pad(trim($cnt), $rowlen," ",STR_PAD_RIGHT).chr(13).chr(10) . $out;
+	
+	$sDate = substr($sDate,6,4)."-".substr($sDate,3,2)."-".substr($sDate,0,2);	
+	$eDate = substr($eDate,6,4)."-".substr($eDate,3,2)."-".substr($eDate,0,2);	
+	
+	if (!$auto && !$packageid)
+    {
+	    $sql="INSERT INTO exporthashlog ( code, start_date, end_date, timestamp, user_id) VALUES ( '$logcode','$sDate', '$eDate', unix_timestamp(), $uid)";
+	    mysql_query($sql) or die(mysql_error());	
+	}
+    echo $out;
+	if (!$packageid)
+	{
+		exit();
+	}
+}
+
+if (!$packageid)
+{
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+}
+
+
+?>

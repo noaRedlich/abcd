@@ -1,0 +1,46 @@
+<xml>
+	<section name="2CHECKOUT.COM CONFIGURATION">
+		<field required="1" type="edit" name="checkout_url" text="URL">https://www.2checkout.com/cgi-bin/Abuyers/purchase.2c</field>
+		<field required="1" type="edit" name="checkout_id" text="Your ID">80863</field>
+	</section>
+	<section name="DATABASE CONFIGURATION">
+		<field type="select" name="db_type" text="Please, select your database type">MySQL			<enum val="MySQL">1</enum>
+			<enum val="PostreSQL">0</enum>
+</field>
+		<field required="1" type="edit" name="db_host" text="Your database host (it may be ip address entered)">localhost</field>
+		<field required="1" type="edit" name="db_login" text="Enter your database user name (login)">vcx</field>
+		<field type="edit" name="db_pswd" text="Your password for database account">v4c3x2</field>
+		<field required="1" type="edit" name="db_name" text="Database name">vcx_weberp</field>
+	</section>
+	<section name="SYSTEM ADMINISTRATOR (SUPER USER) CONFIGURATION">
+		<field required="1" type="edit" name="admin_login" text="Administrator login">admin</field>
+		<field type="password" name="admin_pswd" text="Administrator password">YmFsZGE=</field>
+		<field required="1" type="edit" name="admin_mail" text="E-mail address">contact@plusex.co.il</field>
+		<field type="edit" name="admin_id" text="Security identificator">2314$#*%$#Gsdc</field>
+	</section>
+	<section name="SYSTEM CONFIGURATION">
+	magazine_enabled
+		<field type="checkbox" name="magazine_enabled" text="Enable Stories?">on</field>
+		<field type="checkbox" name="autoapprove" text="Auto approve profiles?">on</field>
+		<field required="1" type="edit" name="trialperiod" text="Trial period to allow new members free access (in days)">0</field>
+		<field required="1" type="edit" name="guest_limit" text="Limit of records for unregistered users">10</field>
+		<field required="1" type="edit" name="records_per_page" text="Number of results per page">5</field>
+		<field required="1" type="edit" name="thumbnail_size" text="Thumbnail size">100</field>
+		<field type="checkbox" name="accept_cc" text="Accept creditcards">on</field>
+		<field type="checkbox" name="accept_checks" text="Accept checks">on</field>
+		<field type="checkbox" name="accept_bank" text="Accept bank">on</field>
+		<field required="1" type="edit" name="timeoutseconds" text="Seconds before a user is no longer considered online">300</field>
+		<field required="1" type="edit" name="root_host" text="URL where system is placed">http://localhost:8084/</field>
+		<field required="1" type="edit" name="template_dir" text="Path to templates">theme/</field>
+		<field required="1" type="edit" name="mail_template_dir" text="Path to e-mail templates">theme/mail/</field>
+		<field required="1" type="edit" name="system_services_path" text="Path to services folder">modules/</field>
+		<field required="1" type="edit" name="system_kernel_services_path" text="Path to kernel services">modules/kernel/</field>
+		<field required="1" type="edit" name="system_log_path" text="Path to log files">logs/</field>
+		<field required="1" type="edit" name="system_log_file" text="System log file name">system</field>
+		<field type="edit" name="system_log_file_extension" text="System log files extension">.log</field>
+		<field required="1" type="edit" name="system_log_format" text="Log files format">[{DATE} {TIME}]{TAB}{REMOTE_IP}{TAB}{ACTION} {ADD_INFO}</field>
+		<field_topic>System logging parameters</field_topic>
+		<field type="checkbox" name="system_log_h100" text="Log H100 (Authorization of user failed)">on</field>
+		<field type="checkbox" name="system_logs_error" text="Log errors with the log files">on</field>
+	</section>
+</xml>

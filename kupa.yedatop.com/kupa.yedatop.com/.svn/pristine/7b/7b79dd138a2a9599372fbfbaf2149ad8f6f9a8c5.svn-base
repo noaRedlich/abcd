@@ -1,0 +1,201 @@
+<?
+echo "";
+$q = "1=1"; 
+if ($SEARCH){
+	$username = addslashes($username);
+	$phone = addslashes($phone);
+	$businessnum = addslashes($businessnum);
+	$terminal = addslashes($terminal);
+	
+	if ($username){
+		$q .= " and d.username like '%$username%'";
+	}
+	if ($phone){
+		$q .= " and (u.work_phone like '%$phone%') or (u.home_phone like '%$phone%') or (u.cellular like '%$phone%')";
+	}	
+	if ($businessnum){
+		$q .= " and u.businessnum = '$businessnum'";
+	}	
+	if ($terminal){
+		$q .= " and t.TerminalID = '$terminal'";
+	}	
+}
+$sql = "select u.ID, d.id as userdataid, d.UserName from userdata d
+	inner join ".$GO_CONFIG->db_name.".users u on u.username = d.username ";
+if ($terminal){
+	$sql .= " inner join listingsStocks t on t.user_ID = u.id ";
+}
+
+$sql .= "where $q	
+order by d.UserName";
+$users = q($sql);
+echo "<form method=post name=SU>";
+
+echo "
+<fieldset ><legend>חיפוש משתמש</legend>
+<table width=100% cellspacing=0 cellpadding=1>
+<tr><td>שם משתמש</td><td><input size=6 name=username value=\"$username\"></td>
+<td align=center style='border-right:solid 1 silver' rowspan=4 valign=bottom>
+<input type=submit name=SEARCH value='חפש'></td></tr>
+<tr><td>טלפון</td><td><input size=6 name=phone value=\"$phone\"></td></tr>
+<tr><td>עסק מורשה</td><td><input size=6 name=businessnum value=\"$businessnum\"></td></tr>
+<tr><td>מסוף</td><td><input size=6 name=terminal value=\"$terminal\"></td></tr>
+</table>
+</fieldset>
+<div style=height:1px></div>
+";
+?>
+<script>
+function msubmit(){
+	f = document.SU;
+	f.action="main.php?bd_event=edit_record&service=userdata&record_id="+f.stockuser.options[f.stockuser.selectedIndex].id;
+	f.submit()
+}
+</script>
+<?
+
+echo "שם משתמש <select dir=ltr style=width:130px name=stockuser onchange='msubmit()'>";
+$uf = false;
+if(!e($users))
+{
+	while($fUser = f($users))
+	{
+		if (!$uf && $SEARCH){
+			$stockuser = $fUser["UserName"];
+			$stockuserid = $fUser["ID"]; 
+			$record_id=$fUser["userdataid"];  
+			$bd_event="edit_record";
+			$service="userdata";
+			$uf=true;
+		}
+		echo "<option id=".$fUser["userdataid"]." value=".$fUser["UserName"].(($fUser["UserName"]==$stockuser)?" selected":"").">".$fUser["UserName"]." (".$fUser["ID"].")";
+	}
+}
+echo "<select>";
+
+?>
+<table width="100%" border="0" style='margin-top:5px' cellspacing="0" cellpadding="0"></form>
+  <tr>
+    <td width="100%" nowrap bgcolor="#FFFFFF"><b>תפריט משתמש&nbsp;&nbsp;</b></td>
+    <td width="10" nowrap bgcolor="#669966"><spacer type=block height=100% width=10></td>
+  </tr>
+  <tr bgcolor="669966">
+    <td height=4 colspan="2"><spacer type=block height=4 width=100%></td>
+  </tr>
+   <tr>
+    <td width="13%" nowrap colspan="2">
+      <table border="0" cellspacing="0" cellpadding="0" width="100%">
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+		<?
+		$nCount = 1;
+		$rrr = f(q("select id from userdata where username = '$stockuser'"));
+		?>
+        <tr>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="100%"><a href="main.php?bd_event=edit_record&record_id=<?=$rrr["id"]?>&service=userdata" class=navbarmain>
+            <? echo "&nbsp;".$nCount.". הגדרות משתמש"; $nCount++; ?>
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+	
+<?
+	$rCommonServices = q("select name, link from webDate_bd_services where admin_only='0' and link not in ('stocks_user','hash','userpref') and name <> 'עמלות' order by name");
+
+	if(!e($rCommonServices))
+	{
+
+		while($fCommonService = f($rCommonServices))
+		{
+?>
+
+        <tr>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="100%"><a href="<? echo "main.php?service=$fCommonService[link]"?>" class=navbarmain>
+            <? echo "&nbsp;".$nCount.". ".$fCommonService[name]; $nCount++; ?>
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+<?
+		}
+	}
+?>
+	    <tr>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="100%"><a href='javascript:wopen("<? echo "/modules/stock/reports.php?tnua=1&usr=$stockuserid"?>")' class=navbarmain>
+            <? echo "&nbsp;".$nCount.". <strong>דוחות</strong>";$nCount++; ?>
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+	    <tr>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="100%"><a href="javascript:void(open('/modules/stock/add_trans.php?usr=<?=$stockuserid?>','','top=0,left=0,height=530,width='+(window.screenWidth-100)+',status=1,resizable=yes'))" class=navbarmain>
+	            <? echo "&nbsp;".$nCount.". <strong>הזנת עסקה ידנית</strong>";$nCount++; ?>
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+	    <tr>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="100%"><a href="javascript:void(gettrans())" class=navbarmain>
+	            <? echo "&nbsp;".$nCount.". <strong>GETTRANS</strong>";$nCount++; ?> 
+            </a> <input type=checkbox id=SFIRA> רק ספירת מלאי  </td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>	
+	    <tr>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="100%"><a href="javascript:void(tools())" class=navbarmain>
+	            <? echo "&nbsp;".$nCount.". <strong>כלי ניהול</strong>";$nCount++; ?>
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr> 
+        <?$dbquery = f(q("select sql_database from userdata where office_user_id = $stockuserid"));
+        if (!$dbquery["sql_database"])     
+        {
+        ?> 
+        <tr>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="100%"><a href="javascript:void(createdb())" class=navbarmain>
+	            <? echo "&nbsp;".$nCount.". <strong style=color:red>Init database</strong>";$nCount++; ?>
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+        <?}?>		
+      </table>
+    </td>
+  </tr>
+</table>
+<script>
+		function wopen(url,name,width,height,center,resizable){
+			var left = 150;
+			var top = 50;
+			if (typeof(width)=="undefined")width=500;
+			if (typeof(height)=="undefined")height=500;
+            if (typeof(resizable)=="undefined")resizable="yes";
+			if (typeof(center)!="undefined"){
+				left = Math.round((screen.availWidth-width)/2);
+				top = Math.round((screen.availHeight-height)/2);
+			}
+			s = window.open(url+'&simple=1',name,'top='+top+',left='+left+',height='+height+',width='+width+',resizable='+resizable+',scrollbars=yes');
+            try{
+             s.focus();
+            }
+            catch(e){};
+		}
+		
+		function gettrans(){
+			if(confirm('Run GETTRANS for the selected user?')){
+                sf=(document.all.SFIRA.checked)?"&SFIRA=1":"";
+				s = window.open('/modules/stock/gettrans.php?refresh=30&USERID=<?=$stockuserid?>'+sf,'TRANS<?=$stockuserid?>','top=0,left=0,height=530,width='+(window.screenWidth-100)+',status=1,resizable=yes,scrollbars=yes');		
+				try{s.focus();}catch(e){}
+			}
+		}
+        
+        function createdb(){
+            if(confirm('Create database for the selected user?')){
+				s = window.open('/modules/stock/runscript.php?goscript=1&runuser=<?=$stockuser?>&filename=migrateuser.sql','TRANS<?=$stockuserid?>','top=0,left=0,height=530,width='+(window.screenWidth-100)+',status=1,resizable=yes,scrollbars=yes');		
+				try{s.focus();}catch(e){}
+			}
+		}
+		
+		function tools(){
+			s = window.open('tools.php','tools','top=100,left=100,height=430,width=500,status=1,resizable=yes,scrollbars=yes');		
+			try{s.focus();}catch(e){}
+		}
+</script>

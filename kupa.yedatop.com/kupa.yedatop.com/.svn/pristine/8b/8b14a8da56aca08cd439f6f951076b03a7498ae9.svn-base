@@ -1,0 +1,161 @@
+<?php
+ob_start();
+$simple=1;
+$page_subtitle = "יבוא ויצוא";
+ini_set("max_execution_time",10000);
+$pbarcode = 8;
+$pname = 16;
+$pprice = 10;
+
+
+include("include/common.php");
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+if ($action!="do"){
+ob_end_flush();
+if (!$UserData->fields["ExportEnabled"]){
+	die( "אין הרשאה לפעולה הזאת. יש לפנות למנהל המערכת.");
+}
+echo
+"
+<pre dir=rtl>
+מבנה קובץ חשבשבת - קובץ טקסט:
+------------------------------
+1) ברקוד ($pbarcode תווים)
+2) שם פריט ($pname תווים)
+3) מחיר מכירה ש\"ח ($pprice תווים)
+";
+
+exit;
+}
+ob_end_clean();
+echo "
+<head>
+<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+</head>
+<body>";
+print"<style>body{background-color:buttonface}</style><pre dir=rtl>";
+$excel_file = $_FILES['impfile'];
+if($excel_file){
+	$excel_file = $excel_file['tmp_name'];
+}
+
+if($excel_file == '') die("<center><b style=color:red>יש לבחור קובץ");
+
+
+$fh = @fopen ($excel_file,'rb');
+if( !$fh ) die("<center><b style=color:red>יש לבחור קובץ");
+if( filesize($excel_file)==0 ) die("<center><b style=color:red>יש לבחור קובץ");
+
+$cnt=0;
+$cnt1=0;
+if (!$UserData->fields["ExportEnabled"]){
+	die( "אין הרשאה לפעולה הזאת. יש לפנות למנהל המערכת.");
+}
+echo "<script>var scroller=window.setInterval('document.body.scrollTop=document.body.scrollHeight','200');</script>
+<span style=color:green>תחילת הקובץ ".filesize($excel_file)." בייט</span>\n";flush();
+while (!feof($fh))
+{
+    $data = fgets($fh,4096);
+    $data = strrev($data);
+    $barcode = strrev(trim(substr($data,0,$pbarcode)));
+
+    if (!is_numeric($barcode))
+    {
+        continue;
+    }
+
+    $cnt++;
+    $name = decodeFromDOSHeb(trim(reverseHebrew(substr($data,$pbarcode+1,$pname))));
+    $price = trim(strrev(substr($data,$pbarcode+$pname+1,$pprice)));
+    $supplier ="";
+    $category ="";
+    $misparzar="";
+    $misparsiduri="";
+    $misparchalifi="";
+    $cost="";
+    $mikum="";
+    $minstock="";
+    $maxstock="";
+    $unit=0;
+
+    $name = addslashes($name);
+
+    //echo "Code:" . $barcode ." Name:<span dir=rtl>". decodeFromDOSHeb($name)."</span>  Price:".$price."<BR>";
+    //flush();
+
+	if ($barcode && $name && $price)
+    {
+		$warn="";
+		if($supplier)
+        {
+			$sql = "select ID from listingsSuppliers where user_id = $userID and id='$supplier'";
+			$rs=DBQuery($sql);
+			if ($rs->EOF){$warn.="<span style='color:red'> ספר $supplier לא נימצא </span>";}
+		}
+		if($category)
+        {
+			$sql = "select ID from listingsCategories where user_id = $userID and id='$category'";
+			$rs=DBQuery($sql);
+			if ($rs->EOF){$warn.="<span style='color:red'> מחלקה $category לא נמצאת </span>";}
+		}
+
+		$sql = "select id as listing_id,SalePrice from listingsDB where user_id = $userID and BarCode='".trim($barcode)."'";
+		$rs=DBQuery($sql);
+		$oldPrice = $rs->fields["SalePrice"];
+		if ($rs->EOF)
+        {
+            if (!$category)$category=0;
+            if (!$supplier)$supplier=0;
+            $mikum=$mikum?("'$mikum'"):"null";
+            $minstock=$minstock?("'$minstock'"):"null";
+            $maxstock=$maxstock?("'$maxstock'"):"null";
+            $cost=$cost?("'$cost'"):"null";
+            
+			$sql = "INSERT INTO listingsDB 
+            (user_ID, Title, creation_date, last_modified, active,lastinserted,
+            BarCode,ProductGroup,MisparZar,MisparSiduri,MisparChalifi,StockMin,StockMax,
+            Mikum,Sapak,Cost,Unit,SalePrice) 
+            VALUES($userID, '".$name."',now(),unix_timestamp(),'yes',unix_timestamp(),
+            '".trim($barcode)."','$category','$misparzar','$misparsiduri','$misparchalifi',$minstock,$maxstock,
+            $mikum,'$supplier',$cost,'$unit','$price')";
+			DBQuery($sql);
+			$listingID = $conn->Insert_ID();
+		
+
+			echo "$cnt. פריט חדש: ברקוד=". $barcode." שם=".$name." מחיר=".$price."\n";flush();
+		}
+		else
+        {
+            $sql = "UPDATE listingsDB SET titleupdated = unix_timestamp() where ID = ".$rs->fields["listing_id"]." AND user_ID = $userID and title <> '$name' ";
+			DBQuery($sql);
+
+			$sql = "UPDATE listingsDB set SalePrice='$price', title='".$name."',lastupdated = unix_timestamp() where id=".$rs->fields["listing_id"];
+			DBQuery($sql);
+			
+			$newPrice = $price; 
+			if (floatval($oldPrice)!=floatval($newPrice))
+			{
+				$sql = "insert into history (timestamp,datetime,type,listing_id,saleprice_from,saleprice_to,note) values 
+						(unix_timestamp(),now(),'adjustment',".$rs->fields["listing_id"].",'".$oldPrice."','".$newPrice."','עדכון מקובץ חשבשבת')";
+				DBQuery($sql);  
+			}
+            
+			echo "$cnt. פריט עודכן: ברקוד=". $barcode." שם=".$name." מחיר=".$price."\n";flush();
+		}//if update or insert
+
+	}//if valid row
+
+}//while
+@fclose($fh);
+
+echo "<span style=color:green>סוף הקובץ</span>
+<script>window.clearInterval(scroller);document.body.scrollTop=document.body.scrollHeight;</script>
+";
+
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

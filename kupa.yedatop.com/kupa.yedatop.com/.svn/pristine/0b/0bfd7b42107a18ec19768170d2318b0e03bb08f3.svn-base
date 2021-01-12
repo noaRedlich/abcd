@@ -1,0 +1,762 @@
+<?php
+$mode = $_GET["mode"];
+if (!$mode) $mode = $_POST["mode"]; 
+
+$xlsfilename = "sales";
+
+
+$sugIska = array(
+        1=>"רגיל",
+        2=>"קרדיט",
+        3=>"מיידי",
+        4=>"מועדון",
+        6=>"מיוחד",
+        8=>"תשלומים",
+        9=>"מועדון תשלומים"
+);
+
+$company = array(
+        1=>"ישרא'",
+        2=>"כאל",
+        3=>"דיינרס",
+        4=>"אמקס",
+        5=>"JCB",
+        6=>"לאומי"
+);
+
+$matbea = array(
+        1 =>"שקל",
+        2 =>"דולר",
+        4 =>"הצמדה לדולר",
+        8 =>"הצמדה מדד"
+);
+
+$ishur = array(
+        0 =>'ללא אישור',
+        1 =>'שב"א',
+        2 =>'חברת אשראי',
+        3 =>'ידני'
+);
+
+$typeIska = array(
+        1=>'רגיל',
+        2=>'מאושרת',
+        3=>'מאולצת',
+        51=>'זיכוי רגיל',
+        52=>'ביטול',
+        53=>'זיכוי מאושר'
+);
+
+$simple=1;
+$page_subtitle = "מכירות "; 
+include("include/common.php");   
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+
+
+include("$config[template_path]/admin_top.html");
+
+
+$modes = array("isra"=>$lang["isracard"],"visa"=>$lang["visa"],"diners"=>$lang["diners"]);
+
+if ($_GET["sDate"] && $saction!="sendreport")
+{
+    $saction="go";
+}
+
+if (!$sDate && !$zedmode)
+{
+    $firstday = mktime(0,0,0,date("m"),1,date("Y"));
+    $sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+    $eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+}
+
+$asDate = explode("/",$sDate);
+$aeDate = explode("/",$eDate);
+
+$startdate = mktime(23,59,59,$asDate[1],$asDate[0],$asDate[2]);
+$enddate = mktime(23,59,59,$aeDate[1],$aeDate[0],$aeDate[2]);
+
+$stocks = GetStocks(!$zedmode);
+if (!$stock)
+{
+    $stock = $stocks->fields["ID"];
+}
+?>
+
+<style>
+    .z {color:gray}
+    .s {<?if (HasReportPermission("CHESHBONIT"))
+{?>cursor:hand<?}?>}
+    .b {font-weight:bold;<?if (HasReportPermission("CHESHBONIT"))
+{?>cursor:hand<?}?>}
+    .bt {font-weight:bold;}
+    .g {color:gray !important}
+    th {background-color:silver}
+</style>
+<script>
+    function showChn(ids){
+<?if (HasReportPermission("CHESHBONIT"))
+{?>
+            ids1 = ids.replace(/-1/g,"").replace(/\,/g,"")
+            if (ids1){
+                document.FF.ids.value = ids
+                openReport1("blank.htm")
+                document.FF.submit()
+            }
+    <?}?>
+        }
+
+        function mov(e){
+<?if (HasReportPermission("CHESHBONIT"))
+{?>
+            if(e.className=="s"||e.className=="s g"||e.className=="b ") e.style.backgroundColor='yellow';
+    <?}?>
+        }
+        function mou(e){
+<?if (HasReportPermission("CHESHBONIT"))
+{?>  
+            e.style.backgroundColor='';
+    <?}?>
+        }
+
+        function openReport1(url){
+            var ss="";
+            s = window.open(url,'CHN','top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+            s.focus();
+        }
+
+</script>
+
+<script>
+    function PrintReport(){
+        document.getElementById("Query").style.display = "none";
+        document.getElementById("RADIOS").style.display = "none";
+        window.print();
+        document.getElementById("Query").style.display = "";
+        document.getElementById("RADIOS").style.display = "";
+    }
+</script>
+<body>
+    <table cellpadding=5 border=0 width=100%>
+        <tr>
+        <form name=F method=post>
+            <input type=hidden name=mode value=<?=$mode?>>
+            <input type=hidden name=usr value=<?=$usr?>>
+            <input type=hidden name=rmodule value=<?=$rmodule?>>
+            <td nowrap>
+                <strong style='font-size:12pt'>
+<?$reporttitle = $lang["report_tazrim_mechirot"]?>
+<?if ($usr)
+{
+    $reporttitle.="<br>".$username;
+}?>
+<?=$reporttitle?>
+                </strong>
+                <br><br>
+                <div id=RADIOS>
+                    <input type=radio onclick='document.F.submit()' value=0 name=zedmode <?=(!$zedmode)?"checked":""?>>לפי תאריכים
+                    <br>
+                    <input type=radio onclick='document.F.submit()' value=1 name=zedmode <?=($zedmode)?"checked":""?>>לפי סגירות קופה (דו"ח Z)
+                </div>
+
+            </td><td width=99% style='border:inset 1'>
+
+<?=$lang["from"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+                <img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.sDate")
+                     '>
+
+
+<?=$lang["to"]?> <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+                <img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.eDate")
+                     '>
+
+
+                <?if ($zedmode){?>
+מספר Z
+                <input type="text" size="3" name="journum" value="<?=$journum?>">
+                <?}?>
+
+                <select name=stock>
+                <?FillStockList($stocks,$stock)?>
+                </select>
+                <input type=submit value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top" >
+                <br>
+                <input type=checkbox name=nocoupon <?=($nocoupon)?"checked":""?>> לא כולל מחזור שוברים
+                &nbsp;
+
+<?if ($saction=="go" || $saction=="sendreport")
+{
+    require("sendreport.php");
+}?>
+                <input type=hidden name=saction value=go>
+                <input type=hidden name=reportbody value="">
+                <input type=hidden name=sendmode value="">
+
+            </td>
+        </form>
+    </tr>
+</table>
+<?	
+if ($saction=="sendreport")
+{
+    $rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+    sendReport($reporttitle,$rbody,$sendmode);
+    echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+    echo stripslashes($reportbody);
+}
+elseif ($saction=="go")
+{
+
+    if ($zedmode)
+    {
+
+        if ($journum)
+            $q .=" and journalnum = '".addslashes($journum)."' ";
+        if ($sDate)
+            $q.=" and journalDate >= '".dateToSQL($sDate)."' ";
+        if ($eDate)
+            $q.=" and journalDate <= '".dateToSQL($eDate)." 23:59:59' ";
+        $sql = "select p.id,journalnum,journaldate from transactionpackages p, $TABLE_LISTINGSSTOCKS s
+        where
+        s.id = p.stock_id and s.user_id = $userID and 
+        stock_id = $stock $q
+        order by journaldate";
+        $packagesrs = DBQuery($sql);
+        $numrows = $packagesrs->NumRows();
+    }
+    else
+    {
+        $numrows = round(($enddate - $startdate) / (3600*24));
+    }
+
+    echo "</table></table>
+	<table width=300  id=CALCSTATUS align=center >
+	<tr><td align=center id=CALCMSG>מתבצע חישוב...</td></tr>
+	<tr>
+		<td height=20 DIR=LTR bgcolor=white><div id=CNT style='text-align:center;color:white;background-color:blue;'></div></td>
+	</tr>
+	</table>
+	<script>
+	function upd(cnt){
+		percent = cnt/$numrows*100
+		document.all.CNT.innerText=percent.toFixed(0)+'%'
+		document.all.CNT.style.width=percent.toFixed(0)+'%'
+	}
+	function calcend(){
+		 document.all.CALCSTATUS.style.display='none';
+	}
+	function calcmsg(s){
+		 document.all.CALCMSG.innerText=s;
+	}
+	</script>
+    ";
+    flush();
+    ob_end_flush();
+
+    $worksheet->set_column('A:A', $zedmode?20:12);
+    $worksheet->set_column('B:J', 12);
+    $headings = array(($zedmode)?"מספר Z":$lang["date"],$lang["cash"],$lang["cheque"],$lang["coupon"],"הקפה","פתק זיכוי נכנס","פתק זיכוי יוצא",$lang["isracard"],$lang["visa"],$lang["diners"],"אחר","סה\"כ אשראי",$lang['total']);
+    $worksheet->write_row('A'.($rrow++), $headings, $heading);
+
+    echo "<script>try{calcmsg('הכנה לתצוגת דו\"ח - נא לחכות');}catch(e){}</script>\n";
+    flush();
+    ob_end_flush();
+
+    startHideOutput();
+
+    echo "<div ><table id=REPORTTABLE dir=$dir border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+    echo "<tr>";
+    if ($zedmode)
+    {
+        echo "<th rowspan=2>מספר Z</th>";
+    }
+    echo "<th rowspan=2>".$lang["date"]."</th>";
+    echo "<th rowspan=2>&nbsp;".$lang["cash"]."&nbsp;</th>";
+    echo "<th rowspan=2>&nbsp;".$lang["cheque"]."&nbsp;</th>";
+    echo "<th rowspan=2>&nbsp;".$lang["coupon"]."</th>";
+    echo "<th rowspan=2>&nbspהקפה</th>";
+    echo "<th rowspan=2>&nbsp;פתק זיכוי נכנס</th>";
+    echo "<th rowspan=2>&nbsp;פתק זיכוי יוצא</th>";
+    echo "<th colspan=5>".$lang["creditcard"]."</th>";
+    echo "<th rowspan=2  nowrap>&nbsp;".$lang['total']."&nbsp;".(($nocoupon)?"<br>לא כולל מחזור שוברים":"")."&nbsp;</th>";
+    echo "</tr>";
+    echo "<tr>";
+    /*
+
+	<th>&nbsp;IsraCard&nbsp;</th>
+	<th>&nbsp;Visa Kal&nbsp;</th>
+	<th>&nbsp;Diners&nbsp;</th>
+	<th>&nbsp;AMEX&nbsp;</th>
+	<th>&nbsp;JCB&nbsp;</th>
+	<th>&nbsp;Visa Leumi&nbsp;</th>
+	<th>&nbsp;Subtotal&nbsp;</th>
+    */
+    echo "
+	
+	<th>&nbsp;".$lang[isracard]."&nbsp;</th>
+	<th>&nbsp;".$lang[visa]."&nbsp;</th>
+	<th>&nbsp;".$lang[diners]."&nbsp;</th>
+    <th>&nbsp;"."אחר"."&nbsp;</th>
+	<th>&nbsp;".$lang['total']."&nbsp;</th>
+	";
+    echo"</tr>";
+
+    endHideOutput();
+
+
+    $day = $startdate;
+    $total_cash = 0;
+    $total_coupon = 0;
+    $total_cheque =0;
+    $total_hakafa = 0;
+    $total_zikui = 0;
+    $total_inzikui = 0;
+    $total_cc_isra =0;
+    $total_cc_kal = 0;
+    $total_cc_diners = 0;
+    $total_cc_other = 0;
+    $total_cc_amex = 0;
+    $total_cc_jcb = 0;
+    $total_cc_leumi = 0;
+    $total = 0;
+
+
+
+
+    while ((!$zedmode && $day <= $enddate) || ($zedmode && !$packagesrs->EOF))
+    {
+
+        //get payments
+        $sqldate = date("Y-m-d",$day);
+        $operday = date("d/m/Y",$day);
+        $dayofweek = $days[date("w",$day)];
+        $cash = "";
+        $cheque = "";
+        $coupon = "";
+        $hakafa = "";
+        $zikui = "";
+        $inzikui = 0;
+        $cc_isra = "";
+        $cc_kal = "";
+        $cc_diners = "";
+        $cc_amex = "";
+        $cc_jcb = "";
+        $cc_leumi = "";
+        $cc_other = "";
+
+        $ZikuiTrans = "";
+        $InZikuiTrans = "";
+        $CashTrans = "";
+        $CouponTrans = "";
+        $HakafaTrans = "";
+        $ChequeTrans = "";
+        $VisaTrans = "";
+        $IsraTrans = "";
+        $DinersTrans = "";
+        $OtherTrans = "";
+
+        if ($zedmode)
+        {
+            $packageID = $packagesrs->Fields("id");
+            $JournalNum = $packagesrs->Fields("journalnum");
+            $operday = DateFromSQL($packagesrs->Fields("journaldate"));
+            $dayofweek = $days[date("w",strtotime($packagesrs->Fields("journaldate")))];
+        }
+
+        //Cash
+
+        $q="";
+        if ($stock)
+        {
+            $q = " and t.stock_id = $stock";
+        }
+
+        $query = ($zedmode)?("t.package_id = ".$packageID):("t.tranDate = '".$sqldate."' ");
+
+        $sql = "select t.ID,
+		(case when IsRefund=1  or RefundMode=1
+		then
+			(CashSum * -1)
+		else
+			CashSum
+		end)
+		as CashierSum
+		from transactionpayments p, transactions t where paymntcount>0 and t.ID = p.trans_id $q 
+        and $query
+        and CashSum <> 0 and t.user_id = $userID";
+        //echo "<!--SQL:$sql-->";
+        $rs = $conn->Execute($sql);
+        if ($rs === false)
+        {
+            log_error($sql);
+        }
+        if (!$rs->EOF)
+        {
+            $cash = sum($rs,"CashierSum",&$CashTrans);
+        }
+
+        //Change of chash
+        $sql = "select sum(tChange) as trChange, group_concat(id) as ids from transactions t where paymntcount>0 and tChange<>0 $q and $query";
+        $rs = $conn->Execute($sql);
+        if ($rs === false)
+        {
+            log_error($sql);
+        }
+        $change = $rs->fields["trChange"];
+        $cash = $cash - $change;
+        if (!$CashTrans)
+        {
+            $CashTrans = $rs->fields["ids"];
+        }
+        elseif($rs->fields["ids"])
+        {
+            $CashTrans .= ",".$rs->fields["ids"];
+        }
+        //echo "<!--SQL:$sql-->";
+
+        //Coupon
+
+        $sql = "select t.ID,(case when IsRefund=1  or RefundMode=1 then CouponSum*-1 else CouponSum end) as CouponSum
+		from transactionpayments p, transactions t where t.ID = p.trans_id $q 
+		and $query  
+		and CouponSum <> 0  and p.IsChangingVoucher = 0 and p.IsRefundVoucher = 0 and t.user_id = $userID";
+        $rs = $conn->Execute($sql);
+        if ($rs === false)
+        {
+            log_error($sql);
+        }
+        if (!$rs->EOF)
+        {
+            $coupon = sum($rs,"CouponSum",&$CouponTrans);
+        }
+
+        //Hakafa
+
+        $sql = "select t.ID,(case when IsRefund=1  or RefundMode=1 then HakafaSum*-1 else HakafaSum end) as HakafaSum
+		from transactionpayments p, transactions t where t.ID = p.trans_id $q
+		and $query
+		and HakafaSum <> 0  and t.user_id = $userID";
+        $rs = $conn->Execute($sql);
+        if ($rs === false)
+        {
+            log_error($sql);
+        }
+        if (!$rs->EOF)
+        {
+            $hakafa = sum($rs,"HakafaSum",&$HakafaTrans);
+        }
+
+        //Cheque
+
+        $sql = "select t.ID,(case when IsRefund=1  or RefundMode=1 then ChequeSum*-1 else ChequeSum end) as ChequeSum
+		from transactionpayments p, transactions t where t.ID = p.trans_id $q 
+		and $query
+		and ChequeSum <> 0 and t.user_id = $userID";
+        $rs = $conn->Execute($sql);
+        if ($rs === false)
+        {
+            log_error($sql);
+        }
+        if (!$rs->EOF)
+        {
+            $cheque = sum($rs,"ChequeSum",&$ChequeTrans);
+        }
+
+        //Isra
+
+        $sql = "select t.ID,(case when IsRefund=1  or RefundMode=1 then CreditCardSum*-1 else CreditCardSum end)
+        as CreditCardSum from transactionpayments p, transactions t where t.ID = p.trans_id $q 
+        and $query 
+        and CreditCardSum <> 0 and CompanyNum in (1,4,5) and  t.user_id = $userID";
+        $rs = $conn->Execute($sql);
+        if ($rs === false)
+        {
+            log_error($sql);
+        }
+        if (!$rs->EOF)
+        {
+            $cc_isra = sum($rs,"CreditCardSum",&$IsraTrans);
+        }
+
+        //Visa
+
+        $sql = "select t.ID,(case when IsRefund=1  or RefundMode=1 then CreditCardSum*-1 else CreditCardSum end) as CreditCardSum
+        from transactionpayments p, transactions t where t.ID = p.trans_id $q 
+        and $query
+        and CreditCardSum <> 0 and CompanyNum in (2,6) and  t.user_id = $userID";
+        $rs = $conn->Execute($sql);
+        if ($rs === false)
+        {
+            log_error($sql);
+        }
+        if (!$rs->EOF)
+        {
+            $cc_kal = sum($rs,"CreditCardSum",&$VisaTrans);
+        }
+
+        //Diners
+
+        $sql = "select t.ID,(case when IsRefund=1  or RefundMode=1 then CreditCardSum*-1 else CreditCardSum end) as CreditCardSum
+        from transactionpayments p, transactions t where t.ID = p.trans_id $q 
+        and $query 
+        and CreditCardSum <> 0 and CompanyNum in (3) and  t.user_id = $userID";
+        $rs = $conn->Execute($sql);
+        if ($rs === false)
+        {
+            log_error($sql);
+        }
+        if (!$rs->EOF)
+        {
+            $cc_diners = sum($rs,"CreditCardSum",&$DinersTrans);
+        }
+
+        //Other
+
+        $sql = "select t.ID,(case when IsRefund=1  or RefundMode=1 then CreditCardSum*-1 else CreditCardSum end) as CreditCardSum
+        from transactionpayments p, transactions t where t.ID = p.trans_id $q 
+        and $query 
+        and CreditCardSum <> 0 and CompanyNum = 0 and  t.user_id = $userID";
+        $rs = $conn->Execute($sql);
+        if ($rs === false)
+        {
+            log_error($sql);
+        }
+        if (!$rs->EOF)
+        {
+            $cc_other = sum($rs,"CreditCardSum",&$OtherTrans);
+        }
+
+        //Petek Zikui yotze
+        $sql = "select t.ID,TranAmount from transactions t where refundmode=1 and  t.user_id = $userID $q and $query ";
+        $rs = $conn->Execute($sql);
+        if ($rs === false)
+        {
+            log_error($sql);
+        }
+        if (!$rs->EOF)
+        {
+            $zikui = sum($rs,"TranAmount",&$ZikuiTrans);
+        }
+
+        //Petek Zikui nichnas
+
+        $sql = "select t.ID,(case when IsRefund=1  or RefundMode=1 then CouponSum*-1 else CouponSum end) as CouponSum
+		from transactionpayments p, transactions t where t.ID = p.trans_id $q 
+		and $query  
+		and CouponSum <> 0  and p.IsRefundVoucher = 1 and t.user_id = $userID";
+        $rs = $conn->Execute($sql);
+        if ($rs === false)
+        {
+            log_error($sql);
+        }
+        if (!$rs->EOF)
+        {
+            $inzikui = sum($rs,"CouponSum",&$InZikuiTrans);
+        }
+
+        //Output
+
+        //if ($IsraTrans) $IsraTrans = substr($IsraTrans,1);
+        //if ($VisaTrans) $VisaTrans = substr($VisaTrans,1);
+        //if ($DinersTrans) $DinersTrans = substr($DinersTrans,1);
+
+        $cc = $cc_isra + $cc_kal + $cc_diners + $cc_amex + $cc_jcb + $cc_leumi + $cc_other;
+
+        $CCTrans = (($IsraTrans)?$IsraTrans:-1) .",".
+                (($VisaTrans)?$VisaTrans:-1) .",".
+                (($OtherTrans)?$OtherTrans:-1) .",".
+                (($DinersTrans)?$DinersTrans:-1);
+
+        $Total = $cash  + $cheque + $cc;
+        if (!$nocoupon)
+        {
+            $Total+=$coupon;
+        }
+
+        $TotalTrans = (($CCTrans)?$CCTrans:-1) .",".
+                (($ChequeTrans)?$ChequeTrans:-1) .",".
+                (($CouponTrans)?$CouponTrans:-1) .",".
+                (($HakafaTrans)?$HakafaTrans:-1) .",".
+                (($CashTrans)?$CashTrans:-1);
+
+        $total_cash +=$cash;
+        $total_coupon += $coupon;
+        $total_hakafa += $hakafa;
+        $total_cheque +=$cheque;
+        $total_zikui += $zikui;
+        $total_inzikui += $inzikui;
+        $total_cc_isra +=$cc_isra;
+        $total_cc_kal += $cc_kal;
+        $total_cc_diners += $cc_diners;
+        $total_cc_other += $cc_other;
+        $total_cc_amex += $cc_amex;
+        $total_cc_jcb += $cc_jcb;
+        $total_cc_leumi+= $cc_leumi;
+        $total += $Total;
+        $total_cc += $cc;
+        //results
+
+
+        startHideOutput();
+
+        echo "<tr align=right>";
+        if ($zedmode)
+        {
+            echo "<td>$JournalNum</td>";
+        }
+
+
+        echo "<td nowrap><span dir=ltr>$operday</span> ".$dayofweek."</td>";
+        $ids="";
+        echo"
+		<td nowrap class=".((!$cash)?"z":"s")." onmouseover='mov(this)' onmouseout='mou(this)' onclick='showChn(\"$CashTrans\")'><span dir=ltr>&nbsp;".number_format($cash,2)."&nbsp;</td>
+		<td nowrap class=".((!$cheque)?"z":"s")." onmouseover='mov(this)' onmouseout='mou(this)' onclick='showChn(\"$ChequeTrans\")'><span dir=ltr>&nbsp;".number_format($cheque,2)."&nbsp;</td>
+		<td nowrap class=".((!$coupon)?"z":"s")." onmouseover='mov(this)' onmouseout='mou(this)' onclick='showChn(\"$CouponTrans\")'><span dir=ltr>&nbsp;".number_format($coupon,2)."&nbsp;</td>
+		<td nowrap class=".((!$hakafa)?"z":"s")." onmouseover='mov(this)' onmouseout='mou(this)' onclick='showChn(\"$HakafaTrans\")'><span dir=ltr style='color:#999'>&nbsp;".number_format($hakafa,2)."&nbsp;</td>
+		<td nowrap class='".((!$inzikui)?"z":"s")." g' onmouseover='mov(this)' onmouseout='mou(this)' onclick='showChn(\"$InZikuiTrans\")'><span dir=ltr>&nbsp;".number_format($inzikui,2)."&nbsp;</td>
+		<td nowrap class='".((!$zikui)?"z":"s")." g' onmouseover='mov(this)' onmouseout='mou(this)' onclick='showChn(\"$ZikuiTrans\")'><span dir=ltr>&nbsp;".number_format($zikui,2)."&nbsp;</td>
+		";
+        echo "<td nowrap class='".((!$cc_isra)?"z":"s")."' onmouseover='mov(this)' onmouseout='mou(this)' onclick='showChn(\"$IsraTrans\")'><span dir=ltr>&nbsp;".number_format($cc_isra,2)."&nbsp;</td>";
+        $ids=$IsraTrans;
+        echo "<td nowrap class='".((!$cc_kal)?"z":"s")."' onmouseover='mov(this)' onmouseout='mou(this)' onclick='showChn(\"$VisaTrans\")'><span dir=ltr>&nbsp;".number_format($cc_kal,2)."&nbsp;</td>";
+        $ids=$VisaTrans;
+        echo "<td nowrap class='".((!$cc_diners)?"z":"s")."' onmouseover='mov(this)' onmouseout='mou(this)'  onclick='showChn(\"$DinersTrans\")'><span dir=ltr>&nbsp;".number_format($cc_diners,2)."&nbsp;</td>";
+        $ids=$DinersTrans;
+        echo "<td nowrap class='".((!$cc_other)?"z":"s")."' onmouseover='mov(this)' onmouseout='mou(this)'  onclick='showChn(\"$OtherTrans\")'><span dir=ltr>&nbsp;".number_format($cc_other,2)."&nbsp;</td>";
+        $ids=$OtherTrans;
+        /*
+		<td class=".((!$cc_amex)?"z":"").">&nbsp;".number_format($cc_amex,2)."&nbsp;</td>
+		<td class=".((!$cc_jcb)?"z":"").">&nbsp;".number_format($cc_jcb,2)."&nbsp;</td>
+		<td class=".((!$cc_leumi)?"z":"").">&nbsp;".number_format($cc_leumi,2)."&nbsp;</td>
+        */
+        if(!$mode)
+        {
+            echo"
+			<td nowrap class=".((!$cc)?"z":"s")."  onmouseover='mov(this)' onmouseout='mou(this)' onclick='showChn(\"$CCTrans\")' >&nbsp;".number_format($cc,2)."&nbsp;</td>
+			<td nowrap class='b ".((!$Total)?"z":"")."' onmouseover='mov(this)' onmouseout='mou(this)' onclick='showChn(\"$TotalTrans\")' >&nbsp;".number_format($Total,2)."&nbsp;</td>
+			";
+        }
+        echo "</tr>";
+
+        endHideOutput();
+
+        $b=$body;
+        $f=$numformat;
+        $worksheet->write("A".$rrow,($zedmode)?($JournalNum." (".$operday.")"):$operday,$b);
+        $worksheet->write("B".$rrow,$cash,$b);
+        $worksheet->write("C".$rrow,$cheque,$f);
+        $worksheet->write("D".$rrow,$coupon,$f);
+        $worksheet->write("E".$rrow,$hakafa,$f);
+        $worksheet->write("F".$rrow,$inzikui,$f);
+        $worksheet->write("G".$rrow,$zikui,$f);
+        $worksheet->write("H".$rrow,$cc_isra,$f);
+        $worksheet->write("I".$rrow,$cc_kal,$b);
+        $worksheet->write("J".$rrow,$cc_diners,$f);
+        $worksheet->write("K".$rrow,$cc_other,$f);
+        $worksheet->write("L".$rrow,$cc,$f);
+        $worksheet->write("M".$rrow,$Total,$f);
+        $rrow++;
+
+        $cnt++;
+        if ($cnt % 5 == 0)
+        {
+            echo "<script>upd($cnt);</script>\n";
+            flush();
+            ob_end_flush();
+        }
+
+
+        //$day += (60*60*24);
+        $day= strtotime("+1 day",$day);
+        if ($zedmode)
+        {
+            $packagesrs->MoveNext();
+        }
+
+    }
+
+    startHideOutput();
+    echo "
+	<tr>
+		<td class=mode ".($zedmode?"colspan=2":"")."><b>".$lang['total']."</b></td>";
+    echo "<td class=bt><span dir=ltr>&nbsp;".number_format($total_cash,2)."&nbsp;</td>";
+    echo "<td class=bt><span dir=ltr>&nbsp;".number_format($total_cheque,2)."&nbsp;</td>";
+    echo "<td class=bt><span dir=ltr>&nbsp;".number_format($total_coupon,2)."&nbsp;</td>";
+    echo "<td class=bt><span dir=ltr>&nbsp;".number_format($total_hakafa,2)."&nbsp;</td>";
+    echo "<td class='bt g'><span dir=ltr>&nbsp;".number_format($total_inzikui,2)."&nbsp;</td>";
+    echo "<td class='bt g'><span dir=ltr>&nbsp;".number_format($total_zikui,2)."&nbsp;</td>";
+    echo "<td class='bt'><span dir=ltr>&nbsp;".number_format($total_cc_isra,2)."&nbsp;</td>";
+    echo "<td class='bt'><span dir=ltr>&nbsp;".number_format($total_cc_kal,2)."&nbsp;</td>";
+    echo "<td class='bt'><span dir=ltr>&nbsp;".number_format($total_cc_diners,2)."&nbsp;</td>";
+    echo "<td class='bt'><span dir=ltr>&nbsp;".number_format($total_cc_other,2)."&nbsp;</td>";
+    /*
+		<td class=b>&nbsp;".number_format($total_cc_amex,2)."&nbsp;</td>
+		<td class=b>&nbsp;".number_format($total_cc_jcb,2)."&nbsp;</td>
+		<td class=b>&nbsp;".number_format($total_cc_leumi,2)."&nbsp;</td>
+    */
+    echo"
+			<td class=bt>&nbsp;".number_format($total_cc,2)."&nbsp;</td>
+			<td class=bt>&nbsp;".number_format($total,2)."&nbsp;</td>
+			";
+    echo "</tr>";
+    echo "</table>";
+    endHideOutput();
+
+    echo "<script>try{calcend();}catch(e){}</script>\n";
+    flush();
+    ob_end_flush();
+
+    $worksheet->write("A".($rrow),"סה\"כ",$numformatb);
+    $worksheet->write("B".($rrow),$total_cash,$numformatb);
+    $worksheet->write("C".($rrow),$total_cheque,$numformatb);
+    $worksheet->write("D".($rrow),$total_coupon,$numformatb);
+    $worksheet->write("E".($rrow),$total_hakafa,$numformatb);
+    $worksheet->write("F".($rrow),$total_inzikui,$numformatb);
+    $worksheet->write("G".($rrow),$total_zikui,$numformatb);
+    $worksheet->write("H".($rrow),$total_cc_isra,$numformatb);
+    $worksheet->write("I".($rrow),$total_cc_kal,$numformatb);
+    $worksheet->write("J".($rrow),$total_cc_diners,$numformatb);
+    $worksheet->write("K".($rrow),$total_cc_other,$numformatb);
+    $worksheet->write("L".($rrow),$total_cc,$numformatb);
+    $worksheet->write("M".($rrow),$total,$numformatb);
+
+}
+
+$workbook->close();
+copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+unlink($fname);
+
+renderExcelOutput();
+
+
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+
+function sum($rs,$field,&$ids)
+{
+    $s=0;
+    $ids="";
+    $rs->MoveFirst();
+    while(!$rs->EOF)
+    {
+        $s+=$rs->fields[$field];
+        if (!strpos(" ".$ids,",".$rs->fields["ID"]))
+        {
+            $ids.=",".$rs->fields["ID"];
+        }
+        $rs->MoveNext();
+    }
+    $ids = substr($ids,1);
+    return $s;
+}
+?>
+
+<form name=FF method=post target=CHN action="rep_cheshbonit.php">
+    <input type=hidden name=ids>
+    <input type=hidden name=simple value=1>
+    <input type=hidden name=usr value="<?=$usr?>">
+    <input type=hidden name=rmodule value="<?=$rmodule?>">
+</form>

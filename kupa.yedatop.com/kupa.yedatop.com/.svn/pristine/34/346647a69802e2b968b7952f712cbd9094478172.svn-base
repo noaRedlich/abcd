@@ -1,0 +1,33 @@
+<?
+	//	Database engines libraries path
+	$sPathToDBL = $smartway_dir."lib/db/";
+	
+ 	$GOCONFIG = new GO_CONFIG();
+	$db_type = $GO_CONFIG->db_type;
+
+
+	$db_type = strtolower($db_type);
+	if($db_type == "")
+	{
+		$db_type = "none";
+	}
+
+	$sDBL = $sPathToDBL.$db_type.".lib";
+
+	$pHandle = @fopen($sDBL, "r");
+
+	if(!$pHandle)
+	{
+		@eval('function c(){}');
+		@eval('function q($s){}');
+		@eval('function e($r){}');
+		@eval('function f($r){}');
+		@eval('function nr($r){}');
+		@eval('function d($s){}');
+	}
+	else
+	{
+		fclose($pHandle);
+		@include $sDBL;
+	}
+?>

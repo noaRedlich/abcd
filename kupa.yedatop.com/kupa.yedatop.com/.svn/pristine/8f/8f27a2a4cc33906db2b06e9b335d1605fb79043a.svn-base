@@ -1,0 +1,102 @@
+<?
+	session_start();
+
+	$simple=1;
+	$page_subtitle = "שמירת שאילתה";
+ 
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+    if ($QUERY)
+    {
+        if (!trim($QNAME))
+        {
+            $err="יש להזין שם שאילתה"; 
+        }
+        else
+        {
+            $sql = "select id from saved_query where user_id = $userID and name = '".addslashes($QNAME)."'";
+            $res=DBQuery($sql);
+            if (!$res->EOF)
+            {
+                if ($overwrite)
+                {
+                   DBQuery("delete from saved_query where id = ".$res->Fields("id")); 
+                }
+                else
+                {
+                    $err="שאילתה עם שם כזה כבר קיימת. יש לבחור שם אחר.";
+                    $exist=true;
+                }
+            }
+            if (!$err)
+            {
+                $QUERY = urldecode($QUERY);
+                if ($RELDATE)
+                {
+                    $s = "";
+                    $arr = explode("&","$QUERY");
+                    foreach($arr as $pair)
+                    {
+                        $arrkey = explode("=",$pair);
+                        if (strpos($arrkey[0],"Date") && $arrkey[1]!="")
+                        {
+                            $res = DBQuery("select DATEDIFF('".dateToSQL($arrkey[1])."',now()) as res");
+                            $arrkey[1] = $res->Fields("res");
+                        }
+                        $s.="&".$arrkey[0]."=".$arrkey[1];
+                    }
+                    $QUERY = substr($s,1);
+                }
+                $sql = "insert into saved_query (name, query, user_id)
+                values ('".addslashes($QNAME)."','".addslashes($QUERY)."',$userID)";
+                DBQuery($sql);
+                echo "<script>document.body.onload=function(){alert(\"שאילתה נשמרה בהצלחה\");window.close();}</script>";
+            }
+        }
+    }
+  
+    ?>
+    <form method=get name=F action='savequery.php'>
+     
+    <table align=center>
+    <tr><td colspan=2 align=center>
+    <?if ($err){?>
+    <b style=color:red><?=$err?></td></tr>
+    <?}else{?><br><?}?>                       
+    </td>
+    <tr>
+    <td>לשמור  שאילתה נוכחית  בשם: </td>
+    </tr>
+    <tr>
+    <td><input size=50 name=QNAME value="<?=$QNAME?>"></td>
+    </tr>
+    <tr>
+    <td colspan=2>
+    <input type=checkbox value=1 name=RELDATE <?=$RELDATE?"checked":""?>> תאריכים יחסיים להיום
+    <?if ($exist){?>
+    <input type=checkbox name=overwrite <?=$overwrite?"checked":""?>> להחליף שאילתה קיימת
+    <?}?>
+    </td>
+    </tr>
+    <tr>
+    <td colspan=2 align=center>
+    <br>
+      <input type=submit style='background-image:url(<?=$imgPath?>ok.gif)' class=button value="שמור"> 
+      <input type=button onclick='window.close()' style='background-image:url(<?=$imgPath?>back.gif)' class=button value="סגור">    
+      <input type=hidden value="<?=$QUERY?$QUERY:$_SERVER["QUERY_STRING"]?>" name=QUERY> 
+    </td>
+    </tr>
+    </table>
+    <script>document.F.QNAME.focus()</script>
+    </form>
+    <?
+
+
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+
+       
+    ?>

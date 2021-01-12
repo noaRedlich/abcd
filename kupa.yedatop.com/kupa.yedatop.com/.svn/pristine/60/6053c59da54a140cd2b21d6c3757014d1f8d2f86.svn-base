@@ -1,0 +1,144 @@
+<?php
+
+
+
+ini_set("error_reporting","E_ERROR & E_CORE_ERROR & E_COMPILE_ERROR");
+$noheader=1;
+
+$filename = "clients";
+
+if($action=="dat")
+{
+    ob_start();
+    $noheader=1;
+	include("include/common.php");
+    ob_end_clean();
+    
+	// Date in the past
+     header("Pragma: ");
+     header("Cache-Control: ");
+     header("Expires: Mon, 26 Jul 1997 05:00:00 GMT");
+     header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
+     header("Cache-Control: no-store, no-cache, must-revalidate"); // HTTP/1.1
+     header("Cache-Control: post-check=0, pre-check=0", false);
+     //header("Content-Type: text/plain");
+
+    header("Content-Disposition: attachment; filename=\"$filename.csv\"");      
+
+    if(!mysql_connect($db_server,$db_user,$db_password))
+	{
+		echo "SQL_ERROR: Cannot connect to DB: $db_database"; exit();
+	}
+	mysql_select_db($db_database) or die("SQL_ERROR: Cannot select DB: $db_database");
+}
+
+
+$simple=1;
+$page_subtitle = "יבוא ויצוא";
+
+if (!$action)
+{
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+	$sql="select * from exporthashlog where user_id = $userID and code='$logcode' order by end_Date desc limit 10";
+	$log=$conn->execute($sql);
+	if ($log === false){log_error($sql);}
+	echo
+	"
+	<head>
+	<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+	</head><pre dir=rtl>";
+	
+	if (!$UserData->fields["ExportEnabled"]){
+		die( "אין הרשאה לפעולה הזאת. יש לפנות למנהל המערכת.");
+	}
+	echo "יש להזין תאריכי יצוא וללחוץ על אישור";
+	
+	exit;
+}
+
+elseif ($action=="do")
+{
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+	print"
+	<head>
+	<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+	</head>
+	<pre dir=rtl>";	
+	if (!$UserData->fields["ExportEnabled"])
+    {
+		die( "אין הרשאה לפעולה הזאת. יש לפנות למנהל המערכת.");
+	}
+	if(($sDate==""||$eDate=="") && !$auto)  
+    {
+		die("יש להזין תאריכי יצוא ");
+	}
+	else
+    {
+        if (!$auto)
+        {
+            $period = "($sDate - $eDate)";
+        }
+		echo "<a target=_blank href='".$rootpath."export_csvclients.php?action=dat&username=$username&uid=$userID&rnd=".rand()."'><strong>יש ללחוץ כאן להורדת קובץ <span dir=ltr>$filename.csv</span></strong></a><br>";
+    
+    }
+	
+	exit;
+}
+
+elseif($action=="dat")
+{
+	$out = "";
+	$sql = "select * from listingsSuppliers where user_id = $uid and status = 1 and isAccount <> 1";
+	$rs = mysql_query($sql) or die(mysql_error());
+	
+
+	while ($client=mysql_fetch_array($rs))
+    {
+		$PostAdress = explode("\n",$client["PostAdress"]);
+		$out.= '"'.toCSV($client["BusinessNum"]).'",';	//a
+		$out.= '"'.toCSV($client["SupplierName"]).'",';	//b
+		$out.= '"",';									//c
+		$out.= '"'.toCSV($client["Comment"]).'",';		//d
+		$out.= '"'.toCSV($client["Address"]).'",';		//e
+		$out.= '"'.toCSV(str_replace("\r","",$PostAdress[0])).'",';			//f	
+		$out.= '"'.toCSV(str_replace("\r","",$PostAdress[1]." ".$PostAdress[2])).'",';	//g	
+		$out.= '"'.toCSV($client["Phone"]).'",';		//h
+		$out.= '"'.toCSV($client["Fax"]).'",';			//i
+		$out.= '"'.toCSV($client["Email"]).'",';		//j
+		$out.= '"'.toCSV($client["Web"]).'",';			//k
+		$out.= '"'.toCSV($client["Bank"]).'",';			//l	
+		$out.= '"'.toCSV($client["Snif"]).'",';			//m
+		$out.= '"'.toCSV($client["Account"]).'",';		//n
+		$out.= '"'.($client["isClient"]).'",';			//o
+		$out.= '"'.($client["isSupplier"]).'",';		//p
+		$out.= '"'.($client["isAgent"]).'"';			//r	
+		$out.= '"'.($client["isWorker"]).'"';			//q	
+		$out.= '"'.($client["GroupId"]).'",';			//s
+		$out.= '"'.($client["ID"]).'"';                         //t
+		$out.= "\n";
+	}
+	
+	echo $out;
+	
+	exit();
+}
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+function dateSQL($date)
+{
+	return substr($date,8,2) ."/".substr($date,5,2)."/".substr($date,0,4);
+}
+
+function toCSV($s)
+{
+	return str_replace('"','""',$s);
+}
+?>

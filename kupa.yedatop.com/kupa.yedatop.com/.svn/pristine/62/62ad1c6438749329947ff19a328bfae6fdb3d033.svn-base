@@ -1,0 +1,226 @@
+<?
+	session_start();
+	
+	$simple=1;
+	$page_subtitle = "תשלום לספק";
+	$xlsfilename="Payment";
+	
+	$paytype = array(
+		"0"=>"שיק",
+		"1"=>"מזומן",
+		"2"=>"אשראי",
+		"3"=>"העברה בנקאית",
+		"4"=>"הוראת קבע"
+	);
+	
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+	if ($saction != "sendreport"){
+		$saction="go";
+	}
+	
+	$sql = "select ID,SupplierName from listingsSuppliers where id=$sid ";
+	$suppliers = $conn->Execute($sql);
+	if ($suppliers === false){log_error($sql);die();}
+	?>
+	<style>
+	.z {color:gray}
+	.b {font-weight:bold}
+	th {background-color:silver}
+	</style>
+	<script>
+	function PrintReport(){
+		document.getElementById("Query").style.display = "none";
+		window.print();
+		document.getElementById("Query").style.display = "";
+	}
+	
+	function openReport1(url){
+	var ss="";
+	s = window.open(url+'&simple=1','','top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+	s.focus();
+	}	
+	</script>
+	<body>
+	<table cellpadding=5 border=0 width=100%>
+	<tr>
+	<form name=F method=post action='rep_suppliers.php'>
+	<input type=hidden name=usr value=<?=$usr?>>
+	<input type=hidden name=rmodule value=<?=$rmodule?>>
+	<td nowrap>
+	<?$reporttitle = "תשלום לספק";?>
+	<?if ($usr){$reporttitle.="<br>".$username;}?>
+	<strong style='font-size:12pt'><?=$reporttitle?></strong>
+	</td><td width=99% style='border:inset 1'>
+	
+	
+	<?if ($saction=="go" || $saction=="sendreport"){
+		require("sendreport.php");
+	}?>
+	<input type=hidden name=saction value=go>
+	<input type=hidden name=reportbody value="">
+	<input type=hidden name=sendmode value="">
+
+	</td>
+	</form>
+	</tr>
+	</table>
+	<?	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+	
+	if (!$sort){	
+	
+		$q="";
+		if ($sid!=""){
+			$q=" and supplier_id = $sid ";
+		}
+
+		$report = array();
+		$sql = "
+			select * from supplierpayments where status=1 and user_id = $userID and group_id = $gid";
+		//echo $sql;
+		
+		$payments = $conn->Execute($sql);
+		if ($payments === false){log_error($sql);}
+		
+		$comment = $payments->fields["comment"];
+		$paydate = $payments->fields["Day"];
+		
+		
+		while (!$payments->EOF){
+				$report[] = array(
+					"Amount" => $payments->fields["Amount"],
+					"PayType" => $payments->fields["payment_type"],
+					"Day" => $payments->fields["Day"],
+					"Comment" => $payments->fields["comment"],
+					"CheckNumber" => $payments->fields["checknumber"],
+					"CheckDate" => $payments->fields["checkdate"],
+					"CheckBank" => $payments->fields["checkbank"],
+					"CheckSnif" => $payments->fields["checksnif"],
+					"CheckAccount" => $payments->fields["checkaccount"],
+					"CheckAccount" => $payments->fields["checkaccount"],
+				);
+			$payments->MoveNext();
+		}
+	}
+	else{ 
+
+		//Sort Mode
+	
+		$report = $_SESSION["REPORT"];
+		$report = aSortBySecondIndex($report,$sort,$desc);
+	}
+	//Output
+	
+	$cnt=0;
+
+	$url = $_SELF."?saction=go&sid=$sid&gid=$gid&chn=$chn&sDate=$sDate&desc=".((!$desc)?1:0);
+	
+	$worksheet->set_column('A:G', 12);
+	$headings = array('סוג תשלום','סכום','תאריך פרעון',"מס' שיק","מס' בנק","מס' סניף","מס' חשבון");
+
+	$worksheet->write("A".$rrow," תשלום ל: ".$suppliers->fields["SupplierName"],$b);
+	$rrow++;
+	$worksheet->write("A".$rrow,$paydate,$b);
+	$rrow++;
+	$worksheet->write("A".$rrow,$comment,$b);
+	$rrow++;$rrow++;
+
+	$worksheet->write_row('A'.($rrow++), $headings, $heading);
+	;
+		
+	echo "<div ><table id=REPORTTABLE dir=$dir border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+	echo "
+	<tr>
+	<td bgcolor=lightyellow colspan=7>תאריך: <b>".DateFromSQL($paydate)."</b>";
+	echo "&nbsp;&nbsp; ספק: <b>".$suppliers->fields["SupplierName"]."</b>";
+	if ($comment){ echo "<br>הערות:' <b>$comment</b>";}
+	echo "</td>
+	</tr>
+	<tr valign=top>
+	<th><as href='$url&sort=PayType'>סוג תשלום</a></th>
+	<th><as href='$url&sort=Title'>סכום</a></th>
+	<th width=10%><as href='$url&sort=Amount'>תאריך פרעון</a></th>
+	<th width=10%><as href='$url&sort=Quantity'>מס' שיק</a></th>
+	<th width=10%><as href='$url&sort=Amount'>מס' בנק </a></th>
+	<th width=10%><as href='$url&sort=Amount'>מס' סניף</a></th>
+	<th width=10%><as href='$url&sort=Amount'>מס' חשבון</a></th>
+	</tr>
+	";
+	
+	$ID=$cnt;
+	foreach ($report as $row){
+		$AMOUNT += $row["Amount"];
+		echo "
+		<tr id=tr$ID valign=top >
+		<td nowrap   >".($paytype[$row["PayType"]])."</td>
+		<td nowrap   >".number_format($row["Amount"],2)."</td>
+		<td nowrap ><span dir=ltr>".(($row["CheckDate"]=="0000-00-00")?"":DateFromSQL($row["CheckDate"]))."</td>
+		<td nowrap   >".($row["CheckNumber"])."</td>
+		<td nowrap   >".($row["CheckBank"])."</td>
+		<td nowrap   >".($row["CheckSnif"])."</td>
+		<td nowrap   >".($row["CheckAccount"])."</td>
+		</tr>
+		";	
+
+
+		$ID++;
+		$b=$body;
+		$f=$numformat;
+		$worksheet->write("A".$rrow," ".$paytype[$row["PayType"]],$b);
+		$worksheet->write("B".$rrow,$row["Amount"],$f);
+		$worksheet->write("C".$rrow,(($row["CheckDate"]=="0000-00-00")?"":DateFromSQL($row["CheckDate"])),$b);
+		$worksheet->write("D".$rrow,$row["CheckNumber"],$b);
+		$worksheet->write("E".$rrow,$row["CheckBank"],$b);
+		$worksheet->write("F".$rrow,$row["CheckSnif"],$b);
+		$worksheet->write("G".$rrow,$row["CheckAccount"],$b);
+		$rrow++;
+	 
+ 	}
+	
+	echo "<tr>
+	<td><b>סה\"כ</b></td>
+	<td><strong dir=ltr>".number_format($AMOUNT,2)."</strong></td>
+	<td colspan=5></td>
+	</tr>";
+	
+	echo "</table></div>";
+	
+	}
+	
+	$worksheet->write("A".($rrow),"סה\"כ",$numformatb);
+	$worksheet->write("B".($rrow),$AMOUNT,$numformatb);
+	
+	$workbook->close();
+	copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+    unlink($fname);
+	
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+	
+	
+	function aSortBySecondIndex($multiArray, $secondIndex,$rew = false) {
+		while (list($firstIndex, ) = each($multiArray))
+		$indexMap[$firstIndex] = $multiArray[$firstIndex][$secondIndex];
+		if (!$rew)
+			asort($indexMap);
+		else 	
+			arsort($indexMap);
+		while (list($firstIndex, ) = each($indexMap))
+		if (is_numeric($firstIndex))
+		$sortedArray[] = $multiArray[$firstIndex];
+		else $sortedArray[$firstIndex] = $multiArray[$firstIndex];
+	return $sortedArray;
+
+
+}
+?>

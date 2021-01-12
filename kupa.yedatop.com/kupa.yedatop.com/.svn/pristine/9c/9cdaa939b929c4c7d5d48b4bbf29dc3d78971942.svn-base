@@ -1,0 +1,323 @@
+<?php
+
+    $mode = $_GET["mode"];
+    if (!$mode) $mode = $_POST["mode"]; 
+    
+	$xlsfilename = "agents_sales";
+
+	$simple=1;
+	$page_subtitle = "מכירות לפי סוכן ";
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+
+	include("$config[template_path]/admin_top.html");
+	
+	
+	if ($_GET["sDate"] && $saction!="sendreport")
+    {
+		$saction="go"; 
+	}
+	
+	if (!$sDate){
+		$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+		$sDate = date("d/m/Y",strtotime("",$firstday));
+		$eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+	}
+	
+	$asDate = explode("/",$sDate);
+	$aeDate = explode("/",$eDate);
+	
+	$startdate = mktime(23,59,59,$asDate[1],$asDate[0],$asDate[2]);
+	$enddate = mktime(23,59,59,$aeDate[1],$aeDate[0],$aeDate[2]);
+	
+	$stocks = GetStocks(!$zedmode);
+    if (!$stock)
+    {
+        $stock = $stocks->fields["ID"];
+    }
+	?>
+    
+    <style>
+    .z {color:gray}
+    .s {<?if (HasReportPermission("CHESHBONIT")){?>cursor:hand<?}?>}
+    .b {font-weight:bold;<?if (HasReportPermission("CHESHBONIT")){?>cursor:hand<?}?>}
+    .bt {font-weight:bold;}
+    th {background-color:silver}
+    </style>
+    <script>
+    function showDocs(ids){
+	    ids1 = ids.replace(/-1/g,"").replace(/\,/g,"")
+	    if (ids1){
+            document.FF.action = "rep_documents.php"
+            document.FF.ids.value = ids
+		    openReport1("blank.htm")
+            document.FF.submit()
+	    }
+    }
+
+    function mov(e){
+        <?if (HasReportPermission("CHESHBONIT")){?>
+	    if(e.className=="s"||e.className=="b ") e.style.backgroundColor='yellow';
+        <?}?>
+    }
+    function mou(e){
+        <?if (HasReportPermission("CHESHBONIT")){?>  
+	    e.style.backgroundColor='';
+        <?}?>
+    }
+
+    function openReport1(url){
+	    var ss="";
+	    s = window.open(url,'CHN','top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+	    s.focus();
+    }	
+
+    </script>
+    
+	<script>
+	function PrintReport(){
+		document.getElementById("Query").style.display = "none";
+        document.getElementById("RADIOS").style.display = "none";
+		window.print();
+		document.getElementById("Query").style.display = "";
+        document.getElementById("RADIOS").style.display = "";
+	}
+	</script>
+	<body>
+	<table cellpadding=5 border=0 width=100%>
+	<tr>
+	<form name=F method=post refreshable=1>
+	<input type=hidden name=mode value=<?=$mode?>>
+	<input type=hidden name=usr value=<?=$usr?>>
+	<input type=hidden name=rmodule value=<?=$rmodule?>>
+	<td nowrap>
+	<strong style='font-size:12pt'>
+	<?$reporttitle = "מכירות לפי סוכנים";?>
+	<?if ($usr){$reporttitle.="<br>".$username;}?>
+	<?=$reporttitle?>
+	</strong>
+    <br><br>
+    <div id=RADIOS>
+    </div>
+    
+	</td><td width=99% style='border:inset 1'>
+
+	<?=$lang["from"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.sDate")
+'>
+ 
+	
+	<?=$lang["to"]?> <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.eDate")
+'>
+ 
+   	<input type=submit value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top" >
+    
+    <br>
+    <input type=radio name=joinmode value=all <?=$joinmode?"checked":""?>>כל הסוכנים
+    <input type=radio name=joinmode value="" <?=!$joinmode?"checked":""?>>רק  סוכנים עם מכירות
+    
+	<?if ($saction=="go" || $saction=="sendreport"){
+		require("sendreport.php");
+	}?>
+	<input type=hidden name=saction value=go>
+	<input type=hidden name=reportbody value="">
+	<input type=hidden name=sendmode value="">
+
+	</td>
+	</form>
+	</tr>
+	</table>
+	<?	
+	if ($saction=="sendreport")
+    {
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go")
+    {
+    
+            
+        $worksheet->set_column('A:C', 25);
+	    $worksheet->set_column('D:G', 12);
+	    $headings = array("שם סוכן","טלפון","כתובת",'חשבוניות מס בש"ח','חשבוניות מס קבלה בש"ח','חשבוניות מס זיכוי בש"ח','סה"כ בש"ח','אחוז ממחזור','סה"כ בש"ח ממחזור');
+	    $worksheet->write_row('A'.($rrow++), $headings, $heading);
+	    ;
+	    
+	    echo "<div ><table id=REPORTTABLE dir=$dir border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+	    echo "<tr>";
+        echo "<th width=20% nowrap>שם סוכן</th>";
+        echo "<th width=10%>טלפון</th>";
+        echo "<th width=15%>כתובת</th>";
+        echo "<th width=10%>".'חשבוניות מס בש"ח'."</th>";
+        echo "<th width=10%>".'חשבוניות מס קבלה בש"ח'."</th>"; 
+        echo "<th width=10%>".'חשבוניות מס זיכוי בש"ח'."</th>"; 
+        echo "<th width=10%>".'סה"כ בש"ח'."</th>"; 
+        echo "<th width=5%>".'אחוז ממחזור'."</th>";
+        echo "<th width=10%>".'סה"כ בש"ח ממחזור'."</th>";
+ 	    echo "</tr>";
+	    echo "<tr>";
+
+	    echo"</tr>";
+        
+        if ($stock)
+        {
+		    $q.=" and t.stock_id=$stock";
+	    }
+	    
+        $join = ($joinmode=="all") ?"left outer":"inner";
+        
+        $sql = "select
+            mt.id, 
+            agentcomission,
+            suppliername as caption,
+            phone,address,
+            group_concat(case when d.doc_type='CHESHBONIT' then d.id else -1 end) as idsCheshonitMas,
+            group_concat(case when d.doc_type='MASKABALA' then d.id else -1 end) as idsCheshonitMasKabala,  
+            group_concat(case when d.doc_type='MASZIKUI' then d.id else -1 end) as idsCheshonitMasZikui,  
+    	    sum(case when d.doc_type='CHESHBONIT' then amount else 0 end) as AmountCheshonitMas,
+    	    sum(case when d.doc_type='MASKABALA' then amount else 0 end) as AmountCheshonitMasKabala,
+            sum(case when d.doc_type='MASZIKUI' then amount*-1 else 0 end) as AmountCheshonitMasZikui
+            from
+                (select id,suppliername,agentcomission,phone,address,isagent from listingsSuppliers where isAgent=1 union select 0,'','','','',1) as mt
+                $join join documents d on ifnull(d.agent_id,0) = mt.id 
+                and doc_type in ('CHESHBONIT','MASKABALA','MASZIKUI')
+                and doc_date between '".DateToSQL($sDate)."' and '".DateToSQL($eDate)."'  
+    	        group by mt.id order by binary mt.suppliername";
+                
+            //echo $sql;  
+                 
+	        $res = DBQuery($sql);
+            $totalAmt = 0;
+            $totalQty = 0;
+            $totalCost = 0;
+            $tDecimals=0;
+            $totalComission = 0;
+            while (!$res->EOF)
+            {
+                $ID = $res->Fields("id");
+                $AmountCheshonitMas += $res->Fields("AmountCheshonitMas");
+                $AmountCheshonitMasKabala += $res->Fields("AmountCheshonitMasKabala");
+                $AmountCheshonitMasZikui += $res->Fields("AmountCheshonitMasZikui");
+                $link="";
+                $Total =  $res->Fields("AmountCheshonitMas")+ $res->Fields("AmountCheshonitMasKabala")+$res->Fields("AmountCheshonitMasZikui");
+				$comission = $Total * $res->Fields("agentcomission") /100;
+				$totalComission += $comission;
+		        echo "<tr align=right>";
+		        if ($ID && HasActionPermission("PREFERENCES"))
+		        {
+					$link = "<a href=\"javascript:parent.wopen('cppro/main.php?service=suppliers&cid=1&bd_event=edit_record&record_id=$ID','edit',550,440,true)\">";
+				}
+                echo "<td>$link".((trim($res->Fields("caption")))?$res->Fields("caption"):"ללא סוכן")."</td>";
+                echo "<td nowrap>".$res->Fields("phone")."</td>";
+                echo "<td>".$res->Fields("address")."</td>"; 
+		        $ids="";
+		        echo"<td ><a dir=ltr href='javascript:showDocs(\"".$res->Fields("idsCheshonitMas")."\")'>".number_format($res->Fields("AmountCheshonitMas"),2,".","")."&nbsp;</td>";
+		        echo"<td ><a dir=ltr href='javascript:showDocs(\"".$res->Fields("idsCheshonitMasKabala")."\")'>".number_format($res->Fields("AmountCheshonitMasKabala"),2,".","")."&nbsp;</td>";
+		        echo"<td ><a dir=ltr href='javascript:showDocs(\"".$res->Fields("idsCheshonitMasZikui")."\")'>".number_format($res->Fields("AmountCheshonitMasZikui"),2,".","")."&nbsp;</td>";
+		        echo"<td ><span dir=ltr>".number_format($Total,2,".","")."&nbsp;</td>";
+		        echo"<td ><span dir=ltr>".number_format($res->Fields("agentcomission"),2,".","")."</td>";
+		        echo"<td ><span dir=ltr>".number_format($comission,2,".","")."</td>";
+		        echo "</tr>"; 
+		        
+		        $b=$body;
+		        $f=$numformat;
+		        $worksheet->write("A".$rrow,$res->Fields("caption"),$b);
+                $worksheet->write("B".$rrow,$res->Fields("phone"),$b); 
+                $worksheet->write("C".$rrow,$res->Fields("address"),$b); 
+                $worksheet->write("D".$rrow,$res->Fields("AmountCheshonitMas"),$f); 
+		        $worksheet->write("E".$rrow,$res->Fields("AmountCheshonitMasKabala"),$f);
+                $worksheet->write("F".$rrow,$res->Fields("AmountCheshonitMasZikui"),$f);
+                $worksheet->write("G".$rrow,$Total,$f);
+                $worksheet->write("H".$rrow,$res->Fields("agentcomission"),$f);
+                $worksheet->write("I".$rrow,$comission,$f);
+
+		        $rrow++;
+	            
+                $res->MoveNext();
+
+	    }
+        
+	    echo "
+	    <tr>
+		<td class=mode colspan=3><b>".$lang['total']."</b></td>";
+		echo "<td class=bt >&nbsp;<span dir=ltr id=TAMT>".number_format($AmountCheshonitMas,2,".","")."</span>&nbsp;</td>";
+		echo "<td class=bt >&nbsp;<span dir=ltr id=TAMT>".number_format($AmountCheshonitMasKabala,2,".","")."</span>&nbsp;</td>";
+		echo "<td class=bt >&nbsp;<span dir=ltr id=TAMT>".number_format($AmountCheshonitMasZikui,2,".","")."</span>&nbsp;</td>";
+		echo "<td class=bt >&nbsp;<span dir=ltr id=TAMT>".number_format($AmountCheshonitMasZikui+$AmountCheshonitMasKabala+$AmountCheshonitMas,2,".","")."</span>&nbsp;</td>";
+	    echo "<td>&nbsp;</td>";
+	    echo "<td class=bt ><span dir=ltr>".number_format($totalComission,2,".","")."</td>";
+	    echo "</tr>";
+	    echo "</table>";
+	    
+	    $worksheet->write("C".($rrow),"סה\"כ",$numformatb);
+	    $worksheet->write("D".($rrow),$AmountCheshonitMas,$numformatb);
+        $worksheet->write("E".($rrow),$AmountCheshonitMasKabala,$numformatb);   
+        $worksheet->write("F".($rrow),$AmountCheshonitMasZikui,$numformatb);   
+        $worksheet->write("G".($rrow),$AmountCheshonitMasZikui+$AmountCheshonitMasKabala+$AmountCheshonitMas,$numformatb);   
+		$worksheet->write("H".($rrow),"",$b); 
+		$worksheet->write("I".($rrow),$totalComission,$numformatb); 
+	}
+	
+	$workbook->close();
+	copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+    unlink($fname);
+    
+	
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+	
+	
+	function sum($rs,$field,&$ids){
+		$s=0;
+		$ids="";
+		$rs->MoveFirst();
+		while(!$rs->EOF){
+			$s+=$rs->fields[$field];
+			if (!strpos(" ".$ids,",".$rs->fields["ID"])){
+				$ids.=",".$rs->fields["ID"];
+			}
+			$rs->MoveNext();
+		}
+		$ids = substr($ids,1);
+		return $s;
+	}
+?>
+
+<script>
+
+function ReCalc(val)
+{
+    totalAmt=0;  
+    totalQty=0;
+    totalCst=0;
+    for(i=0;i<document.all("CHK").length;i++)
+    {
+        s = document.all("CHK")[i];
+        if (typeof(val)!="undefined")
+        {
+            s.checked = val;
+        }
+        if (s.checked)
+        {
+            if (!isNaN(parseFloat(s.amt)))totalAmt += parseFloat(s.amt);
+            if (!isNaN(parseFloat(s.qty)))totalQty += parseFloat(s.qty);
+            if (!isNaN(parseFloat(s.cst)))totalCst += parseFloat(s.cst); 
+        }
+    }
+    document.all.TAMT.innerHTML =  totalAmt.toFixed(2);
+    document.all.TQTY.innerHTML =  totalQty.toFixed(2);
+    document.all.TCST.innerHTML =  totalCst.toFixed(2);  
+}
+</script>
+
+
+<form name=FF method=post target=CHN action="rep_documents.php">
+<input type=hidden name=ids>
+<input type=hidden name=simple value=1>
+<input type=hidden name=usr value="<?=$usr?>">
+<input type=hidden name=rmodule value="<?=$rmodule?>">
+</form>

@@ -1,0 +1,14 @@
+<?
+  	if($service != "")
+	{
+		if($current_service != $service)
+		{
+		 	setcookie("current_service", $service);
+		 	setcookie("current_plugin");
+			$current_service = $service;
+			$current_plugin = "";
+
+			sysLogUserEvent(on_loading_module, "(system name: $current_service)");
+		}
+	}
+?>

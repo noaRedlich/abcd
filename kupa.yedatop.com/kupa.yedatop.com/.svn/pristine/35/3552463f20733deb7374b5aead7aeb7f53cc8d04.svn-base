@@ -1,0 +1,293 @@
+<style>
+.z {color:gray}
+.b {font-weight:bold}
+th {background-color:silver}
+</style>
+<?php
+
+    $mode = $_GET["mode"];
+    if (!$mode) $mode = $_POST["mode"]; 
+	
+    $simple=1;
+	$page_subtitle = "תקבולים ";
+	if (!$mode){
+		include("include/common.php");
+		if (!loginCheck('User'))exit;
+		global $action, $id, $cur_page, $lang, $conn, $config;
+		include("$config[template_path]/admin_top.html");
+	}
+
+
+    if ($client_id){
+        $sql = "select suppliername from listingsSuppliers where id = $client_id";
+		$clientrs = $conn->Execute($sql);
+		if ($clientrs === false){log_error($sql);}
+        $clientname = $clientrs->fields["suppliername"];
+    }
+
+	//if ($coupon || (($_GET["sDate"] || $_GET["ids"] || $mode) && $saction != "sendreport")){
+		$saction="go";
+	//}
+
+   	?>
+
+		<script>
+		function PrintReport(){
+			document.getElementById("Query").style.display = "none";
+			window.print();
+			document.getElementById("Query").style.display = "";
+		}
+		</script>
+		<body>
+		<table cellpadding=5 border=0 width=100%>
+		<tr>
+		<form name=F method=post>
+		<input type=hidden name=usr value=<?=$usr?>>
+		<input type=hidden name=toremove value="">
+		<input type=hidden name=rmodule value=<?=$rmodule?>>
+		<?$reporttitle = "תקבולים"; ?>
+		<?if ($usr){$reporttitle.="<br>".$username;}?>
+        <?if ($clientname){$reporttitle.="<br>".$clientname;}?>
+		<td nowrap>
+		<strong style='font-size:12pt'><?=$reporttitle?></strong>
+		</td><td width=99% style='border:inset 1'>
+
+
+ 		<?if ($saction=="go" || $saction=="sendreport"){
+			require("sendreport.php");
+		}?>
+		<input type=hidden name=saction value=go>
+		<input type=hidden name=reportbody value="">
+		<input type=hidden name=sendmode value="">
+		</td>
+		</form>
+		</tr>
+		</table>
+
+	<?	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+	
+
+    ?>
+	<div ><br><table id=REPORTTABLE bordercolor=gray border=1 style='border-collapse:collapse' dir=$dir width=100% border=0 cellpadding=2 cellspacing=0 bgcolor=white>
+    <tr>
+    <td class="tableHead2" width=1% nowrap>תאריד פרעון</td>
+	<td class="tableHead2" width=1% nowrap >תאריך מסמך</td>
+	<td class="tableHead2" nowrap>שם לקוח/ספק</td>
+	<td class="tableHead2" width=1% nowrap>סוג תשלום</td>
+	<td class="tableHead2 " nowrap width=1% >מספר שיק/שובר</td>
+	<td class="tableHead2 none"  width=1% >בנק</td>
+	<td class="tableHead2 none"  width=1%  >סניף</td>
+	<td class="tableHead2 none" width=1%  nowrap>חשבון</td>
+	<td class="tableHead2 none" width=1%  nowrap>סכום</td>
+    </tr>
+    <?
+
+	$day = $startdate;
+	if ($number){
+		$day=$enddate;
+	}
+        if (substr($ids,strlen($ids)-1,1)==","){
+            $ids = substr($ids,0,strlen($ids)-1);
+        }
+
+        if ($ids){
+            $q = " and dp.id in ($ids) ";
+            $sortorder = "k.sortorder,checkdate";
+        }
+        else{
+			if ($client){
+				$q .= " and client_id = $client ";
+			}
+			$qc=$q;
+
+			$q .= " and dt.is_payment=1 ";
+			if ($dt1)
+			{
+				$q.=" and doc_type='$dt1' ";
+			}
+			if ($chequenum){
+				$q .= "and checknumber='".addslashes($chequenum)."'";
+			}
+			if ($chequeamt){
+				$q .= "and dp.amount='".addslashes($chequeamt)."'";
+			}
+			if ($spDate){
+				$q .= "and checkdate>='".dateToSQL($spDate)."'";
+			}
+			if ($epDate){
+				$q .= "and checkdate<='".dateToSQL($epDate)."'";
+			}
+			if ($banknum){
+				$q .= "and checkbank='".($banknum)."'";
+			}
+			if ($snifnum){
+				$q .= "and checksnif='".($snifnum)."'";
+			}
+			if ($accnum){
+				$q .= "and checkaccount='".($accnum)."'";
+			}
+			if ($kupa){
+				$q .= "and kupa_id='".($kupa)."'";
+			} 
+			if ($ptype!=""){
+				$q .= "and payment_type='".($ptype)."'";
+			}			
+			if ($outcheques){
+				$q .= " and doc_type = 'TASHLUM' and payment_type=0 ";
+			}
+            
+            //don't show cancelled tashlumims
+            $q.= " and not (doc_type = 'TASHLUM'  and doc_status = $STATUS_CANCELLED) and doc_type <> 'BITULTASHLUM' ";
+            
+            
+            $ascdesc = ($asc)?"":"desc";   
+			if (!$sort)
+            {   
+                $sort="Date";
+                $ascdesc = "desc";
+                $desc=1;
+            }
+			
+			switch ($sort){
+				case "DocDate": $sortorder = "doc_date $ascdesc, id $ascdesc";break;
+                case "Date": $sortorder = "checkdate $ascdesc, id $ascdesc";break;
+				case "Number": $sortorder = "doc_number+0 $ascdesc";break;
+                case "Client": $sortorder = "binary SupplierName $ascdesc";break; 
+                case "PayType": $sortorder = "payment_name $ascdesc";break; 
+                case "ChequeNum": $sortorder = "checknumber+0 $ascdesc";break; 
+                case "Amount": $sortorder = "dp.amount+0 $ascdesc";break;
+				case "DateNum": $sortorder = "id desc";break;
+			}
+
+            $sortorder = " k.sortorder, ".$sortorder;
+        }
+
+        $sql = "
+        select * from (
+        select 1 as type, d.doc_number, dt.name as type_name, d.id as doc_id,
+                dp.id, dp.hov, dp.Amount, dp.checknumber, dp.checkdate, dp.checkbank, dp.checksnif,
+                dp.checkaccount, dp.payment_type,
+                d.comment1 as comment,  doc_date, client_name,dpt.name as payment_name,
+                d.client_id,k.name as kupaname,k.id as kupaid, k.sortorder
+				from document_payments dp
+                left outer join kupot k on k.id = dp.kupa_id
+                , documents d, $TABLE_DOCUMENT_TYPE dt, listingsSuppliers s,
+				$TABLE_DOCPAYMENTTYPES dpt 
+				where dp.doc_id = d.id and d.user_id = $userID and d.doc_type = dt.id
+				and s.id = d.client_id and dpt.id = dp.payment_type $q
+         ";
+
+         if ($ids && !$nosapak){
+         $sql.="
+                union
+                select 2 as type, group_id as doc_number, 'תשלום לספק' as type_name, group_id as doc_id,
+                sp.id,hov,amount,checknumber,checkdate,checkbank,checksnif,checkaccount,
+                payment_type, sp.comment, day as doc_date, s.supplierName as client_name, dpt.name as payment_name,
+                supplier_id as client_id,'' as kupaname,'' as kupaid, -1 as sortorder
+                from supplierpayments sp,listingsSuppliers s, $TABLE_DOCPAYMENTTYPES dpt
+                where sp.user_id = $userID and dpt.id = payment_type and 1000000+sp.id in ($ids)
+                and s.id = sp.supplier_id
+         ";
+         }
+		 $sql.=") k order by $sortorder";
+
+        //echo $sql;
+
+		$recordSet = $conn->Execute($sql);
+		if ($recordSet === false){log_error($sql);}
+
+        $kupa = $recordSet->fields["kupaid"];
+        $totalkupa=0;
+		while (!$recordSet->EOF){
+            $ID = $recordSet->fields["id"];
+			$DOCID = $recordSet->fields["doc_id"];
+            $count=0;
+            $total += $recordSet->fields["Amount"];
+			$title = $recordSet->fields["type_name"]." #".$recordSet->fields["doc_number"];
+            if ($recordSet->fields["comment"]){
+				$title.="\n_____________________________________________________\n".str_replace("'","&#39;",$recordSet->fields["comment"]);
+			}
+            if ($recordSet->fields["type"]==1)
+            {
+                $link = "add_document.php?docid=$DOCID&tabmode=PAYMENTS&did=".$recordSet->fields["type"];
+            }
+            else
+            {
+                $link = "rep_spayment.php?sid=".$recordSet->fields["client_id"]."&sDate=".$recordSet->fields["doc_date"]."&gid=".$recordSet->fields["doc_number"]."&simple=1";
+            }
+
+            if ($kupa!=$recordSet->fields["kupaid"]){
+            	echo "
+                <tr>
+                <td Colspan=8><b>סה\"כ (".($kupaname?$kupaname:"בלי קופה").")</td>
+                <td><b>".number_format($totalkupa,2)."</td>
+                </tr>
+                ";
+                $kupa = $recordSet->fields["kupaid"];
+                $totalkupa = 0;
+            }
+            $totalkupa += $recordSet->fields["Amount"];
+            $kupaname =  $recordSet->fields["kupaname"];
+            $dayofweek = $days[date("w",strtotime($recordSet->fields["doc_date"]))]; 
+            $dayofweek2="";
+            if ($recordSet->fields["checkdate"]&&$recordSet->fields["checkdate"]!="0000-00-00")
+            {
+                $dayofweek2 = $days[date("w",strtotime($recordSet->fields["checkdate"]))];       
+            }
+            
+			echo "<tr style='cursor:hand' title='".$title."' onclick=\"s=wopen('$link','add_doc',screen.availWidth-100,490,true,'no');try{s.focus()}catch(e){}\"  id='tr$ID'>";
+            echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".(($recordSet->fields["checkdate"]&&$recordSet->fields["checkdate"]!="0000-00-00")?DateFromSQL($recordSet->fields["checkdate"]):"")." $dayofweek2&nbsp;</td>";
+			echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".DateFromSQL($recordSet->fields["doc_date"])." $dayofweek&nbsp;</td>";
+			echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><div style='overflow:hidden;width:100%;height:15'>".$recordSet->fields["client_name"]."&nbsp;</div></td>";
+			echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["payment_name"]."&nbsp;</td>";
+			echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["checknumber"]."&nbsp;</td>";
+			echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["checkbank"]."&nbsp;</td>";
+			echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["checksnif"]."&nbsp;</td>";
+			echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["checkaccount"]."&nbsp;</td>";
+			echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".number_format($recordSet->fields["Amount"],2)."&nbsp;</td>";
+            echo "</tr>";
+			$recordSet->MoveNext();
+		}
+
+    if ($kupa!=$recordSet->fields["kupaid"]){
+    	echo "
+        <tr>
+        <td Colspan=8><b>סה\"כ (".($kupaname?$kupaname:"בלי קופה").")</td>
+        <td><b>".number_format($totalkupa,2)."</td>
+        </tr>
+        ";
+    }
+
+	echo "
+    <tr>
+    <td Colspan=8><b>סה\"כ</td>
+    <td><b>".number_format($total,2)."</td>
+    </tr>
+    ";
+	echo "</table></div>";
+	
+	}
+	
+	?>
+	<script>
+	function remove(id){
+		if (confirm("למחוק את החשבונית?")){
+			document.F.toremove.value = id;
+			document.F.submit();
+		}
+	}
+	</script>
+	<?
+	
+	if (!$mode){
+		include("$config[template_path]/admin_bottom.html");
+		$conn->Close(); // close the db connection
+	}
+?>

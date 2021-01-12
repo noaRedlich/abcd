@@ -1,0 +1,40 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+$table_tabindex = isset($table_tabindex) ? $table_tabindex : 0;
+$table_tabs = isset($table_tabs) ? $table_tabs : array();
+$table_arguments = isset($table_arguments) ? $table_arguments : '';
+//draw head of table
+echo '<input type="hidden" name="table_tabindex" value="'.$table_tabindex.'" />';
+echo '<table border="0" cellpadding="0" cellspacing="0" class="TableBorder" width="'.$table_width.'">';
+echo '<tr><td valign="top">';
+echo '<table border="0" cellpadding="1" cellspacing="1" width="100%">';
+echo '<tr><td colspan="99" class="TableHead">'.$table_title.'</td></tr>';
+$tab_count = count($table_tabs);
+$remaining_width= $table_width - ($tab_count * 100);
+if ($tab_count > 0)
+{
+	echo '<tr>';
+	//draw tabs and select the active doc
+	for ($i=0;$i<$tab_count;$i++)
+	{
+		if ($i == $table_tabindex)
+		{
+				echo '<td align="center" class="ActiveTab" width="100" nowrap>'.$table_tabs[$i].'</td>';
+		}else
+		{
+				echo '<td align="center" class="Tab" width="100" nowrap><a class="Tab" href="'.$PHP_SELF.'?table_tabindex='.$i.$table_arguments.'">'.$table_tabs[$i].'</a></td>';
+		}
+	}
+	echo '<td class="Tab" width="'.$remaining_width.'">&nbsp;</td>';
+	echo '</tr>';
+}
+echo '<tr><td colspan="99" cellpadding="10" cellspacing="0" class="TableInside" height="'.$table_height.'" valign="top" width="100%">';
+require($table_docs[$table_tabindex]);
+echo '</td></tr></table></td></tr></table>';
+?>

@@ -1,0 +1,8 @@
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=Windows-1255">
+<title>הדפסת מסמך</title>
+</head>
+<body>
+<iframe style='width:100%;height:100%' src="printpdf.php?<?=$HTTP_SERVER_VARS["QUERY_STRING"]?>">
+</iframe>
+</body>

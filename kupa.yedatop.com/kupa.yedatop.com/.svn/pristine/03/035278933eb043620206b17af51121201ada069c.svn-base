@@ -1,0 +1,390 @@
+<?php
+
+global $action, $id, $lang, $conn, $config;
+
+if ($action == "create_new_listing")
+{
+    if ($_POST["store_Sapak"])
+    {
+        setcookie("stored_Sapak",$Sapak,time()+3600*24*30,"/");
+        setcookie("store_Sapak",$_POST["store_Sapak"],time()+3600*24*30,"/");
+    }
+    else
+    {
+        setcookie("stored_Sapak","-1",time() - 3600,"/");
+        setcookie("store_Sapak","0",time() - 3600,"/");
+    }
+    if ($_POST["store_ProductGroup"])
+    {
+        setcookie("stored_ProductGroup",$ProductGroup,time()+3600*24*30,"/");
+        setcookie("store_ProductGroup",$_POST["store_ProductGroup"],time()+3600*24*30,"/");
+    }
+    else
+    {
+        setcookie("stored_ProductGroup","-1",time() - 3600,"/");
+        setcookie("store_ProductGroup","0",time()-3600,"/");
+        //die("S");
+    }
+}
+
+if($_GET["mode"]=="generate")
+{
+    ob_start();
+}
+
+$page_subtitle = "פריט חדש";
+include("include/common.php");
+if(!loginCheck('User'))exit;
+
+
+include("$config[template_path]/admin_top.html");
+
+if($_GET["mode"]=="generate")
+{
+    ob_end_clean();
+    $rs = DBQuery($sql);
+    echo GenerateBarcode($_GET["sapak"]);
+    exit();
+}
+
+
+if ($dialog)
+{
+    echo "<base target=_self>";
+}
+
+if ($action == "create_new_listing")
+{
+    // creates a new listing
+    if ($StockMin)
+    {
+        $StockMin = $HTTP_POST_VARS["StockMin"] = intval($StockMin);
+    }
+    if ($StockMax)
+    {
+        $StockMax = $HTTP_POST_VARS["StockMax"] = intval($StockMax);
+    }
+
+    if ($title == "")
+    {
+        echo "<b style=color:red>$lang[admin_new_listing_enter_a_title]</b>";
+    } // end if
+    elseif ( $StockMin < 0 || $StockMin > 999999)
+    {
+        echo "<strong style=color:red>$lang[admin_new_listing_enter_a_stockmin]</strong>";
+    }
+    elseif ( $StockMax < 0 || $StockMax > 999999)
+    {
+        echo "<strong style=color:red>$lang[admin_new_listing_enter_a_stockmax]</strong>";
+    }
+    elseif ( $Quantity < 0 || $Quantity > 999999)
+    {
+        echo "<strong style=color:red>$lang[admin_new_listing_enter_a_quantity]</strong>";
+    }
+
+    else
+    {
+        global $HTTP_POST_VARS, $pass_the_form, $userID;
+        $pass_the_form = validateForm($TABLE_LISTINGSFORMELEMENTS);
+        if ($pass_the_form == "No")
+        {
+            // if we're not going to pass it, tell that they forgot to fill in one of the fields
+            echo "<b style=color:red>$lang[required_fields_not_filled]</b>";
+        }
+
+        if ($pass_the_form == "Yes")
+        {
+            $title_orig = $title;
+            $notes_orig = $notes;
+            $dbtitle = make_db_safe($title);
+            $dbexport = make_db_safe($export);
+            $dbnotes = make_db_safe($notes);
+            $dbcontact1 = make_db_safe($contact1);
+            // what the program should do if the form is valid
+
+            // generate a random number to enter in as the password (initially)
+            // we'll need to know the actual listing id to help with retrieving the listing.
+            // We'll be putting in a random number that we know the value of, we can easily
+            // retrieve the listing id in a few moments
+
+            $random_number = rand(1,10000);
+            // check to see if moderation is turned on...
+            if ($config[moderate_listings] == "no")
+            {
+                $set_active = "yes";
+            }
+            else
+            {
+                $set_active = "no";
+            }
+
+            // create the account with the random number as the password
+
+            $expiration_date  = mktime (0,0,0,date("m")  ,date("d")+$config[days_until_listings_expire],date("Y"));
+
+
+            $sql = "select ID from listingsDB where BarCode='".trim(addslashes($BarCode))."' and user_id = $userID";
+            $recordSet = DBQuery($sql);
+            if (!$recordSet->EOF)
+            {
+                echo "<b style=color:red>$lang[barcode_exists]</b>";
+            }
+            else
+            {
+
+                $sql = "INSERT INTO listingsDB (title, export, notes, user_ID, active, creation_date, last_modified, expiration, lastinserted, synccatalog,is_tree)
+                    VALUES ($dbtitle,$dbexport, '$random_number',  '$userID', '$set_active', ".$conn->DBDate(time()).",".$conn->DBTimeStamp(time()).",".$conn->DBDate($expiration_date).", unix_timestamp(), 0,'$tree')";
+
+
+                $recordSet = $conn->Execute($sql);
+                if ($recordSet === false)
+                {
+                    log_error($sql);
+                }
+                // then we need to retrieve the new listing id
+                $sql = "SELECT id FROM listingsDB WHERE notes = '$random_number'";
+                $ADODB_FETCH_MODE = ADODB_FETCH_ASSOC;
+                $recordSet = $conn->Execute($sql);
+                if ($recordSet === false)
+                {
+                    log_error($sql);
+                }
+                while (!$recordSet->EOF)
+                {
+                    $new_listing_id = $recordSet->fields[id]; // this is the new listing's ID number
+                    $recordSet->MoveNext();
+                } // end while
+
+                // now it's time to replace the password
+                $sql = "UPDATE listingsDB SET notes = $dbnotes WHERE ID = '$new_listing_id'";
+                $recordSet = $conn->Execute($sql);
+                if ($recordSet === false)
+                {
+                    log_error($sql);
+                }
+                // now that that's taken care of, it's time to insert all the rest
+                // of the variables into the database
+
+                $message = updateListingsData($new_listing_id, $userID);
+                if ($message == "success")
+                {
+                    //recalculate quantitites according to unit rate
+                    if ($Unit)
+                    {
+                        $sqlunit = "select grams_rate from $TABLE_UNITS where id = $Unit";
+                        $unitrs = $conn->Execute($sqlunit);
+                        if ($unitrs === false)
+                        {
+                            log_error($sqlunit);
+                        }
+                        $grams_rate = $unitrs->Fields("grams_rate");
+                        $sqlunit = "update listingsDB set StockMin = StockMin*$grams_rate where id = $new_listing_id ";
+                        $unitrs = $conn->Execute($sqlunit);
+                        if ($unitrs === false)
+                        {
+                            log_error($sqlunit);
+                        }
+                        $sqlunit = "update listingsDB set StockMax = StockMax*$grams_rate where id = $new_listing_id ";
+                        $unitrs = $conn->Execute($sqlunit);
+                        if ($unitrs === false)
+                        {
+                            log_error($sqlunit);
+                        }
+                    }
+
+                    echo "<b>$lang[admin_new_listing_created]</b>";
+                    if (!$dialog)
+                    {
+                        echo "<script>reloadParent();</script>";
+                    }
+                    else
+                    {
+                        echo "<script>window.returnValue='".trim(addslashes($BarCode))."';window.close();</script>";
+                    }
+
+                    if ($config[moderate_listings] == "yes")
+                    {
+                        // if moderation is turned on...
+                        echo "<p>$lang[admin_new_listing_moderated]</p>";
+                    }
+                    echo "<script>s=\"location='add_listing.php?simple=1&prev=$new_listing_id'\";setTimeout(s,2000);</script>";
+                    echo "<p align=center>
+							<a href=\"edit_my_listings.php?simple=1&edit=$new_listing_id\"><u><strong>$lang[you_may_now_edit_your_listing]</strong></u></a><br>
+							<a href=\"add_listing.php?simple=1&prev=$new_listing_id\"><u><strong>$lang[admin_menu_add_a_listing]</strong></u></a>
+							</p>";
+                    log_action ("$lang[log_created_listing] $new_listing_id");
+                    if ($config[email_notification_of_new_listings] == "yes")
+                    {
+                        // if the site admin should be notified when a new listing is added
+                        global $config, $lang;
+                        $message = $_SERVER[REMOTE_ADDR]. " -- ".date("F j, Y, g:i:s a")."\r\n\r\n$lang[admin_new_listing]:\r\n$config[baseurl]/admin/listings_edit.php?edit=$new_listing_id\r\n";
+                        @mail("$config[admin_email]", "$lang[admin_new_listing]", $message,"From: $config[admin_email]", "-f$config[admin_email]");
+                    } // end if
+
+
+                } // end if
+                else
+                {
+                    echo "<p>$lang[alert_site_admin]</p>";
+                } // end else
+
+                exit;
+            } //end barcode check
+        } // end $pass_the_form == "Yes"
+
+
+    } // end else
+
+
+} // end if $action == "create_new_listing"
+
+//check categories
+$sql = "select id from listingsCategories where user_ID = $userID and Status=1";
+$recordSet = $conn->Execute($sql);
+if ($recordSet->EOF)
+{
+    echo "<br><p align=center><b>".$lang["no_categories"]."</b><br><br></p>";
+    exit();
+}
+?>
+
+<table width=100% height=100% border="0" cellspacing="<?php echo $style[form_cellspacing] ?>" cellpadding="<?php echo $style[form_cellpadding] ?>" class="form_main">
+    <form action="<?php echo $php_self ?>" method="post" name=update_listing>
+        <input type="hidden" name="action" value="create_new_listing">
+        <input type="hidden" name="dialog" value="<?=$dialog?>">
+        <tr style='height:1%'><td colspan="2" class="row_main">
+                <table cellpadding=3 cellspacing=2 width=100%><tr><td bgcolor=#ffffcc>
+                            <h3><?php echo $lang[admin_menu_add_a_listing] ?></h3>
+                            <?if ($prev)
+                            {?>
+                        </td><td nowrap width=1% style='border:outset 1'>
+                            <a href='edit_my_listings.php?simple=1&edit=<?=$prev?>'><span ><?=$lang["edit_prev"]?></span></a>
+                                <?}?>
+                        </td></tr></table>
+            </td></tr>
+        <script>
+            function open_addressbook(field, address_string)
+            {
+                popup('<?php echo $GO_CONFIG->host."contacts/select.php?returnfield=name&SET_HANDLER=".$GO_CONFIG->host.$GO_MODULES->path."add_contacts.php&SET_FIELD="; ?>'+field+'&address_string='+escape(address_string),'550','400');
+            }
+        </script>
+        <tr><td colspan=2><div style='overflow:auto;width:100%;height:375;border:inset 2'><table width=100%>
+                        <tr>
+                            <td align="right" class="row_main"><b><?php echo $lang[admin_listings_editor_title] ?> <span class="required">*</span></b></td>
+                            <td  class="row_main"> <input style='width:230px' type="text" name="title" maxlength=50  value="<?=$title?>">
+                            </td>
+                        </tr>
+                        <?php
+                        global $conn;
+                        $ADODB_FETCH_MODE = ADODB_FETCH_ASSOC;
+
+                        $q = "";
+                        if (!HasActionPermission("VIEWCOST"))
+                        {
+                            $q .=" where f.field_name <> 'Cost' ";
+                        }
+
+                        $sql = "SELECT id, field_type, field_name, field_caption, default_text, field_elements, rank, required from $TABLE_LISTINGSFORMELEMENTS f $q ORDER BY rank, field_name";
+                        $recordSet = $conn->Execute($sql);
+                        if ($recordSet === false)
+                        {
+                            log_error($sql);
+                        }
+                        while (!$recordSet->EOF)
+                        {
+                            $id = $recordSet->fields[ID];
+                            $field_type = $recordSet->fields[field_type];
+                            $field_name = $recordSet->fields[field_name];
+                            $field_caption = $recordSet->fields[field_caption];
+                            $default_text = $recordSet->fields[default_text];
+                            $field_elements = $recordSet->fields[field_elements];
+                            $rank = $recordSet->fields[rank];
+                            $required = $recordSet->fields[required];
+
+                            $field_type = make_db_unsafe($field_type);
+                            $field_name = make_db_unsafe($field_name);
+                            $field_caption = make_db_unsafe($field_caption);
+                            $default_text = make_db_unsafe($default_text);
+                            $field_elements = make_db_unsafe($field_elements);
+                            $required = make_db_unsafe($required);
+                            $visible = !($field_name=="Quantity"|| ($field_name=="Cost"&&$UserData->Fields("RecalcCostOnPurchase")==1));
+                            renderFormElement($field_type, $field_name, $field_caption, $default_text, $field_elements, $required,$visible);
+
+                            $recordSet->MoveNext();
+                        } // end while
+
+                        ?>
+                        <tr>
+                            <td align="right" nowrap class="row_main"><b><?php echo $lang[admin_listings_editor_export] ?>: <span class="required">*</span></b></td>
+                            <td  class="row_main">
+                                <select name=export>
+                                    <option value=1 selected>כן
+                                    <option value=0 >לא
+                                </select>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </td>
+        </tr>
+
+        <?
+        renderFormElement("submit","","אישור", "", "", "",true);
+        ?>
+
+    </form>
+
+    <tr  style='height:1%'><td colspan="2" align="center" class="row_main"><?php echo $lang[required_form_text] ?></td></tr>
+</table>
+
+<script>
+    function generateBarcode(){
+        var ok = true;
+        if (document.update_listing.Sapak.value==""){
+            ok = (confirm("הספק לא נבחר. לחולל ברקוד כללי?"));
+        }
+        if (ok){
+            var url = "add_listing.php?sapak="+document.update_listing.Sapak.value+"&mode=generate";
+            xmlhttp = new ActiveXObject("Microsoft.XMLHTTP")
+            xmlhttp.open("GET",url,false)
+            xmlhttp.send();
+            if(isNaN(parseInt(xmlhttp.ResponseText))){
+                alert("ישנה בעיה בעדכון נתונים");
+            }
+            else{
+                document.update_listing.BarCode.value = xmlhttp.ResponseText;
+            }
+        }
+    }
+</script>
+
+
+
+<?php
+function GenerateBarcode($sapak)
+{
+    global $userID;
+    if (!$sapak)
+    {
+        $barcode = 1001;
+    }
+    else
+    {
+        $rs = DBQuery("select max(barcode+0) as bc from listingsDB where sapak=$sapak and user_id = $userID");
+        $barcode = $rs->fields["bc"];
+        if (!$barcode) $barcode = str_pad($sapak, 13, "0",STR_PAD_RIGHT);
+    }
+    $found = true;
+    while ($found)
+    {
+        $res = DBQuery("select id from listingsDB where barcode = '$barcode' and user_id = $userID");
+        $found = !$res->EOF;
+        if ($found)$barcode++;
+    }
+    return number_format($barcode,0,"","");
+}
+
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

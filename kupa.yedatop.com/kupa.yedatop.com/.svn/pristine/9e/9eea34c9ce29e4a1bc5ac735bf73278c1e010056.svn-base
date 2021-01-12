@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+  <main_table>document_type_counters</main_table>
+  <condition>doc_type_id &lt;&gt; 'ECHZERLESAPAK'</condition>
+  <name>הגדרות משתמשים</name>
+  <reload_parent>0</reload_parent>
+  <options>
+    <opt name="create_record" type="none"></opt>
+    <opt name="edit_record" type="sometime"></opt>
+    <opt name="search" type="none"></opt>
+    <opt name="view" type="always"></opt>
+    <opt name="delete_record" type="none"></opt>
+  </options>
+  <view>
+    <vcol type="enum" name="doc_type_id">
+      סוג מסמך
+      <enum val="HATZAA">הצעת מחיר</enum> 
+      <enum val="HAZMANA">הזמנה מלקוח</enum>
+      <enum val="KRIYATSHERUT">קריאת שרות</enum>
+      <enum val="MISHLOACH">תעודת משלוח</enum>
+      <enum val="YETZIAMITIKUN">תעודת יציאה מתיקון</enum>
+      <enum val="CHESHBONIT">חשבונית מס</enum>
+      <enum val="CHESHBONITPINKAS">חשבונית מפנקס ידני</enum>
+      <enum val="HAZMANATRECHESH">הזמנת רכש</enum>
+      <enum val="KNISALEMLAI">תעודת כניסה למלאי</enum>
+      <enum val="KNISALETIKUN">תעודת כניסה לתיקון</enum>
+      <enum val="KNIYA">תעודת קנייה</enum>
+      <enum val="MASZIKUI">חשבונית מס זיכוי</enum>
+      <enum val="CHESHBONISKA">חשבון עיסקה</enum>
+      <enum val="MASKABALA">חשבונית מס קבלה</enum>
+      <enum val="KABALA">קבלה</enum>
+      <enum val="KABALAPINKAS">קבלה מפנקס ידני</enum>
+      <enum val="TASHLUM">תשלום</enum>
+      <enum val="HAFKADAHAAVARA">הפקדה\העברה</enum>
+      <enum val="HAAVARATPRITIM">תעודת העברת פריטים</enum>
+      <enum val="PROFORMA">חשבונית פרופורמה</enum>
+      <enum val="NELVE">חשבונית נלווה</enum>
+      <enum val="SFIRATSOFYOM">ספירת מלאי סוף יום</enum>
+      <enum val="SFIRATMLAI">ספירת מלאי</enum>
+      <enum val="KNISALEIZUR">כניסה ליצור</enum>
+      <enum val="YETZIAMIIZUR">יציאה מיצור</enum>
+      <enum val="ECHZERLEZAPAKNEW">החזרה לספק</enum>
+      <enum val="ECHZERLESAPAK">החזרה לספק (ישן)</enum>
+      <enum val="BITULKNIYA">ביטול קנייה</enum>
+    </vcol>
+    <vcol type="enum" name="status">
+      פעיל
+      <enum val="1">Yes</enum>
+      <enum val="0">No</enum>
+    </vcol>
+    <vcol name="counter">מספר אתחלתי</vcol>
+  </view>
+  <edit>
+    <ecol name="status" type="yes_no">פעיל</ecol>
+    <ecol type="string" name="counter">מספר אתחלתי</ecol>
+    <ecol type="enum" name="metric" displaywhen="[doc_type_id]" displaywhat="HAAVARATPRITIM|SFIRATMLAI">
+      חישוב סכומים לפי
+      <enum val="SALEPRICE">מחיר מכירה</enum>
+      <enum val="COST">עלות</enum>
+    </ecol>
+    <ecol type="enum" name="default_print_copy">
+      מספר עותקים להדפסה
+      <enum val="1">1 </enum>
+      <enum val="2">2 </enum>
+      <enum val="3">3 </enum>
+      <enum val="4">4 </enum>
+      <enum val="5">5 </enum>
+    </ecol>
+    <ecol name="print_time" type="yes_no">להדפיס שעת יצירת מסמך</ecol>
+    <ecol type="text" name="comment">הערות למסמך</ecol>
+    <ecol type="enum" name="movestock" displaywhen="[doc_type_id]" displaywhat="NELVE">
+      להוריד מהמלאי
+      <enum val="0">לא</enum>
+      <enum val="1">כן</enum>
+    </ecol>
+    <ecol name="show_misparzar" type="yes_no">להציג מספר זר של הפריטים</ecol>
+  </edit>
+  <sql_actions>
+    <opt name="order" val="doc_type_id"></opt>
+  </sql_actions>
+</xml>

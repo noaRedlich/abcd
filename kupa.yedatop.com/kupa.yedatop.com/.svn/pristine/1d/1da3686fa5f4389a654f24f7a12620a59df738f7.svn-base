@@ -1,0 +1,38 @@
+<?php
+  	function uc2html($str) {
+		$ret = '';
+		for( $i=0; $i<strlen($str)/2; $i++ ) {
+			$charcode = ord($str[$i*2])+256*ord($str[$i*2+1]);
+			$ret .= '&#'.$charcode;       
+		}
+		return $ret;
+	}
+
+	function get( $exc, $data )
+	{
+		switch( $data['type'] )
+		{
+			// string
+		case 0:
+			$ind = $data['data'];
+			if( $exc->sst[unicode][$ind] )
+				return uc2html($exc->sst['data'][$ind]);
+			else
+				return $exc->sst['data'][$ind];
+
+			// integer
+		case 1:
+			return (integer) $data['data'];
+
+			// float
+		case 2:
+			return (float) $data['data'];
+        
+		case 3:
+			return gmdate("m-d-Y",$exc->xls2tstamp($data[data]));
+
+		default:
+			return '';
+		}
+	}
+?>

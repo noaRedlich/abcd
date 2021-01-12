@@ -1,0 +1,187 @@
+<?php
+	$simple=1;
+	global $action, $id, $lang, $conn, $config;
+
+	$page_subtitle = "קודים סידוריים";
+
+	include("include/common.php");
+	if(!loginCheck('User'))exit;
+
+	include("$config[template_path]/admin_top.html");
+
+    if ($todo=="save"){
+        $sql = "delete from document_serials where doc_id = $docid";
+        $recordSet = $conn->Execute($sql);
+        if ($recordSet === false){log_error($sql);}
+        $i=0;
+        foreach($code as $productcode){
+            $sql="insert into document_serials (doc_id,serial,listing_id,date_guarantee) values(
+            $docid,'".addslashes($productcode)."',".$listingid[$i].",'".DateToSQL($date[$i])."')";
+            $recordSet = $conn->Execute($sql);
+            if ($recordSet === false){log_error($sql);}
+            $i++;
+        }
+        echo "<script>window.close();</script>";
+    }
+
+    $sql = "select dt.id as type, d.client_id,d.id,doc_number,doc_date, dt.name as doc_type,dt.is_serials,
+                s.SupplierName as client_name, amount
+                from documents d, $TABLE_DOCUMENT_TYPE dt, listingsSuppliers s
+                where d.user_id = $userID and d.doc_type = dt.id
+                and s.id = d.client_id
+                and d.id = $docid";
+    $docInfo = $conn->Execute($sql);
+    if ($docInfo=== false){log_error($sql);}
+
+    $sql = "select dp.listing_id,sum(dp.quantity) as quantity,l.title,l.barcode
+    from document_products dp, listingsDB l
+    where doc_id = $docid
+    and dp.listing_id = l.id
+    group by dp.listing_id";
+
+    $recordSet = $conn->Execute($sql);
+    if ($recordSet === false){log_error($sql);}
+
+    ?>
+
+
+
+    <table width=100% height=380>
+    <form name=F method=post>
+    <input type=hidden name=docid value="<?=$docid?>">
+    <input type=hidden name=todo value="save">
+
+    <tr style='height:1%'>
+    <td><b>
+    <?=$docInfo->fields["doc_type"]?> #<?=$docInfo->fields["doc_number"]?>,
+    <?=DateFromSQL($docInfo->fields["doc_date"])?>
+
+    <?if ($docInfo->fields["client_id"]){?>
+    , לקוח: <?=$docInfo->fields["client_name"]?>
+    <?}?>
+    </b>
+    </td>
+    </tr>
+
+    <tr>
+    <td>
+    <div style='background-color:white;overflow:auto;border:inset 2;width:100%;height:100%'>
+    <table id=CODES width=100% border=1 cellpadding=0 style='border-collapse:collapse'>
+		<tr class=tableHead2 align=center>
+        <td class="tableHead2" width=1% nowrap>&nbsp;#&nbsp;</td>
+		<td class="tableHead2" width=1% nowrap>ברקוד</td>
+        <td class="tableHead2" width=99% nowrap>שם פריט</td>
+		<td class="tableHead2" width=1% nowrap>קוד סידורי</td>
+        <td class="tableHead2" width=1% nowrap>ת. אחריות</td>
+		</tr>
+<?
+    while (!$recordSet->EOF){
+
+        $listingid =$recordSet->fields["listing_id"];
+        $quantity = round($recordSet->fields["quantity"]);
+
+        $sql = "select serial , date_guarantee from document_serials where doc_id = $docid and listing_id = $listingid order by id";
+        $serial = $conn->Execute($sql);
+        if ($serial === false){log_error($sql);}
+
+           for ($i=0;$i<$quantity;$i++){
+
+                $serialnumber = ($serial->EOF)?"":$serial->fields["serial"];
+                $date = ($serial->EOF)?date("d/m/Y",mktime(0,0,0,date("m"),date("d"),date("Y")+1)):($serial->fields["date_guarantee"]==""||$serial->fields["date_guarantee"]=="0000-00-00"?"":DateFromSQL($serial->fields["date_guarantee"]));
+
+        		echo "<tr id='tr$ID'>";
+                echo "<td align=center nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"middle\" class=\"row3_$count\">".($i+1)."</td>";
+                echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"middle\" class=\"row3_$count\">&nbsp;".$recordSet->fields["barcode"]."&nbsp;</td>";
+                echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"middle\" class=\"row3_$count\">&nbsp;".$recordSet->fields["title"]."&nbsp;</td>";
+         		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"middle\" class=\"row3_$count\">
+                    <input onkeyup='checkKey($i)' dir=ltr MAXLENGTH=30 style='background-color:lightyellow' size=20 id=code_".$listingid."_".$i." name=code[] value='".$serialnumber."'><input type=button value='...' title='מספרים רצופים החל מפריט זה' onclick=propagateSerials($listingid,$i,$quantity)>
+                    <input type=hidden name=listingid[] value='$listingid'>
+
+                </td>";
+         		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"middle\" class=\"row3_$count\">
+                    <input dir=ltr onkeyup='checkKey($i)' MAXLENGTH=30 style='background-color:lightyellow' size=8 name=date_$listingid_$i value='".$date."' ><input type=hidden name=date[] id=realdate_$listingid_$i value='".$date."'>
+                    <img align=absmiddle style='cursor:hand' src='".$imgPath."calendar.gif' onclick='ShowCalendar1(\"F.date_$listingid_$i\");'>
+
+                </td>";
+                echo "</tr>";
+
+                $serial->MoveNext();
+
+            }
+            echo "<tr><td colspan=5 height=3 bgcolor=green><img src='none.gif' width=1 height=1></td></tr>";
+
+            $recordSet->MoveNext();
+    }
+?>
+    </table>
+
+<?    if ($recordSet->RecordCount()==0){
+        $nodocs=true;
+        ?>
+            <p><br><p><center><b>אין פריטים שניתן להם להגדיר קודים סידוריים</b></td></center>
+        <?
+    }
+?>
+    </div>
+    </td>
+    </tr>
+
+    <tr style='height:1%'>
+    <td align=center>
+     <?if (!$readonly && !$nodocs){?>
+     <input type=button onclick='save()' id=btnOK value='שמור' class=button style='background-image:url(<?=$imgPath?>ok.gif)'>
+     <?}?>
+     <input type=button value='סגור' onclick='window.close();' class=button style='background-image:url(<?=$imgPath?>back.gif)'>
+    </td>
+    </tr>
+    <fotm>
+    </table>
+
+    <script>
+
+    function save(){
+        var i;
+        var t = document.getElementById("CODES");
+        for (i=1;i<t.rows.length-1;i++){
+             if (t.rows[i].cells.length>=4){
+                t.rows[i].cells[4].all(1).value= t.rows[i].cells[4].all(0).value;
+             }
+        }
+        document.F.submit();
+    }
+
+    function propagateSerials(listingid,start,quantity){
+       var i;
+       initial = document.getElementById("code_"+listingid+"_"+start).value;
+       if (initial=="")initial=1;
+       for (i=start;i<=quantity-1;i++){
+            document.getElementById("code_"+listingid+"_"+i).value = initial++;
+       }
+    }
+
+    function checkKey(r) {
+        if (window.event.keyCode==13){
+            el = window.event.srcElement;
+            if (el.name=="code[]"){
+                el.parentElement.parentElement.cells[4].all(0).focus();
+            }
+            else{
+                try{
+                el.parentElement.parentElement.parentElement.rows[r+2].cells[3].all(0).focus();
+                }
+                catch(e){}
+            }
+        }
+    }
+
+    try{
+            document.getElementById("CODES").rows[2].cells[3].all(0).focus();
+    }
+    catch(e){}
+    </script>
+
+
+<?
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

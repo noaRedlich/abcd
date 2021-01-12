@@ -1,0 +1,638 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+/////////////////////////////////////////////////////////////////////////////////
+/////////////////////      Group-Office common functions       //////////////////
+/////////////////////////////////////////////////////////////////////////////////
+
+function detect_browser() 
+{
+	global $HTTP_USER_AGENT;
+	if(eregi('msie ([0-9].[0-9]{1,2})',$HTTP_USER_AGENT,$log_version))
+	{
+		$browser['version']=$log_version[1];
+		$browser['name']='MSIE';
+	}elseif(eregi('opera/([0-9].[0-9]{1,2})',$HTTP_USER_AGENT,$log_version))
+	{
+		$browser['version']=$log_version[1];
+		$browser['name']='OPERA';
+	}elseif(eregi('mozilla/([0-9].[0-9]{1,2})',$HTTP_USER_AGENT,$log_version))
+	{
+		$browser['version']=$log_version[1];
+		$browser['name']='MOZILLA';
+	}elseif(eregi('netscape/([0-9].[0-9]{1,2})',$HTTP_USER_AGENT,$log_version))
+	{
+		$browser['version']=$log_version[1];
+		$browser['name']='NETSCAPE';
+	}else
+	{
+		$browser['version']=0;
+		$browser['name']='OTHER';
+	}
+	return $browser;
+}
+
+function validate_email($email)
+{
+	return eregi("^([a-z0-9]+)([._-]([a-z0-9]+))*[@]([a-z0-9]+)([._-]([a-z0-9]+))*[.]([a-z0-9]){2}([a-z0-9])?$",$email);
+}
+
+//checks for empty string and returns stripe when empty
+function empty_to_stripe($input)
+{
+        if ($input == "")
+        {
+                return "-";
+        }else
+        {
+                return $input;
+        }
+}
+
+//creates a mail to link based on the users settings to use
+//his own mail client or the Group-Office mail client
+function mail_to($email, $name="", $class="normal", $full_link=true)
+{
+	if (validate_email($email))
+	{
+		global $GO_CONFIG;
+		global $GO_SECURITY;
+		global $GO_MODULES;
+		global $ses_mail_client;
+		global $strEmailTo;
+
+		$module = $GO_MODULES->get_module('email');
+
+		if ($name == "")
+				$name = $email;
+
+		if ($ses_mail_client == 1 && $module = $GO_MODULES->get_module('email'))
+		{
+			if ($GO_SECURITY->has_permission($GO_SECURITY->user_id, $module['acl_read']) || $GO_SECURITY->has_permission($GO_SECURITY->user_id, $module['acl_write']))
+			{
+				if ($full_link == true)
+				{
+					return "<a class=\"".$class."\" title=\"".$strEmailTo.$email."\" href='javascript:popup(\"".$GO_CONFIG->host.$module['path']."send.php?mail_to=".$email."\",\"650\",\"500\")'>".$name."</a>";
+				}else
+				{
+					return 'javascript:popup("'.$GO_CONFIG->host.$module['path'].'send.php?mail_to='.$email.'","650","500")';
+				}
+			}
+		}
+
+		if ($full_link == true)
+		{
+			return "<a class=\"".$class."\" href=\"mailto:".$email."\" title=\"".$strEmailTo.$email."\">".$name."</a>";
+		}else
+		{
+			return 'mailto:'.$email;
+		}
+	}
+}
+
+//Creates a link that pops up a users profile
+function show_profile($user_id, $linktext='')
+{
+        global $strShowProfile;
+        global $strProtectedUser;
+		global $GO_CONFIG;
+        global $GO_SECURITY;
+        require_once($GO_CONFIG->class_path."contacts.class.inc");
+        $contacts = new contacts;
+
+	if ($linktext == '')
+	{
+		require_once($GO_CONFIG->class_path."users.class.inc");
+		$users = new users;
+		$profile = $users->get_user($user_id);
+		$linktext = $profile['name'];
+	}
+
+	if ($contact_id = $contacts->user_is_contact($GO_SECURITY->user_id, $user_id))
+	{
+		if ($user_id>0)
+			$link = "<a href='javascript:popup(\"".$GO_CONFIG->host."contacts/show_profile.php?contact_id=".$contact_id."\",\"750\",\"500\")' class=\"normal\" title=\"".$strShowProfile."\">";
+		$link .= "<span style=color:blue>".$linktext."</span>";
+		if ($user_id>0)
+			$link .= "</a>\n";
+
+	}else
+	{
+		if ($GO_SECURITY->user_is_visible($user_id))
+		{
+			$link = "<a href='javascript:popup(\"".$GO_CONFIG->host."contacts/show_profile.php?users_id=".$user_id."\",\"750\",\"500\")' class=\"normal\" title=\"".$strShowProfile."\">";
+			$link .= $linktext."</a>\n";
+		}else
+		{
+			$link = $strProtectedUser;
+		}
+
+	}
+      	return $link;
+}
+
+function show_contact($contact_id, $linktext='')
+{
+	global $strShowProfile;
+	global $strProtectedUser;
+	global $GO_CONFIG;
+	global $GO_SECURITY;
+	require_once($GO_CONFIG->class_path."contacts.class.inc");
+        $contacts = new contacts;
+
+        if ($linktext == '')
+	{
+		$profile = $contacts->get_contact($contact_id);
+		$linktext = $profile['name'];
+	}
+        $link = "<a href='javascript:popup(\"".$GO_CONFIG->host."contacts/show_profile.php?contact_id=".$contact_id."\",\"750\",\"500\")' class=\"normal\" title=\"".$strShowProfile."\">";
+	$link .= $linktext."</a>\n";
+	return $link;
+}
+
+function show_profile_by_email($email, $linktext = '')
+{
+	if ($linktext == '') $linktext = $email;
+
+	global $GO_CONFIG;
+	global $GO_SECURITY;
+	global $strShowProfile;
+	global $strAddContact;
+
+	require_once($GO_CONFIG->class_path."users.class.inc");
+	require_once($GO_CONFIG->class_path."contacts.class.inc");
+	$contacts = new contacts;
+	$users = new users;
+
+	if ($contact_id = $contacts->get_contact_id_by_email($email, $GO_SECURITY->user_id))
+	{
+		$link = "<a href='javascript:popup(\"".$GO_CONFIG->host."contacts/show_profile.php?contact_id=".$contact_id."\",\"750\",\"500\")' class=\"normal\" title=\"".$strShowProfile."\">";
+		$link .= $linktext."</a>\n";
+	}else
+	{
+		$users_id = $users->get_user_id_by_email($email);
+		if ($users_id && $GO_SECURITY->user_is_visible($users_id))
+		{
+			$link = "<a href='javascript:popup(\"".$GO_CONFIG->host."contacts/show_profile.php?users_id=".$users_id."\",\"750\",\"500\")' class=\"normal\" title=\"".$strShowProfile."\">";
+			$link .= $linktext."</a>\n";
+		}else
+		{
+			$link = "<a href=\"javascript:popup('".$GO_CONFIG->host."contacts/add_contact.php?email=".$email."&name=".urlencode($linktext)."','450','550')\" class=\"normal\" title=\"".$strAddContact."\">".$linktext."</a>";
+		}
+	}
+
+	return $link;
+}
+
+
+
+//checks input for invalid characters
+function validate_input($input, $invalid_chars = "")
+{
+	if ($invalid_chars == "")
+	{
+		$invalid_chars[] = "\"";
+		$invalid_chars[] = "/";
+		$invalid_chars[] = "?";
+		$invalid_chars[] = "&";
+	}
+
+	for ($i=0; $i<count($invalid_chars);$i++)
+	{
+		if (strchr($input,$invalid_chars[$i]))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+//checks the size and formats it to KB, MB or bytes depending on the size given in bytes.
+//Also uses user settings to format the number.
+function format_size($size, $decimals = 1)
+{
+	global $ses_decimal_seperator;
+	global $ses_thousands_seperator;
+
+	switch ($size)
+	{
+		case ($size > 1073741824):
+			$size = number_format($size / 1073741824, $decimals, $ses_decimal_seperator, $ses_thousands_seperator);
+			$size .= " GB";
+		break;
+
+		case ($size > 1048576):
+			$size = number_format($size / 1048576, $decimals, $ses_decimal_seperator, $ses_thousands_seperator);
+			$size .= " MB";
+		break;
+
+		case ($size > 1024):
+			$size = number_format($size / 1024, $decimals, $ses_decimal_seperator, $ses_thousands_seperator);
+			$size .= " KB";
+		break;
+
+		default:
+			number_format($size, $decimals, $ses_decimal_seperator, $ses_thousands_seperator);
+			$size .= " bytes";
+		break;
+	}
+	return "<span dir=ltr>".$size."</span>";
+}
+
+
+  function dirsize($dir) {
+   // calculate the size of files in $dir, (it descends recursively into other dirs)
+   $dh = opendir($dir);
+   $size = 0;
+   while (($file = readdir($dh)) !== false)
+       if ($file != "." and $file != "..") {
+           $path = $dir."/".$file;
+           if (is_dir($path))
+               $size += dirsize($path);
+           elseif (is_file($path))
+               $size += filesize($path);
+       }
+   closedir($dh);
+   return $size;
+}
+
+
+//chops of the string after a given length and puts three dots behind it
+function cut_string($string, $maxlength)
+{
+    if (strlen($string) > $maxlength)
+	{
+		return substr($string,0,$maxlength-3)."...";
+	}else
+	{
+		return $string;
+	}
+}
+
+
+//turns plain text into html with url's and email adresses parsed into links
+function text_to_html($text, $wordwrap="120")
+{
+	global $ses_mail_client;
+	global $PHP_SELF;
+    global $GO_CONFIG;
+    global $GO_MODULES;
+
+    $module = $GO_MODULES->get_module('email');
+
+	$text = htmlspecialchars($text);
+	$text = preg_replace("/(?:^|\b)(((http(s?):\/\/)|(www\.))([\w\.]+)([,:;%#&\/?=\w+\.-]+))(?:\b|$)/is", "<a href=\"http$4://$5$6$7\" target=\"_blank\" class=\"blue\">$1</a>", $text);
+	if ($ses_mail_client == 1)
+	{
+		$text = preg_replace("/(\A|\s)([\w\.\-]+)(@)([\w\.-]+)([A-Za-z]{2,3})\b/i","\\1<a href=\"javascript:popup('".$GO_CONFIG->host.$module['path']."send.php?mail_to=\\2\\3\\4\\5','650','500')\" class=\"blue\">\\2\\3\\4\\5</a>",$text);
+	}else
+	{
+		$text = preg_replace("/(\A|\s)([\w\.\-]+)(@)([\w\.-]+)([A-Za-z]{2,3})\b/i","\\1<a href=\"mailto:\\2\\3\\4\\5\" class=\"blue\">\\2\\3\\4\\5</a>",$text);
+	}
+
+	$text = nl2br($text);
+	$text = str_replace("\r", "", $text);
+	$text = str_replace("\n", "", $text);
+
+	return ($text);
+
+}
+
+//strips unwanted html tags and converts links to suit Group-Office
+function convert_html($html, $remove = true)
+{
+	$html = str_replace("\r", "", $html);
+	$html = str_replace("\n", "", $html);
+	global $ses_mail_client;
+	global $PHP_SELF;
+    global $GO_CONFIG;
+    global $GO_MODULES;
+
+    $module = $GO_MODULES->get_module('email');
+
+
+	if ($remove)
+	{
+		$to_removed_array = array (
+			"'<html>'si",
+			"'</html>'si",
+			"'<body[^>]*>'si",
+			"'</body>'si",
+			"'<head[^>]*>.*?</head>'si",
+			"'<style[^>]*>.*?</style>'si",
+			"'<script[^>]*>.*?</script>'si",
+			"'<object[^>]*>.*?</object>'si",
+			"'<embed[^>]*>.*?</embed>'si",
+			"'<applet[^>]*>.*?</applet>'si",
+			"'<mocha[^>]*>.*?</mocha>'si"
+		);
+		$html= preg_replace($to_removed_array, '', $html);
+		$html = preg_replace("|href=\"(.*)script:|i", 'href="removed_script:', $html);
+		$html = preg_replace("|<([^>]*)java|i", '<removed_java_tag', $html);
+		$html = preg_replace("|<([^>]*)&{.*}([^>]*)>|i", "<&{;}\\3>", $html);
+		$html = preg_replace("|<([^>]*)mocha:([^>]*)>|i", "<removed_mocha:\\2>",$html);
+	}
+
+	if ($ses_mail_client == 1)
+	{
+		$html = preg_replace("/(href=\"mailto:)([\w\.\-]+)(@)([\w\.\-\"]+)\b/i","href=\"javascript:popup('".$GO_CONFIG->host.$module['path']."send.php?mail_to=$2$3$4','600','470')\" class=\"blue\"",$html);
+	}
+
+	$html = preg_replace("/\b((href=\"http(s?):\/\/))([\w\.\?\=\&]+)([\/\w+\.\?\=\&\:\~]+)\b/i"," target=\"_blank\" class=\"blue\" href=\"http$3://$4$5$6", $html);
+	$html = preg_replace("/\b((href='http(s?):\/\/))([\w\.\?\=\&]+)([\/\w+\.\?\=\&\:\~]+)\b/i"," target=\"_blank\" class=\"blue\" href='http$3://$4$5$6", $html);
+
+	return ($html);
+}
+
+
+function cut_address($addr, $charset)
+{
+	$addr = smartstrip($addr);
+
+	$addresses = array();
+	$token = '';
+	$quote_esc = false;
+	for ($i = 0; $i < strlen($addr); $i++) {
+		$c = substr($addr, $i, 1);
+
+		if($c == '"') {
+			$quote_esc = !$quote_esc;
+		}
+
+		if($c == ',' || $c == ';') {
+			if(!$quote_esc) {
+				$token = trim($token);
+				if($token != '') {
+					$addresses[] = $token;
+				}
+				$token = '';
+				continue;
+			}
+		}
+
+		$token .= $c;
+	}
+	if(!$quote_esc) {
+		$token = trim($token);
+		if($token != '') {
+			$addresses[] = $token;
+		}
+	}
+	return ($addresses);
+}
+
+function get_crlf($smtp = "")
+{
+	$crlf = stristr(PHP_OS, 'Windows') ? "\r\n" : "\n";
+
+        if ($smtp != "")
+	        $crlf = $smtp ? "\r\n" : $crlf;
+
+	return ($crlf);
+}
+
+
+function smartstrip($string)
+{
+	if(get_magic_quotes_gpc()) {
+		$string = stripslashes($string);
+	}
+	return $string;
+}
+
+function quote($text)
+{
+	$text = "> " . ereg_replace("\n", "\n> ", trim($text));
+	return($text);
+}
+
+function sendmail($email_to, $email_from, $name_from, $subject, $body, $priority = '3 (Normal)', $body_ctype = 'text/PLAIN')
+{
+        global $GO_CONFIG;
+        global $charset;
+        require_once($GO_CONFIG->class_path."/sendmail.class.inc");
+        require_once($GO_CONFIG->class_path."./smtp.class.inc");
+
+        $ip = (getenv('HTTP_X_FORWARDED_FOR') ? getenv('HTTP_X_FORWARDED_FOR') : getenv('REMOTE_ADDR'));
+
+        $mail = new mime_mail();
+		$mail->body_ctype = $body_ctype;
+        $mail->crlf = get_crlf($GO_CONFIG->smtp_server);
+        $mail->smtp_server = $GO_CONFIG->smtp_server;
+        $mail->smtp_port = $GO_CONFIG->smtp_port;
+        $mail->charset = $charset;
+        $mail->from = $email_from;
+        $mail->sender_name = $name_from;
+        $mail->priority = $priority;
+        $mail->headers = 'X-Originating-Ip: [' . $ip . ']' . $mail->crlf . 'X-Mailer: ' . $GO_CONFIG->title . ' ' . $GO_CONFIG->version;
+        $mail->to = cut_address(trim($email_to), $charset);
+
+        if ($subject != '')
+                $mail->subject = smartstrip(trim($subject));
+
+        if ($body != '')
+                $mail->body = smartstrip($body);
+
+        return $mail->send();
+}
+
+//returns a link poping up a open file dialog. A HANDLER FILE MUST BE CREATED TO DO SOMETHING WITH THE FILE SELECTED
+function show_open($GO_HANDLER, $GO_FILTER, $link_text="", $class="normal", $fulllink=true)
+{
+		global $GO_CONFIG;
+		global $GO_MODULES;
+
+		$module = $GO_MODULES->get_module('filesystem');
+
+		if ($fulllink)
+		{
+				$link = "<a class=\"".$class."\" href=\"javascript:popup('".$GO_CONFIG->host.$module['path']."index.php?GO_HANDLER=".urlencode($GO_HANDLER)."&GO_FILTER=".$GO_FILTER."&mode=popup','600','400')\">".$link_text."</a>";
+		}else
+		{
+				$link = "javascript:popup('".$GO_CONFIG->host.$module['path']."index.php?GO_HANDLER=".urlencode($GO_HANDLER)."&GO_FILTER=".$GO_FILTER."&mode=popup','600','400')";
+		}
+		return $link;
+}
+
+//returns a link poping up a save file dialog. A temporarely file to save must be passed
+//optionally a creator file can be specified. This file will simply be included in the save script.
+//this is added to create the temporary file
+
+function show_save($tmpfile, $link_text="", $class="normal", $fulllink=true)
+{
+		global $GO_CONFIG;
+		global $GO_MODULES;
+
+		$module = $GO_MODULES->get_module('files');
+
+		if ($fulllink)
+		{
+				$link = "<a class=\"".$class."\" href=\"javascript:popup('".$GO_CONFIG->host.$module['path']."save.php?SET_HANDLER=".urlencode($tmpfile)."','600','400')\">".$link_text."</a>";
+		}else
+		{
+				$link = "javascript:popup('".$GO_CONFIG->host.$module['path']."save.php?GO_HANDLER=".urlencode($tmpfile)."','400','450')";
+		}
+		return $link;
+}
+function strip_extension($filename)
+{
+	$pos = strrpos($filename,'.');
+	if ($pos)
+	{
+		$filename = substr($filename,0,$pos);
+	}
+	return $filename;
+}
+
+function get_extension($filename)
+{
+	$extension = '';
+	$pos = strrpos($filename,'.');
+	if ($pos)
+	{
+		$extension= substr($filename,$pos+1,strlen($filename));
+	}
+	return $extension;
+}
+
+function filemime($path)
+{
+	global $GO_CONFIG;
+	require_once($GO_CONFIG->class_path.'filetypes.class.inc');
+	$filetypes = new filetypes();
+
+	if(!$type = $filetypes->get_type($filetypes->get_file_extension(basename($path))))
+	{
+		$type = $filetypes->add_type($filetypes->get_file_extension(basename($path)));
+	}
+
+	if ($type)
+	{
+		return $type['mime'];
+	}else
+	{
+		return false;
+	}
+}
+
+function filemimefriendly($path)
+{
+	global $GO_CONFIG;
+	require_once($GO_CONFIG->class_path.'filetypes.class.inc');
+	$filetypes = new filetypes();
+
+	if(!$type = $filetypes->get_type(get_file_extension(basename($path))))
+	{
+		$type = $filetypes->add_type(get_file_extension(basename($path)));
+	}
+
+	if ($type)
+	{
+		return $type['friendly'];
+	}else
+	{
+		return false;
+	}
+}
+
+function get_file_extension($filename)
+{
+	if ($filename != '')
+	{
+		if ($filename{0} == '.')
+		{
+			$filename = substr($filename, 1);
+		}
+		ereg(".*\.([a-zA-z0-9]{0,5})$", $filename, $regs);
+		return strtolower($regs[1]);
+	}else
+	{
+		return '';
+	}
+}
+
+function path_to_url($path)
+{
+	global $GO_CONFIG;
+	if ($path = str_replace($GO_CONFIG->root_path, $GO_CONFIG->host, $path))
+	{
+		return $path;
+	}
+	return false;
+}
+
+
+// Find a system program.  Do path checking
+function find_program ($program) {
+    $path = array('/bin', '/sbin', '/usr/bin', '/usr/sbin', '/usr/local/bin', '/usr/local/sbin');
+    while ($this_path = current($path)) {
+        if (is_executable("$this_path/$program")) {
+            return "$this_path/$program";
+        }
+        next($path);
+    }
+    return;
+}
+
+
+// Execute a system program. return a trim()'d result.
+// does very crude pipe checking.  you need ' | ' for it to work
+// ie $program = execute_program('netstat', '-anp | grep LIST');
+// NOT $program = execute_program('netstat', '-anp|grep LIST');
+function execute_program ($program, $args = '') {
+    $buffer = '';
+    $program = find_program($program);
+
+    if (!$program) { return; }
+
+    // see if we've gotten a |, if we have we need to do patch checking on the cmd
+    if ($args) {
+        $args_list = split(' ', $args);
+        for ($i = 0; $i < count($args_list); $i++) {
+            if ($args_list[$i] == '|') {
+                $cmd = $args_list[$i + 1];
+                $new_cmd = find_program($cmd);
+                $args = ereg_replace("\| $cmd", "| $new_cmd", $args);
+            }
+        }
+    }
+
+    // we've finally got a good cmd line.. execute it
+    if ($fp = popen("$program $args", 'r')) {
+        while (!feof($fp)) {
+            $buffer .= fgets($fp, 4096);
+        }
+        return trim($buffer);
+    }
+}
+
+function obfuscate_function($s)
+{
+	global $GO_CONFIG;
+	if ($GO_CONFIG->obfuscate)
+	{
+		return zend_obfuscate_function_name($s);
+	}
+	else
+	{
+		return $s;
+	}
+}
+
+function obfuscate_class($s)
+{
+	global $GO_CONFIG;
+	if ($GO_CONFIG->obfuscate)
+	{
+		return zend_obfuscate_class_name($s);
+	}
+	else
+	{
+		return $s;
+	}
+}

@@ -1,0 +1,584 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0  Release date: 14 March 2003									//
+// 			1.01 Release date:  8 April 2003									//
+//			1.02 Release date: 19 April 2003									//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+
+
+$mode = isset($mode) ? $mode : 'normal';
+
+function access_denied_box($file)
+{
+	global $strAccessDenied;
+	echo "<script for=window event=onload  type=\"text/javascript\" language=\"javascript\">\n";
+	echo "alert('".$strAccessDenied.": ".basename($file)."');\n";
+	echo "</script>\n";
+}
+
+function quota_exceed($file)
+{
+	global $strQuotaExceed;
+	echo "<script for=window event=onload type=\"text/javascript\" language=\"javascript\">\n";
+	echo "alert('".$strQuotaExceed.": ".basename($file)."');\n";
+	echo "</script>\n";
+}
+
+//set umask to 000 and remember the old umaks to reset it below
+//umask must be 000 to create 777 files and folders
+$old_umask = umask(000);
+
+//basic group-office authentication
+require_once("../../Group-Office.php");
+$GO_SECURITY->authenticate();
+$GO_MODULES->authenticate('filesystem');
+require($GO_LANGUAGE->get_language_file('filesystem'));
+
+//set the target php file that will handle a file click
+session_unregister('GO_HANDLER');
+$GO_HANDLER = isset($GO_HANDLER) ? $GO_HANDLER : 'download.php';
+$GO_MULTI_SELECT = isset($GO_MULTI_SELECT) ? $GO_MULTI_SELECT : true;
+
+$target_frame = isset($target_frame) ? $target_frame : '_blank';
+
+//set path to browse
+$home_path = $GO_CONFIG->file_storage_path.$ses_username;
+$GO_FILESYSTEM_PATH = isset($GO_FILESYSTEM_PATH) ? smartstrip($GO_FILESYSTEM_PATH) : $home_path;
+$path = isset($path) ? smartstrip($path) : $GO_FILESYSTEM_PATH;
+$urlencoded_path = urlencode($path);
+
+//create filesystem and filetypes object
+require_once($GO_CONFIG->class_path.'filesystem.class.inc');
+require_once($GO_CONFIG->class_path.'filetypes.class.inc');
+$fs = new filesystem($home_path);
+$filetypes = new filetypes;
+
+//define task to peform
+$task = isset($task) ? $task : '';
+$cut_folders = isset($cut_folders) ? $cut_folders : array();
+$cut_files = isset($cut_files) ? $cut_files : array();
+$copy_folders = isset($copy_folders) ? $copy_folders : array();
+$copy_files = isset($copy_files) ? $copy_files : array();
+
+//vars used to remember files that are to be overwritten or not
+$overwrite_destination_path = isset($overwrite_destination_path) ? smartstrip($overwrite_destination_path) : '';
+$overwrite_source_path = isset($overwrite_source_path) ? smartstrip($overwrite_source_path) : '';
+$overwrite = isset($overwrite) ? $overwrite : "false";
+
+require_once($GO_CONFIG->class_path.'users.class.inc');
+$users = new users();
+$userID = $GO_SECURITY->user_id;
+$user = $users->get_user($userID);
+$userquota  = $user[diskquota];
+//echo $userquota.$userID;
+$usedspace = dirsize($home_path);
+		
+//check read permissions and remember last browsed path
+if (!$fs->has_read_permission($GO_SECURITY->user_id, $path))
+{
+	$GO_FILESYSTEM_PATH = $home_path;
+	$task = 'access_denied';
+}else
+{
+	$GO_FILESYSTEM_PATH = $path;
+}
+session_register('GO_FILESYSTEM_PATH');
+//cut paste or copy before output has started
+switch ($task)
+{
+	case 'upload':
+
+		if ($REQUEST_METHOD == 'POST')
+		{
+			$task = 'list';
+			if (isset($file))
+			{
+				$cut_files = array();
+				$cut_folders = array();
+				$copy_folders = array();
+				$copy_files = array();
+				for ($i=0;$i<count($file);$i++)
+				{
+					if (is_uploaded_file($file[$i]))
+					{
+						$extension = get_file_extension($file_name[$i]);
+						if (!$filetypes->get_type($extension))
+						{
+							$filetypes->add_type($extension, $file_type);
+						}
+
+						if($fs->copy($file[$i], $GO_CONFIG->tmpdir.'/'.$file_name[$i]))
+						{
+							$copy_files[] = $GO_CONFIG->tmpdir.'/'.$file_name[$i];
+						}
+					}
+				}
+
+				while ($file = smartstrip(array_shift($copy_files)))
+				{
+				    $usedspace = dirsize($home_path);
+					$new_path = $path.'/'.basename($file);
+					if (!$fs->has_write_permission($GO_SECURITY->user_id, $path))
+					{
+						access_denied_box($path);
+						break;
+					}
+					elseif ($usedspace+filesize($file)>$userquota && $userquota != ''){
+							quota_exceed($file);
+							break;
+					}
+					elseif(file_exists($new_path))
+					{
+
+						if ($overwrite_destination_path == $new_path)
+						{
+							if ($overwrite == "true")
+							{
+								$fs->copy($file, $new_path);
+							}
+						}
+						else
+						{
+							array_unshift($copy_files, $file);
+							$overwrite_source_path = $file;
+							$overwrite_destination_path = $new_path;
+							$task = 'overwrite';
+							session_register('cut_folders', 'cut_files', 'copy_files', 'copy_folders');
+							break;
+						}
+					}
+					else
+					{
+						$fs->copy($file, $path.'/'.basename($file));
+					}
+				}
+			}
+		}
+	break;
+
+	case  'cut':
+		$cut_files = isset($files) ? $files : array();
+		$cut_folders = isset($folders) ? $folders : array();
+		$copy_folders = array();
+		$copy_files = array();
+		session_register('cut_folders', 'cut_files', 'copy_files', 'copy_folders');
+	break;
+
+	case 'copy':
+		$copy_files = isset($files) ? $files : array();
+		$copy_folders = isset($folders) ? $folders : array();
+		$cut_folders = array();
+		$cut_files = array();
+		session_register('cut_folders', 'cut_files', 'copy_files', 'copy_folders');
+	break;
+
+	case 'paste':
+		while ($file = smartstrip(array_shift($cut_files)))
+		{
+			if ($file != $path.'/'.basename($file))
+			{
+				if (!$fs->has_write_permission($GO_SECURITY->user_id, $file))
+				{
+					access_denied_box($file);
+					break;
+				}elseif(!$fs->has_write_permission($GO_SECURITY->user_id, $path))
+				{
+					access_denied_box($path);
+					break;
+				}elseif(file_exists($path.'/'.basename($file)))
+				{
+					if ($overwrite_destination_path == $path.'/'.basename($file))
+					{
+						if ($overwrite == "true")
+						{
+							$fs->move($file, $path.'/'.basename($file));
+						}
+					}else
+					{
+						array_unshift($cut_files, $file);
+						$overwrite_source_path = $file;
+						$overwrite_destination_path = $path.'/'.basename($file);
+						$task = 'overwrite';
+						session_register('cut_folders', 'cut_files', 'copy_files', 'copy_folders');
+						break;
+					}
+				}else
+				{
+					$fs->move($file, $path.'/'.basename($file));
+				}
+			}
+		}
+		
+		while ($file = smartstrip(array_shift($copy_files)))
+		{
+		    $usedspace = dirsize($home_path);
+			if ($file != $path.'/'.basename($file))
+			{
+				if (!$fs->has_read_permission($GO_SECURITY->user_id, $file))
+				{
+					access_denied_box($file);
+					break;
+				}
+				elseif(!$fs->has_write_permission($GO_SECURITY->user_id, $path))
+				{
+					access_denied_box($path);
+					break;
+				}
+				elseif ($usedspace+filesize($file)>$userquota && $userquota != ''){
+							quota_exceed($file);
+							break;
+				}
+				elseif(file_exists($path.'/'.basename($file)))
+				{
+					if ($overwrite_destination_path == $path.'/'.basename($file))
+					{
+						if ($overwrite == "true")
+						{
+							$fs->copy($file, $path.'/'.basename($file));
+						}
+					}else
+					{
+						array_unshift($copy_files, $file);
+						$overwrite_source_path = $file;
+						$overwrite_destination_path = $path.'/'.basename($file);
+						$task = 'overwrite';
+						session_register('cut_folders', 'cut_files', 'copy_files', 'copy_folders');
+						break;
+					}
+				}else
+				{
+					$fs->copy($file, $path.'/'.basename($file));
+				}
+			}
+		}
+		
+		while ($folder = smartstrip(array_shift($cut_folders)))
+		{
+			if ($folder != $path.'/'.basename($folder))
+			{
+				if (!$fs->has_write_permission($GO_SECURITY->user_id, $folder))
+				{
+					access_denied_box($folder);
+					break;
+				}elseif(!$fs->has_write_permission($GO_SECURITY->user_id, $path))
+				{
+					access_denied_box($path);
+					break;
+				}elseif(file_exists($path.'/'.basename($folder)))
+				{
+					if ($overwrite_destination_path == $path.'/'.basename($folder))
+					{
+						if ($overwrite == "true")
+						{
+							$fs->move($folder, $path.'/'.basename($folder));
+						}
+					}else
+					{
+						array_unshift($cut_folders, $folder);
+						$overwrite_source_path = $folder;
+						$overwrite_destination_path = $path.'/'.basename($folder);
+						$task = 'overwrite';
+						session_register('cut_folders', 'cut_files', 'copy_files', 'copy_folders');
+						break;
+					}
+				}else
+				{
+					$fs->move($folder, $path.'/'.basename($folder));
+				}
+			}
+		}
+		
+		while ($folder = smartstrip(array_shift($copy_folders)))
+		{
+		    $usedspace = dirsize($home_path);
+			if ($folder != $path.'/'.basename($folder))
+			{
+				if (!$fs->has_read_permission($GO_SECURITY->user_id, $folder))
+				{
+					access_denied_box($folder);
+					break;
+				}
+				elseif(!$fs->has_write_permission($GO_SECURITY->user_id, $path))
+				{
+					access_denied_box($folder);
+					break;
+				}
+				elseif ($usedspace+dirsize($folder)>$userquota && $userquota != ''){
+							quota_exceed($folder);
+							break;
+				}
+				elseif(file_exists($path.'/'.basename($folder)))
+				{
+					if ($overwrite_destination_path == $path.'/'.basename($folder))
+					{
+						if ($overwrite == "true")
+						{
+							$fs->copy($folder, $path.'/'.basename($folder));
+						}
+					}else
+					{
+						array_unshift($copy_folders, $folder);
+						$overwrite_source_path = $folder;
+						$overwrite_destination_path = $path.'/'.basename($folder);
+						$task = 'overwrite';
+						session_register('cut_folders', 'cut_files', 'copy_files', 'copy_folders');
+						break;
+					}
+				}else
+				{
+					$fs->copy($folder, $path.'/'.basename($folder));
+				}
+			}
+		}
+		session_register('cut_folders', 'cut_files', 'copy_files', 'copy_folders');
+	break;
+
+	case 'properties':
+		if (isset($name))
+		{
+			if(validate_input($name))
+			{
+				if (isset($share_folder) && !$fs->get_share($path))
+				{
+					$fs->add_share($GO_SECURITY->user_id, $path);
+				}else
+				{
+					if (!isset($share_folder))
+					{
+						$fs->delete_share($path);
+					}
+				}
+
+				if (!$fs->has_write_permission($GO_SECURITY->user_id, $path))
+				{
+					$feedback = '<p class="Error">'.$strAccessDenied.'</p>';
+				}elseif ($name == '')
+				{
+					$feedback = '<p class="Error">'.$error_missing_field.'</p>';
+				}else
+				{
+					$location = dirname($path);
+					$name = smartstrip($name);
+					$new_path = $location.'/'.$name;
+					if($name != basename($path))
+					{
+						if (file_exists($new_path))
+						{
+							$feedback = '<p class="Error">'.$fbNameExists.'</p>';
+						}else
+						{
+							$share = $fs->get_share($path);
+
+							if (rename($path, $new_path))
+							{
+								if ($share)
+								{
+									$fs->update_share($path, $new_path);
+								}
+
+								$path = $new_path;
+								$urlencoded_path = urlencode($path);
+							}
+
+						}
+					}
+				}
+			}else
+			{
+				$feedback = '<p class="Error">'.$invalid_chars .': " & ? / \</p>';
+			}
+
+		}
+	break;
+}
+
+$page_title = $fbFiles;
+$current_path = str_replace($GO_CONFIG->file_storage_path,$GO_CONFIG->slash,$path);
+
+//remeber sorting of the list in a cookie
+if (isset($new_sort_field))
+{
+	SetCookie("fs_sort_field",$new_sort_field,time()+3600*24*365,"/","",0);
+	$fs_sort_field = $new_sort_field;
+}
+
+if (isset($new_sort_direction))
+{
+	SetCookie("fs_sort_direction",$new_sort_direction,time()+3600*24*365,"/","",0);
+	$fs_sort_direction = $new_sort_direction;
+}
+
+//start output of header and menu
+if ($GO_CONFIG->window_mode=='popup')
+{
+	require($GO_THEME->theme_path.'simple_header.inc');
+}else
+{
+	require($GO_THEME->theme_path.'header.inc');
+
+}
+echo '<form name="filesystem" method="post" action="'.$PHP_SELF.'" enctype="multipart/form-data">';
+echo '<input type="hidden" name="path" value="'.$path.'" />';
+echo '<input type="hidden" name="share_path" />';
+
+
+echo '<table border="0" cellpadding="10" cellspacing="0" width="100%"><tr><td>';
+
+switch ($task)
+{
+	case 'mail_files':
+		$attach_array = array();
+		$num_attach=0;
+		require($GO_CONFIG->class_path."email.class.inc");
+		$email = new email();
+		if (isset($files))
+		{
+			while ($file = smartstrip(array_shift($files)))
+			{
+				if ($fs->has_read_permission($GO_SECURITY->user_id, $file))
+				{
+					$filename = basename($file);
+					$extension = get_file_extension($filename);
+					if (!$type = $filetypes->get_type($extension))
+					{
+						$type = $filetypes->add_type($extension);
+					}
+
+					$email->register_attachment($file, $filename, filesize($file), $type['mime']);
+				}else
+				{
+					access_denied_box(basename($file));
+				}
+			}
+
+			$module = $GO_MODULES->get_module('email');
+
+			echo '<script type="text/javascript" language="javascript">';
+			echo 'popup("'.$GO_CONFIG->host.$module['path'].'send.php?email_file=true","650","500");';
+			echo '</script>';
+		}
+		require('listview.inc');
+	break;
+
+	case 'delete':
+		if (isset($files))
+		{
+			for ($i=0;$i<count($files);$i++)
+			{
+				$file = smartstrip($files[$i]);
+				if(!$fs->delete($file))
+				{
+					access_denied_box(basename($file));
+				}
+			}
+		}
+
+		if (isset($folders))
+		{
+			for ($i=0;$i<count($folders);$i++)
+			{
+				$folder = smartstrip($folders[$i]);
+				if(!$fs->delete($folder))
+				{
+					access_denied_box(basename($folder));
+				}
+			}
+		}
+		require('listview.inc');
+	break;
+	case 'access_denied':
+		require($GO_CONFIG->root_path.'error_docs/401.inc');
+	break;
+
+	case 'new_folder':
+		if ($REQUEST_METHOD == 'POST')
+		{
+			$name = smartstrip($name);
+			if ($name =='')
+			{
+				$feedback = '<p class="Error">'.$error_missing_field.'</p>';
+				require('new_folder.inc');
+			}elseif(!validate_input($name))
+			{
+				$feedback = '<p class="Error">'.$invalid_chars .': " & ? / \</p>';
+				require('new_folder.inc');
+			}elseif(file_exists($path.'/'.$name))
+			{
+				$feedback = '<p class="Error">'.$fbFolderExists.'</p>';
+				require('new_folder.inc');
+			}elseif(!@mkdir($path.'/'.$name, $GO_CONFIG->create_mode))
+			{
+				$feedback = '<p class="Error">'.$strSaveError.'</p>';
+				require('new_folder.inc');
+			}else
+			{
+				require('listview.inc');
+			}
+		}else
+		{
+			if ($fs->has_write_permission($GO_SECURITY->user_id, $path))
+			{
+				require('new_folder.inc');
+			}else
+			{
+				require($GO_CONFIG->root_path.'error_docs/401.inc');
+			}
+		}
+	break;
+
+	case 'upload':
+		if ($fs->has_write_permission($GO_SECURITY->user_id, $path))
+		{
+			require('upload.inc');
+		}else
+		{
+			require($GO_CONFIG->root_path.'error_docs/401.inc');
+		}
+	break;
+
+	case 'overwrite':
+		require('overwrite.inc');
+	break;
+
+	case 'properties':
+		require('properties.inc');
+	break;
+
+	case 'read_permissions':
+		require('read_permissions.inc');
+	break;
+
+	case 'write_permissions':
+		require('write_permissions.inc');
+	break;
+
+	case 'shares':
+		require('shares.inc');
+	break;
+
+	case 'search':
+		require('search.inc');
+	break;
+
+	default:
+		require($GO_CONFIG->root_path.$GO_MODULES->path.'listview.inc');
+	break;
+
+}
+
+echo '</td></tr></table>';
+echo '</form>';
+
+umask($old_umask);
+if ($GO_CONFIG->window_mode == 'popup')
+{
+	require($GO_THEME->theme_path.'simple_footer.inc');
+}else
+{
+	require($GO_THEME->theme_path.'footer.inc');
+}
+?>

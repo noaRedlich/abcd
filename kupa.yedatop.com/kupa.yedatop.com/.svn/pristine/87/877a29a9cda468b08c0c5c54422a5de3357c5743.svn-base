@@ -1,0 +1,648 @@
+<?php
+	$simple=1;
+	global $action, $id, $lang, $conn, $config;
+ 
+	$page_subtitle = "תשלום בכרטיס אשראי";
+	
+
+	include("include/common.php");
+	if(!loginCheck('User'))exit;
+
+
+	include("$config[template_path]/admin_top.html"); 
+	
+	if ($stock)
+	{
+		$sql = "select kupa2 from ".$TABLE_LISTINGSSTOCKS." where id = $stock";
+		$defaultKupaRS = DBQuery($sql);
+		$defaultKupa = $defaultKupaRS->fields["kupa2"];
+	}
+	
+    $sql = "select id, name from kupot where Status=1 and user_id = $userID order by sortorder, binary name";
+    $kupot = DBQuery($sql);
+
+	$sql = "select id, name from $TABLE_CARDTYPES where Status=1 order by sortorder, binary name";
+    $cardtypes = DBQuery($sql);
+    
+    
+
+    
+	?>
+	
+<style>
+.BackButtonCell
+{
+	border-top:solid 1 black;
+	text-align:center;
+	padding:5px;
+}
+.tableheader2
+{
+	font-weight:bold;
+	color:darkblue;
+}
+.tableheader3
+{
+	font-weight:bold;
+	color:darkblue;
+	border-bottom:solid 1 black;
+	padding-bottom:8px
+}
+<?if ($cashbox){?>
+body
+{
+	background-color:transparent
+}
+.button {padding:5 10;margin-left:20;font-weight:bold;background-position: left middle}
+<?}?>
+</style>
+	
+<script language="JavaScript1.2">
+<!--
+var S = new String;
+var Reading = false;
+
+function Clear_Form() {
+	document.all.ccno.value = '';
+	document.all.expmonth.value = '';
+	document.all.expyear.value = '';
+}
+ 
+function focusApprove()
+{
+	document.APCalculator.tranmode.value="F";
+	tranmodeOption();
+	document.APCalculator.authnr.style.border="solid 2px blue";
+	document.APCalculator.authnr.focus();
+}
+ 
+function tranmodeOption()
+{
+	document.all.vauthnr.style.visibility = document.APCalculator.authnr.style.visibility = (document.APCalculator.tranmode.value=="F")?"visible":"hidden";
+	document.APCalculator.task.value = (document.APCalculator.tranmode.value=="F")?"Doforce":"Domanualdebit";
+}
+
+function paymentsOption(){
+if ((document.APCalculator.cred_type.value != 8)) {
+   if ((document.APCalculator.cred_type.value != 6)) 
+   {
+    document.APCalculator.npay1.style.visibility='hidden';
+    document.APCalculator.fpay.style.visibility = 'hidden';
+    document.APCalculator.spay.style.visibility = 'hidden';
+    document.APCalculator.fpay.value = '';
+    document.APCalculator.spay.value = '';
+    document.APCalculator.npay1.selectedIndex = '';
+    vnp.style.visibility = 'hidden';
+    vfpay.style.visibility = 'hidden';
+    vspay.style.visibility = 'hidden';  }
+   else {
+    document.APCalculator.npay1.style.visibility='visible';
+    document.APCalculator.fpay.style.visibility = 'hidden';
+    document.APCalculator.spay.style.visibility = 'hidden';
+    document.APCalculator.fpay.value = '';
+    document.APCalculator.spay.value = '';
+    vfpay.style.visibility = 'hidden';
+    vspay.style.visibility = 'hidden';
+    vnp.style.visibility = 'visible';  }
+}
+else {
+    document.APCalculator.npay1.style.visibility='visible';
+    document.APCalculator.fpay.style.visibility = 'visible';
+    document.APCalculator.spay.style.visibility = 'visible';
+    vnp.style.visibility = 'visible';
+    vfpay.style.visibility = 'visible';
+    vspay.style.visibility = 'visible';  
+}
+if (document.APCalculator.cred_type.value == 8 && (document.APCalculator.npay1.value==""||document.APCalculator.npay1.value=="0")){document.APCalculator.npay1.value=2;np();}
+if (document.APCalculator.cred_type.value == 6 && (document.APCalculator.npay1.value==""||document.APCalculator.npay1.value<3)){document.APCalculator.npay1.value=3;np();}
+    
+}
+
+function ussm() {
+		var ussm = eval (document.APCalculator.usdsum.value * document.all.usrate.value);
+                if (document.all.VMaam.value == '') {var maam = 0;}
+                else {var maam = eval (document.all.VMaam.value);}
+		ussm = eval (ussm * (maam + 1));
+		ussm = Math.round(ussm * 100) / 100;
+		document.APCalculator.sum.value = ussm;
+}
+
+function sm() {
+	if ((document.APCalculator.cred_type.value == 8) || (document.APCalculator.cred_type.value == 9)){
+	np();}
+}
+
+function np() {
+	if (document.APCalculator.sum.value != "" && document.APCalculator.npay1.value != "0"){
+		var tsum = eval(document.APCalculator.sum.value - document.APCalculator.stars.value);
+		var mod = eval(tsum % document.APCalculator.npay1.value);
+		var sp = eval((tsum-mod)/document.APCalculator.npay1.value);
+		var fp = eval(sp + mod);
+		fp = Math.round(fp * 100) / 100;
+		document.APCalculator.fpay.value = fp;
+		document.APCalculator.spay.value = sp;
+	}
+}
+
+function rfp() {
+	if (document.APCalculator.sum.value != "" && document.APCalculator.npay1.value != "0"){
+		var tsum = eval(document.APCalculator.sum.value - document.APCalculator.stars.value - document.APCalculator.fpay.value);
+		var fp = eval(document.APCalculator.fpay.value);
+		var mod = eval(tsum % (document.APCalculator.npay1.value - 1));
+		var sp = eval((tsum - mod)/(document.APCalculator.npay1.value -1));
+		var fpf = eval(fp + mod);
+		fpf = Math.round(fpf * 100) / 100;
+		document.APCalculator.spay.value = sp;
+		document.APCalculator.fpay.value = fpf;
+	}
+}
+ 
+function Validate(form)
+{
+if (document.APCalculator.sum.value == '' || isNaN(parseFloat(document.APCalculator.sum.value)) || parseFloat(document.APCalculator.sum.value)<=0) {alert ("<?=$lang["enter_pay_amount"]?>");return false;}
+if (document.APCalculator.ccno.value == '' || isNaN(parseFloat(document.APCalculator.ccno.value))) {alert ("<?=$lang["enter_card_number"]?>");return false;}
+if (document.APCalculator.expmonth.value == '' || document.APCalculator.expyear.value == '') {alert ("<?=$lang["enter_card_expiration"]?>");return false;}
+//if (document.APCalculator.first_name.value == '') {alert ("<?=$lang["enter_first_name"]?>");return false;}
+//if (document.APCalculator.last_name.value == '') {alert ("<?=$lang["enter_second_name"]?>");return false;}
+//if (document.APCalculator.myid.value == '') {alert ("<?=$lang["enter_id"]?>");return false;}
+//if (document.APCalculator.phone_num.value == '') {alert ("<?=$lang["enter_phone"]?>");return false;}
+if (document.APCalculator.authnr.value == '' && document.APCalculator.tranmode.value == 'F') {alert ("<?=$lang["enter_approval"]?>");return false;}
+if (document.APCalculator.cred_type.value == 6 && document.APCalculator.npay1.value<3){alert("<?=$lang["credit_payment_number_error"]?>");return false;}
+<?if ($cashbox){?>
+if (document.APCalculator.phone_num.value == ""){alert("<?=$lang["enter_phone"]?>");return false;}
+if (document.APCalculator.myid.value == "" && !confirm("<?=$lang["id_not_entered_warning"]?>")){;return false;}
+<?}?>
+
+<?if ($UserData->fields["CheckPersonID"]){?>
+if (document.APCalculator.myid.value != "" && !checkIDNum(document.APCalculator.myid.value))
+{ 
+	alert("<?=$lang["wrong_id_num"]?>");
+	document.APCalculator.myid.focus();
+	document.APCalculator.myid.select();
+	return false;
+}
+<?}?>
+ 
+if (document.APCalculator.cred_type.value == '8' || document.APCalculator.cred_type.value == '9') {
+    if (document.APCalculator.npay1.value == '0') {alert ("<?=$lang["enter_num_payments"]?>"); return false;}
+    else 
+    {
+		document.all.npay.value = document.APCalculator.npay1.value-1;
+		generate();
+	}
+ }
+ else if (document.APCalculator.cred_type.value == '5' || document.APCalculator.cred_type.value == '6') {
+        if (document.APCalculator.npay1.value == '0') {alert ("<?=$lang["enter_num_payments"]?>"); return false;}
+        else {document.all.npay.value = document.APCalculator.npay1.value;
+         generate();}
+ }
+ else {
+	generate();
+ }
+}
+
+function ReadKeys(){
+	if (event.keyCode==13)
+	{
+		Validate(document.APCalculator);
+		return;
+	}
+	if (event.keyCode == 27) {
+		Reading =~ Reading;
+		if (Reading) {
+			Clear_Form();
+			S = '';
+			document.all.ccno.style.backgroundColor = '#95B4D3';
+			document.all.expmonth.style.backgroundColor = '#95B4D3';
+			document.all.expyear.style.backgroundColor = '#95B4D3';
+		}
+		else {
+			document.all.ccno.style.backgroundColor = '';
+			document.all.expmonth.style.backgroundColor = '';
+			document.all.expyear.style.backgroundColor = '';
+			ProcessString();
+		}
+		return;
+	}
+
+	if (Reading) {
+		S = S + String.fromCharCode(event.keyCode);
+		event.keyCode = null;
+	}
+}
+
+function ProcessString() {
+
+	<?if ($cashbox){?>
+	if (S.length==0){closeForm();return;}
+	<?}?>
+
+	PosEqualSign = S.indexOf('=');
+
+	if (PosEqualSign == 17) {
+		var RE = new RegExp ('^0') ;
+		var CCno =  S.charAt(36)+S.charAt(19)+S.slice(20,26)+S.charAt(26);
+
+		document.all.ccno.value = CCno.replace(RE,'');
+		document.all.expmonth.value = S.slice(34,36);
+		document.all.expyear.value = S.slice(32,34);
+		document.all.track2.value = S;  
+	}
+	else if (PosEqualSign > 0) {
+		document.all.ccno.value = S.slice(0,PosEqualSign);
+		document.all.expmonth.value = S.slice(PosEqualSign+3,PosEqualSign+5);
+		document.all.expyear.value = S.slice(PosEqualSign+1,PosEqualSign+3);
+		document.all.track2.value = S; 
+	}
+}
+
+function OnLoad()
+{
+	//document.APCalculator.reset();
+	paymentsOption();
+	tranmodeOption();
+	<?if ($controlString){?>
+	S = "<?=$controlString?>";
+	ProcessString();
+	<?}?> 
+	
+	if (document.APCalculator.sum.value==''||parseFloat(document.APCalculator.sum.value)==0){document.APCalculator.sum.focus();document.APCalculator.sum.select();return;}
+	if (document.APCalculator.ccno.value==''){document.APCalculator.ccno.focus();return;}
+	if (document.APCalculator.expmonth.value==''){document.APCalculator.expmonth.focus();return;}
+	if (document.APCalculator.expyear.value==''){document.APCalculator.expyear.focus();return;}
+	<?if ($isinitial){?>
+	document.APCalculator.cred_type.focus();
+	<?}else{?>
+	document.APCalculator.sum.focus();
+	document.APCalculator.sum.select();
+	<?}?>
+}
+
+document.onkeypress = ReadKeys
+
+document.body.onload = OnLoad;
+
+
+// -->
+</script>
+
+<table width=100% border=0>
+<form action="https://secure.tranzila.com/cgi-bin/tranzila31.cgi" method="POST" name=APCalculator>
+<input type="hidden" name="supplier" value="demo">
+<input type="hidden" name="task" value="Domanualdebit">
+<input type="hidden" name="language" value="HEB">
+<input type="hidden" id=track2 name="track2" value="">
+<input type="hidden" id=npay name="npay" value="">
+<input type="hidden" name="currency" value="1">
+<!--  -->
+<tr>
+	<td colspan=7>
+	<table width=100% cellpadding=0 cellspacing=0><tr><td class=tableheader3>
+	<?=$lang["deal_will_sent_on_doc_store"]?>
+	</td>
+	<td class=tableheader3>
+	<img src="<?=$imgPath?>creditcards.gif">
+	<td>
+	</table>
+	</td>
+	
+</tr>
+<tr>
+<td class="RowHeaderTX"><?=$lang["amt_to_pay"]?>: <span style=color:red>*</span></td>
+<td class="FieldCellTX">
+	<input class="InputWhite" type="text" tabindex=1 NAME="sum" value="" onChange="sm()">
+</td><td width=50></td>
+<!--
+<td class="RowHeaderTX">Curr.</td>
+<td class="FieldCellTX">
+	<select class="InputWhite">
+	<Option C value="1" selected><?=$lang["nis"]?></option>
+	<Option C value="2"><?=$lang["dolar_usa"]?></option>
+	<Option C value="4"><?=$lang["dolar_usa_nis"]?></option>
+	<Option C value="8"><?=$lang["nis_madad"]?></option>
+	</select>
+</td>
+-->
+
+
+<td style='display:none'>
+	<?=$lang["card_type"]?>: 
+</td>
+<td style='display:none'> 
+	<select name=cardtype id=cardtype tabindex=10>
+	<?
+    $cardtypes->MoveFirst();
+    while(!$cardtypes->EOF){?>
+		<option value="<?=$cardtypes->fields["id"]?>" <?=($cardtype[$i]==$cardtypes->fields["id"])?"selected":""?> ><?=$cardtypes->fields["name"]?>
+		<?$cardtypes->MoveNext();
+	}?>
+	</select>
+</td>
+
+<td style='display:<?=$cashbox?"none":""?>'><?=$lang["kupa"]?>:</td>
+<td style='display:<?=$cashbox?"none":""?>'>
+        	<select id=kupa name=kupa tabindex=11>
+        	<?
+            $kupot->MoveFirst();
+            while(!$kupot->EOF){?>
+        		<option <?=$defaultKupa==$kupot->fields["id"]?"selected":""?> value="<?=$kupot->fields["id"]?>"><?=$kupot->fields["name"]?>
+        		<?$kupot->MoveNext();
+        	}?>
+        	</select>
+</td>
+
+</tr>
+<tr>
+<td class="RowHeaderTX"><?=$lang["credit_card_number"]?>: <span style=color:red>*</span></td>
+<td class="FieldCellTX">
+	<input class="InputWhite" type="text" tabindex=2 NAME="ccno" value="" onChange="document.all.track2.value=''">
+</td>
+<td width=50></td>
+<td class="RowHeaderTX"><?=$lang["name_card_owner"]?>:</td>
+<td class="FieldCellTX">
+	<input class="InputWhite" type=text name="name" tabindex=12 value="" >
+</td>
+</tr>
+<tr>
+
+<td class="RowHeaderTX"><?=$lang["card_expire_date"]?>: <span style=color:red>*</span></td>
+<td class="FieldCellTX">
+	<select class="InputWhiteSmall" name="expmonth" tabindex=3 onChange="document.all.track2.value=''">
+	
+		<OPTION Y VALUE="">
+        <OPTION M VALUE="01">01</option>
+        <OPTION M VALUE="02">02</option>
+        <OPTION M VALUE="03">03</option>
+        <OPTION M VALUE="04">04</option>
+        <OPTION M VALUE="05">05</option>
+        <OPTION M VALUE="06">06</option>
+        <OPTION M VALUE="07">07</option>
+        <OPTION M VALUE="08">08</option>
+        <OPTION M VALUE="09">09</option> 
+        <OPTION M VALUE="10">10</option>
+        <OPTION M VALUE="11">11</option>
+        <OPTION M VALUE="12">12</option>
+
+	</select>
+	<select class="InputWhiteSmall" name="expyear" tabindex=4 onChange="document.all.track2.value=''">
+	<OPTION Y VALUE=""> 
+	<OPTION Y VALUE="07">2007
+	<OPTION Y VALUE="08">2008
+	<OPTION Y VALUE="09">2009
+	<OPTION Y VALUE="10">2010
+	<OPTION Y VALUE="11">2011
+	<OPTION Y VALUE="12">2012
+	<OPTION Y VALUE="13">2013
+	<OPTION Y VALUE="14">2014
+	<OPTION Y VALUE="15">2015
+	<OPTION Y VALUE="16">2016
+	</select>
+</td>
+
+
+
+
+<td width=50></td>
+<td class="RowHeaderTX" nowrap><?=$lang["teudat_zehut"]?>:  <?if ($cashbox){?><span style=color:blue>*</span><?}?></td>
+<td class="FieldCellTX">
+	<input class="InputWhite" type=text tabindex=14 name="myid" value="" >
+</td>
+</tr>
+<tr>
+
+<td><?=$lang["number"]?> CVV:</td>
+<td>
+	<input class="InputWhite" type="text" NAME="mycvv" tabindex=5 value="" maxlength=4>
+</td>
+
+
+<td width=50></td>
+
+<td class="RowHeaderTX"><?=$lang["phone"]?>: <?if ($cashbox){?><span style=color:red>*</span><?}?></td>
+<td class="FieldCellTX">
+	<input class="InputWhite" type="text" tabindex=15 NAME="phone_num" value="">
+</td>
+</tr>
+<tr>
+
+<td class="RowHeaderTX"><?=$lang["paymnet_type"]?>:</td>
+<td class="FieldCellTX" nowrap>
+	<select class="InputWhite" name="cred_type" tabindex=6 onchange="paymentsOption()">
+	<option D value="1" selected><?=$lang["paytype_regular"]?></option>
+	<option D value="8"><?=$lang["payments"]?></option>
+	<option D value="6"><?=$lang["paytype_credit"]?></option>
+	<option D value="2"><?=$lang["adif_visa"]?>/30+</option>
+	<option D value="2"><?=$lang["adif_diners"]?>/30+</option>
+	<option D value="3"><?=$lang["hiuv_miyadi"]?></option>
+	<option D value="4"><?=$lang["credit_club"]?></option>
+	<option D value="9"><?=$lang["payment_club"]?></option>
+	<option D value="5"><?=$lang["leumi_special"]?></option>
+	<option D value="2"><?=$lang["isra"]?></option>
+	<option D value="2"><?=$lang["amex_credit"]?></option>
+	</select>  
+	
+
+	
+</td>
+<td width=50></td>
+
+<td class="RowHeaderTX"><?=$lang["deal_type"]?>:</td>
+<td class="FieldCellTX" nowrap>
+	<select class="InputWhite" name="tranmode" tabindex=19 onchange="tranmodeOption()">
+	<?if ($UserData->fields["TranzillaEnabled"]==2){?>
+	<option D value="01" selected><?=$lang["hiuv"]?></option>
+	<option D value="51" ><?=$lang["refund1"]?></option>
+	<option D value="52" ><?=$lang["cancelled"]?></option>
+	<?}else{?>
+	<option D value="M" selected><?=$lang["hiuv"]?></option>
+	<?}?>
+	<option D value="F"><?=$lang["forcedeal"]?></option> 
+	</select>
+</td>
+
+</tr>
+<tr>
+
+<td id="vnp" class="RowHeaderTX"><?=$lang["num_payments"]?>: <span style=color:red>*</span></td>
+<td class="FieldCellTX">
+<select TYPE="text" class="InputWhite" NAME="npay1" tabindex=7 value="" onClick ="np()">
+	<option value="0"></option>
+	<option G value="2">2</option>
+	<option G value="3">3</option>
+	<option G value="4">4</option>
+	<option G value="5">5</option>
+	<option G value="6">6</option>
+	<option G value="7">7</option>
+	<option G value="8">8</option>
+	<option G value="9">9</option>
+	<option G value="10">10</option>
+	<option G value="12">12</option>
+	<option G value="15">15</option>
+	<option G value="18">18</option>
+	<option G value="20">20</option>
+	<option G value="24">24</option>
+	<option G value="30">30</option>
+	<option G value="36">36</option>
+	</select>
+</td>
+<td width=50></td>
+
+<td id=vauthnr style=visibility:hidden class="RowHeaderTX"><?=$lang["num_approval"]?>: <span style=color:red>*</span></td>
+<td valign=top class="FieldCellTX" nowrap>
+	<input style=visibility:hidden class="InputWhite" type="text" NAME="authnr" tabindex=9 value="">
+</td>
+<!--
+<td class="RowHeaderTX">Stars</td>
+<td class="FieldCellTX">
+	<input class="InputWhite" type="text" NAME="stars" value="" disabled onChange="sm()">
+</td>
+-->
+<INPUT type=HIdden name=stars value="">
+</tr>
+<tr>
+
+
+<td id="vfpay" class="RowHeaderTX" nowrap><?=$lang["first_payment_amt"]?>:</td>
+<td class="FieldCellTX">
+<input class="InputWhite" type="text" NAME="fpay" tabindex=16 value="" onChange="rfp()">
+</td>
+
+<td width=50></td>
+
+<?if ($UserData->fields["TranzillaEnabled"]==2){?>
+<td class="RowHeaderTX">
+<?=$lang["ofen_iska"]?>:
+</td>
+<td valign=top class="FieldCellTX" nowrap>
+	<select class="InputWhite" name="ofeniska" tabindex=20>
+	<option value="00" selected><?=$lang["regular_deal"]?></option>
+	<option value="01" ><?=$lang["self_service"]?></option>
+	<option value="02" ><?=$lang["self_service_gaz"]?></option>
+	<option value="50" ><?=$lang["phone_deal"]?></option>
+	<option value="51" ><?=$lang["signed_deal"]?></option>
+	</select>
+</td>
+<?}?>
+</tr>
+<tr>
+<td id="vspay" class="RowHeaderTX" nowrap><?=$lang["other_payment_amt"]?>:</td>
+<td class="FieldCellTX">
+<input class="InputWhite" type="text" NAME="spay" tabindex=17 value="">
+</td>
+
+
+
+</tr>
+
+</table>
+<table width=100% cellpadding="0" cellspacing="0" style="margin-top:7px">
+<tr>
+<td class="BackButtonCell"> 
+	<input name="button" type="button" class=button value='<?=$lang["submit"]?>' style='background-image:url(<?=$imgPath?>ok.gif)' onClick="Validate(document.APCalculator);">
+	<?if (!$cashbox){?>
+	<input type=button value='<?=$lang["clear_button"]?>' onclick='if(confirm("<?=$lang["clear_cc_data"]?>")){window.returnValue="";window.close()}'  class=button style='background-image:url(<?=$imgPath?>delete.gif)'>
+	<?}?>
+	<input type=button value='<?=$lang["close_button"]?>' onclick='closeForm()'  class=button style='background-image:url(<?=$imgPath?>back.gif)'>
+</td>
+</tr>
+</table>
+</form>
+	
+	<script>
+	function closeForm()
+	{
+		<?if ($cashbox){?>
+		window.parent.closeCurrentPaymentWindow()
+		<?}else{?>
+		window.close()
+		<?}?>
+	}
+	
+	
+	function generate()
+	{
+		s=document.APCalculator.sum.value + "|";	//0
+		s+=document.APCalculator.npay1.value + "|";	//1
+		s+=document.APCalculator.cred_type.value+"|";//2
+		s+=document.APCalculator.ccno.value + "|";	//3
+		s+=document.APCalculator.expmonth.value + "|";//4	
+		s+=document.APCalculator.expyear.value + "|";	//5
+		s+=document.APCalculator.fpay.value+"|";//6
+		s+=document.APCalculator.spay.value+"|";//7
+		s+=document.APCalculator.name.value+"|";//8
+		s+=""+"|";//9 (was last_name)
+		s+=document.APCalculator.myid.value+"|";//10
+		s+=document.APCalculator.phone_num.value+"|";//11
+		s+=document.APCalculator.kupa.value+"|";//12
+		s+=document.APCalculator.cardtype.value+"|";//13
+		s+=document.APCalculator.mycvv.value+"|";//14
+		s+=document.APCalculator.tranmode.value+"|";//15
+		s+=document.APCalculator.authnr.value+"|";//16
+		s+=document.APCalculator.task.value+"|";//17
+		s+=document.APCalculator.track2.value+"|";//18
+		if (document.APCalculator.ofeniska!=null)
+		{
+			s+=document.APCalculator.ofeniska.value+"|";//19
+		}
+				
+		<?if ($cashbox){?>
+		closeForm();
+		window.parent.processCreditCardData(document.APCalculator.sum.value,s);
+		<?}else{?>
+		window.returnValue=s;
+		window.close(); 
+		<?}?>
+	}
+	
+	
+	<?if ($creditcarddata)
+	{
+		$ccdata = explode("|",	($creditcarddata));
+		if ($isinitial)
+		{
+			?>
+			document.APCalculator.sum.value = '<?=$ccdata[0]?>';
+			document.APCalculator.name.value = "<?=ConvertFromUnicode(utf8RawUrlDecode($ccdata[8]),"he")?>";
+			document.APCalculator.myid.value = "<?=$ccdata[10]?>";
+			document.APCalculator.phone_num.value = "<?=$ccdata[11]?>";
+			document.APCalculator.tranmode.value = "<?=$ccdata[15]?>" ;
+			<?
+		}
+		else
+		{
+			?>
+			document.APCalculator.sum.value = "<?=$ccdata[0]?>";
+			document.APCalculator.npay1.value = "<?=$ccdata[1]?>";
+			document.APCalculator.cred_type.value = "<?=$ccdata[2]?>";
+			document.APCalculator.ccno.value = "<?=$ccdata[3]?>";
+			document.APCalculator.expmonth.value = "<?=$ccdata[4]?>";
+			document.APCalculator.expyear.value = "<?=$ccdata[5]?>";
+			document.APCalculator.fpay.value = "<?=$ccdata[6]?>";
+			document.APCalculator.spay.value = "<?=$ccdata[7]?>";
+			document.APCalculator.name.value = "<?=ConvertFromUnicode(utf8RawUrlDecode($ccdata[8]),"he")?>"; 
+			//document.APCalculator.last_name.value = "<?=$ccdata[9]?>";
+			document.APCalculator.myid.value = "<?=$ccdata[10]?>";
+			document.APCalculator.phone_num.value = "<?=$ccdata[11]?>";
+			document.APCalculator.kupa.value = "<?=$ccdata[12]?>";
+			document.APCalculator.cardtype.value = "<?=$ccdata[13]?>";
+			document.APCalculator.mycvv.value = "<?=$ccdata[14]?>" ;
+			document.APCalculator.tranmode.value = "<?=$ccdata[15]?>" ;
+			document.APCalculator.authnr.value = "<?=$ccdata[16]?>" ;
+			document.APCalculator.task.value = "<?=$ccdata[17]?>" ;
+			document.APCalculator.track2.value = "<?=$ccdata[18]?>" ;
+			if (document.APCalculator.ofeniska!=null)
+			{
+				document.APCalculator.ofeniska.value = "<?=$ccdata[19]?>" ;
+			}
+			<?
+		}
+	}
+	?>
+	
+	</script>
+	
+
+	<?php
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

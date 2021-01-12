@@ -1,0 +1,134 @@
+<?php
+$simple=1;
+if ($search){
+	 setcookie("savedsearch",$_SERVER["QUERY_STRING"]);
+}
+
+if ($ajaxagent)
+{
+	include_once("../../classes/agent.php"); 
+	$agent->init(); 
+}
+include("include/common.php");
+if (!loginCheck('User'))exit;
+include("$config[template_path]/admin_top.html");
+if (!$ajaxagent)
+{
+	include_once("../../classes/agent.php"); 
+	$agent->init(); 
+}
+?>
+<?if ($search){?>
+<script>
+window.opener.listing("","","<?=$_SERVER["QUERY_STRING"]?>");
+window.opener.clearState();
+close();
+</script>
+<?die();}?>
+<script src="include/productAjax.js"></script>
+<table border="<?php echo $style[admin_listing_border] ?>" cellspacing="<?php echo $style[admin_listing_cellspacing] ?>" cellpadding="<?php echo $style[admin_listing_cellpadding] ?>" width="100%" class="form_main">
+	<tr>
+		<td valign="top">
+		<table bgcolor=buttonface width=100% ><tr><td>
+			<h3><?=$lang[search_listings]?></h3>
+			</td>
+			</tr></table>
+				<form name="F" method="get">
+					<input type="hidden" name="productid" >
+					<table border=0 align=center>
+						<tr>
+							<td align="right" class="row_main"><b><?php echo $lang[barcode] ?></b></td>
+							<td  class="row_main"> 
+								<input style='width:200px' type="text" id="BarCode" name="BarCode" autocomplete=off onchange="document.F.productid.value='';" onblur='closeProductNames()' onkeyup='checkProductByBarcode();'>
+							</td>
+						</tr>						
+						<tr>
+							<td align="right" class="row_main"><b><?php echo $lang[admin_listings_editor_title] ?></b></td>
+							<td  class="row_main"> 
+								<input style='width:200px' type="text" id="title" name="title" autocomplete=off onchange="document.F.productid.value='';" onblur='closeProductNames()' onkeyup='checkProduct();'>
+							</td>
+						</tr>					
+						<?php
+							// get the db object in scope
+							global $conn;
+							// Get all searchable fields and display them
+							$sql = "select search_label, search_type, field_name,field_elements from $TABLE_LISTINGSFORMELEMENTS where searchable = 1 and field_name<>'BarCode' order by rank";
+							if (!$rs = $conn->execute ($sql))
+							{
+								log_error($sql);
+							}
+							while (!$rs->EOF)
+							{
+                                
+								if ($rs->fields[field_name]=="ProductGroup")
+								{
+									echo "<tr>
+											<td><b>".$lang["item_group"]."</b></td>
+											<td>
+											<select name='ProductGroup' style='width:100%'><option></option>";
+									FillCategoriesList("");
+									echo ";</select>
+											</td>
+											</tr>";
+									echo "<tr><td></td><td>
+											".$lang["including_sub_cat"]."
+											<Input type=checkbox ".(($subcats||!$posted)?"checked":"")." name=subcats>
+											</td></tr>";
+								}
+								else
+								{
+									$rs->fields['search_type'] =  ($rs->fields['search_type'])?$rs->fields['search_type']:"text";
+									$searchfunction = obfuscate_function('searchbox_' . $rs->fields['search_type']);
+									$searchfunction($rs->fields['search_label'], $rs->fields['field_name'], $rs->fields['field_elements']);
+								}
+                                 
+                                $rs->MoveNext();
+							}
+						?>
+						<tr style=display:none>
+							<td><b><?=$lang['search_mode']?></td>
+							<td>
+ 								<select name="userid" style='width:200px'> 
+									<option value=""><?=$lang[all]?>
+									<option value="<?=$userID?>"><?=$lang[only_my]?>
+									<option value="0"><?=$lang[only_pniot]?>
+									<option value="-1"><?=$lang[only_brockers]?>
+								</select>
+							</td>
+						</tr>						
+						<tr style=display:none>
+							<td align="center" colspan="2">
+								<input type="checkbox" name="imagesOnly" value="yes"> <b><?=$lang[with_pictures]?></b>
+							</td>
+						</tr>
+						<tr>
+							<td align="center" colspan="2">
+							<hr>
+								<input type=hidden name=search value=1>
+								<input type="submit" class=button style='background-image:url(<?=$imgPath?>view.gif)' value='ητω'>
+							</td>
+						</tr>
+					</table>
+				</form>
+
+		</td>
+	</tr>
+</table>
+<script>
+document.F.BarCode.focus();
+
+var currentInput = null;
+var prevProductName = "";
+var inProc = false; 
+var __autoSubmit = false;
+
+var xmlDoc=new ActiveXObject("Microsoft.XMLDOM");
+
+
+</script>
+<select id=productNames onfocus='this.style.backgroundColor="lightyellow"' onkeypress='checkPrNames()' onclick='getProduct()' style='display:none;position:absolute;minWidth:200;top:0;left:0' size=5></select>
+
+<?php
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

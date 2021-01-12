@@ -1,0 +1,105 @@
+<?php
+	$simple=1;
+	$page_subtitle = "איפוס חוב";
+	include("include/common.php");
+	include("include/functions.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+    if (!$saction){
+            $sDate = date("d/m/Y");
+        ?>
+            <base target=_self>
+            <script>
+                function validate()
+                {
+                	if(document.F.sDate.value==""||isNaN(Date.parse(document.F.sDate.value))){
+			               alert("הערך שהוזן אינו תקין");
+			               document.F.sDate.focus();
+			               return false;
+                	}
+                    return true;
+                }
+            </script>
+            <form name=F method=post onsubmit='return validate()'>
+            <input type=hidden name=saction value=1>
+            <center>
+            <b>האם ברצונך להוציא  תשלום מאפס חוב אוטומטי לכל הלקוחות המסומנים?</b>
+            <br><br>
+                תאריך תשלום
+                    <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+                    <img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.sDate")'>
+                    <br><br>
+                    <input type=submit value='אישור'>
+                    <input type=button value='סגור' onclick='window.returnValue=-1;window.close()'>
+            </form>
+        <?
+
+    }
+    else
+    {
+
+        $date = DateToSQL($sDate);
+
+    	$sql = "
+    		select c.id,
+    		sum((case when paymid=7 then hakafasum else CouponSum end)*(case when isrefund=0 and IsDebtPayment=0 then 1 else 0 end)) as Hov,
+    		sum((case when paymid=7 then hakafasum else CouponSum end)*(case when isrefund=1 or IsDebtPayment=1 then 1 else 0 end)) as Zikui
+    		from listingsSuppliers c
+    		left outer join transactionpayments p on 
+            (c.ClientNum = p.CouponNumber or (p.paymid=7 and p.custid = c.ClientNum))
+    		left outer join transactions t on p.trans_id = t.id and  t.user_id = $userID
+    		where
+            ifnull(t.tranErechDate,t.trandate) <= '$date'
+    		and c.user_id = $userID
+            and c.id in ($ids)
+    		group by c.id
+    	";
+
+    	$recordSet = $conn->Execute($sql);
+    	if ($recordSet === false) log_error($sql);
+
+        $comment = "תשלום איפוס אוטומטי, נוצר ".date("d/m/Y");
+        $paymenttype = "1";
+        $cnt=0;
+
+        while (!$recordSet->EOF){
+            $id = $recordSet->fields["id"];
+            $hov=$recordSet->fields["Hov"];
+    		$zikui=$recordSet->fields["Zikui"];
+
+    		$sql="select
+    		sum(amount * (case when hov=0 then 1 else 0 end) ) as zikui,
+    		sum(amount * (case when hov=1 then 1 else 0 end) ) as hov
+    		from creditorpayments c
+    		where creditor_id = $id and status=1 and day <= '$date'";
+    		$zik = $conn->Execute($sql);
+    		if ($zik === false){log_error($sql);}
+    		$hov1=$zik->fields["hov"];
+    		$zikui1=$zik->fields["zikui"];
+    		$hov=(float)$hov+(float)$hov1;
+    		$zikui=(float)$zikui+(float)$zikui1;
+            $sum = number_format($hov - $zikui,2,".","");
+            if ($sum > 0){
+                $cnt++;
+                $sql = "insert into creditorpayments
+                (creditor_id, hov, Day, Amount, comment, user_id, status, PaymentType)
+                values ($id,0,'$date','$sum','".addslashes($comment)."',$userID,1,$paymenttype)
+                ";
+                $ins = $conn->Execute($sql);
+    	        if ($ins === false) log_error($sql);
+            }
+
+            $recordSet->MoveNext();
+        }
+
+        echo "<center><BR><p style='color:green;font-size:12pt;font-weight:bold'>הפעולה הסתימה בהצלחה</p>
+        <b>מספר תשלומים שנוצרו: $cnt</b>
+        <BR><BR><input type=button onclick='window.close()' value='סגור'></p><center>";
+
+    }
+
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

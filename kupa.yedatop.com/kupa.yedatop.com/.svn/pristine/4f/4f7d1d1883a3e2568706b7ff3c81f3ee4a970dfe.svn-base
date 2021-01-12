@@ -1,0 +1,811 @@
+<?php
+
+if ($edit)
+{
+	$page_subtitle = "עדכון פריט";
+}
+include("include/common.php");
+echo "<script src='/javascript/common.js'></script>";
+if($firsttime && $GO_MODULES->has_read_permission($GO_SECURITY->user_id, "stock_cashbox")){?>
+<script>
+if (window.screen.availWidth<1000){
+	top.moveTo(0,0);
+    top.resizeTo(400,300);
+	window.location = "about:blank";
+	window.open("/modules/stock/cashbox.php","cashbox","channelmode=yes,fullscreen=yes,resizable=no,status=no")
+}
+</script>
+<?}
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+                     
+
+if ($action == "update_listing")
+{
+	global $HTTP_POST_VARS, $userID, $pass_the_form;
+
+	// update the listing
+	if ($StockMin){ $StockMin = $HTTP_POST_VARS["StockMin"] = floatval($StockMin);}
+	if ($StockMax){ $StockMax = $HTTP_POST_VARS["StockMax"] = floatval($StockMax);}
+	if ($title== "")
+	{
+		// if the title is blank
+		echo "$lang[admin_new_listing_enter_a_title]<br>";
+	} // end if
+
+	elseif ( $StockMin < 0 || $StockMin > 999999){
+		echo "<strong style=color:red>$lang[admin_new_listing_enter_a_stockmin]</strong><br>";
+	}
+	elseif ( $StockMax < 0 || $StockMax > 999999){
+		echo "<strong style=color:red>$lang[admin_new_listing_enter_a_stockmax]</strong><br>";
+	}
+	elseif ( $workmode == "B"  && ($Quantity < 0 || $Quantity > 999999))    {
+		echo "<strong style=color:red>$lang[admin_new_listing_enter_a_quantity]</strong><br>";
+	}
+	else
+	{
+		$pass_the_form = validateForm($TABLE_LISTINGSFORMELEMENTS);
+
+		if ($pass_the_form == "Yes")
+		{
+			$err = false;
+			if ($BarCode)
+			{
+				$sql = "select ID from listingsDB where BarCode='".trim(addslashes($BarCode))."' and user_id=$userID and ID <> $edit";
+				$recordSet = DBQuery($sql);
+				if (!$recordSet->EOF){
+					echo "<p><b style=color:red>$lang[barcode_exists]</b></p>";
+					$err=true;
+				} 
+			}
+			if (!$err)
+            {
+		
+				$sql_title = make_db_safe($title);
+				$contact1 = make_db_safe($edit_contact1);
+				$sql_active = make_db_safe($active);
+				$sql_notes = make_db_safe($notes);
+				$sql_edit = make_db_safe($edit);
+				$sql_export = make_db_safe($export);
+
+                //treate status change from inactive to active as new product
+                $newprod = false;
+                if ($active=="yes")
+                {
+                    $sql = "select active from listingsDB where id = $sql_edit";
+                    $recordSet = $conn->Execute($sql);    if ($recordSet === false){log_error($sql);}    
+                    $oldstatus = $recordSet->Fields("active");
+					if ($oldstatus=="no"||$oldstatus=="yek")
+                    {
+				        $sql = "Update listingsDB set lastinserted = unix_timestamp(),lastupdated=0,lastdeleted=0,synccatalog = 0 where user_id=$userID and ID = $edit";
+                        $recordSet = $conn->Execute($sql);    if ($recordSet === false){log_error($sql);}    
+                        $newprod = true;  
+                    } 
+                }
+                
+
+                $sql = "UPDATE listingsDB SET titleupdated = unix_timestamp() where ID = $sql_edit AND user_ID = $userID and title <> $sql_title ";
+				$prl = $conn->Execute($sql); if ($prl === false){log_error($sql);}
+
+				$sql = "UPDATE listingsDB SET title = $sql_title, export = $sql_export, ";
+				if ($active=="no"||$active=="yek")
+                {
+					$sql .= " lastupdated = 0, lastdeleted = unix_timestamp(), synccatalog = 0, ";
+				}
+				elseif (!$newprod) 
+                {
+					$sql .= " lastdeleted = 0, lastupdated=unix_timestamp(), synccatalog = 0, ";
+                    
+                    //update master product, if any
+                    DBQuery("update listingsDB set lastupdated=unix_timestamp(),synccatalog = 0 
+                        where id in (select master_id from listings_tree where listing_id = $sql_edit)");
+				}
+
+				if ($featureListings == "yes")
+				{
+					// if the user can feature properties
+					$sql_featured = make_db_safe($featured);
+					$sql .= "featured = $sql_featured, ";
+				} // end if ($featureListings == "yes")
+				if ($admin_privs == "yes")
+				{
+					// if the user can feature properties
+					$sql_active = make_db_safe($edit_active);
+					$sql .= "active = $sql_active, ";
+				} // end if ($admin_privs == "yes")
+				if (($admin_privs == "yes" OR $config[user_default_canChangeExpirations] == "yes")and $config[use_expiration] = "yes")
+				{
+					//$date_array = explode("-",$edit_expiration);
+					//$exp_text = implode(",",$date_array);
+					//$expiration_date  = mktime (0,0,0,$exp_text);
+					$expiration_date = strtotime($edit_expiration);
+					$sql .= "expiration = ".$conn->DBDate($expiration_date).",";
+				}
+
+
+				$sql .= "notes = $sql_notes, is_tree='$tree', active='$active', last_modified = ".$conn->DBTimeStamp(time())." WHERE ((ID = $sql_edit) AND (user_ID = $userID))";
+				$recordSet = $conn->Execute($sql);
+				if ($recordSet === false){log_error($sql);}
+
+                if (!$tree)
+                {
+                    DBQuery("delete from listings_tree where master_id = $sql_edit");
+                }
+                else
+                {
+                    $HTTP_POST_VARS["SalePrice"]="";
+                    $HTTP_POST_VARS["Cost"]="";
+                }
+                //interprete chenged barcode as just added item!
+                $newsql = "UPDATE listingsDB SET lastupdated=null, lastdeleted=null, lastinserted = unix_timestamp() where ID = $sql_edit AND user_ID = $userID and barcode <> '".trim(addslashes($BarCode))."'";
+				$prl = DBQuery($sql); 
+
+				//check price
+				$sql = "select SalePrice,Cost from listingsDB where id = $sql_edit ";
+				$recordSet = DBQuery($sql); 
+
+				if (floatval($SalePrice)!=floatval($recordSet->fields["SalePrice"]))
+                {
+					$sql = "update  listingsDB set priceupdated = unix_timestamp() where ID = $sql_edit ";
+					DBQuery($sql);
+				    
+				    $sql = "insert into history (timestamp,datetime,type,listing_id,saleprice_from,saleprice_to) values 
+											(unix_timestamp(),now(),'adjustment',$edit,'".$recordSet->fields["SalePrice"]."','".$SalePrice."')";
+						
+                    DBQuery($sql);  
+                }
+				
+				if (round($Cost,2)!=round($recordSet->fields["Cost"],2))
+                {
+					$sql = "insert into history (timestamp,datetime,type,listing_id,cost_from,cost) values 
+							(unix_timestamp(),now(),'cost',$edit,'".$recordSet->fields["Cost"]."','".$Cost."')";
+                    DBQuery($sql);  
+                }				
+
+                if ($forcepriceupdate){
+                    $sql = "update listingsStocksElements set priceupdated = unix_timestamp(), saleprice = null where ListingID = $sql_edit";
+                    $zzz = DBQuery($sql); 
+                }
+
+
+				//update the rest
+				$message = updateListingsData($edit, $userID);
+				
+                //recalculate quantitites according to unit rate
+                if ($Unit)
+                {
+                    $sqlunit = "select grams_rate from $TABLE_UNITS where id = $Unit";
+					$unitrs = $conn->Execute($sqlunit); if ($unitrs === false){log_error($sqlunit);}
+                    $grams_rate = $unitrs->Fields("grams_rate");
+                    $sqlunit = "update listingsDB set StockMin = StockMin*$grams_rate where id = $sql_edit ";
+					$unitrs = $conn->Execute($sqlunit); if ($unitrs === false){log_error($sqlunit);}
+                    $sqlunit = "update listingsDB set StockMax = StockMax*$grams_rate where id = $sql_edit ";
+					$unitrs = $conn->Execute($sqlunit); if ($unitrs === false){log_error($sqlunit);}
+                }    
+                
+                //update minstock in points
+                if ($forceminstockupdate)
+                {
+                    $sql = "select s.*,lse.id as lseid from $TABLE_LISTINGSSTOCKS s
+                     left outer join listingsStocksElements lse on lse.stockid = s.id and lse.listingid = $sql_edit 
+                     where s.user_id = $userID and status=1";
+                    $stocks = $conn->Execute($sql); if ($stocks === false){log_error($sql);} 
+                    while (!$stocks->EOF)
+                    {
+                        $mStockMain = $StockMin % ($stocks->RowCount()-1);
+                        $mStockOther = ($StockMin-$mStockMain)/($stocks->RowCount()-1);
+                        $mStock = ($stocks->Fields("TerminalID")==$config["MainStock"])?$mStockMain:$mStockOther;
+                        if ($Unit) 
+                        {
+                            $mStock *= $grams_rate;
+                        }
+                        if ($stocks->fields["lseid"])
+                        {
+                            $sql = "update listingsStocksElements set MinStock = $mStock where id = ".$stocks->Fields("lseid");
+                        } 
+                        else
+                        {
+                            $sql = "insert into listingsStocksElements (stockid, listingid, MinStock) values (".$stocks->Fields("ID").",".$sql_edit.",".$mStock.")";
+                        }
+                        $rr = $conn->Execute($sql); if ($rr === false){log_error($sql);} 
+                        $stocks->MoveNext();
+                    }   
+                }           
+                
+                echo "<script>window.onload=reloadParent</script>";
+				
+            }//end barcode check
+		} // end if $pass_the_form == "Yes"
+	} // end else
+} // end if $action == "update listing"
+
+
+	if ($edit != "")
+	{
+		$sql_edit = make_db_safe($edit);
+		// first, grab the listings's main info
+		$sql = "SELECT ID, export, title, notes, last_modified, featured, active, creation_date, expiration FROM listingsDB WHERE ((ID = $sql_edit) AND (user_ID = '$userID'))";
+		$ADODB_FETCH_MODE = ADODB_FETCH_ASSOC;
+		$recordSet = $conn->Execute($sql);
+		if ($recordSet === false)
+		{
+			log_error($sql);
+		}
+		$num_records = $recordSet->RecordCount();
+		if ($num_records == 0)
+		{
+			die("$lang[priv_failure]");
+		}
+
+		while (!$recordSet->EOF)
+		{
+			// collect up the main DB's various fields
+			$listing_ID = make_db_unsafe ($recordSet->fields[ID]);
+			$edit_title = make_db_unsafe ($recordSet->fields[title]);
+			$edit_contact1 = make_db_unsafe ($recordSet->fields[contact1]);
+			$edit_export = make_db_unsafe ($recordSet->fields[export]);
+			$edit_active = make_db_unsafe ($recordSet->fields[active]);
+			$edit_notes = make_db_unsafe ($recordSet->fields[notes]);
+			$edit_featured = make_db_unsafe ($recordSet->fields[featured]);
+			$edit_active = make_db_unsafe ($recordSet->fields[active]);
+			$last_modified = $recordSet->UserTimeStamp($recordSet->fields[last_modified],'d/m/Y H:i:s');
+			$creation_date = $recordSet->UserTimeStamp($recordSet->fields[creation_date],'d/m/Y');
+			$expiration = $recordSet->UserTimeStamp($recordSet->fields[expiration],'Y-m-d');
+			$formatted_expiration = $recordSet->UserTimeStamp($recordSet->fields[expiration],'D M j Y');
+
+			$recordSet->MoveNext();
+		} // end while
+		//$date_mod = getDate($last_modified);
+
+
+
+		//$last_modified = "$date_mod[weekday], $date_mod[month] $date_mod[mday] $date_mod[year] at $date_mod[hours]:$date_mod[minutes]" // display the date in a human readable format
+		// now, display all that stuff
+		?>
+
+		<table width=100% height=480 cellpadding=0 cellspacing=0>
+		<TR><TD align=center>
+		<?include("productmenu.php")?>
+		</td></td>
+		<TR><TD align=center><b>
+				<?
+				if ($action="update_listing"){
+					if ($pass_the_form == "No")
+					{
+						// if we're not going to pass it, tell that they forgot to fill in one of the fields
+						echo "<p style=color:red>$lang[required_fields_not_filled]</p>";
+					}
+					if ($message == "success")
+					{
+						echo "<p style=color:green>$lang[log_updated_listing]</p>";
+						log_action ("$lang[log_updated_listing] $edit");
+					} // end if
+					else
+					{
+						//echo "<p style=color:red>$lang[alert_site_admin]</p>";
+					}
+				}
+				?>
+		</TD></TR>
+		<tr style='height:100%'><td>
+		<div style='overflow-Y:scroll;width:100%;height:100%;border:inset 1'>
+		<table border="0" cellspacing="<?php echo $style[form_cellspacing] ?>" cellpadding="<?php echo $style[form_cellpadding] ?>" width="100%" class="form_main">
+			<tr>
+				<td style='display:none' width="<?php echo $style[image_column_width] ?>" valign="top" align="center" class="row_main">
+					<b><?php echo $lang[images] ?></b>
+					<br>
+					<hr width="75%">
+					<a href="edit_listings_images.php?edit=<?php echo $edit ?>"><?php echo $lang[edit_images] ?></a><br><br>
+					<?php
+					$sql = "SELECT caption, file_name, thumb_file_name FROM listingsImages WHERE 1=0 and ((listing_id = '$edit') AND (user_id = '$userID'))";
+					$recordSet = $conn->Execute($sql);
+						if ($recordSet === false) log_error($sql);
+
+					$num_images = $recordSet->RecordCount();
+
+					while (!$recordSet->EOF)
+					{
+						$caption = make_db_unsafe ($recordSet->fields[caption]);
+						$thumb_file_name = make_db_unsafe ($recordSet->fields[thumb_file_name]);
+						$file_name = make_db_unsafe ($recordSet->fields[file_name]);
+
+						// gotta grab the image size
+						$imagedata = GetImageSize("$config[listings_upload_path]/$thumb_file_name");
+						$imagewidth = $imagedata[0];
+						$imageheight = $imagedata[1];
+						$shrinkage = $config[thumbnail_width]/$imagewidth;
+						$displaywidth = $imagewidth * $shrinkage;
+						$displayheight = $imageheight * $shrinkage;
+
+						echo "<a href=\"$config[listings_view_images_path]/$file_name\" target=\"_thumb\"> ";
+
+						echo "<img src=\"$config[listings_view_images_path]/$thumb_file_name\" height=\"$displayheight\" width=\"$displaywidth\"></a><br> ";
+						echo "<b>$caption</b><br><br>";
+						$recordSet->MoveNext();
+						} // end while
+					?>
+				</td>
+				<td class="row_main">
+                <?
+                $enabled = HasActionPermission("EDITLISTING");
+                ?>
+				<table border="0" cellspacing="<?php echo $style[form_cellspacing] ?>" cellpadding="<?php echo $style[form_cellpadding] ?>">
+					<form name="update_listing" action="<?php echo "$PHP_SELF";?>" method="post">
+					<input type="hidden" name="action" value="update_listing">
+					<input type="hidden" name="simple" value="<?=$simple?>">
+					<input type="hidden" name="edit" value="<?php echo $edit ?>">
+                    <input type="hidden" name="pro" value="<?php echo $pro ?>">
+
+					<tr>
+						<td align="right" class="row_main"><b><?php echo $lang[admin_listings_editor_title] ?>: <span class="required">*</span></b></td>
+						<td  class="row_main"> <input type="text"  <?=($enabled)?"":"disabled"?> style='width:230px' name="title" maxlength=50 value="<?php echo  htmlspecialchars($edit_title) ?>"></td>
+					</tr>
+					<?if ($admin_privs == "yes")
+						{
+							?>
+							<tr><td align="right" class="row_main"><b><?php echo $lang[admin_listings_active] ?>:</b></td><td >
+							<select name="edit_active" size="1">
+							<option value="<?php echo $edit_active ?>"><?php echo $edit_active ?>
+							<option value="">-----
+							<option value="yes">כן
+							<option value="no">לא
+							<option value="yek">בינוני
+							</select></td></tr>
+						<?}?>
+
+		<?php
+		echo '<script src="../date.js"></script>';
+		
+		$q = " where 1=1 ";
+		if ($workmode == "A")
+		{	
+			$q .= "and f.field_name <> 'Quantity' ";
+		}
+		if (!HasActionPermission("VIEWCOST"))
+		{
+			$q .=" and f.field_name <> 'Cost' ";
+		}
+		
+		$sql = "SELECT f.field_name, f.field_type, f.field_caption, f.default_text, f.field_elements, f.required 
+			FROM $TABLE_LISTINGSFORMELEMENTS f $q
+			ORDER BY rank"; 
+		$recordSet = $conn->Execute($sql);
+        $productRS = DBQuery("select * from listingsDB where id = $sql_edit"); 
+		if ($recordSet === false) 
+		{
+			log_error($sql);
+		}
+		while (!$recordSet->EOF)
+		{
+            $field_enabled = $enabled;
+			$field_name = make_db_unsafe ($recordSet->fields[field_name]);
+			$field_value = make_db_unsafe ($productRS->fields[$recordSet->fields[field_name]]);
+			$field_type = make_db_unsafe ($recordSet->fields[field_type]);
+			$field_caption = make_db_unsafe($recordSet->fields[field_caption]);
+			$default_text = make_db_unsafe($recordSet->fields[default_text]);
+			$field_elements = make_db_unsafe($recordSet->fields[field_elements]);
+			$required = make_db_unsafe($recordSet->fields[required]);
+			// pass the data to the function
+			$visible = !($field_name=="Quantity" && $workmode == "A");
+            if ($tree && $field_name=="SalePrice")
+            {
+                $sql = "select sum(SalePrice*t.quantity*(100-t.discount)/100) as total 
+                from listings_tree t, listingsDB l
+                where master_id = $edit 
+                and l.id = t.listing_id ";
+                $trRS=DBQuery($sql);
+                $field_value=number_format($trRS->Fields("total"),2,".","");
+            }
+            if ($tree && $field_name=="Cost")
+            {
+                $sql = "select sum(Cost*t.quantity) as total 
+                from listings_tree t, listingsDB l
+                where master_id = $edit 
+                and l.id = t.listing_id ";
+                $trRS=DBQuery($sql);
+                $field_value=number_format($trRS->Fields("total"),2,".","");
+            }
+            
+			if ($field_name=="BarCode")
+			{
+				$field_enabled = false;
+			}
+			renderExistingFormElement($field_type, $field_name, $field_value, $field_caption, $default_text, $required, $field_elements,$visible,$field_enabled);
+
+			$recordSet->MoveNext();
+		}
+ 
+		?>
+        <script>handleTree('<?=$tree?>',false);</script>
+		<tr>
+			<td align="right" class="row_main"><b><?php echo $lang[admin_listings_editor_active] ?>: <span class="required">*</span></b></td>
+			<td  class="row_main"> 
+			<select name=active <?=($enabled)?"":"disabled"?>>
+			<option value=yes <?=($edit_active=="yes")?"selected":""?>>כן
+			<option value=no <?=($edit_active=="no")?"selected":""?>>לא
+			<option value=yek <?=($edit_active=="yek")?"selected":""?>>בינוני
+			</select>
+			</td>
+		</tr>
+		<tr>
+			<td align="right" nowrap class="row_main"><b><?php echo $lang[admin_listings_editor_export] ?>: <span class="required">*</span></b></td>
+			<td  class="row_main"> 
+			<select name=export  <?=($enabled)?"":"disabled"?>>
+			<option value=1 <?=($edit_export=="1")?"selected":""?>>כן
+			<option value=0 <?=($edit_export=="0")?"selected":""?>>לא
+			</select>
+			</td>
+		</tr>
+		</table>
+		</td></tr>
+	</table>
+	</div>
+	</td></tr>
+	<tr style='height:1%'><td>
+		<table align=center>
+			<?echo "<tr><td colspan=\"2\" align=\"center\" class=\"row_main\">";
+            if(HasActionPermission("EDITLISTING")){
+                echo "<input type=\"submit\" class=button style='width:60;background-image:url(".$imgPath."ok.gif)' value=\"$lang[update_button]\">";
+            }
+            if(HasActionPermission("PURCHASE")){
+			    echo "&nbsp;<input style='width:100px;color=green;font-weight:bold' style='background-image:url(".$imgPath."/box.gif)' class=button type=button value='קניה למלאי' ".($tree?"disabled":"")." onclick='s=window.open(\"purchase.php?ids=$edit\",\"purchase\",\"top=\"+(window.screenTop+15)+\",left=\"+(window.screenLeft+15)+\",width=650,height=400\");s.focus();'>";
+            }
+            if(HasReportPermission("PRITIM")){
+                echo "&nbsp;<input style='width:100px;' type=button value='דו\"ח פריט' style='background-image:url(".$imgPath."/table_view.gif)'  class=button  onclick='wopen(\"/modules/stock/rep_stockhistory.php?explain=1&listingid=$edit&start=1\",\"stock\",750,500,true)'  >";
+            }
+            echo "</td></tr>";?>
+			<?echo "<tr><td colspan=\"2\" align=\"center\" class=\"row_main\">$lang[required_form_text]</td></tr>";?>
+			<tr>
+            <td nowrap align="center" class="row_main">
+                <b>פריט נוצר:</b> <?php echo $creation_date ?>
+                &nbsp;&nbsp;&nbsp;
+            </td>
+            <td nowrap  align="center" class="row_main" >
+                <?if (trim($last_modified)!="&nbsp;"){?>
+                <b><?php echo $lang[last_modifed] ?>:</b> <?php echo $last_modified ?>
+                <?}?>
+            </td></tr>
+		</table>
+	</td></tr></form>
+	</table>
+		<?php
+	} // end if $edit != ""
+    
+	if ($edit == "")
+	{?>
+		<SCRIPT LANGUAGE="JScript">
+		var delete_error = "<?=$lang["delete_error"]?>";
+		var oPopup = window.createPopup();
+		function openPopup(mode,param)
+		{
+		    var oPopBody = oPopup.document.body;
+            oPopBody.innerHTML="";
+			s ="style='font-family:Arial;font-size:10pt;color:black;text-decoration:none;width:100%' onmouseout='this.style.backgroundColor=\"\";this.style.color=\"black\"' onmouseover='this.style.backgroundColor=000000;this.style.color=\"white\"' href=#  ";
+		    if (mode==1){
+            <?if (HasActionPermission("PREFERENCES")){?>
+				oPopBody.innerHTML = "<DIV dir=<?=$direction?> style='height:100%;background-color:buttonface;border:solid 1 black;padding:5px'><a href=#></a><a "+s+" onclick=parent.wopen1('cp/main.php?service=groups','tools')><?=$lang[admin_menu_add_a_category]?></a><br><a "+s+" onclick=parent.wopen1('cp/main.php?service=suppliers&bd_event=create_record','tools')><?=$lang[admin_menu_add_a_supplier]?></a></DIV>"
+            <?}?>
+		    }
+            <?if (HasActionPermission("NEWLISTING")){?>
+			if (mode==2){
+				oPopBody.innerHTML = "<DIV dir=<?=$direction?> style='height:100%;background-color:buttonface;border:solid 1 black;padding:5px'><a href=#></a><a "+s+" onclick=parent.wopen('add_listing.php?ProductGroup="+param+"','add')><?=$lang[admin_menu_add_a_listing]?></a></DIV>"
+			}
+            <?}?>
+            if (oPopBody.innerHTML!=""){
+			    oPopup.show(window.event.clientX, window.event.clientY+5, 130, 70, document.body);
+            }
+		}
+		</SCRIPT>
+
+
+		<script>
+		function selectall(checked){
+			var ids="-1";
+			for (i=0;i<document.all.tags("INPUT").length;i++){
+				if (document.all.tags("INPUT")(i).type=="checkbox" && document.all.tags("INPUT")(i).id!=null&&document.all.tags("INPUT")(i).id!=""){
+					document.all.tags("INPUT")(i).checked = checked;
+					ids+=","+document.all.tags("INPUT")(i).id;
+				}
+			}
+			if (ids!=""){
+				basket(ids,checked);
+			}
+		}
+		</script>
+		<style>
+
+
+		   /* styles for the tree */
+		   SPAN.TreeviewSpanArea A,SPAN.TreeviewSpanArea A:visited {
+		        font-size: 10pt; 
+		        font-family: arial,helvetica; 
+		        text-decoration: none;
+		        color: black
+		   }
+		   SPAN.TreeviewSpanArea A:hover {
+		        color: 'blue';
+		   }
+		</style>	
+		<script src="ua.js"></script>
+		<script src="ftiens4.js"></script>
+		<script>
+		USETEXTLINKS = 1
+		USEFRAMES = 0
+		BUILDALL = 0
+		USEICONS = 1
+		WRAPTEXT = 0
+		HIGHLIGHT = 1
+		HIGHLIGHT_BG = "BLUE"
+		HIGHLIGHT_COLOR = "WHITE"
+		PERSERVESTATE = 0
+		STARTALLOPEN = 1
+		ICONPATH = "<?=$imgPath?>"
+
+		
+		<?
+
+
+
+
+		?>
+		
+        <?if ($tabmode=="GROUPS"||!$tabmode)
+        {
+            $sql="select * from listingsCategories where user_ID = $userID and Status=1 and (parent_id is null or parent_id = 0) order by SortOrder, binary CategoryName";
+		    $recordSet = DBQuery($sql);
+        ?> 
+                      
+		  foldersTree = gFld("<b title='<?=$lang[tree_tooltip]?>' oncontextmenu='openPopup(1);return false;'><?=$lang[my_business]?></b>", "javascript:listing(&quot;&quot;,&quot;&quot;)")
+		  root = insFld(foldersTree, gFld("<span title='<?=$lang[tree_tooltip]?>' oncontextmenu='openPopup(1);return false;'>מחלקות</span>", "javascript:listing(&quot;&quot;,&quot;&quot;)"))
+		  	<?
+			while (!$recordSet->EOF)
+			{
+					$s = "javascript:listing(&quot;".$recordSet->fields["ID"]."&quot;,&quot;&quot;)";
+					echo "\n".'cat'.$recordSet->fields["ID"].' = insFld(root, gFld(" <span title=\''.$lang[tree_tooltip].'\' oncontextmenu=\'openPopup(2,'.$recordSet->fields["ID"].');return false;\'> '.htmlspecialchars(trim($recordSet->fields["CategoryName"])).'</span>", "'.$s.'"));'."\n";
+                    echo "\n".'cat'.$recordSet->fields["ID"].'.iconSrc = "'.$imgPath.'box1.gif";';
+                    echo "\n".'cat'.$recordSet->fields["ID"].'.iconSrcClosed = "'.$imgPath.'box2.gif";';
+                    addChildCats($recordSet->fields["ID"]);
+                    $recordSet->moveNext();
+			}
+			?>
+		  del = insFld(foldersTree, gFld("פריטים לא פעילים", "javascript:listing(&quot;&quot;,&quot;1&quot;)"))
+		  del.iconSrc = "<?=$imgPath?>sbasket.gif";
+		  del.iconSrcClosed = "<?=$imgPath?>sbasket.gif";
+
+         <?}
+         else
+         {
+            $sql="select 1 as sorder,ID,GroupName from clientgroups c where 
+            exists (select id from listingsSuppliers where groupid = c.id and isSupplier=1) and
+            user_ID = $userID and Status=1 
+            union all 
+            select 2 as sorder,'0' as ID ,'כללי' as GroupName from listingsSuppliers z 
+            where 
+            id=0 and exists (select id from listingsSuppliers where (groupid = '' or groupid is null or groupid = 0) and isSupplier=1)  
+            order by sorder,binary GroupName 
+            ";
+		    $recordSet = DBQuery($sql);
+            ?>
+ 		  foldersTree = gFld("<b title='<?=$lang[tree_tooltip]?>' oncontextmenu='openPopup(1);return false;'>&nbsp;כל הספקים&nbsp;</b>", "javascript:listing(&quot;&quot;,&quot;&quot;)")
+
+		  //root = insFld(foldersTree, gFld("<span title='<?=$lang[tree_tooltip]?>' oncontextmenu='openPopup(1);return false;'>מחלקות</span>", "javascript:listing(&quot;&quot;,&quot;&quot;)"))
+          <?
+		  while (!$recordSet->EOF)
+		  {
+                $s = "";
+			    echo 'cat'.$recordSet->fields["ID"].' = insFld(foldersTree, gFld(" <span title=\''.$lang[tree_tooltip].'\' oncontextmenu=\'openPopup(2,'.$recordSet->fields["ID"].');return false;\'>&nbsp;'.trim(JSEncode($recordSet->fields["GroupName"])).'&nbsp;</span>", "'.$s.'"));'."\n";
+                $suppliersRS = DBQuery("select ID,suppliername from listingsSuppliers where user_id = $userID and (case when groupid = '' or groupid is null then 0 else groupid end) = '".$recordSet->fields["ID"]."' and IsSupplier=1 and status = 1 order by binary suppliername");
+                while (!$suppliersRS->EOF)
+                {
+                    echo 'sup'.$suppliersRS->fields["ID"].' = insFld(cat'.$recordSet->fields["ID"].', gFld("&nbsp;'.JSEncode($suppliersRS->Fields("suppliername")).'&nbsp;", "javascript:listing(&quot;'.$suppliersRS->Fields("ID").'&quot;,&quot;&quot;)")); ';
+                    echo 'sup'.$suppliersRS->fields["ID"].'.iconSrc = "'.$imgPath.'box_sapak.gif";';                                                                  
+                    echo 'sup'.$suppliersRS->fields["ID"].'.iconSrcClosed = "'.$imgPath.'/box_sapak.gif";';
+                    $suppliersRS->MoveNext();      
+                }
+                $recordSet->moveNext();    
+          }  ?>
+         
+         
+         <?}?> 
+
+          
+		  <?
+		  if (!$_GET["search"] && $_COOKIE["savedsearch"]){
+		  	$search = 1;
+		  	$params = $_COOKIE["savedsearch"];
+		  }
+		  elseif ($_GET["search"]){
+		  	$params = $_SERVER["QUERY_STRING"];
+		  }
+		  $params.="&stock=$stock";
+		  if ($search){?>
+		  auxS = insFld(foldersTree, gFld("<?=$lang['search_result']?>", "<?=$PHP_SELF ."?". $params ?>"))
+		  auxS.iconSrc = "<?=$imgPath?>ssearch2.gif";
+		  auxS.iconSrcClosed = "<?=$imgPath?>ssearch2.gif";
+		  <?}?>
+			
+		  //aux111 = insFld(aux11, gFld("עסקים", "edit_my_listings.php?drisha=<?=urlencode("ביקוש")?>&eska=<?=urlencode("מכירה")?>&category__type=<?=urlencode("עסקים")?>"))
+		</script>
+	
+	    <?$rsStocks = GetStocks(true,"",$showAllPoints,true );?>
+        <table width=100% height=100% border=0 >
+        <form name=s method=get target=LISTING action='edit_my_listings.php'>
+        <input type=hidden name=inv>
+		<tr>
+        <td>
+        <!--MAIN TABLE-->
+        <table height=100% width=100% cellpadding=0 cellspacing=0 border=0 width=100%>
+        <!--UPPER ROW-->
+        <tr style='height:1%'>
+        <td  bgcolor=buttonface style='padding:3 2;height:26'>
+        <?
+        if ($catid)
+        {
+			echo "<a style='color:black;font-size:8pt' href=# onclick=parent.wopen('add_listing.php?ProductGroup=".$catid."','add')><img src=".$imgPath."folder_add.gif width=16 height=16 align=absmiddle hspace=3 border=0>".$lang[admin_menu_add_a_listing]."</a>";
+		}
+		else
+        {
+            if (HasActionPermission("PREFERENCES"))
+            {
+			    echo "
+		 			<a style='color:black;font-size:8pt' href=# onclick=parent.wopen1('cp/main.php?service=groups&bd_event=create_record','tools')><img src=".$imgPath."folder_add.gif width=16 height=16 align=absmiddle hspace=3 border=0>".$lang[admin_menu_add_a_category]."</a>
+					<a style='color:black;font-size:8pt' href=# onclick=parent.wopen1('cp/main.php?service=suppliers&bd_event=create_record','tools')><img src=".$imgPath."businessman_add.gif width=16 height=16 align=absmiddle hspace=3 border=0>".$lang[admin_menu_add_a_supplier]."</a>";
+            }                            
+		}
+        ?>
+        </td>
+        <!--END UPPER ROW-->
+        
+        <td ROWSPAN=2 valign=top>
+        <table width=100% cellpadding=0 cellspacing=0 bgcolor=buttonface><tr><td height=26>&nbsp;</td></tr></table>
+        </td>
+        
+        
+		<td valign=top width=99%  ROWSPAN=2>
+        
+        <iframe name=LISTING style='width:100%;height:100%' onload="window.status=''" frameborder=0 src="listing.php?<?=$_SERVER["QUERY_STRING"]?>"></iframe>
+        
+        </td></tr>
+        
+ <!--tree-->
+ <TR>
+ <td>
+		<table height=100% border=0 cellpadding=0 cellspacing=0 width=100%><tr>
+		<td style='padding-bottom:5px'>
+			<?
+				if ($_GET["search"])
+                {
+					$clr="highlightObjLink(root);";
+				}
+					
+				?>
+
+				<select dir='<?=$direction?>' style='margin-top:5px;width:100%;background-color:#fefefe;' name=stock onchange='<?=$clr?>listing(&quot;-1&quot;,&quot;-1&quot;)'>
+				<?
+                FillStockList($rsStocks,$stock);
+				?>
+				</select>
+		</td>
+		</tr>
+        <tr style='height:100%'>
+        <td>
+        
+            <table height=100% width=100% cellpadding=0 cellspacing=0>
+            <tr style=height:1%>
+                <td>
+                <table width=100% cellpadding=0 cellspacing=0>
+                <tr>
+                <td width=1% class=<?=($tabmode=="GROUPS"||!$tabmode)?"activetab":"inactivetab"?> id=TAB_GROUPS nowrap onclick=toggle("GROUPS")>מחלקות<td>
+                <td width=1% style='border-bottom:solid 1 gray'>&nbsp;<td>
+                <td width=1% class=<?=($tabmode=="SUPPLIERS")?"activetab":"inactivetab"?> id=TAB_SUPPLIERS nowrap onclick=toggle("SUPPLIERS")>ספקים<td>
+                <td width=100% style='border-bottom:solid 1 gray' align=left>&nbsp;<td>
+                </tr>
+                </table>
+                </td>
+            </tr>
+            <tr>
+            <td style='border:solid 1 gray;border-top:none;padding:3px;background-color:#efefef'>
+        
+            <table height=100% whidth=100%><tr><td>
+		    
+                <div dir=ltr id=TREEDIV style='border:solid 1 gray;overflow:auto;width:220px;height:100%;background-color:white;padding:3px;'>
+		        <table style='display:none' border=0>
+		        <tr><td><font size=-2><a style="font-size:7pt;text-decoration:none;color:silver" href="http://www.treemenu.net/" target=_blank>JavaScript Tree Menu</a></font></td></tr></table>
+		        <table dir=ltr><tr><td>
+                <span class=TreeviewSpanArea dir=ltr><script>initializeDocument();<?=(($_GET["search"])?"highlightObjLink(auxS);":"highlightObjLink(foldersTree);")?>;</script></span>
+                </td></tr></table>
+		        </div>
+                                 
+                </td></tr>
+                
+                <?if($tabmode=="GROUPS"||!$tabmode){?>
+                <tr style=height:1%;font-size:8pt>
+                    <td>           
+                    <Input type=checkbox checked name=subcats> כולל תת מחלקות
+                    <td>
+                </tr>
+                <?}?>
+            </table>
+            
+            </td>
+            </tr>
+            
+
+
+            </table>  
+            
+        </td>
+        </tr>
+        </table>
+     </td>
+ </TR>
+ <!--end tree-->
+        
+ </table>
+ <!--END MAIN TABLE-->
+        
+ </td></tr>
+ </table>
+
+
+<?} // end if $edit == ""?>
+
+<script>
+var s_catid="";
+var s_deleted="";
+function listing(catid, deleted, querystring)
+{
+    window.status = 'Loading...';
+    query = "stock="+document.s.stock.value
+    <?if ($tabmode=='SUPPLIERS'){?>
+    query+= "&sapak="+((catid!="-1")?catid:s_catid)
+    <?}else{?>
+    query+= "&catid="+((catid!="-1")?catid:s_catid)
+    <?}?>
+    query+= "&deleted="+((deleted!="-1")?deleted:s_deleted)
+    if (document.s.subcats!=null)
+    {
+        query+="&subcats="+(document.s.subcats.checked?1:0);
+    }
+    query+= "&"+querystring
+    if (catid!="-1")s_catid = catid
+    if (deleted!="-1")s_deleted = deleted
+    document.frames["LISTING"].window.location='listing.php?'+query;
+}
+function clearState(){
+    document.s.stock.value="";
+    highlightObjLink(foldersTree);
+}
+
+
+function toggle(mode)
+{
+    this.location="index.php?tabmode="+mode;
+}
+
+</script>
+
+                                                                                                                                               
+<?php
+function addChildCats($id)
+{
+    global $conn,$userID,$deep,$imgPath;
+	$sql="select * from listingsCategories where user_ID = $userID and Status=1 and parent_id = '$id'  order by SortOrder,binary CategoryName";
+	$recordSet = $conn->Execute($sql);
+	if ($recordSet === false){log_error($sql);}
+    while (!$recordSet->EOF)
+	{
+            $s = "javascript:listing(&quot;".$recordSet->fields["ID"]."&quot;,&quot;&quot;)";
+			echo 'cat'.$recordSet->fields["ID"].' = insFld(cat'.$id.', gFld(" <span title=\''.$lang[tree_tooltip].'\' oncontextmenu=\'openPopup(2,'.$recordSet->fields["ID"].');return false;\'>&nbsp;'.trim(JSEncode($recordSet->fields["CategoryName"])).'&nbsp;</span>", "'.$s.'"));'."\n";
+            echo 'cat'.$recordSet->fields["ID"].'.iconSrc = "'.$imgPath.'box1.gif";';
+            echo 'cat'.$recordSet->fields["ID"].'.iconSrcClosed = "'.$imgPath.'box2.gif";';
+            addChildCats($recordSet->fields["ID"]);
+            $recordSet->moveNext();
+
+	}
+}
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

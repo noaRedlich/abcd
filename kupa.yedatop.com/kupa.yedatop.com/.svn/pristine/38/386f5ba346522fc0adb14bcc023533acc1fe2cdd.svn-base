@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+  <main_table>discount_lists</main_table>
+  <name>מבצעים</name>
+  <options>
+    <opt name="create_record" type="sometime"></opt>
+    <opt name="edit_record" type="sometime"></opt>
+    <opt name="search" type="none"></opt>
+    <opt name="view" type="always"></opt>
+    <opt name="delete_record" type="always"></opt>
+  </options>
+  <view>
+    <vcol name="name">שם מבצע</vcol>
+    <vcol name="barcode">ברקוד</vcol>
+    <vcol name="discount_type" type="enum" >סוג מבצע
+      <enum val="1">סכום סה''כ</enum>
+      <enum val="2">N+1</enum>  
+    </vcol>
+    <vcol name="expiration_date" >תוקף</vcol>
+    <vcol name="total_amount" >סכום סה''כ</vcol>
+    <vcol name="status" type="yes_no">פעיל</vcol>
+
+  </view>
+  <edit>
+    <ecol tab="1" name="name" type="string" ismandatory="yes">שם מבצע</ecol>
+    <ecol name="barcode" type="string" >ברקוד</ecol>
+    <ecol tab="1" name="discount_type" type="enum" onchange="document.inf.total_amount.disabled=document.inf.discount_type.value!=1;document.inf.discount_count.disabled=document.inf.discount_type.value!=2;if(document.inf.discount_type.value!=1){document.inf.total_amount.value=''}else{document.inf.discount_count.selectedIndex=-1};">
+      סוג מבצע
+      <enum val="1">סכום סה''כ</enum>
+      <enum val="2">N+1</enum>
+    </ecol>
+    <ecol tab="1" name="total_amount" type="string" ismandatory="true" format="decimal">סכום סה''כ</ecol>
+    <ecol tab="1" name="discount_count" ismandatory="true" type="enum" >כמות N
+      <enum val="1">1+1</enum>
+      <enum val="2">2+1</enum>
+      <enum val="3">3+1</enum>
+      <enum val="4">4+1</enum>
+      <enum val="5">5+1</enum>
+      <enum val="6">6+1</enum>
+      <enum val="7">7+1</enum>
+      <enum val="8">8+1</enum>
+      <enum val="9">9+1</enum>
+      <enum val="10">10+1</enum>
+    </ecol>
+    <ecol tab="1" name="expiration_date" type="string">תוקף (YYYY-MM-DD)</ecol>
+    <ecol tab="1" name="status" type="yes_no">פעיל</ecol>
+    <ecol name="Products"  type="cross_parent" service="discount_items" cross_field="discount_list_id" tab="2"></ecol>
+  </edit>
+  <sql_actions>
+    <opt name="order" val="SortOrder"></opt>
+  </sql_actions>
+  <tabs>
+    <tab index="1" name="כללי"></tab>
+    <tab index="2" name="פריטים" disableoncreate="Yes"></tab>
+  </tabs>
+</xml>

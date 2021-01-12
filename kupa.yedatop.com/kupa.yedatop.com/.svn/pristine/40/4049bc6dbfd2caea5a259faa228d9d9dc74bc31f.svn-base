@@ -1,0 +1,471 @@
+<?         
+$mode = $_GET["mode"];
+if (!$mode) $mode = $_POST["mode"]; 
+$simple=1;
+if ($sfira){
+	$page_subtitle = "ספירת-מלאי";
+}
+else{
+	$page_subtitle = "שינוי עלות";
+}
+include("include/common.php");
+include("include/business_functions.php");
+include("include/document.php"); 
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+$docvat = $config["VAT"];
+if ($docid)
+{
+	$rsq=DBQuery("select vat from documents where id = ".intval($docid));	
+	$docvat = $rsq->fields["vat"];
+	
+}
+    ?>
+    <script>
+    function reloadParent(){
+        var delim = (window.opener.location.href.indexOf("?")>-1)?"&":"?";
+        try{
+            window.opener.location=window.opener.location.href+delim+'nofocus=1'
+        }
+        catch(e){}
+    }
+
+    function calcPrice(i){
+        var source = (window.event!=null)?window.event.srcElement.tag:'';
+        var vat = <?=$docvat?>;
+        PriceBefore = document.getElementById("before"+i)
+        Vat = document.getElementById("vat"+i)
+        PriceAfter = document.getElementById("after"+i)
+        if (source == 'PriceBefore'){
+            if (PriceBefore.value==''){
+                Vat.value = PriceAfter.value = '0.00';
+            }
+            else
+            {
+                Vat.value = (parseFloat(PriceBefore.value) * vat /100).toFixed(2);
+                PriceAfter.value = (parseFloat(PriceBefore.value) + parseFloat(Vat.value)).toFixed(2);
+            }
+        }
+        else{
+            if (PriceAfter.value==''){
+                Vat.value = PriceBefore.value = '0.00';
+            }
+            else
+            {
+                Vat.value = (parseFloat(PriceAfter.value) * vat /(100+vat)).toFixed(2);
+                PriceBefore.value = (parseFloat(PriceAfter.value) - parseFloat(Vat.value)).toFixed(2);
+            }
+        }
+    }
+
+
+    </script>
+
+<?
+if ($action||$zero)
+{
+	$i = 0;
+	$docnums = array();
+	
+	
+	foreach($id as $pid)
+	{
+		$pdatearr = explode("/",$purdate);
+		$pdate = $pdatearr[2]."-".$pdatearr[1]."-".$pdatearr[0];
+		if ($sfira)
+		{
+			if ($zero)$quantity[$i]="0";
+			if ($quantity[$i] != "")
+			{
+				$quantitytocalc = $quantity[$i];
+				if ($grams_rate[$i])
+				{
+					$quantity[$i] = $quantity[$i]*$grams_rate[$i];
+				}
+				//get previous cost
+				$sql = "select cost,purchase_date from purchases where listing_id = $pid order by id desc limit 1";
+				$pcost = $conn->Execute($sql);
+				if ($pcost === false){log_error($sql);die();}
+				if (!$pcost->EOF)
+				{
+					$prev_cost = $pcost->fields["cost"];
+					$prev_date = $pcost->fields["purchase_date"];
+				}
+				else
+				{
+					$sql = "select Cost from listingsDB where id = $pid";
+					$pcost1 = $conn->Execute($sql);
+					if ($pcost1 === false){log_error($sql);die();}
+					$prev_date = "";
+					$prev_cost = $pcost1->fields["Cost"];
+				}
+				
+				//propagate previous data to all period until current date of purchase
+				
+				if ($prev_date!=""&& $prev_date!="0000-00-00")
+				{
+					$prevdatearr = explode("-",$prev_date);
+					$prevdate = mktime(0,0,0,$prevdatearr[1],$prevdatearr[2],$prevdatearr[0]);
+					$sdate = strtotime("+1 day",$prevdate);
+					$currdate = mktime(0,0,0,$pdatearr[1],$pdatearr[0],$pdatearr[2]);
+					
+					while ($sdate < $currdate){
+						$sqldate = date("Y-m-d",$sdate);
+						$sql = "INSERT INTO purchases (vat, listing_id, purchase_date,cost)
+								VALUES (".$docvat.", $pid, '$sqldate','$prev_cost')";
+						$res = $conn->Execute($sql); if ($res === false){log_error($sql);die();}
+						$sdate = strtotime("+1 day",$sdate);
+					}			
+				}	
+				
+				$sql = "INSERT INTO purchases
+						(vat, listing_id, quantity, supplier_id, cost_before_disc, total_discount, final_cost, purchase_date,cost)
+						VALUES (".$docvat.",$pid, '0','-1', '0', '0', '0', '$pdate','$price[$i]')";
+				$res = $conn->Execute($sql); if ($res === false){log_error($sql);die();}
+				
+				//set amount on stock
+				$stockid="";
+				$doSfira = false;
+				if ($workmode=="B")
+				{
+					$sql = "select Quantity from listingsDB where id = $pid ";
+					$rsq = $conn->Execute($sql); if ($rsq === false){log_error($sql);die();}
+					$prevQuantity =  $rsq->fields["field_value"];
+					$doSfira = ($prevQuantity!=$quantity[$i]); 
+					$updSQL = "update listingsDB set Quantity = '$quantity[$i]' where id = $pid ";
+				}
+				else
+				{
+					$sql = "select lse.id as lseid,quantity from listingsStocksElements lse where listingid=$pid and stockid = ".$stock[$i];
+					$rsu = $conn->Execute($sql); if ($rsu === false){log_error($sql);die();}
+					if (!$rsu->EOF)
+					{
+						$prevQuantity = $rsu->fields["quantity"];
+						$doSfira = ($prevQuantity!=$quantity[$i]);  
+						$updSQL = "update listingsStocksElements set quantity = '$quantity[$i]' where id = ".$rsu->fields["lseid"]; 
+					}
+					else
+					{
+						$prevQuantity = 0;
+						$doSfira = ($prevQuantity!=$quantity[$i]);   
+						$updSQL = "insert into listingsStocksElements (ListingID,stockID,Quantity) values($pid,".$stock[$i].",".$quantity[$i].")";
+					}
+				}
+				
+				
+				
+				if ($doSfira)
+				{
+					
+					//create document for current stock, if not created         
+					if (!isset($docnums[$stock[$i]]))   
+					{      
+						$docnums[$stock[$i]] = new Document("SFIRATMLAI",$stock[$i]);
+						$docnums[$stock[$i]]->Create();
+					}
+					$docnums[$stock[$i]]->AddItem($pid,$quantity[$i]);
+				}
+				
+				//update quantity
+				DBQuery($updSQL);
+				
+				//save to history 
+				$sql="insert into history (timestamp,datetime,type,listing_id,quantity_from,supplier_id,stock_id_from,stock_id_to,cost) values(
+						unix_timestamp(),'$pdate','purchase',$pid,'".$quantity[$i]."','-1','".$stock[$i]."','".$stock[$i]."','".$price[$i]."')";
+				$res = $conn->Execute($sql); if ($res === false){log_error($sql);die();}
+				
+			}
+			
+		}
+		else//!sfira
+		{
+			if ($price[$i] != "")
+			{
+				$sql = "select Cost from listingsDB where id = $pid ";
+				$oldCostRS = DBQuery($sql); 
+				$oldCost = $oldCostRS->fields["Cost"];
+				
+				//update current cost of product
+				$sql = "update listingsDB set Cost = '".round($price[$i],2)."' where id = $pid ";
+				$res = $conn->Execute($sql); if ($res === false){log_error($sql);die();}
+				
+				//save to history 
+				$sql="insert into history (timestamp,datetime,type,listing_id,quantity_from,supplier_id,stock_id_from,stock_id_to,cost_from,cost) values(
+						unix_timestamp(),'$pdate','cost',$pid,'".$quantity[$i]."','-1','".$stock[$i]."','".$stock[$i]."','".$oldCost."','".$price[$i]."')";
+				$res = $conn->Execute($sql); if ($res === false){log_error($sql);die();}
+			}
+		}
+		
+		$i++;
+		
+	}
+	echo "<script>location='sfira.php?sfira=$sfira&ids=$ids&success=1'</script>";
+	
+}
+
+if ($success){
+	echo "<br><h1><center>  הפעלה הסתיימה בהצלחה </h1><br><input type=button value='סגור' onclick='window.close()'></center>
+	<script>reloadParent();</script>
+	";
+}
+else{
+	
+	if ($mode=="basket"){
+		$q = " and l.basket <> 0 ";
+	}
+	elseif ($docid){ 
+		$q  = "and l.id in (select listing_id from document_products where doc_id = ".intval($docid).")";
+	}
+	else{
+		$q = " and l.id in ($ids) ";
+	}    
+	
+	$cost = "cost";
+	if($recalc && is_numeric($percent))
+	{
+		if ($calc=="+"){
+			//$mechir.="*(1+$percent/100)";
+                        $cost .= " + ($percent*$cost/100)";
+		}
+		if ($calc=="-"){
+			//$mechir.="/(1+$percent/100)";
+                        $cost .= " - ($percent*$cost/100)";
+		}
+	}
+	
+	if ($recalc && $round!="")
+	{
+		$cost = "round(".$cost.",$round)";
+	}
+	else
+	{
+		$cost = "round(".$cost.",2)";
+	}	
+	
+	if (!$docid){
+		$sql="select u.grams_rate,u.decimals,u.abbreviation as unit_abbreviation, l.id, title, 
+				barcode, $cost as cost from listingsDB l, 
+				$TABLE_UNITS u  
+				where                                                       
+				u.id = unit
+				and l.user_id = $userID
+				and is_tree='0'
+				$q order by l.basket, binary title";
+	}
+	else{
+		$sql="select u.grams_rate,u.decimals,u.abbreviation as unit_abbreviation, l.id, title, 
+				l.barcode, round(dp.price/dp.quantity,2) as cost from listingsDB l, 
+				$TABLE_UNITS u, document_products dp  
+				where                                                       
+				u.id = unit
+				and dp.listing_id = l.id
+				and dp.doc_id = $docid
+				and l.user_id = $userID
+				and is_tree='0'
+				$q order by dp.id, binary title";
+	}
+	
+	
+	$products = $conn->Execute($sql);
+	if ($products === false){log_error($sql);die();}
+	
+	$q=($workmode=="B")?(" terminalID = ".$config["MainStock"]):"";
+	$stocks = GetStocks(false,$q);
+	?>
+	<table width=100% border=0 height=100%>
+		<script>
+	function validate(){
+
+		for (i=0;i<document.F.all.length;i++){
+			s = document.F.all(i);
+			<?if ($sfira){?>
+			if (s.name=="quantity[]" && s.value==""){
+				return confirm("ישנם פריטים שלא הוזנה בהם  כמות! הפריטים האלו לא ייחשבו. האם להמשיך?");
+			}
+			<?}else{?>
+			if (s.name=="price[]" && s.value==""){
+				return confirm("ישנם פריטים שלא הזנה בהם עלות ! הפריטים האלו לא ייחשבו. האם להמשיך?");
+			}
+			<?}?>
+		}
+		return true;
+	}
+	
+	function zeroMlai(){
+		if (confirm("האם ברצונך לאפס מלאי לפריטים שנבחרו?")){
+			document.F.zero.value=1;
+			document.F.submit();
+		}
+	}
+
+	function showQuantity(el){
+		q = el.quantities.split("|");
+		el.parentElement.parentElement.cells[3].all(0).value=q[el.selectedIndex];
+	}
+	</script>
+	<FORM NAME=F METHOD=POST id=F onsubmit='return validate()'>
+	<?if(!$sfira){?>
+    <tr style='height:1%'>
+        <td> 
+            <fieldset>
+                <legend>מחשבון (יחסי עלות מקורית)</legend>
+                    <input type=radio name=calc value="+" checked>להעלות
+                    <input type=radio name=calc value="-">להוריד
+                    ב <input type=text name=percent size=1>
+                    %
+                    <select name=round> 
+                     <option value="">לא לעגל
+                     <option value="1">לעגל עד 10 אג'
+                     <option value="0">לעגל  עד שקל
+                     </select>
+                     &nbsp;
+                    <input type=submit name=recalc value='חשב' class=button style='background-image:url(<?=$imgPath?>refresh.gif)'>
+            </fieldset>
+        </td>
+    </tr>	
+	<?}?>
+	<tr>
+	<td>
+		<div style='border:inset 2;overflow-x:auto;OVERFLOW-Y:scroll;height:260;width:100%'>
+			<table id=TAB width=100% border=1 style='border-collapse:collapse' bordercolor=buttonface cellpadding=1>
+			<tr STYLE='COLOR:WHITE;BACKGROUND-COLOR:DARKBLUE'>
+				<th>ברקוד</th>
+				<th>שם</th>
+				<?if ($sfira){?>
+				<th>נקודה
+					<script>
+					function ch_all(val){
+						T = document.getElementById("TAB");
+						for (i=0;i<T.all.length;i++){
+							if (T.all(i).name=="stock[]"){
+								T.all(i).value=val
+								showQuantity(T.all(i));
+							};
+						}
+					}</script>
+		<?echo "<select name=sto style='background-color:darkblue;color:white' onchange='ch_all(this.value)'>
+				";
+		$stocks->MoveFirst();
+		while (!$stocks->EOF){
+			echo "<option value=".$stocks->fields["ID"].">".$stocks->fields['StockName']."</option>";
+			$stocks->MoveNext();
+		}
+		echo "
+					</select>";?>
+				</th>
+				<th>כמות בנקודה</th>
+                <th></th>
+				<?}else{?>
+				<th> עלות יחידה לפני מע"מ</th>
+				<th> מע"מ </th>
+				<th> עלות יחידה כולל מע"מ</th>
+				<?}?>
+			</tr>
+	<?
+	$cnt=0;
+	while (!$products->EOF)
+	{
+		echo "<tr  bgColor=".(($cntr++ %2 == 0)?"#efefef":"silver")."><td width=1% nowrap>".$products->fields["barcode"]."</td>
+				<td width=99%><a href='javascript:wopen(\"edit_my_listings.php?simple=1&edit=".$products->fields["id"]."\",450,500)'><u>".$products->fields["title"]."</u></a>";
+				?>
+				<input type=hidden name='id[]' value='<?=$products->fields["id"]?>'>
+		<?echo "</td>";
+		if ($sfira)
+                {?>
+
+				<td width=1% ALIGN=CENTER>
+			<?
+			$q=($workmode=="B")?(" and terminalID = ".$config["MainStock"]):"";
+			
+			$sql =
+				"select quantity from $TABLE_LISTINGSSTOCKS s left outer join listingsStocksElements lse on lse.stockid = s.id and lse.listingid = ".$products->fields["id"]." where status = 1 and user_id = $userID $q order by sortorder, binary StockName";
+			$stocksq = $conn->Execute($sql);
+			if ($stocksq === false){log_error($sql);die();}
+			$s="";
+			while (!$stocksq->EOF)
+			{
+				$quant = ($stocksq->fields["quantity"])? round($stocksq->fields["quantity"],$products->fields["decimals"]):0;
+				if ($products->Fields("grams_rate"))
+				{
+					$quant/=$products->Fields("grams_rate");
+				}
+				$s.="|".$quant;
+				$stocksq->MoveNext();
+			}
+			$s = substr($s,1);
+					?>
+					<select name=stock[] quantities="<?=$s?>" onchange='showQuantity(this)' id="STOCK<?=$products->fields["id"]?>">
+			<?
+			$stocks->MoveFirst();
+			while (!$stocks->EOF)
+			{
+				echo "<option value=".$stocks->fields["ID"]." >".$stocks->fields['StockName']."</option>";
+				$stocks->MoveNext();
+			}
+						?>
+					</select>
+				</td>
+				<td width=1% ALIGN=CENTER>
+					<input size=6 name='quantity[]' dir=ltr style='text-align:right'>
+				</td>
+                <td width=1% ALIGN=CENTER>
+					<?=$products->Fields("unit_abbreviation")?>
+                    <input size=6 type=hidden name='grams_rate[]' value="<?=$products->Fields("grams_rate")?>" dir=ltr style='text-align:right'>
+				</td>
+				<?}else{?>
+				<td width=1% ALIGN=CENTER>
+					<input size=6 name='pricebefore[]' tag=PriceBefore id=before<?=$cnt?> value='' onchange=calcPrice(<?=$cnt?>) onkeyup=calcPrice(<?=$cnt?>)>
+                </td>
+				<td width=1% ALIGN=CENTER>
+					<input size=4 name='vat[]' id=vat<?=$cnt?> disabled value=''>
+                </td>
+				<td width=1% ALIGN=CENTER>
+					<input size=6 name='price[]' tag=PriceAfter id=after<?=$cnt?> value='<?=number_format($products->fields["cost"],2,".","")?>' onchange=calcPrice(<?=$cnt?>) onkeyup=calcPrice(<?=$cnt?>)>
+				</td>
+                <script>calcPrice(<?=$cnt?>)</script>
+				<?}?>
+				</tr>
+				<?if ($sfira){?>
+				<script>showQuantity(document.getElementById("STOCK<?=$products->fields["id"]?>"));</script>
+				<?}?>
+		<?
+		$cnt++;
+		$products->MoveNext();
+	}
+			?>
+			</table>
+		</div>
+	</td>
+	</tr>
+	<tr style='display:none;height:1%'>
+	<td align=center>
+		תאריך קניה: <input name=purdate size=6 value='<?=($date)?$date:date("d/m/Y")?>'>
+		<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.purdate")'>
+	</td>
+	</tr>
+	<tr style='height:1%'>
+	<td align=center>
+	<hr>
+		<input type='submit' name='action' value='אישור' class=button  style='background-image:url(<?=$imgPath?>ok.gif)'>
+		<?if ($sfira){?>
+		<input type='hidden' name='zero' value='' class=button style='background-image:url(<?=$imgPath?>ok.gif)'>
+		<input type='button' value='לאפס מלאי' onclick='zeroMlai()' class=button  style='background-image:url(<?=$imgPath?>down.gif)'>
+		<?}?>
+		<BR>
+	</FORM>	
+	</td>
+	</tr>
+	</table>
+
+
+
+	<?
+	
+}//end if success
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+?>

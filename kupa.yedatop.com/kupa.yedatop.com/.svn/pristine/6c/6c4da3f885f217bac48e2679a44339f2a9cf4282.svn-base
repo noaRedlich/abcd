@@ -1,0 +1,94 @@
+<?
+
+$simple=1;
+
+include("include/common.php");
+require("include/business_functions.php");
+require("include/document.php");           
+require("include/product.php"); 
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+
+$ids = explode(",",$_GET["ids"]);
+?>
+
+<div id=RESULTDIV style='display:none'>
+<br><br>
+<p><b><center>
+<?=$lang["zer_finished"]?>
+<br><br>
+<input type=button onclick='window.close()' value='<?=$lang["close_button"]?>'  class=button style='background-image:url(<?=$imgPath?>back.gif)'>
+</center>
+</div>
+
+<?
+echo "</table></table></table></table>
+<table width=250   id=CALCSTATUS align=center >
+<tr><td align=center id=CALCMSG>".$lang["please_wait"]."</td></tr>
+<tr>
+    <td height=20 DIR=LTR bgcolor=white><div id=CNT style='text-align:center;color:white;background-color:blue;'></div></td>
+</tr>
+</table>
+<script>
+function upd(cnt,nr)
+{
+    percent = cnt/nr*100
+    document.all.CNT.innerText=percent.toFixed(0)+'%'
+    document.all.CNT.style.width=percent.toFixed(0)+'%'
+}
+function calcend(){
+
+     document.all.CALCSTATUS.style.display='none';
+     document.getElementById('RESULTDIV').style.display='block';
+}
+function calcmsg(s){
+     document.all.CALCMSG.innerText=s;
+}
+</script>
+";
+flush();
+
+echo "<script>try{calcmsg('".$lang["please_wait"]."');}catch(e){}</script>\n";flush();
+foreach($ids as $stockId)
+{
+	$products = DBQuery("select id,barcode from listingsDB l where exists 
+	(select listingid from listingsStocksElements where listingid = l.id
+	 and stockid = $stockId and quantity <> 0)");
+	if (!$products->EOF)
+	{
+		$doc = new Document("SFIRATMLAI",$stockId);
+		$doc->Create();
+		$cnt = 0;
+		while (!$products->EOF)
+		{			
+			$pid = $products->fields["id"];
+			$doc->AddItem($pid,0);
+			
+			$sql = "update listingsStocksElements set quantity = 0 where listingid = $pid and stockid = $stockId";
+			DBQuery($sql);
+			
+			$sql="insert into history (timestamp,datetime,type,listing_id,quantity_from,supplier_id,stock_id_from,stock_id_to) 
+			values(unix_timestamp(),now(),'purchase',$pid,'0','-1','$stockId','$stockId')";
+			DBQuery($sql); 
+            
+            $cnt++;
+            if ($cnt % 10 == 0){
+                echo "<script>upd($cnt,".$products->RowCount().");</script>\n";flush();
+            }						
+							
+			$products->MoveNext();
+			
+		}
+	}
+}
+echo "<script>try{calcend();}catch(e){}</script>\n";flush();
+
+?>
+
+<?
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+?>

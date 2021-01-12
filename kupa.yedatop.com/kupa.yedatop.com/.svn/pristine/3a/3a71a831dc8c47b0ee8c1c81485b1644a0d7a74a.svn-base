@@ -1,0 +1,57 @@
+<xml>
+	<main_table>userdata</main_table>
+	<name>הגדרות משתמשים</name>
+	<options>
+		<opt name="create_record" type="none"></opt>
+		<opt name="edit_record" type="always"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="view" type="none"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="UserName" >שם משתמש</vcol>
+		<vcol name="UpdateTime">זמן עדקון</vcol>
+		<vcol name="UpdateMode">אופן עדקון</vcol>
+		<vcol name="WorkMode">אופן עבודה</vcol>
+		<vcol name="IsracardMode">מסלול ישראקארד</vcol>
+	</view>
+	<edit>
+		<ecol name="IsracardMode" type="enum">מסלול ישראכרט
+			<enum val="2">2 זיכוים</enum>
+			<enum val="4">4 זיכוים</enum>
+		</ecol>
+		<ecol name="IsraKreditMode" type="enum">קרדיט ישראכרט
+			<enum val="R">יומי</enum>
+			<enum val="M">לפי מסלול</enum>
+		</ecol>
+		<ecol name="IsraKreditDays" type="string">מספר ימים לקרדיט יומי של ישראכרט</ecol>
+		
+		<ecol name="AmlaIsraRagil" type="string">עמלה ישראכרט רגיל</ecol>
+		<ecol name="AmlaIsraPayments" type="string">עמלה ישראכרט תשלומים</ecol>
+		<ecol name="AmlaIsraMinimum" type="string">עמלה ישראכרט מינימום</ecol>
+
+		<ecol name="AmlaVisaRagil" type="string">עמלה VISA רגיל</ecol>
+		<ecol name="AmlaVisaPayments" type="string">עמלה VISA תשלומים</ecol>
+		<ecol name="AmlaDinersRagil" type="string">עמלה Diners רגיל</ecol>
+		<ecol name="AmlaVisaPayments" type="string">עמלה Diners תשלומים</ecol>
+		<ecol name="AmlaVisaDinersMinimum" type="string">עמלה Diners/Visa מינימום</ecol>
+
+		<ecol name="AmlaIsraRagil" type="string">עמלה ישראכרט רגיל</ecol>
+		<ecol name="AmlaIsraPayments" type="string">עמלה ישראכרט תשלומים</ecol>
+		<ecol name="AmlaMasterRagil" type="string">עמלה MasterCard רגיל</ecol>
+		<ecol name="AmlaMasterPayments" type="string">עמלה MasterCard תשלומים</ecol>
+		<ecol name="AmlaMasterTayarRagil" type="string">עמלה MasterCardTourist רגיל</ecol>
+		<ecol name="AmlaMasterTayarPayments" type="string">עמלה MasterCardTourist תשלומים</ecol>
+		<ecol name="AmlaDirectRagil" type="string">עמלה Direct רגיל</ecol>
+		<ecol name="AmlaDirectPayments" type="string">עמלה Direct תשלומים</ecol>
+		<ecol name="AmlaAMEXRagil" type="string">עמלה AMEX רגיל</ecol>
+		<ecol name="AmlaAMEXPayments" type="string">עמלה AMEX תשלומים</ecol>
+		<ecol name="AmlaAMEXTayarRagil" type="string">עמלה AMEXTourist רגיל</ecol>
+		<ecol name="AmlaAMEXTayarPayments" type="string">עמלה AMEXTourist תשלומים</ecol>
+
+	</edit>
+	<sql_actions>
+		<opt name="order" val="UserName"></opt>
+		<opt name="search_by" type="UserName"></opt>
+	</sql_actions>
+</xml>

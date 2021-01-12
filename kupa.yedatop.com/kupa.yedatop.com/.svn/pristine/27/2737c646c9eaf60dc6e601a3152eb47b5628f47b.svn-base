@@ -1,0 +1,6 @@
+<?php
+
+$USERID=517; 
+include("../ran/core.php")
+
+?>

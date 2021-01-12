@@ -1,0 +1,6 @@
+
+<link rel="stylesheet" href="../style.css" type="text/css">
+<span class=big>Service not found</span> <br>
+<br>
+There was an error while trying to open module named "<? echo $current_service ?>". No such service on server.<br>
+For more information about this error, please contact our <a href="mailto:<? echo $admin_mail."?subject=BD3: Error from [".$REMOTE_ADDR."]:  Module not found - $current_service" ?>">system administrator</a>.

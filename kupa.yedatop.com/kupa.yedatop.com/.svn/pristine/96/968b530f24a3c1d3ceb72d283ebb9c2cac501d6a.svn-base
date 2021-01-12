@@ -1,0 +1,31 @@
+<?
+$noheader=1;
+
+include("include/common.php");
+if (!loginCheck('User'))exit; 
+
+if ($_GET["docid"])
+{
+    if ($action  == "set")
+	{
+		if (PROVIDER_MODE)		
+		{
+	 	 	$sql = "update documents set first_copy = 0 where id = ".intval($docid);
+		}
+		else
+		{		
+			$sql = "update documents d set first_copy = 0 where id = ".intval($docid)." and not exists 
+				(select id from listingsSuppliers where id = d.client_id and 
+				(username like 'vcx%' or username in 
+					(select username from $officedbname.users where provider_user = $userID)))";
+		}
+		
+        $r = DBQuery($sql); 
+    }
+    elseif ($action == "get")
+	{
+	 	$sql="select first_copy from documents where id =  ".intval($docid)." and user_id= $userID";
+		$r=DBQuery($sql); 
+		echo $r->fields["first_copy"];
+    }
+ }

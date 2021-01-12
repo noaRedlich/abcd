@@ -1,0 +1,24 @@
+<xml>
+	<main_table>dt_tips</main_table>
+	<name>Tips on the site</name>
+	<options>
+		<opt name="create_record" type="always"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="main_view" type="always"></opt>
+	</options>
+	<view>
+		<vcol name="bd_counter">#</vcol>
+		<vcol name="tip_text">Tip text</vcol>
+		<vcol name="link">Link</vcol>
+		<vcol name="visible" type="yes_no">Visible on the site</vcol>
+	</view>
+	<edit>
+		<ecol name="tip_text" type="string">Tip's text</ecol>
+		<ecol name="link" type="string">Link</ecol>
+		<ecol name="visible" type="yes_no">Visible</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="visible"></opt>
+		<opt name="order_type" val="desc"></opt>
+	</sql_actions>
+</xml>

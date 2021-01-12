@@ -1,0 +1,504 @@
+<?php
+	global $config, $lang;
+	$muserdata = $conn->execute("select * from userdata where username = '$username'");
+?>
+
+	<link rel=stylesheet href="<?php echo $config[template_url] ?>/style.css?2" type="text/css">
+	<script language="JavaScript" src="/modules/stock/include/calendar/Calendar1-901.js"></script>
+	<LINK REL="stylesheet" TYPE="text/css" HREF="/modules/stock/include/calendar/Calendar.css">
+    <script src='/modules/stock/include/functions.js'></script>
+	<script type="text/javascript">
+		<!-- //
+  
+		//Show Calendar dialog
+		function ShowCalendar(id)
+		{
+			ShowCalendar1(id) 
+            //show_calendar(id,null,null,"DD/MM/YYYY","INLINE","InlineX="+(event.screenX-window.screenLeft)+";Title=Date;Width=180;InlineY="+(event.screenY-window.screenTop+10)+";Fix=No;WeekStart=0;Weekends=56;AllowWeekends=Yes;ShortNames=Yes");
+		} 
+
+		function ShowCalendar1(id) 
+		{
+			show_calendar(id,null,null,"DD/MM/YYYY","POPUP","InlineX="+(event.screenX-window.screenLeft)+";Title=Date;Width=135;Height=200;InlineY="+(event.screenY-window.screenTop+10)+";Fix=No;WeekStart=0;Weekends=56;AllowWeekends=Yes;ShortNames=Yes");
+		}                                                
+
+		function basket(id,addaction)
+		{
+            var s;
+			s = "basket.php?id="+id+"&action="+((addaction)?"add":"del")+"&rnd="+Math.random();
+			refreshBasket(s);
+		}
+		function confirmDelete()
+		{
+		var agree=confirm("<?php echo $lang[are_you_sure_you_want_to_delete] ?>");
+		if (agree)
+			return true ;
+		else
+			return false ;
+		}
+		
+		function showProviderDocs(){
+		    document.frames["LISTING"].location="../stock/documents.php?umode=provider";
+		}
+				
+        function confirmProductDelete(barcode)
+		{
+		var agree=confirm("האם הנך בטוח/ה שברצונך למחוק פריט "+barcode+"?");
+		if (agree)
+			return true ;
+		else
+			return false ;
+		}
+        function confirmClientDelete(name)
+		{
+		var agree=confirm("האם הנך בטוח/ה שברצונך למחוק לקוח "+name+"?");
+		if (agree)
+			return true ;
+		else
+			return false ;
+		}
+		function confirmUserDelete()
+		{
+		var agree=confirm("<?php echo $lang[delete_user] ?>");
+		if (agree)
+			return true ;
+		else
+			return false ;
+		}
+		
+		function OnLoad(){
+			try{
+				<?if ($action){?>
+                    <?if (!$pro){?>
+					opener.opener.location = opener.opener.location.href;
+					reloadParent();
+                    <?}else{?>
+                    window.opener.document.F.submit();
+                    <?}?>
+				<?}?>             
+			}
+			catch(e){}
+		}
+		
+		function refreshBasket(url){
+        var s;
+			if (url+""=="undefined"){
+				url = "basket.php";
+			}
+			xmlhttp = new ActiveXObject("Microsoft.XMLHTTP")
+		    xmlhttp.open("GET",url,false)
+			xmlhttp.send()
+			s = xmlhttp.ResponseText.replace("items_in_basket","<?=$lang['items_in_basket']?>");
+			s = s.replace("basket_empty","<?=$lang['basket_empty']?>"); 
+			s = s.replace("clear_basket","לנקות סל");
+			document.getElementById("basket").innerHTML = s;
+		}
+		
+		function clearBasket()
+		{
+			if (confirm("לנקות סל פריטים?"))
+			{
+				var s = "basket.php?quickclear=1&rnd="+Math.random();
+				refreshBasket(s);
+			}
+		}
+		
+		function wopen(url,name,width,height,center,resizable){
+			var left = 150;
+			var top = 50;
+            var s;
+			if (typeof(width)=="undefined")width=500;
+			if (typeof(height)=="undefined")height=500;
+            if (typeof(resizable)=="undefined")resizable="yes";
+			if (typeof(center)!="undefined"){
+				left = Math.round((screen.availWidth-width)/2);
+				top = Math.round((screen.availHeight-height)/2);
+			}
+		   s = window.open(url+'&simple=1',name,'top='+top+',left='+left+',height='+height+',width='+width+',resizable='+resizable+',scrollbars=yes');
+           try{
+             s.focus();
+            }
+            catch(e){};
+		}
+		
+		function wopen1(url,name){
+            var s;
+			s = window.open(url+'&simple=1',name,'top=50,left=100,height=500,width=800,resizable=yes,scrollbars=yes');
+			s.focus();
+		}
+		
+		function openReport(url){
+            var s;
+			s = window.open(url+'&simple=1','','top=50,left=100,height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+			s.focus();
+		}		
+		
+		function openReports(){
+			wopen("reports.php?","reports",500,500,true,"no");
+		}
+		
+		
+		function openSuppliers(){
+			wopen("suppliers.php?","suppliers");
+		}
+		
+		function openImports(){
+			wopen("imports.php?","imports",600,570); 
+		}		
+
+		function openImports1(){
+			wopen("../stock/imports.php?rmodule=1","reports",600,500);
+		}		
+		
+		
+        function openNews()
+        {
+            document.all.btnNews.style.fontWeight = "";
+            document.all.btnNews.style.backgroundColor = "";
+            wopen("/modules/stock/news.php?simple=1","news",700,500,true,"yes");
+        }
+
+		// -->
+	</script>
+	
+			<?if (!$simple && $rmodule!=2){?>
+			<div id="reports" style='display:none'>
+				<div dir=<?=$direction?> style="padding:5px;font-family:arial;font-size:9pt;height:100%;width:100%;border:solid 1 black;background-color:#FFFFCC">
+				<a href=#></a>
+				<a href=# style='width:100%;color:black' onclick='parent.openReport("rep_tazrim.php?")'><?=$lang["report_tazrim"]?></a>
+				</div>
+			</div>
+			<table width=100% height=100% cellpadding=0 cellspacing=0>
+			<tr style="height:1%"><td>
+			<table bgcolor=#E0DBDC border="0" cellspacing="2" cellpadding="2" width="100%">
+				<tr>
+
+												
+						
+							<?php
+							global $lang;
+							if ($admin_privs == "yes" || $editForms == "yes")
+							{
+								// if the user has either admin or edit forms privs
+								echo "$lang[admin_menu_regular_options] | ";
+							} // end if
+							?>
+							<!--a href="edit_my_listings.php"><img src=<?=$GO_THEME->image_url?>buttons/addressbook_big.gif hspace=3 align=absmiddle border=0 ><?php echo "$lang[admin_menu_edit_my_edit_my_listings]"; ?></a-->
+							<?if ($stockmode=="pro"){?>
+								<td nowrap style='border:outset 2'>
+								<a href="#" onclick='location="./"' style=color:black><img src=<?=$imgPath?>mlaitek.gif align=absmiddle hspace=3 border=0 ><b>מלאי</a>
+								</td>
+								<td nowrap style='border:outset 2'>
+								     <table cellpadding=0 align=left><tr>
+                                        <td><a href="#" onclick='addDocument()'><img src=<?=$imgPath?>document_add.gif align=absmiddle hspace=3 border=0 ></a></td>
+                                        <td><b><a href="#" onclick='addDocument()'>מסמך חדש</a></td>
+                                     </tr></table>
+								</td>
+								<td nowrap style='border:outset 2'>
+								<a href=# onclick="openReports()"><img src=<?=$imgPath?>chart.gif hspace=3 align=absmiddle border=0 ><b><?php echo "$lang[admin_menu_reports]"; ?></a>
+								</td>
+                                <?if (HasActionPermission("PREFERENCES")){?> 
+                                <td nowrap style='border:outset 2'>
+                                		<table cellpadding=0 align=left><tr>
+                                            <td><a href="javascript:wopen1('cppro/main.php?service=suppliers','tools')"><img src=<?=$imgPath?>clients.gif align=absmiddle hspace=3 border=0 ></a></td>
+                                            <td><b><a href="javascript:wopen1('cppro/main.php?service=suppliers','tools')"><b>לקוחות<br>וספקים</a></td>
+                                         </tr></table>
+								</td>
+                                <?}?>
+                                <?if (HasActionPermission("EXPORTIMPORT")){?> 
+								<td nowrap style='border:outset 2'>
+								     <table cellpadding=0 align=left><tr>
+                                        <td><a href=# onclick="openImports()"><img src=<?=$imgPath?>imex.gif align=absmiddle hspace=3 border=0 ></a></td>
+                                        <td><b><a href=# onclick="openImports()"><?php echo "$lang[admin_menu_imports]"; ?></a></td>
+                                     </tr></table>
+								</td>
+                                <?}?>
+                                <?if (HasActionPermission("PREFERENCES")){?> 
+                                <td nowrap style='border:outset 2'>
+								     <table cellpadding=0 align=left><tr>
+                                        <td><a href="javascript:wopen1('cppro/main.php?','tools')"><img src=<?=$imgPath?>folder_gear.gif align=absmiddle hspace=3 border=0 ></a></td>
+                                        <td><b><a href="javascript:wopen1('cppro/main.php?','tools')"><?php echo "$lang[admin_menu_tools]"; ?></a></td>
+                                     </tr></table>
+								</td>
+                                <?}?>
+							
+                            <?}elseif ($stockmode=="clients"){?>
+                                <td nowrap style='border:outset 2'>
+								<a href="#" onclick='location="./"' style=color:black><img src=<?=$imgPath?>mlaitek.gif align=absmiddle hspace=3 border=0 ><b>מלאי</a>
+								</td>
+                                <?if ($UserData->fields["MlaitekProEnabled"]){?>
+								    <td nowrap style='border:outset 2'>
+								         <table cellpadding=0 align=left><tr>
+                                            <td><a href="#" onclick='location="./pro.php"'><img src=<?=$imgPath?>pro.gif align=absmiddle hspace=3 border=0 ></a></td>
+                                            <td><b><a href="#" onclick='location="./pro.php"' style=color:black>מסמכים</a></td>
+                                         </tr></table>
+								    </td>                         
+                                <?}?>
+                            
+								<td nowrap style='border:outset 2'>
+								     <table cellpadding=0 align=left><tr>
+                                        <td><a href="#" onclick='addClient()'><img src=<?=$imgPath?>client_add.gif align=absmiddle hspace=3 border=0 ></a></td>
+                                        <td><b><a href="#" onclick='addClient()'>חדש</a></td>
+                                     </tr></table>
+								</td>
+
+                                <?if (HasActionPermission("EXPORTIMPORT")){?> 
+								<td nowrap style='border:outset 2'>
+								     <table cellpadding=0 align=left><tr>
+                                        <td><a href=# onclick="openImports()"><img src=<?=$imgPath?>imex.gif align=absmiddle hspace=3 border=0 ></a></td>
+                                        <td><b><a href=# onclick="openImports()"><?php echo "$lang[admin_menu_imports]"; ?></a></td>
+                                     </tr></table>
+								</td>
+                                <?}?>
+                                <?if (HasActionPermission("PREFERENCES")){?> 
+                                <td nowrap style='border:outset 2'>
+								     <table cellpadding=0 align=left><tr>
+                                        <td><a href="javascript:wopen1('cppro/main.php?','tools')"><img src=<?=$imgPath?>folder_gear.gif align=absmiddle hspace=3 border=0 ></a></td>
+                                        <td><b><a href="javascript:wopen1('cppro/main.php?','tools')"><?php echo "$lang[admin_menu_tools]"; ?></a></td>
+                                     </tr></table>
+								</td>
+                                <?}?>
+                            
+                            <?}else{?>
+                            
+
+								<?if (!$rmodule){?>
+                                
+
+                                    <?if ($UserData->fields["MlaitekProEnabled"]){?>
+								    <td nowrap style='border:outset 2'>
+								         <table cellpadding=0 align=left><tr>
+                                            <td><a href="#" onclick='location="./pro.php"'><img src=<?=$imgPath?>pro.gif align=absmiddle hspace=3 border=0 ></a></td>
+                                            <td><b><a href="#" onclick='location="./pro.php"' style=color:black>מלאיטק פרו</a></td>
+                                         </tr></table>
+								    </td>                         
+                                    <?}?>
+
+                                    <?if (HasActionPermission("NEWLISTING")){?>
+								    <td nowrap style='border:outset 2'>
+								         <table cellpadding=0 align=left><tr>
+                                            <td><a href="javascript:wopen('add_listing.php?','add')"><img src=<?=$imgPath?>package_add.gif align=absmiddle hspace=3 border=0 ></a></td>
+                                            <td><b><a href="javascript:wopen('add_listing.php?','add')"><?php echo "$lang[admin_menu_add_a_listing]"; ?></a></td>
+                                         </tr></table>
+								    </td>
+                                    <?}?>
+                                    <td nowrap style='border:outset 2'>
+								         <table cellpadding=0 align=left><tr>
+                                            <td><a href="javascript:wopen('listingsearch.php?','search',400,380,true,'no')"><img src=<?=$imgPath?>package_find.gif align=absmiddle hspace=3 border=0 ></a></td>
+                                            <td><b><a href="javascript:wopen('listingsearch.php?','search',400,380,true,'no')"><?php echo "$lang[admin_menu_edit_search]"; ?></a></td>
+                                         </tr></table>
+								    </td>
+								    <td nowrap style='border:outset 2'>
+								    <a href=# onclick="openReports()"><img src=<?=$imgPath?>chart.gif hspace=3 align=absmiddle border=0 ><b><?php echo "$lang[admin_menu_reports]"; ?></a>
+								    </td>
+								    <td nowrap style='border:outset 2'>
+								    <a href=# onclick="openSuppliers()"><img src=<?=$imgPath?>shoppingcart_full.gif hspace=3 align=absmiddle border=0 ><b><?php echo "ספקים"; ?></a>
+								    </td>
+                                    <?if (HasActionPermission("EXPORTIMPORT")){?> 
+								    <td nowrap style='border:outset 2'>
+								         <table cellpadding=0 align=left><tr>
+                                            <td><a href=# onclick="openImports()"><img src=<?=$imgPath?>imex.gif align=absmiddle hspace=3 border=0 ></a></td>
+                                            <td><b><a href=# onclick="openImports()"><?php echo "$lang[admin_menu_imports]"; ?></a></td>
+                                         </tr></table>
+								    </td>
+                                    <?}?>
+                                    <?if (HasActionPermission("PREFERENCES")){?> 
+                                    <td nowrap style='border:outset 2'>
+								         <table cellpadding=0 align=left><tr>
+                                            <td><a href="javascript:wopen1('cp/main.php?','tools')"><img src=<?=$imgPath?>folder_gear.gif align=absmiddle hspace=3 border=0 ></a></td>
+                                            <td><b><a href="javascript:wopen1('cp/main.php?','tools')"><?php echo "$lang[admin_menu_tools]"; ?></a></td>
+                                         </tr></table>
+								    </td>
+                                    <?}?>
+                                
+								<?}else{?>
+                                
+                                    <?if (HasActionPermission("EXPORTIMPORT")){?> 
+								    <td nowrap style='border:outset 2'>
+								    <a href=# onclick="openImports1()"><img src=<?=$imgPath?>imex.gif hspace=3 align=absmiddle border=0 ><?php echo "$lang[admin_menu_imports]"; ?></a>
+								    </td>
+                                    <?}?>
+                                    
+                                    <?if (HasActionPermission("PREFERENCES")){?> 
+								    <td nowrap style='border:outset 2'>
+								    <a href="javascript:wopen1('cp/main.php?','tools')"><img src=<?=$imgPath?>folder_gear.gif hspace=3 align=absmiddle border=0 ><?php echo "$lang[admin_menu_tools]"; ?></a>
+								    </td>
+                                    <?}?>
+								
+                                <?}?>
+	
+								<? if(false && !$rmodule && $GO_SECURITY->has_admin_permission($GO_SECURITY->user_id)){?>
+								<td nowrap style='border:outset 2'>
+								<a href="template_editor.php"><img hspace=5 src=<?=$imgPath?>preferences.gif hspace=3 align=absmiddle border=0 ><?php echo "$lang[admin_menu_edit_listings_template]"; ?></a>
+								</td>
+								<?}?>
+								
+							<?}?>
+							
+							<?
+
+				                $sRS = DBQuery("select * from $TABLE_NEWS_USERS nu, $TABLE_NEWS n where n.newtype='ARTICLE' and language = '".$GO_LANGUAGE->language."' and n.id = nu.news_id and user_id = $userID and n.posted <= unix_timestamp() and n.visible = 1");
+				                if (!$sRS->EOF)
+				                {
+				                	$sRS = DBQuery("select * from $TABLE_NEWS_USERS nu, $TABLE_NEWS n where n.newtype='ARTICLE' and language = '".$GO_LANGUAGE->language."' and n.id = nu.news_id and user_id = $userID and `read` = 0 and n.posted <= unix_timestamp() and n.visible = 1");
+				                    if (!$sRS->EOF)
+				                    {
+				                        $style = "background-color:orange;font-weight:bold;color:black;";
+				                        $bstyle = "font-weight:bold;color:black;";
+				                    }
+				                    ?>
+				                    <td nowrap style='border:outset 2;<?=$style?>' id=btnNews>
+				                    <a href="javascript:void(openNews())" style='<?=$bstyle?>'><b><img src=<?=$imgPath?>news.gif hspace=3 align=absmiddle border=0 ><?php echo "$lang[news]"; ?></a>&nbsp;
+				                    </td> 
+				                    <?
+				                }
+				             ?>
+				             
+                            <?if ($user["provider_user"] && HasActionPermission("HOVSHERUT") && ($_SESSION["HOV"]."") != "nouser"){?> 
+				                    <td nowrap style='border:outset 2;' id=Td1>
+				                    
+				                    <table cellpadding=0 border=0 cellspacing=0>
+				                    <tr>
+				                    <td><img  onclick="showHovMenu()" style="cursor:pointer" src="<?=$imgPath?>pin_<?=$_SESSION["HOV"]>=0?"green":"red"?>.gif" hspace=3 align=absmiddle border=0 ></td>
+				                    <td nowrap /><a href="#" onclick="showHovMenu()"><b><?php echo $lang["debts"]; ?></b>&nbsp;
+				                    <br /><b><small dir=ltr>
+				                    <?if ($_SESSION["HOV"]==0){?><font color=green><?=$lang["no_debt"]?>
+	                                <?}elseif($_SESSION["HOV"]>0){?><font color=green>+<?=balance($_SESSION["HOV"])?>
+	                                <?}else{?><font color=red>חוב <?=balance($_SESSION["HOV"])?><?}?></small></b>
+	                                </td></tr>
+				                    </table>
+				                    
+				                    
+                                    <div id=POPUP_HOV style='display:none'>
+                                    <style>
+                                        a.menu,a.menu:visited{display:block;font-family:Arial;font-size:10pt;color:#000;text-decoration:none;padding:5px}
+                                        a.menu:hover{display:block;font-family:Arial;font-size:10pt;color:#FFF;background-color:darkblue;text-decoration:none;padding:5px}
+                                    </style>
+                                    <table cellpadding=5 width=100% style='font-family:arial;color:blue' dir="<?=$dir?>">
+                                        <tr>
+                                        <td  style='border:outset 2px;cursor:hand;<?=($stockmode=="crm")?"background-color:#CCCDDB":""?>' onclick='parent.showProviderDocs();parent.hideHovMenu()' onmouseover='this.style.border="inset 2px"' onmouseout='this.style.border="outset 2px"'>
+                                        <img src="<?=$imgPath?>copy.png" align=absmiddle />
+                                        <b style='font-size:10pt;color:black'>
+                                         <?=$lang["documents"]?></td>
+                                        </tr>
+                                        <tr>
+                                        <td  style='border:outset 2px;cursor:hand;<?=($stockmode=="crm")?"background-color:#CCCDDB":""?>' onclick='parent.wopen1("/modules/stock/cppro/main.php?service=payment.php&cid=1","",true)' onmouseover='this.style.border="inset 2px"' onmouseout='this.style.border="outset 2px"'>
+                                        <b style='font-size:10pt;color:black'>
+                                        <img src="<?=$imgPath?>creditcards.png" align=absmiddle />
+                                            <?=$lang["pay_for_prog"]?></td>
+                                        </tr>
+                                        <tr>
+                                        <td  style='border:outset 2px;cursor:hand;<?=($stockmode=="crm")?"background-color:#CCCDDB":""?>' onclick='parent.open("/docs/nikui_mas.jpg")' onmouseover='this.style.border="inset 2px"' onmouseout='this.style.border="outset 2px"'>
+                                        <b style='font-size:10pt;color:black'>
+                                        <img src="<?=$imgPath?>pdf.png" align=absmiddle />
+                                            <?=$lang["clearance"]?></td> 
+                                        </tr>
+                                        <tr>
+                                        <td  style='border:outset 2px;cursor:hand;<?=($stockmode=="crm")?"background-color:#CCCDDB":""?>' onclick='parent.open("/docs/nihul_sfarim.jpg")' onmouseover='this.style.border="inset 2px"' onmouseout='this.style.border="outset 2px"'>
+                                        <b style='font-size:10pt;color:black'>
+                                        <img src="<?=$imgPath?>pdf.png" align=absmiddle />
+                                            <?=$lang["nihul_sfarim"]?></td>
+                                        </tr>
+				                    </table>
+				                    </div>
+				                    <script>
+				                    var oPopupMenu = window.createPopup();
+				                    
+                                    function showHovMenu()
+                                    {
+	                                    var oPopBody = oPopupMenu.document.body;
+                                        oPopBody.style.backgroundColor = "buttonface";
+                                        oPopBody.style.border = "solid gray 1px";
+                                        oPopBody.innerHTML = document.getElementById("POPUP_HOV").innerHTML;
+                                        oPopupMenu.show(window.event.x-120, window.event.y +15, 170, 132, document.body);
+                                    }
+                                    
+                                    function hideHovMenu()
+                                    {
+                                        oPopupMenu.hide();
+                                    }
+                                </script>
+			                    </td> 
+			                    
+			                    
+				            <?}?>    				             
+						
+						<?php
+						// admin options
+						global $editForms, $viewLogs, $admin_privs;
+						if ($editForms == "yes")
+						{
+							// if the user can edit forms
+							echo "<div align=\"right\" class=\"small\">$lang[admin_menu_form_editor_options] | <a href=\"user_form_editor.php\">$lang[admin_menu_edit_user_form]</a> | <a href=\"template_editor.php\">$lang[admin_menu_edit_listings_template]</a></div>";
+						} // end if
+						
+						if ($admin_privs == "yes")
+						{
+							// if the user has admin privs
+							echo "<div align=\"right\" class=\"small\">$lang[admin_menu_admin_options] | <a href=\"user_edit.php\">$lang[admin_menu_edit_users]</a> | <a href=\"listings_edit.php\">$lang[admin_menu_edit_listings]</a> | <a href=\"add_user.php\">$lang[user_editor_new]</a>";
+						} // end if
+						
+						if ($admin_privs == "yes" AND $config[moderate_listings] == "yes")
+						{
+							// if the user has admin privs and moderation is turned on
+							echo " | <a href=\"moderation_queue.php\">$lang[admin_listings_moderation_queue]</a>";
+						}
+						
+						if ($viewLogs == "yes")
+						{
+							echo " | <a href=\"log_view.php\">$lang[log_view_activity_logs]</a>";
+						} // end if
+						
+						?>
+				
+				<td width=99%>&nbsp;</td>
+
+				<?if ($stockmode!="pro"&&$stockmode!="clients"){?>    
+					
+					<?if (!$rmodule){?>
+                    <?if (false){?>
+					    <td nowrap style='padding=0 10'>
+					    <?=$lang["workmode"]?>: <strong style='color:blue'><?=$lang[$workmode."workmode"]?></strong>
+					    <?
+					    if ($workmode=="A"){
+						    echo "<br>עדכון כמויות דרך קופה: <strong style='color:blue'>".(($UserData->fields["UpdateQtyFromPludata"])?"כן":"לא")."</strong>";
+					    }
+                    }
+					?>
+					</td>
+
+					<td id=basket width=200>
+						<script>
+						refreshBasket();
+						</script>
+						<!--iframe id=basket src=basket.php style='width:200px;height:40' frameborder=0></iframe-->
+					</td>
+					<?}?>
+				
+				<?}?>
+				</tr>
+			</table>
+			<p>
+			<?}elseif ($simple){?>
+			<style>
+			body {background-color:buttonface}
+			</style>
+			<script>
+			try{document.body.onload = OnLoad;}catch(e){}
+			</script>
+			<?}?>
+			
+			</td>
+			</tr>
+			<tr>
+			<td>
+			<table width="100%" <?if(!$simple){?>height=100%<?}?> border="0" cellspacing="3" cellpadding="3">
+				<tr>
+					<td width="100%" valign="top">
+					
+					
+					<!-- A Separate Layer for the Calendar -->
+<!-- Make sure to use the name Calendar for this layer -->
+<SCRIPT Language="Javascript" TYPE="text/javascript">
+Calendar.CreateCalendarLayer(10, 275, "");
+</SCRIPT>

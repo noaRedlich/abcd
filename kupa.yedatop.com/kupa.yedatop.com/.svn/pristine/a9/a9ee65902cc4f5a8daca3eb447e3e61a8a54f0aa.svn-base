@@ -1,0 +1,2793 @@
+<?php
+
+$simple = 1;
+
+
+if ($ajaxagent)
+{
+	include_once("../../classes/agent.php");
+	$agent->init();
+}
+
+$page_title = $lang["cashbox_title"]; 
+
+require("include/common.php"); 
+require("include/business_functions.php"); 
+require("include/document.php");            
+require("include/product.php");                        
+
+if(!loginCheck('User'))exit;
+
+if (!$ajaxagent)
+{
+	include_once("../../classes/agent.php");
+	$agent->init();
+}
+
+$defaultClientRS = DBQuery("select clientNum from listingsSuppliers where id = 1");
+$defaultClient = $defaultClientRS->fields["clientNum"];
+if (!$defaultClient)$defaultClient="0";
+
+$discounts = "";
+$discountsRS = DBQuery("select * from discount_lists where status=1 and (expiration_date >= curdate() or expiration_date='0000-00-00')");
+while(!$discountsRS->EOF)
+{
+	$prodsRS = DBQuery("select * from discount_items where discount_list_id = ".$discountsRS->fields["id"]." and status=1");
+	if (!$prodsRS->EOF)
+	{
+		$discounts.=",{discountName:'".JSEncode($discountsRS->fields["name"])."',barcode:'".JSEncode($discountsRS->fields["barcoce"])."',discountType:".$discountsRS->fields["discount_type"].",totalAmount:'".$discountsRS->fields["total_amount"]."',discountCount:'".$discountsRS->fields["discount_count"]."',products:[";
+		$prs="";
+		while (!$prodsRS->EOF)
+		{
+			$prs.=",".$prodsRS->fields["listing_id"];
+			$prodsRS->MoveNext();
+		}
+		if ($prs)
+		{
+			$discounts.=substr($prs,1);
+		}
+		$discounts.="]}";
+	}
+	if ($discounts)
+	{
+		$discounts = "[".substr($discounts,1)."]";
+	}
+	$discountsRS->MoveNext();	
+}
+
+
+$isOpened = false;
+
+include($config["template_path"]."/admin_top.html");
+echo "<script src='/javascript/common.js'></script>";
+
+?> 
+
+<script>
+<!--
+var discounts = <?=$discounts?$discounts:"[]"?>;
+
+var xmlDoc=new ActiveXObject("Microsoft.XMLDOM");
+
+var totaltopay = 0;
+var activeRow = null;
+var activeCell = null;
+var mode = "sale";
+	
+function openCashbox()
+{
+	selectStock();
+}	
+
+function closeCashbox()
+{
+	if (confirm("<?=$lang["close_cashbox"]?>"))
+	{
+		ShowWaiting();
+		s = agent.call('cashbox_services.php','closeCashbox','',document.all.stock.value);
+		HideWaiting();
+		window.location = window.location.href;
+	}
+}
+	
+function checkClientNum()
+{
+	if (window.event.keyCode==13)
+	{
+		getClientData();
+		window.event.cancelBubble = true;
+	}
+}
+
+var findDirectly = false;
+
+function getClientData()
+{
+	findDirectly = false;
+	document.all.clientName.value = document.all.clientBalance.value = document.all.clientPhone.value = document.all.clientZehut.value = "";
+	ShowWaiting();
+	agent.call('cashbox_services.php','getClientData','clientNum_callback',document.all.inpClientNum.value!=""?document.all.inpClientNum.value:"~~~");
+}
+
+
+function getClientDataById()
+{
+	findDirectly = true;
+	document.all.clientName.value = document.all.lblClient.innerHTML = document.all.clientBalance.value = document.all.clientPhone.value = document.all.clientZehut.value = "";
+	document.all.lblClient.className="bigtotallabel";
+	ShowWaiting();
+	agent.call('cashbox_services.php','getClientDataById','clientNum_callback',document.all.clientid.value);
+}
+
+
+function clientNum_callback(s)
+{
+	try
+	{
+		HideWaiting();
+		xmlDoc.loadXML(s)
+		client = xmlDoc.documentElement;
+		document.all.clientName.className='readonly';
+		document.all.clientName.value = document.all.inpClientName.value = client.selectSingleNode("name").text;
+		document.all.clientNum.value = client.selectSingleNode("clientnum").text;
+		document.all.clientPhone.value = document.all.inpClientPhone.value = client.selectSingleNode("phone").text;
+		document.all.clientZehut.value = document.all.inpClientZehut.value = client.selectSingleNode("businessnum").text;
+		document.all.clientid.value = client.selectSingleNode("id").text;
+		document.all.btnEditClient.disabled = client.selectSingleNode("id").text!="1";
+		document.all.btnEditClient.className = document.all.btnEditClient.disabled?"button disabledbutton":"button"
+		document.all.clientBalance.value = "";
+		
+		if (document.all.clientName.value=="")
+		{
+			document.all.clientName.className='readonlyerror';
+			document.all.clientName.value='<?=$lang["client_not_found"]?>';
+			document.all.btnRefund.disabled =  document.all.btnRefund.origDisabled = true;
+			document.all.btnHakafa.disabled =  document.all.btnHakafa.origDisabled = true;
+			clearProducts();
+			disableForm(true);
+			try{
+				document.all.clientNum.focus();
+				document.all.clientNum.select();
+			}catch(e){}
+		}
+		else
+		{
+			var payed = 0;
+			if (document.all.payed.value!="")payed = parseFloat(document.all.payed.value);
+			isCommonClient = client.selectSingleNode("id").text=="1";
+			if (isCommonClient)
+			{
+				document.all.btnRefund.disabled = document.all.btnRefund.origDisabled = true;
+				document.all.btnHakafa.disabled = document.all.btnHakafa.origDisabled = true;
+				
+				if (document.all.amtHakafa.value!="")payed -= parseFloat(document.all.amtHakafa.value);
+				if (document.all.amtRefund.value!="")payed -= parseFloat(document.all.amtRefund.value);
+
+				document.all.amtRefund.value = "";
+				document.all.amtHakafa.value = "";
+			}
+			else
+			{
+				document.all.txtItra.value = document.all.clientBalance.value = client.selectSingleNode("balance").text;
+				document.all.totalDiscount.value = client.selectSingleNode("discount").text;
+				document.all.clientBalance.style.color=(client.selectSingleNode("balancesign").text=="+")?"green":"red";
+				if (document.all.clientBalance.value!="")document.all.clientBalance.value+=" "+((client.selectSingleNode("balancesign").text=="-")?"<?=$lang["credit"]?>":"<?=$lang["debet"]?>")+"";
+				document.all.btnRefund.origDisabled = client.selectSingleNode("balancesign").text=="+";
+				document.all.btnHakafa.origDisabled = client.selectSingleNode("allowhakafa").text!="1";
+				if (document.all.btnRefund.origDisabled)
+				{
+					if (document.all.amtRefund.value!="")payed -= parseFloat(document.all.amtRefund.value);
+					document.all.btnRefund.disabled=true;
+					document.all.amtRefund.value = "";
+				}
+				if (document.all.btnHakafa.origDisabled)
+				{
+					if (document.all.amtHakafa.value!="")payed -= parseFloat(document.all.amtHakafa.value);
+					document.all.btnHakafa.disabled=true;
+					document.all.amtHakafa.value = "";
+				}
+			}
+
+			
+			
+			document.all.payed.value = payed.toFixed(2);
+			recalcTotal(true);
+				
+			if (document.all.clientid.value==1 || findDirectly)
+			{
+				document.all.lblClient.innerHTML = document.all.inpClientName.value;
+				document.all.lblClient.className=document.all.clientid.value=="1"?"bigtotallabel":"clientlink";
+				document.all.inpClientName.value = "";
+				disableForm(false);
+				setRowFocus(document.all.productsTable.rows[2]);
+				document.all.divComment.style.display="";
+			}
+
+			
+		}
+		
+		if (document.all.clientid.value=="")
+		{
+			//not found
+			document.all.inpClientNum.style.color = "#ce0000";
+			document.all.btnClubClient.disabled = false;
+			document.all.inpClientZehut.disabled = false;
+			document.all.inpClientName.disabled = false;
+			document.all.inpClientPhone.disabled = false;
+			document.all.inpClientAddress.disabled = false;
+			document.all.inpClientMail.disabled = false;
+			document.all.btnOneTimeDeal.disabled = false;
+			document.all.btnClubClient.disabled = document.all.inpClientNum.value=="";
+			try{document.all.inpClientZehut.focus();}catch(e){}
+		}
+		else if (document.all.clientid.value=="1"){
+			//found general
+			document.all.inpClientNum.style.color = ""
+			document.all.inpClientZehut.disabled = true;
+			document.all.inpClientName.disabled = true;
+			document.all.inpClientPhone.disabled = true;
+			document.all.inpClientAddress.disabled = true;
+			document.all.inpClientMail.disabled = true;
+			document.all.btnOneTimeDeal.disabled = false;
+			document.all.btnClubClient.disabled = true;
+			try{document.all.btnOneTimeDeal.focus();}catch(e){}
+		}
+		else{
+			//found club client
+			document.all.inpClientNum.style.color = ""
+			document.all.inpClientZehut.disabled = true;
+			document.all.inpClientName.disabled = true;
+			document.all.inpClientPhone.disabled = true;
+			document.all.inpClientAddress.disabled = true;
+			document.all.inpClientMail.disabled = true;
+			document.all.btnOneTimeDeal.disabled = true;
+			document.all.btnClubClient.disabled = false;
+			try{document.all.btnClubClient.focus();}catch(e){}
+		}
+	}
+	catch(e)
+	{
+		alert(e.description+"\n\n"+s);
+	}
+
+}
+
+function checkExistingBarcode(barcode,currentRowIndex)
+{
+	var row;var i;
+	for(i=2;i<document.all.productsTable.rows.length;i++)
+	{
+		row = document.all.productsTable.rows[i];
+		if (row.all.barcode.value==barcode && row.rowIndex!=currentRowIndex)
+		{
+			return row;
+		}
+	}
+	return null;
+}
+
+function roundTotal()
+{
+	if (document.all.roundbill.value=="1")
+	{
+		var toPay = parseFloat(stotalBeforeDisc);
+		var disc;
+		if (!isNaN(toPay) && toPay>0)
+		{
+			
+			var TotalCashDiscount = document.all.totalCashDiscount;
+			var TotalDiscount = document.all.totalDiscount;
+			var roundedToPay = Math.round(toPay);
+			var delta = toPay - roundedToPay;
+			if (parseFloat(TotalCashDiscount.value)>0)
+			{
+				TotalCashDiscount.value = (parseFloat(TotalCashDiscount.value)+delta).toFixed(2)
+			}
+			else
+			{
+				if (parseFloat(TotalDiscount.value)>0)
+				{
+					var predicted = Math.round(toPay-(toPay*parseFloat(TotalDiscount.value)/100));
+					disc = 100 - predicted*100/toPay;
+				}
+				else
+				{
+					disc = 100 - roundedToPay*100/toPay;
+				}
+				TotalDiscount.value = disc.toFixed(4);
+				//TotalDiscount.value = Beutify(TotalDiscount.value,stotalBeforeDisc,roundedToPay);
+				if (parseFloat(TotalDiscount.value)==0)
+				{
+					TotalDiscount.value="";
+				}
+			}
+		}
+		recalcTotal(true);
+	}
+}
+
+/*
+function Beutify(disc, beforedisc,roundedToPay)
+{
+	var res = parseFloat(roundedToPay);
+	alert(res);
+	var d = disc;
+	var i=4;
+	while (res==parseFloat(roundedToPay))
+	{
+		d = substr(;
+		res = parseFloat(beforedisc - beforedisc*d/100).toFixed(2);
+		alert(res);
+	}
+	return d;
+}
+*/
+
+function disableGrid()
+{
+	var i;
+	for(i=2;i<document.all.productsTable.rows.length;i++)
+	{
+		row = document.all.productsTable.rows[i];
+		for(var j=0;j<=6;j++)
+		{
+			el = row.cells[j];
+			if (el.all.tags("INPUT")(0)!=null)
+			{
+				el.all.tags("INPUT")(0).readOnly = true;
+				el.all.tags("INPUT")(0).style.color = "gray";
+			}
+		}
+		row.cells[7].all(0).disabled=true;
+	}
+}
+
+function checkBarcode(el,force)
+{
+	var row;
+	row = origrow = el.parentElement.parentElement;
+	if (window.event.keyCode==13 || force)
+	{
+		if (el.value=="00")
+		{
+			deleteRow(row,false);
+			calculateDiscountsByProducts();
+			calculateDiscountsByListsTotalAmt();
+			calculateDiscountsByListsNplus1();
+			recalcTotal();
+			document.all.btnDiscount.disabled = false;
+			document.all.btnCashDiscount.disabled = false;
+			disableGrid();
+		    roundTotal();
+			if (!document.all.btnDiscount.disabled)
+			{
+				document.all.btnDiscount.focus();
+				document.all.btnDiscount.focus();
+			}
+		}
+		else if(el.value!="")
+		{
+			existingrow = checkExistingBarcode(el.value,row.rowIndex)
+			if (existingrow!=null)
+			{
+				row = existingrow;
+				setRowFocus(row);
+				el.value="";
+				el = row.all.barcode;
+			}
+			ShowWaiting();
+
+			s = agent.call('cashbox_services.php','getProductData','',el.value,row.rowIndex,document.all.stock.value,'',document.all.vatFree.checked?1:0);
+			priceIsNotEmpty = barcode_callback(s);
+			if (row.nextSibling==null)
+			{
+				addProductRow();
+			}
+			if (!priceIsNotEmpty)
+			{
+				setRowFocus(row,row.all.productprice.parentElement.cellIndex);
+			}
+			else
+			{
+				row.all.productname.readOnly = true;
+			}
+			if (existingrow!=null)window.setTimeout('setRowFocus(origrow);origrow.all.productname.value=""',200);
+		}
+		window.event.cancelBubble=true;
+	}
+
+}
+
+
+function barcode_callback(s)
+{
+	var row;
+	try
+	{
+		HideWaiting();  
+		xmlDoc.loadXML(s)
+		product = xmlDoc.documentElement;
+		rowIndex = product.selectSingleNode("rowindex").text;
+		row = document.all.productsTable.rows[rowIndex];
+		row.all.productid.value = product.selectSingleNode("id").text;
+		row.all.misparzar.value = product.selectSingleNode("misparzar").text;
+		row.all.barcode.value = product.selectSingleNode("barcode").text;
+		row.all.productname.value = product.selectSingleNode("name").text;
+		row.all.discounttype.value = product.selectSingleNode("discounttype").text;
+		row.all.discountamount.value = product.selectSingleNode("discountamount").text;
+		row.all.discountotherlistingid.value = product.selectSingleNode("discountotherlistingid").text;
+		if (row.all.productprice.value=="")row.all.productprice.value = product.selectSingleNode("price").text;
+		row.all.productquantity.value = (row.all.productquantity.value=="")?1:(parseInt(row.all.productquantity.value)+1);
+		if(row.all.productdiscount.value=="")
+			row.all.productdiscount.value = product.selectSingleNode("discountpercent").text;
+		if(row.all.productcashdiscount.value=="" && product.selectSingleNode("discountcash").text!="")	
+			row.all.productcashdiscount.value = (parseFloat(product.selectSingleNode("discountcash").text)*parseInt(row.all.productquantity.value)).toFixed(2);
+		if (product.selectSingleNode("id").text==""&&product.selectSingleNode("barcode").text!="0000000000000")
+		{
+			row.style.backgroundColor="red";
+		}
+		else
+		{
+			EvalSound("sndScanner")
+		}
+		recalcTotal(); 
+		return row.all.productprice.value!="";
+	}
+	catch(e)
+	{
+		alert(e.description+"\n\n"+s);
+		return true;
+	}
+}
+
+function openPrint()
+{
+	document.all.btnPrintLast.disabled = document.F.lastDocIds.value=="";
+	displayDiv("divPrint");
+	if (document.all.btnPrintLast.disabled)document.all.inpPrintDocNum.focus();
+}
+
+function openClient()
+{
+	displayDiv("divClient");
+	document.all.inpClientNum.style.color = "";
+	document.all.inpClientNum.disabled = false;
+	document.all.inpClientZehut.disabled = true;
+	document.all.inpClientName.disabled = true;
+	document.all.inpClientPhone.disabled = true;
+	document.all.inpClientAddress.disabled = true;
+	document.all.inpClientMail.disabled = true;
+	document.all.btnOneTimeDeal.disabled = true;
+	document.all.btnClubClient.disabled = true;
+	document.all.btn
+	document.all.inpClientNum.focus();
+	document.all.inpClientNum.select();
+}
+
+function openDiscount()
+{ 
+	closeCurrentPaymentWindow();
+	displayDiv("divDiscount");
+	document.all.inpDiscount.value = document.all.totalDiscount.value;
+	document.all.inpDiscount.focus();
+	document.all.inpDiscount.select();
+}
+
+function openCashDiscount()
+{
+	closeCurrentPaymentWindow();
+	displayDiv("divCashDiscount");
+	document.all.inpCashDiscount.value = document.all.totalCashDiscount.value;
+	document.all.inpCashDiscount.focus();
+	document.all.inpCashDiscount.select();
+}
+
+function checkDiscount()
+{
+	id = window.event.srcElement.id;
+	row = window.event.srcElement.parentElement.parentElement;
+	if (id=="productdiscount")
+	{
+		row.all.productcashdiscount.value = "";
+	}
+	else
+	{
+		row.all.productdiscount.value = "";
+	}
+}
+
+
+
+var stotal=0;
+var stotalBeforeDisc=0
+function recalcTotal(checkButtons)
+{
+	var row;
+	var subtotal;
+	var payed = parseFloat(document.all.payed.value);
+	stotal=0;
+	if(isNaN(payed))payed=0;
+	
+	for(i=2;i<document.all.productsTable.rows.length;i++)
+	{
+		row = document.all.productsTable.rows[i];
+		if (isNaN(parseFloat(row.all.productprice.value))||isNaN(parseFloat(row.all.productquantity.value)))
+		{
+			row.all.producttotal.value="";
+			subtotal = 0;
+		}
+		else
+		{
+			price = parseFloat(row.all.productprice.value);
+			quantity = parseFloat(row.all.productquantity.value);
+			discount = parseFloat(row.all.productdiscount.value);
+			cashdiscount = parseFloat(row.all.productcashdiscount.value);
+			subtotal = (price*quantity);
+			if (!isNaN(discount))
+			{
+				subtotal = subtotal - subtotal*discount/100;
+			}
+			else if(!isNaN(cashdiscount))
+			{
+				subtotal = subtotal - cashdiscount;
+				row.all.productcashdiscount.value = cashdiscount.toFixed(2);
+			}
+			row.all.producttotal.value = subtotal.toFixed(2);
+			row.all.productprice.value = price.toFixed(2);
+		}
+		stotal+=subtotal;
+	}
+	
+	tDiscount = parseFloat(document.all.totalDiscount.value);
+	tCashDiscount = parseFloat(document.all.totalCashDiscount.value);
+	stotalBeforeDisc = stotal;
+	if (!isNaN(tDiscount))
+	{
+		stotal = stotal - stotal*tDiscount/100;
+	}
+	else if (!isNaN(tCashDiscount))
+	{
+		stotal = stotal - tCashDiscount;
+	}
+	
+	document.all.total.innerText=stotal.toFixed(2);
+	if (mode=="payment" || mode=="refundMoneyBack")
+	{	
+		document.all.topay.innerText = stotal.toFixed(2);
+	}
+	else
+	{
+		if (stotal>=payed)
+		{
+			document.all.topay.innerText= (stotal-payed).toFixed(2) 
+		}
+		else
+		{
+			document.all.topay.innerText =  "0.00";
+		}
+	}
+	if (payed > stotal && mode!="payment" && mode!="refundMoneyBack")
+	{
+		document.all.change.value=(payed-stotal).toFixed(2);
+	}
+	else
+	{
+		document.all.change.value="";
+	}
+	
+	if (checkButtons){
+	 if(stotal>0 || mode=="payment")
+	 { 
+	 	disablePaymentButtons(false);
+	 } 
+	 else
+	 { 
+		disablePaymentButtons(true);
+	 }
+	}
+	document.all.vatFree.disabled = stotal>0; 
+}
+
+function calculateDiscountsByListsTotalAmt()
+{
+	for (i=0;i<discounts.length;i++)
+	{
+		var discount = discounts[i];
+		if (discount.discountType==1)//total amount
+		var isEligible = true;
+		var numpairs = 99;
+		var totalAmount = 0;
+		var usedRows = [];
+	    for(j=0;j<discount.products.length;j++){
+			row = findProduct(discount.products[j]);
+			if (!row)
+			{
+				isEligible=false;break;
+			}
+			else
+			{
+				totalAmount += parseFloat(row.all.productprice.value);
+				usedRows[usedRows.length] = row;
+				numpairs = Math.min(numpairs,parseFloat(row.all.productquantity.value));
+			}
+		}
+		if (isEligible)
+		{
+			var amt = totalAmount-parseFloat(discount.totalAmount);
+			var dBarcode = discount.barcode!=""?discount.barcode:"0000000000000"; 
+			var discRow = {discountAmt:amt*numpairs,title:"מבצה "+discount.discountName,barcode:dBarcode,quantity:numpairs,price:amt};
+			putDiscountRow(discRow);
+			for(k=0;k<usedRows.length;k++){
+				usedRows[k].all.discountused.value = numpairs;
+			}
+		}
+	}
+	
+}
+
+function calculateDiscountsByListsNplus1()
+{
+	for (i=0;i<discounts.length;i++)
+	{
+		var discount = discounts[i];
+		if (discount.discountType==2)//n+1
+		var isEligible = true;
+		var numpairs = 99;
+		var cheapestProductAmount = 9999999;
+		listQty = 0;
+		var usedRows = [];
+	    for(j=0;j<discount.products.length;j++){
+			row = findProduct(discount.products[j]);
+			if (row != null)
+			{
+			  listQty+=parseFloat(row.all.productquantity.value);
+			  cheapestProductAmount = Math.min(cheapestProductAmount,parseFloat(row.all.productprice.value)),
+			  usedRows[usedRows.length] = row;
+			}
+		}
+		if (listQty>=parseFloat(discount.discountCount)+1)
+		{
+			numpairs = Math.floor(listQty/(parseFloat(discount.discountCount)+1));
+			var amt = cheapestProductAmount;
+			var dBarcode = discount.barcode!=""?discount.barcode:"0000000000000"; 
+			var discTitle = "מבצה "+(discount.products.length-1)+"+1";
+			var discRow = {discountAmt:amt*numpairs,title:discTitle+" "+discount.discountName,barcode:dBarcode,quantity:numpairs,price:amt};
+			putDiscountRow(discRow);
+			for(k=0;k<usedRows.length;k++){
+				usedRows[k].all.discountused.value = numpairs;
+			}
+		}
+	}
+	
+}
+
+function findProduct(productid){
+	for(i=2;i<document.all.productsTable.rows.length;i++)
+	{
+		row = document.all.productsTable.rows[i];
+		if (row.all.productid.value==productid && parseFloat(row.all.discountused.value)<parseFloat(row.all.productquantity.value)){
+			return row;
+		}
+	}
+	return null;
+}
+
+function calculateDiscountsByProducts()
+{
+	var discount;
+	for(i=2;i<document.all.productsTable.rows.length;i++)
+	{
+		row = document.all.productsTable.rows[i];
+		switch (row.all.discounttype.value){
+			case "2": //parit sheni
+				discount = calculateSecondItemDiscount(row);
+				break;
+			case "3": //parit acher
+				discount = calculateOtherItemDiscount(row);
+				break;				
+		}
+		putDiscountRow(discount);
+	}
+}
+
+function putDiscountRow(discount)
+{
+	if (discount!=null && discount.discountAmt>0)
+	{
+		drow = addProductRow();
+		drow.all.productname.value = discount.title;
+		drow.all.barcode.value = discount.barcode;
+		drow.all.productquantity.value = discount.quantity;
+		drow.all.productprice.value = -1*discount.price;
+		drow.all.producttotal.value = -1*discount.discountAmt;
+		drow.className+=" trdiscount";
+	}
+}
+
+function calculateSecondItemDiscount(row){
+	var dAmt = 0;
+	var qty = parseInt(row.all.productquantity.value);
+	var productTitle = row.all.productname.value;
+	var origPrice = parseFloat(row.all.productprice.value);
+	var discountpercent = parseFloat(row.all.discountamount.value);
+	var numpairs = Math.floor(qty/2);
+	var dBarcode = "0000000000000"; //row.all.barcode.value+"/"+row.all.discounttype.value
+	if (numpairs>=1)
+	{
+		dAmt = (origPrice*discountpercent/100 * numpairs).toFixed(2);
+		return {discountAmt:dAmt,title:"הנחת פריט שני - "+productTitle ,barcode:dBarcode,quantity:numpairs,price:origPrice*discountpercent/100};
+	}
+	else{
+		return null;
+	}
+}
+
+function calculateOtherItemDiscount(row){
+	var otherItemId = row.all.discountotherlistingid.value;
+	var discountpercent = parseFloat(row.all.discountamount.value);
+	var qty = parseInt(row.all.productquantity.value);
+	for(i=2;i<document.all.productsTable.rows.length;i++)
+	{
+		r = document.all.productsTable.rows[i];
+		if (r.all.productid.value==otherItemId)
+		{
+			var productTitle = r.all.productname.value;
+			var dBarcode = "0000000000000"; 
+			var origPrice = parseFloat(r.all.productprice.value);
+			var oqty = parseInt(r.all.productquantity.value);
+			numpairs = Math.min(qty,oqty);
+			dAmt = (origPrice*discountpercent/100).toFixed(2);
+			return {discountAmt:dAmt,title:"הנחת פריט נוסף - "+productTitle ,barcode:dBarcode,quantity:numpairs,price:origPrice*discountpercent/100};
+		}
+	}
+	return null;
+}
+
+function addProductRow()
+{
+	var row;
+	r = document.all.productsTable.rows[1].cloneNode(true);
+	myNewRow = document.all.productsTable.insertRow();
+	for (i=0;i<document.all.productsTable.rows[1].cells.length;i++)
+	{
+		c = myNewRow.insertCell();
+		c.innerHTML = document.all.productsTable.rows[1].cells[i].innerHTML;
+	}		
+	setRowFocus(myNewRow);
+	myNewRow.onkeydown=handleProductRowKey;
+	myNewRow.onclick=handleProductRowClick;
+	return myNewRow;
+}
+
+
+function handleProductRowClick()
+{
+	td = window.event.srcElement.parentElement;
+	if (td.tagName=="TD")
+	{
+		tr = td.parentElement;
+		setActiveRow(tr);
+	}
+}
+
+function handleProductRowKey()
+{
+	td = window.event.srcElement.parentElement;
+	tr = td.parentElement;
+	if (window.event.keyCode==13)
+	{
+		if(tr.all.barcode.value=="")
+		{
+			setRowFocus(tr);
+		}
+		else
+		{
+			if (tr.nextSibling==null)
+			{
+				addProductRow();
+			}
+			else
+			{
+				setRowFocus(tr.nextSibling);
+			}
+		}
+	}
+	else if (window.event.keyCode==9 && window.event.shiftKey)//shift+tab
+	{
+		if (td.previousSibling==null)
+		{
+			setRowFocus(tr.previousSibling,tr.previousSibling.all.productdiscount.parentElement.cellIndex);
+		}
+	}
+	else if (window.event.keyCode==46 && window.event.ctrlKey)//ctrl+del
+	{
+		deleteRow(window.event.srcElement.parentElement.parentElement);
+	}
+	else if (window.event.keyCode==38)//key up
+	{
+		if (tr.previousSibling!=null&&tr.previousSibling.style.display!="none")
+		{
+			setRowFocus(tr.previousSibling,td.cellIndex);
+		}
+	}
+	else if (window.event.keyCode==40)//key down
+	{
+		if (tr.nextSibling!=null)
+		{
+			setRowFocus(tr.nextSibling,td.cellIndex);
+		}
+	}
+	else if (window.event.keyCode==37 && window.event.ctrlKey)//ctrl+key left 
+	{
+		if (td.cellIndex!=tr.cells.length-2)
+		{
+			setRowFocus(td.parentElement,td.nextSibling.cellIndex);
+		}
+		else
+		{
+			if (tr.nextSibling!=null)
+			{
+				setRowFocus(tr.nextSibling,0);
+			}
+		}
+	}
+	else if (window.event.keyCode==39 && window.event.ctrlKey)//ctrl+key left 
+	{
+		if (td.cellIndex!=0)
+		{
+			setRowFocus(td.parentElement,td.previousSibling.cellIndex);
+		}
+		else
+		{
+			if (tr.previousSibling!=null&&tr.previousSibling.style.display!="none")
+			{
+				setRowFocus(tr.previousSibling,tr.cells.length-2);
+			}
+		}
+	}
+}
+
+function enterApproval()
+{
+	disableForm(false);
+	closeCurrentPaymentWindow();
+	displayDiv("divCredit","",1);
+}
+
+function cancelCCPayment()
+{
+	ccInit = 1;
+	disableForm(false);
+	closeCurrentPaymentWindow();
+	document.all.creditcarddata.value='';
+	document.all.topay.value=(parseFloat(window.parent.document.all.topay.value)+parseFloat(window.parent.document.all.amtCredit.value)).toFixed(2);
+	document.all.payed.value=(parseFloat(window.parent.document.all.payed.value)-parseFloat(window.parent.document.all.amtCredit.value)).toFixed(2);
+	document.all.amtCredit.value='';		
+}
+
+
+function deleteRow(row,setFocus)
+{
+	if (row.cells[7].all(0).disabled)return;
+	if (typeof(setFocus)=="undefined")setFocus=true;
+	if (document.all.productsTable.rows.length==3)
+	{
+		for (i=0;i<row.cells.length;i++)
+		{
+			row.cells[i].all(0).value="";
+		}
+		setRowFocus(row);	
+	}
+	else
+	{
+	
+		if (row.nextSibling!=null)
+		{
+			//focusRow = row.nextSibling;
+			focusRow = document.all.productsTable.rows[document.all.productsTable.rows.length-1];
+		}
+		else if (row.previousSibling!=null&&row.previousSibling.style.display!="none")
+		{
+			focusRow = row.previousSibling;
+		}
+		if(setFocus){
+			setRowFocus(focusRow);	
+		}
+		document.all.productsTable.deleteRow(row.rowIndex);
+
+	}
+	recalcTotal();
+}
+
+function Test()
+{
+}
+
+function setActiveRow(row)
+{
+	if (activeRow!=null)
+	{
+		activeRow.className="";
+	}
+	row.className="selectedTableRow";
+
+	activeRow = row;
+
+}
+
+function lostFocus()
+{
+	if (activeCell!=null)
+	{
+		activeCell.style.backgroundColor="";
+		activeCell=null;
+	}
+}
+
+function handleFocus(){
+	if (activeCell!=null)
+	{
+		activeCell.style.backgroundColor="";
+	}		
+	activeCell = window.event.srcElement.parentElement;
+	activeCell.style.backgroundColor="blue";
+}
+
+function setRowFocus(row,cellIndex)
+{
+
+	if (typeof(cellIndex)=="undefined")cellIndex=0;
+	if (document.all.productsTable.style.visibility!="hidden")
+	{
+		try{
+		row.cells[cellIndex].all(0).focus();
+		row.cells[cellIndex].all(0).select();
+		}
+		catch(e){}
+	}
+	setActiveRow(row);
+}
+
+function validateForm()
+{
+	return false;
+}
+
+function reportBalance()
+{
+	if(document.all.stock.value=="")
+	{
+		alert("<?=$lang["select_stock_point"]?>");
+		return;
+	}
+	wopen("rep_cash.php?rnd=<?=rand(10000,999999)?>&simple=1&stock="+document.all.stock.value,"repcash",600,400,true);
+} 
+
+function getOffsetTop(el)
+{
+	e = el; 
+	s = el.offsetTop;
+	while (e.offsetParent!=null)
+	{
+		s+=e.offsetTop;
+		e = e.offsetParent;
+	}
+	return s;
+}
+
+function getOffsetLeft(el)
+{
+	e = el;
+	s = el.offsetLeft;
+	while (e.offsetParent!=null)
+	{
+		s+=e.offsetLeft;
+		e = e.offsetParent;
+	}
+	return s;
+}
+
+var paymentDiv;
+var PopupOpened = false; 
+
+function openBox(divID)
+{
+
+	el = paymentDiv = document.getElementById(divID);
+	el.style.display = "block";
+	el.style.left = document.body.clientWidth/2-(el.clientWidth/2);
+	el.style.top = document.body.clientHeight/2-(el.clientHeight/2);
+	document.all.shadow.style.display="block";
+	document.all.shadow.style.left=parseInt(el.style.left.replace("px",""))+5;
+	document.all.shadow.style.top=parseInt(el.style.top.replace("px",""))+5;
+	document.all.shadow.style.width = el.clientWidth+10;
+	document.all.shadow.style.height = el.clientHeight+10;
+	el.focus();
+}
+
+
+
+var ccInit = 1;
+var chequeInit = 1;
+var currentPayMode;
+function displayDiv(divID,ccControlString,CCapprovalMode)
+{
+	currentPayMode = divID;
+	el = paymentDiv = document.getElementById(divID);
+	openBox(divID);
+	
+	if (divID=="divCredit")
+	{
+		name = document.all.clientName.value;
+		phone = document.all.clientPhone.value;
+		zehut = document.all.clientZehut.value;
+		amt=(ccInit==1)?document.all.topay.value:document.all.amtCredit.value;
+		cdata = amt+"||||||||"+name+"||"+zehut+"|"+phone+"||||||";
+		if (ccInit==1)
+		{
+			document.all.frmCredit.src="credit.php?CCapprovalMode="+CCapprovalMode+"&controlString="+ccControlString+"&cashbox=1&isinitial="+ccInit+"&creditcarddata="+cdata;
+		}
+		if (typeof(CCapprovalMode)=="undefined"){CCapprovalMode="0"};
+		if (CCapprovalMode==1)
+		{
+			document.frames["frmCredit"].window.focusApprove();
+		}
+		ccInit = 0;
+	}
+	if (divID=="divCheque")
+	{	
+		if (chequeInit==1)
+		{
+			amt = document.all.topay.value;
+			document.all.frmCheque.src="generatepayment.php?cashbox=1&amt="+amt;
+		}
+		chequeInit = 0;
+	}
+	if (el.all.inputcontrol!=null && divID!="divVoucher")
+	{
+		if (el.all.inputcontrol.all(0).value=="" && mode!="refundMoneyBack")
+		
+		{
+			el.all.inputcontrol.all(0).value = document.all.topay.value;
+		}
+	}
+	
+	if (el.all.tags("INPUT")(0)!=null)
+	{
+		try
+		{
+			el.all.tags("INPUT")(0).focus();
+			if (el.all.tags("INPUT")(0).type!="button")el.all.tags("INPUT")(0).select();
+		}
+		catch(e){}
+		
+	}
+	
+	disablePaymentButtons(true);
+}
+
+function disablePaymentButtons(v)
+{
+	if (v){
+		document.all.btnCash.disabled=v;
+		document.all.btnCredit.disabled=v;
+		document.all.btnCheque.disabled=v;
+		document.all.btnVoucher.disabled=v;
+		document.all.btnRefund.disabled=v;
+		document.all.btnHakafa.disabled=v;
+	}
+	else
+	{
+		document.all.btnCash.disabled = document.all.btnCash.origDisabled=="true" || document.all.btnCash.origDisabled==true;
+		document.all.btnCredit.disabled = document.all.btnCredit.origDisabled=="true" || document.all.btnCredit.origDisabled==true;
+		document.all.btnCheque.disabled = document.all.btnCheque.origDisabled=="true" || document.all.btnCheque.origDisabled==true;
+		document.all.btnVoucher.disabled = document.all.btnVoucher.origDisabled=="true" || document.all.btnVoucher.origDisabled==true;
+		document.all.btnRefund.disabled = document.all.btnRefund.origDisabled=="true" || document.all.btnRefund.origDisabled==true;
+		document.all.btnHakafa.disabled = document.all.btnHakafa.origDisabled=="true" || document.all.btnHakafa.origDisabled==true;
+	}
+}
+
+function acceptBaseDocNum()
+{
+	if (window.event.keyCode==13)
+	{
+		if (document.all.txtBaseDocNum.value!="")
+		{
+			ShowWaiting();
+			s = agent.call('cashbox_services.php','getBaseDocumentProducts','',document.all.txtBaseDocNum.value,document.all.lstBaseDocType.value);
+			baseDocNum_callback(s);
+		}
+		closeCurrentPaymentWindow();
+	}
+	else if (window.event.keyCode==27)
+	{
+		closeCurrentPaymentWindow();
+	}
+}
+
+function baseDocNum_callback(s)
+{
+	var i; var row;
+	HideWaiting();
+	if (s=="-1")
+	{
+		alert("<?=$lang["doc_not_found"]?>");
+		return;
+	}
+	try
+	{
+		xmlDoc.loadXML(s)
+		row = document.all.productsTable.rows[2];
+		productList = xmlDoc.documentElement;
+		document.all.totalDiscount.value = productList.attributes[0].value;
+		document.all.parentdocid.value = productList.attributes[1].value;
+		for(i=0;i<productList.childNodes.length;i++)
+		{
+			product = productList.childNodes(i);
+			if(product.selectSingleNode("name").text!="")
+			{
+				row.all.productid.value = product.selectSingleNode("id").text;
+				row.all.productname.value = product.selectSingleNode("name").text;
+				row.all.barcode.value = (product.selectSingleNode("barcode").text=="")?"0000000000000":product.selectSingleNode("barcode").text;
+				row.all.productprice.value = product.selectSingleNode("price").text;
+				row.all.productquantity.value = product.selectSingleNode("quantity").text;
+				row.all.productdiscount.value = product.selectSingleNode("discount").text;
+				row = addProductRow();			
+			}
+		}
+		recalcTotal();
+		document.all.btnOK.disabled = false;
+	}
+	catch(e)
+	{
+		alert(e.description+"\n\n"+s);
+		return true;
+	}
+}
+
+function acceptPrint(keycode)
+{
+	if (typeof(keycode)=="undefined")keycode=window.event.keyCode;
+	if (keycode==27)
+	{
+		closeCurrentPaymentWindow();
+	}
+	else if (keycode==13 && window.event.srcElement.id == "inpPrintDocNum")
+	{
+		printDocument(document.F.inpPrintDocNum.value,document.F.lstPrintDocType.value)
+	}
+}
+
+function acceptClient(keycode)
+{
+	if (typeof(keycode)=="undefined")keycode=window.event.keyCode;
+	if (keycode==13)
+	{
+		disableForm(false);
+		if (document.all.inpClientName.value!="")
+		{
+			document.all.lblClient.innerHTML = document.all.clientName.value = document.all.inpClientName.value;
+			document.all.lblClient.className=document.all.clientid.value=="1"?"bigtotallabel":"clientlink";
+		}
+		else
+		{
+			document.all.lblClient.innerHTML = "<?=$lang["general_client"]?>";
+			document.all.lblClient.className = "bigtotallabel";
+		}
+		document.all.clientPhone.value = document.all.inpClientPhone.value;
+		document.all.clientZehut.value = document.all.inpClientZehut.value;
+		setRowFocus(document.all.productsTable.rows[2]);
+		document.all.divComment.style.display="";
+		closeCurrentPaymentWindow();
+	}
+	else if (keycode==27)
+	{
+		setRowFocus(document.all.productsTable.rows[2]);
+		document.all.divComment.style.display="";
+		closeCurrentPaymentWindow();
+	}
+}
+
+function addClient()
+{
+	if (document.all.clientid.value!="" && document.all.clientid.value!="1")
+	{
+		document.all.lblClient.innerHTML = document.all.inpClientName.value;
+		document.all.lblClient.className="clientlink";
+		acceptClient(13);
+	}
+	else if (confirm("<?=$lang["add_new_client_club"]?>"))
+	{
+		if (document.all.inpClientZehut.value=="")
+		{
+			alert("<?=$lang["enter_id"]?>");
+			document.all.inpClientZehut.focus();
+		}
+		else if (document.all.inpClientName.value=="")
+		{
+			alert("<?=$lang["enter_client_name"]?>");
+			document.all.inpClientName.focus();
+		}
+		else 
+		{
+			ShowWaiting();
+			s = agent.call('cashbox_services.php','addClient','',document.all.inpClientNum.value,document.all.inpClientZehut.value,document.all.inpClientName.value,document.all.inpClientPhone.value,document.all.inpClientAddress.value,document.all.inpClientMail.value);
+			if (s.substring(0,2)=="E:")
+			{
+				num = s.replace("E:","");
+				HideWaiting();
+				if (num!=""){
+					alert("<?=$lang["club_client_exists1"]?> "+num);
+					document.all.inpClientNum.value = num;
+					getClientData();
+				}
+				else{
+					alert("<?=$lang["club_client_exists"]?>");
+				}
+			}
+			else
+			{
+				addClient_callback(s);
+			}
+		}
+	}
+}
+
+function addClient_callback(s)
+{
+	HideWaiting();
+	clientNum_callback(s)
+	acceptClient(13);
+}
+
+function editClient(){
+<?if (HasActionPermission("PREFERENCES")){?>
+	if (document.all.clientid.value!="1"&&document.all.clientid.value!=""){
+		var url = "cppro/main.php?service=suppliers&bd_event=&bd_event=edit_record&record_id="+document.all.clientid.value+"&simple=1&cid=1";
+		wopen(url,"cclient",700,450,true,"resizable=no");
+	}
+<?}else{?>	
+	alert("<?=$lang["no_cl_perm"]?>");
+<?}?>
+}
+
+function acceptPayment(keycode)
+{
+	var i;
+	if (typeof(keycode)=="undefined")keycode=window.event.keyCode;
+	if (keycode==13)
+	{
+		if (!isNaN(parseFloat(document.all.amtRefund.value)) && parseFloat(document.all.amtRefund.value) > parseFloat(document.all.txtItra.value.replace(/,/g,"")) )
+		{
+			alert("<?=$lang["payment_exceeds_balance"]?>");
+			return;
+		}
+		
+		var payed = 0;
+		if (!isNaN(parseFloat(document.all.amtCash.value)))
+		{ 
+			payed += parseFloat(document.all.amtCash.value);
+			document.all.amtCash.value = parseFloat(document.all.amtCash.value).toFixed(2);
+		}
+		if (!isNaN(parseFloat(document.all.amtVoucher.value)))
+		{ 
+			payed += parseFloat(document.all.amtVoucher.value);
+			document.all.amtVoucher.value = parseFloat(document.all.amtVoucher.value).toFixed(2);
+		}
+		if (!isNaN(parseFloat(document.all.amtHakafa.value)))
+		{ 
+			payed += parseFloat(document.all.amtHakafa.value);
+			document.all.amtHakafa.value = parseFloat(document.all.amtHakafa.value).toFixed(2);
+		}
+		if (!isNaN(parseFloat(document.all.amtRefund.value)))
+		{ 
+			payed += parseFloat(document.all.amtRefund.value);
+			document.all.amtRefund.value = parseFloat(document.all.amtRefund.value).toFixed(2);
+		}
+		if (!isNaN(parseFloat(document.all.amtCreditSimple.value)))
+		{ 
+			payed += parseFloat(document.all.amtCreditSimple.value);
+			document.all.amtRefund.value = parseFloat(document.all.amtCreditSimple.value).toFixed(2);
+		}		
+		document.all.payed.value = payed.toFixed(2);
+		
+		for (i=0;i<el.all.tags("INPUT").length;i++)
+		{
+			inpEl = el.all.tags("INPUT")(i);
+			if(inpEl.type!="button"){
+				inpEl.prevValue = inpEl.value;
+			}
+		}
+		EvalSound("sndCashier");
+		closeCurrentPaymentWindow();
+		recalcTotal(); 
+		
+		var topay = parseFloat(document.all.topay.value);
+		if ((topay==0 && stotal>0)  || mode=='payment' || mode=="refundMoneyBack" )
+		{
+			openBox("divConfirm");
+			document.all.divConfirm.focus();
+		}
+		
+		if (currentPayMode=="divCash" && topay>0)
+		{
+			document.all.btnCredit.focus();
+			window.event.returnValue = false;
+		} 
+		else if (topay>0)
+		{
+			document.all.btnCash.focus();
+			window.event.returnValue = false;
+		}
+		currentPayMode = "";
+	}
+	else if (keycode==27)
+	{
+
+		for (i=0;i<el.all.tags("INPUT").length;i++)
+		{
+			inpEl = el.all.tags("INPUT")(i);
+			if(inpEl.type!="button"){
+				if (typeof(inpEl).prevValue!="undefined")
+					inpEl.value = inpEl.prevValue;
+				else
+					inpEl.value = "";
+			}
+		}
+		closeCurrentPaymentWindow();
+		recalcTotal();
+		currentPayMode = "";
+	}
+}
+
+function unhighlightButtons()
+{
+	for(i=0;i<document.all.tags("INPUT").length;i++)
+	{
+		e = document.all.tags("INPUT")[i];
+		if (e.type=="button")e.style.backgroundColor = '';
+	}
+}
+
+function closeCurrentPaymentWindow()
+{
+	if (paymentDiv!=null)
+	{
+		paymentDiv.style.display="none";
+		document.all.shadow.style.display="none";
+		if (stotal > 0 || mode == "payment")
+		{
+			disablePaymentButtons(false);
+		}
+	}
+	unhighlightButtons();
+}
+
+function cancelDeal()
+{
+	reloadWindow();
+}
+
+
+function reloadWindow()
+{
+	window.location.href="cashbox.php?stock="+document.all.stock.value+"&agentid="+document.all.agentid.value+"&lastDocIds="+document.F.lastDocIds.value;
+}
+
+function clearProducts()
+{
+	while(document.all.productsTable.rows.length>3)
+	{
+		deleteRow(document.all.productsTable.rows[document.all.productsTable.rows.length-1]);
+	}
+		deleteRow(document.all.productsTable.rows[2]);
+}
+
+function payOnlyMode()
+{
+	closeCurrentPaymentWindow()
+	pushButton();
+	mode = "payment";
+	clearProducts();
+	document.all.btnDiscount.disabled=true;
+	document.all.btnCashDiscount.disabled=true;
+	document.all.btnCash.origDisabled=false;
+	document.all.btnCredit.origDisabled=false;
+	document.all.btnCheque.origDisabled=false;
+	btnVoucher.origDisabled = btnHakafa.origDisabled = btnRefund.origDisabled = true;
+	disablePaymentButtons(false);
+	document.all.productsTable.style.visibility = "hidden";
+	setMode("")
+}
+
+
+function refundMode(moneyback)
+{
+	closeCurrentPaymentWindow()
+	document.all.productsTable.style.visibility = "visible";
+	pushButton();
+	clearProducts();
+	if (moneyback)
+	{
+		mode = "refundMoneyBack"
+		document.all.btnCash.origDisabled=false;
+		document.all.btnCredit.origDisabled=false;
+		document.all.btnCheque.origDisabled=false;
+		document.all.btnVoucher.origDisabled=true;
+		document.all.btnRefund.origDisabled=true;
+		document.all.btnHakafa.origDisabled=true;
+		disablePaymentButtons(false);
+	}
+	else
+	{
+		mode = "refundNoMoneyBack"
+		document.all.btnCash.origDisabled=true;
+		document.all.btnCredit.origDisabled=true;
+		document.all.btnCheque.origDisabled=true;
+		document.all.btnVoucher.origDisabled=true;
+		document.all.btnRefund.origDisabled=true;
+		document.all.btnHakafa.origDisabled=true;
+		disablePaymentButtons(true);
+	}
+	openBox("divBaseDocNumber");
+	document.all.txtBaseDocNum.focus();
+	document.all.txtBaseDocNum.select();
+	setMode("<?=$lang["refund_deal"]?>")
+}
+
+function setMode(caption)
+{
+	document.all.modelabel.innerText = caption;
+	document.all.btnOK.style.display = (mode=="refundNoMoneyBack")?"":"none";
+}
+
+function pushButton()
+{
+	unhighlightButtons();
+	window.event.srcElement.className = "activebutton"
+}
+
+function disableForm(v,buttonsOnly)
+{
+	if (typeof(buttonsOnly)=="undefined")buttonsOnly=false;
+	if (!buttonsOnly || !v)
+	{
+		for(i=0;i<document.all.modetable.all.tags("INPUT").length;i++)
+		{
+			b = document.all.modetable.all.tags("INPUT")[i];
+			b.disabled = v;
+		}
+		for(i=0;i<document.all.productsTable.all.tags("INPUT").length;i++)
+		{
+			b = document.all.productsTable.all.tags("INPUT")[i];
+			b.disabled = v;
+		}
+	}
+	document.all.btnClients.disabled = v;
+}
+
+function checkDiscountTab(mode)
+{
+	if (window.event.keyCode==38||window.event.keyCode==40||window.event.keyCode==9)
+	{
+		closeCurrentPaymentWindow();
+		if (mode==1)
+		{
+			openCashDiscount();
+		} 
+		else
+		{
+			if (!document.all.btnCash.disabled)
+			{
+				document.all.btnCash.focus();
+			}
+			else
+			{
+				openDiscount();
+			}
+		}
+		window.event.cancelBubble=true;
+		window.event.returnValue=false;
+	}
+}
+
+
+function checkDiscountKey(mode)
+{
+	var topay = parseFloat(document.all.topay.value);
+	if (window.event.keyCode==13)
+	{
+		if (mode==1)
+		{
+			if (isNaN(parseFloat(document.all.inpDiscount.value)))
+			{
+				document.all.totalDiscount.value = "";
+			}
+			else
+			{
+				document.all.totalDiscount.value = parseFloat(document.all.inpDiscount.value);
+			}
+			document.all.totalCashDiscount.value = "";
+		}
+		else
+		{
+			if (isNaN(parseFloat(document.all.inpCashDiscount.value)))
+			{
+				document.all.totalCashDiscount.value = "";
+			} 
+			else
+			{
+				if (isNaN(parseFloat(document.all.inpCashDiscount.value)))
+				{
+					document.all.totalCashDiscount.value = "";
+				}
+				else
+				{
+					document.all.totalCashDiscount.value = parseFloat(document.all.inpCashDiscount.value).toFixed(2);
+				}
+			}
+			document.all.totalDiscount.value = "";
+		}
+		closeCurrentPaymentWindow();
+		recalcTotal();
+   	    roundTotal();
+		if (mode=='refundNoMoneyBack' || mode=='payment' || (topay == 0 && stotal>0))
+		{
+			openBox("divConfirm");
+			document.all.divConfirm.focus();
+		}
+		if (!document.all.btnCash.disabled)
+		{
+			document.all.btnCash.focus();
+			window.event.returnValue=false;
+			closeCurrentPaymentWindow();
+			window.event.cancelBubble = true;
+		}
+	}
+	else if (window.event.keyCode==27)
+	{
+		closeCurrentPaymentWindow();
+		if (!document.all.btnCash.disabled)
+		{
+			document.all.btnCash.focus();
+			closeCurrentPaymentWindow();
+			window.event.cancelBubble = true;
+		}
+	}
+}
+
+function processChequeData(amt, ccData)
+{
+	if (document.all.amtCheque.value!="")
+	{
+		payed -= parseFloat(document.all.amtCheque.value);
+	}
+	document.all.amtCheque.value = amt;
+	document.all.chequedata.value = ccData;
+	EvalSound("sndCashier");
+	
+	var payed = parseFloat(document.all.payed.value);
+	if (isNaN(payed))payed=0;
+	payed += parseFloat(document.all.amtCheque.value);
+	document.all.payed.value = payed.toFixed(2);
+	
+	recalcTotal();
+	
+	var topay = parseFloat(document.all.topay.value);
+	if ((topay==0 && stotal>0) ||  mode=='payment' || mode=="refundMoneyBack")
+	{
+		openBox("divConfirm");
+		document.all.divConfirm.focus();
+	}
+}
+
+function processCreditCardData(amt, ccData)
+{
+	var payed = parseFloat(document.all.payed.value);
+	if (document.all.amtCredit.value!="")
+	{
+		payed -= parseFloat(document.all.amtCredit.value);
+	}
+	document.all.amtCredit.value = amt;
+	document.all.creditcarddata.value = ccData;
+	EvalSound("sndCashier");
+	
+	
+	if (isNaN(payed))payed=0;
+	payed += parseFloat(document.all.amtCredit.value);
+	document.all.payed.value = payed.toFixed(2);
+	
+	recalcTotal();
+	
+	var topay = parseFloat(document.all.topay.value);
+	if ((topay==0 && stotal>0) ||  mode=='payment' || mode=="refundMoneyBack")
+	{
+		openBox("divConfirm");
+		document.all.divConfirm.focus();
+	}
+}
+
+
+function checkErrorKey()
+{
+	if (window.event.keyCode==27)
+	{
+		disableForm(false);
+		closeCurrentPaymentWindow();
+	}
+}
+
+function checkConfirm()
+{
+	if (window.event.keyCode==13)
+	{
+		confirmDeal()
+	}
+	else if (window.event.keyCode==27)
+	{
+		closeCurrentPaymentWindow();
+	}
+}
+
+
+function beforeUnload()
+{
+	event.returnValue = "<?=JSEncode($lang["close_warning"])?>"+"\n"+"<?=JSEncode($lang["close_warning2"])?>";
+}
+
+function ShowWaiting()
+{
+ document.body.onbeforeunload = beforeUnload;
+ document.all.Waiting.style.display = "";
+}
+
+function HideWaiting()
+{
+ document.body.onbeforeunload = null;
+ document.all.Waiting.style.display = "none";
+}
+
+function confirmDeal()
+{
+	closeCurrentPaymentWindow();
+	document.F.mode.value = mode;
+	document.F.IsVatFree.value = document.F.vatFree.checked?1:0;
+	document.F.amtTotal.value = document.all.total.innerText
+	document.F.amtChange.value = document.all.change.value 
+	disableForm(true,true);
+	disablePaymentButtons(true);
+	ShowWaiting();
+	document.F.submit();
+}
+ 
+function showError(error)
+{
+	document.all.spanError.innerHTML = error;
+	disableForm(true);
+	document.all.btnCancelDeal.disabled=false;	
+	openBox("divError")
+	document.all.btnError.focus();
+}
+
+function showCCError(error)
+{
+	document.all.spanCCError.style.display = ""; 
+	document.all.spanCCError.innerHTML = error;
+	disableForm(true);
+	document.all.btnCancelDeal.disabled=false;	
+	document.all.confirmCC1.style.display='';
+	document.all.confirmCC2.style.display='none';
+	document.all.ccMsg.style.display='';
+	openBox("divCCError")
+	document.all.btnIshur.focus();
+}
+
+function showCCInfo()
+{
+	document.all.spanCCError.style.display = "none"; 
+	document.all.confirmCC2.style.display='';
+	document.all.confirmCC1.style.display='none';
+	document.all.spanCCError.innerHTML="";
+	document.all.ccMsg.style.display='none';
+	openBox("divCCError")
+}
+
+function payCredit()
+{
+	if (document.all.gatewaycode.value!="")
+	{
+		displayDiv("divCredit")
+	}
+	else
+	{
+		displayDiv("divCreditSimple")
+	}
+}
+
+function btnFocus()
+{
+	for(i=0;i<document.all.tags("INPUT").length;i++)
+	{
+		e = document.all.tags("INPUT")[i];
+		if (e.type=="button")e.style.backgroundColor = '';
+	}
+	el = event.srcElement;
+	el.style.backgroundColor = 'orange';
+}
+ 
+function btnBlur()
+{
+	el = event.srcElement;
+	el.style.backgroundColor = '';
+}
+
+function btnOver(bgcolor)
+{
+	var color='#ffffff';
+	if (typeof(bgcolor)=="undefined")
+	{
+		bgcolor='#efefef';
+		color='';
+	}
+	el = event.srcElement;
+	el.savedBgColor = el.style.backgroundColor;
+	el.savedColor = el.style.color;
+	el.style.backgroundColor = bgcolor;
+	el.style.color = color;
+}
+
+function btnOut()
+{
+	el = event.srcElement;
+	el.style.backgroundColor = el.savedBgColor;
+	el.style.color = el.savedColor;
+}
+
+function OnLoad()
+{
+	recalcTotal();
+	addProductRow();
+	disablePaymentButtons(true);
+	try{document.all.clientNum.focus();}catch(e){}
+	disableForm(true);
+	if (document.all.stock.value != "")
+	{	
+		setStockData();
+	}
+	document.all.DV.style.display = "none";
+}
+
+
+function setDefaultClient()
+{
+	<?if (!IsPostBack()){?>
+		document.all.inpClientNum.value = "<?=$defaultClient?>";
+		getClientData();
+		document.all.inpClientNum.value = "";
+	<?}?>
+}
+
+function selectStock()
+{
+	initData = window.showModalDialog("selectstock.php","","dialogWidth:400px;dialogHeight:250px;center:yes;status:no;resizable:no");
+	if (initData==""||typeof(initData)=="undefined")
+	{
+		//window.close();
+		return;
+	}
+	id = initData.split("|") 
+	document.all.stock.value = id[0];
+	document.all.agentid.value = id[1];
+	initBalance = id[2];
+	if (initBalance!=""&&typeof(initBalance)!="undefined")
+	{
+		ShowWaiting();
+		agent.call('cashbox_services.php','setStockInitBalance','',document.all.stock.value,initBalance);
+    }
+
+	if (document.all.stock.value==""||document.all.stock.value+""=="undefined")
+	{
+		//document.all.btnReportBalance.disabled = true;
+		//window.close();
+	}
+	else
+	{
+		setStockData();
+	}
+}
+
+
+function setStockData()
+{
+	if(document.all.stock.value!="")
+	{
+		try
+		{
+			ShowWaiting();
+			s = agent.call('cashbox_services.php','getStockData','',document.all.stock.value);
+			HideWaiting();
+			xmlDoc.loadXML(s)
+			stockdata = xmlDoc.documentElement;
+			document.all.stockname.value = stockdata.selectSingleNode("name").text;
+			document.all.kupa.value = stockdata.selectSingleNode("kupa").text;
+			document.all.gatewaycode.value = stockdata.selectSingleNode("gatewaycode").text;
+			/*
+			if (document.all.kupa.value=="")
+			{
+				alert("<?=$lang["no_kupa_for_stock"]?>");
+				selectStock();
+			}
+			*/
+			document.all.roundbill.value = stockdata.selectSingleNode("roundbill").text;
+			currentuser = stockdata.selectSingleNode("currentuser").text;
+			
+			if (currentuser==<?=$officeUserID?>){
+				document.all.btnOpen.style.display="none";
+				document.all.btnClose.style.display="";
+				setDefaultClient();
+			}
+			else{
+				document.all.btnClose.style.display="none";
+				document.all.btnOpen.style.display="";
+			}
+			
+
+		}
+		catch(e)
+		{
+			alert(e.description+"\n\n"+s);
+		}
+	}
+	
+	if(document.all.agentid.value!="")
+	{
+		try
+		{
+			ShowWaiting();
+			s = agent.call('cashbox_services.php','getAgentData','',document.all.agentid.value);
+			HideWaiting();
+			xmlDoc.loadXML(s)
+			agentdata = xmlDoc.documentElement;
+			document.all.agentname.value = agentdata.selectSingleNode("name").text;
+
+		}
+		catch(e)
+		{
+			alert(e.description+"\n\n"+s);
+		}
+	}
+	
+
+}
+
+function EvalSound(soundobj) 
+{
+  //var thissound=document.getElementById(soundobj);
+  //thissound.controls.play();
+}
+
+function showClient(readonly){
+    var url = "client_select.php?simple=1&clients=1&cashbox=1&noCommon=1";
+    if (window.event!=null && window.event.shiftKey)
+    {
+		url+="&selectdefault=1";
+    }
+    url=url+"&rnd="+Math.random();
+    var s = wopen(url,"client",600,400,true,"resizable=no");
+}
+
+function startClient(s)
+{
+	document.F.clientid.value=s;
+	getClientDataById();
+}
+
+
+function printDocument(ids,did)
+{
+
+	if (ids=="")
+	{
+		alert("<?=$lang["enter_doc_num"]?>");
+	}
+	else
+	{
+		if (did)
+		{
+			ShowWaiting();
+			s = agent.call('cashbox_services.php','getDocumentId','',ids,did);
+			HideWaiting();
+			if (s==-1)
+			{
+				alert("<?=$lang["doc_not_found"]?>");
+				return;
+			}
+			else
+			{
+				ids=s;
+			}
+	
+		}
+		closeCurrentPaymentWindow();
+		s = showModalDialog("printdoc.php?cashbox=1&docid="+ids,"","dialogWidth:400px;dialogHeight:250px;center:yes;resizable:no;status:no;help:no");
+	}
+}
+
+
+var Reading = false;
+
+function ReadKeys(){
+	var s;
+	if(event.keyCode==80 && event.shiftKey)
+	{
+		openPrint();
+	}
+	else if (event.keyCode == 27) {
+		if (document.all.productNames.style.display!='none')
+		{
+			closeProductNames();
+			return;
+		}
+		if (PopupOpened)return;
+		Reading =~ Reading;
+		if (Reading) {	
+			document.all.ccReading.style.display='block';
+			ccString = '';
+		}
+		else
+		{	
+			document.all.ccReading.style.display='none'; 
+			if (ccString!="" && ccString.indexOf("=")==-1)
+			{
+				document.all.clientNum.value = ccString;
+				getClientData();
+			}
+			else
+			{
+				if (!document.all.btnCredit.disabled)
+				{
+					displayDiv("divCredit",ccString);
+				}
+			}
+		}
+		return;
+	}
+
+	if (Reading) {
+		ccString = ccString + String.fromCharCode(event.keyCode);
+		event.keyCode = null;
+	}
+}
+
+function hidestatus1(){
+var s="";
+		if(document.all.stockname!=null && document.all.stockname.value!=""){
+			s='<?=$lang["stock_point"]?>: '+document.all.stockname.value;
+        }
+        else
+        {
+			s='<?=$lang["no_stock_point"]?>';
+        }
+        s+="  ";
+        if(document.all.agentname!=null && document.all.agentname.value!=""){
+			s+='<?=$lang["agent_worker"]?>: '+document.all.agentname.value;
+        }
+        else
+        {
+			s+='<?=$lang["no_agent_worker"]?>';
+        }
+        window.status=s;
+        return true
+}
+
+
+///////////////////////// PRODUCT SELECTOR /////////////////////
+var currentInput = null;
+var prevProductName = "";
+var inProc = false;
+
+function closeProductNames()
+{
+	if(document.activeElement.id!="productNames")
+	{
+		document.all.productNames.style.display = 'none';
+		inProc = false;
+	}
+}
+
+function checkProduct()
+{
+	currentInput = window.event.srcElement;
+	if (currentInput.readOnly)return;
+	var productName = currentInput.value;
+	if (event.keyCode==40 && document.all.productNames.style.display == 'block')
+	{
+		document.all.productNames.focus();
+	}
+	else if ((event.keyCode==40 && event.ctrlKey) ||  (event.keyCode!=13 && productName!="" && productName!=prevProductName))
+	{
+		if (!inProc)
+		{
+			window.setTimeout("callAgent();",(event.keyCode==40)?1:500);
+			inProc = true;
+		}
+	}
+}
+
+function callAgent()
+{	
+	inProc = false;
+	if (currentInput.value!="")
+	{
+		ShowWaiting();
+		agent.call('doc_services.php','GetProducts','GetProduct_Callback',escape(currentInput.value))
+		prevProductName = currentInput.value;
+	}
+}
+
+var xmlDoc=new ActiveXObject("Microsoft.XMLDOM");
+
+
+
+function GetProduct_Callback(s)
+{
+	HideWaiting();
+	try
+	{
+		xmlDoc.loadXML(s)
+		productList = xmlDoc.documentElement;
+		document.all.productNames.options.length=0; 
+		for(i=0;i<productList.childNodes.length;i++)
+		{
+			productTitle = productList.childNodes(i).text;
+			document.all.productNames.options[document.all.productNames.options.length] = new Option(productTitle);
+			document.all.productNames.options[document.all.productNames.options.length-1].barcode = productList.childNodes(i).attributes[0].value;
+		}
+		document.all.productNames.style.top = getOffsetTop(currentInput)+23-PRODUCTSDIV.scrollTop;
+		document.all.productNames.style.width = 400; 
+		document.all.productNames.style.left = getOffsetLeft(currentInput)+25+currentInput.clientWidth-400;
+
+		document.all.productNames.backgroundColor="";
+		document.all.productNames.style.display = 'block';
+		document.all.productNames.selectedIndex=0;
+	}
+	catch(e)
+	{
+		alert(e.description+"\n\n"+s);
+		return true;
+	}
+}
+
+function checkPrNames()
+{
+	if (event.keyCode==13)
+	{	
+		getProduct();
+	}
+	else if (event.keyCode==27)
+	{
+		document.all.productNames.style.display = "none";
+		if (currentInput != null)
+		{
+			currentInput.focus();
+		}
+		window.event.cancelBubble=true;
+	}
+}
+
+function getProduct()
+{
+	if (document.all.productNames.selectedIndex!=-1)
+	{
+		prName = document.all.productNames.options[document.all.productNames.selectedIndex].text;
+		barcode = document.all.productNames.options[document.all.productNames.selectedIndex].barcode;
+		document.all.productNames.style.display = "none";
+		if (currentInput != null) 
+		{
+			currentInput.value = prevProductName = prName;
+			barcodeEl = currentInput.parentElement.parentElement.all("barcode");
+			barcodeEl.value = barcode;
+			barcodeEl.focus();
+			currentInput.parentElement.parentElement.all("productprice").value="";
+			checkBarcode(barcodeEl,true);
+		}
+	}
+}
+///////////////////////// END PRODUCT SELECTOR /////////////////
+
+document.onmouseover=hidestatus1
+document.onmouseout=hidestatus1
+document.onkeypress = ReadKeys;
+document.body.onload = OnLoad;
+
+-->
+</script>
+<style>
+<!--
+.disabledbutton{filter: progid:DXImageTransform.Microsoft.Alpha(opacity=40);}
+.readonly{color:blue;font-weight:bold;background-color:buttonface;border:solid 1 #A5ACB2}
+.readonlyerror{color:red;font-weight:bold;background-color:buttonface;border:solid 1 #A5ACB2}
+fieldset {border:inset 1;padding:5}
+.inputOK{background-image:url(<?=$imgPath?>approve.gif);background-repeat:no-repeat;background-position:center left;padding-left:20px;}
+.big {font-size:20px;font-weight:bold}
+.frame{border:inset 1;padding:5px}
+.bigtotal{font-size:34px;font-weight:900;color:blue}
+.number{direction:ltr;text-align:right}
+.total{font-size:20;color:blue;font-weight:bold}
+.totallabel{text-align:left;font-size:16;font-weight:bold}
+.bigtotallabel{font-size:24px;font-weight:900;color:black}
+.clientlink{font-size:24px;font-weight:900;color:darkblue !important;text-decoration:underline;cursor:pointer;background-image:url(<?=$imgPath?>edit.gif);background-position:left center;background-repeat:no-repeat;padding-left:20px;display:inline-block}
+.bigtotallabelnis{font-size:24px;font-weight:900;color:blue}
+body{margin:0;padding:0}
+.clickable{cursor:hand}
+.selectedTableRow input{background-color:lightblue; border:solid 1 #A5ACB2;height:22};
+.selectedTableRow .sreadonly{background-color:buttonface}
+.bigbutton{text-align:center;width:100%;height:100%;border:outset 3;background-color:buttonface;font-size:22px;font-weight:bold;color:green;cursor:hand} 
+.button {padding:5 10;font-weight:bold;background-position:3px center}
+#paymenttable .bigbutton{text-align:center;width:100%;height:80px;border:outset 3;background-color:buttonface;font-size:22px;font-weight:bold;color:brown;cursor:hand}
+#modetable .bigbutton{text-align:center;width:100%;height:100%;border:outset 3;background-color:buttonface;font-size:22px;font-weight:bold;color:green;cursor:hand}
+.popupdiv {z-order:1000;bottom:1;padding:5;border:solid 5 darkmagenta;background-color:lightyellow;display:none;position:absolute;left:100;}
+.errordiv {z-order:1000;bottom:1;padding:5;border:solid 5 yellow;background-color:red;display:none;position:absolute;left:100;}
+
+.shadow {filter:alpha(opacity=30);display:none;background-color:black;position:absolute;z-order:500}
+.modelabel{color:red;font-size:24;font-weight:900}
+#modetable .activebutton{text-align:center;width:100%;height:100%;border:inset 3;background-color:efefef;font-size:16pt;font-weight:900;color:green;cursor:hand}
+#topay{color:red}
+.discountbutton{text-align:center;width:100%;height:40;border:outset 3;background-color:buttonface;font-size:12pt;font-weight:bold;color:darkblue;cursor:hand}
+.discount{width:100%;font-size:14pt;font-weight:bold;color:blue;text-align:center}
+tr.trdiscount input{background:color:#ececec !important}
+-->
+</style>
+<!--
+<embed src="sounds/cashier.asx" autostart=false width=0 height=0 id="sndCashier" enablejavascript="true">
+-->
+
+<?if (false){?>
+<OBJECT style=display:none id=sndCashier 
+scodeBase=http://activex.microsoft.com/activex/controls/mplayer/en/nsmp2inf.cab#Version=6,4,7,1112 
+type=application/x-oleobject height=117 standby=Loading... width=280 
+classid=CLSID:6BF52A52-394A-11d3-B153-00C04F79FAA6>
+<PARAM NAME="URL" VALUE="sounds/cashier.asx">
+<PARAM NAME="rate" VALUE="1">
+<PARAM NAME="balance" VALUE="0">
+<PARAM NAME="currentPosition" VALUE="0">
+<PARAM NAME="defaultFrame" VALUE="">
+<PARAM NAME="playCount" VALUE="1">
+<PARAM NAME="autoStart" VALUE="0">
+<PARAM NAME="currentMarker" VALUE="0">
+<PARAM NAME="invokeURLs" VALUE="-1">
+<PARAM NAME="baseURL" VALUE="">
+<PARAM NAME="volume" VALUE="50">
+<PARAM NAME="mute" VALUE="0">
+<PARAM NAME="uiMode" VALUE="full">
+<PARAM NAME="stretchToFit" VALUE="0">
+<PARAM NAME="windowlessVideo" VALUE="0">
+<PARAM NAME="enabled" VALUE="-1">
+<PARAM NAME="enableContextMenu" VALUE="0">
+<PARAM NAME="fullScreen" VALUE="0">
+<PARAM NAME="SAMIStyle" VALUE=""><PARAM NAME="SAMILang" VALUE=""><PARAM NAME="SAMIFilename" VALUE=""><PARAM NAME="captioningID" VALUE=""><PARAM NAME="enableErrorDialogs" VALUE="0"><PARAM NAME="_cx" VALUE="7408"><PARAM NAME="_cy" VALUE="3096">
+<embed type="application/x-mplayer2"    name="MediaPlayer"
+   width=280   height=117   src="sounds/cashier.asx"
+   spluginspage="http://www.microsoft.com/Windows/MediaPlayer/"
+   showcontrols="1"   showstatusbar="1"   autostart="true"    kioskmode="true" 
+   controller="true"   >  
+</embed>
+</OBJECT>
+
+
+<OBJECT style=display:none id=sndScanner
+scodeBase=http://activex.microsoft.com/activex/controls/mplayer/en/nsmp2inf.cab#Version=6,4,7,1112 
+type=application/x-oleobject height=117 standby=Loading... width=280 
+classid=CLSID:6BF52A52-394A-11d3-B153-00C04F79FAA6>
+<PARAM NAME="URL" VALUE="sounds/scanner.asx">
+<PARAM NAME="rate" VALUE="1">
+<PARAM NAME="balance" VALUE="0">
+<PARAM NAME="currentPosition" VALUE="0">
+<PARAM NAME="defaultFrame" VALUE="">
+<PARAM NAME="playCount" VALUE="1">
+<PARAM NAME="autoStart" VALUE="0">
+<PARAM NAME="currentMarker" VALUE="0">
+<PARAM NAME="invokeURLs" VALUE="-1">
+<PARAM NAME="baseURL" VALUE="">
+<PARAM NAME="volume" VALUE="50">
+<PARAM NAME="mute" VALUE="0">
+<PARAM NAME="uiMode" VALUE="full">
+<PARAM NAME="stretchToFit" VALUE="0">
+<PARAM NAME="windowlessVideo" VALUE="0">
+<PARAM NAME="enabled" VALUE="-1">
+<PARAM NAME="enableContextMenu" VALUE="0">
+<PARAM NAME="fullScreen" VALUE="0">
+<PARAM NAME="SAMIStyle" VALUE=""><PARAM NAME="SAMILang" VALUE=""><PARAM NAME="SAMIFilename" VALUE=""><PARAM NAME="captioningID" VALUE=""><PARAM NAME="enableErrorDialogs" VALUE="0"><PARAM NAME="_cx" VALUE="7408"><PARAM NAME="_cy" VALUE="3096">
+<embed type="application/x-mplayer2"    name="MediaPlayer"
+   width=280   height=117   src="sounds/scanner.asx"
+   spluginspage="http://www.microsoft.com/Windows/MediaPlayer/"
+   showcontrols="1"   showstatusbar="1"   autostart="true"    kioskmode="true" 
+   controller="true">  
+</embed>
+</OBJECT>
+<?}?>
+
+<iframe name=saveData style='<?if (!$debug){?>display:none;<?}?>z-order:1;position:absolute;width:400;height:100;top:300;left:500;border:solid 1 red' src='blank.htm'></iframe>
+<table width=100% style='height:expression(body.clientHeight-15)' border=0 cellpadding=0 cellspacing=0><tr><td>
+<form name=F target='saveData' method=post action='cashbox_services.php?action=save'>
+<input type=hidden name=mode>
+<input type=hidden name=lastDocIds value="<?=$lastDocIds?>">
+<input type=hidden name=IsVatFree>
+<input type=hidden name=debug value="<?=$debug?>">
+<input type=hidden name=stock id=stock value="<?=$stock?>">
+<input type=hidden name=agentid id=agentid value="<?=$agentid?>">
+<input type=hidden name=stockname id=stockname >
+<input type=hidden name=roundbill id=roundbill >
+<input type=hidden name=agentname id=agentname >
+<input type=hidden name=kupa id=kupa >
+<input type=hidden name=gatewaycode id=gatewaycode >
+<input type=hidden name=amtTotal>
+<input type=hidden name=amtChange>
+<input type=hidden name=parentdocid id=parentdocid>
+<input type=hidden name=amtCredit id=amtCredit>
+
+<div class=shadow id=shadow>&nbsp;</div>
+
+<div id=divPrint class=popupdiv onkeypress='acceptPrint();window.event.cancelBubble=true' >
+	<table cellpadding=2 cellspacing=15>
+	<tr>
+	<td colspan=4>
+		<input id=btnPrintLast type=button class=button style='width:100%;background-image:url(<?=$imgPath?>printer.gif)' value='<?=$lang["print_last_doc"]?>' onclick='printDocument(document.F.lastDocIds.value)'>
+	
+	</td>
+	</tr>
+	<tr>
+		<td>
+		<?=$lang["print_doc_no"]?>
+		</td>
+		<td>
+			<table cellpadding=3><tr><td>
+			<select onfocus=handleFocus() onblur='lostFocus()' name=lstPrintDocType id=lstPrintDocType>
+				<option value="MASKABALA"><?=$lang["chehbonit_mas_kabala"]?></option>
+				<option value="CHESHBONIT"><?=$lang["invoice"]?></option>
+			</select>
+			</td></tr></table>
+		</td>
+		<td>
+			 <table cellpadding=3><tr><td>
+			 <input class=input onfocus=handleFocus() onblur='lostFocus()'  id=inpPrintDocNum name=inpPrintDocNum  maxlength=60 size=5 >
+			 </td></tr></table>
+		</td>
+		<td>
+			<input id=btnPrint type=button class=button style='background-image:url(<?=$imgPath?>printer.gif)' value='<?=$lang["print"]?>' onclick='printDocument(document.F.inpPrintDocNum.value,document.F.lstPrintDocType.value)'>
+		</td>
+	</tr>
+	<tr>
+	<td colspan=4 align=center>
+	<hr>
+		<input type=button class=button style='background-image:url(<?=$imgPath?>back.gif)' value='<?=$lang["close_button"]?>'  onclick='acceptClient(27)'>
+	</td>
+	</tr>
+	</table>
+</div>
+
+
+<div id=divClient class=popupdiv onkeydown='window.event.cancelBubble=true' >
+	<table cellpadding=2 cellspacing=5>
+		<tr>
+			<td class="big"><?=$lang["client_num"]?>:</td>
+			<td><input class="big inputOK" onfocus=handleFocus() onblur='lostFocus()'  id=inpClientNum name=inpClientNum onkeydown='checkClientNum();window.event.cancelBubble = true;' onkeypress='if (window.event.keyCode==27){acceptClient(27);window.event.cancelBubble = true;}'  maxlength=60 size=32 ></td>
+		</tr>
+		<tr>
+			<td class="big"><?=$lang["identification"]?>:</td>
+			<td><input class="input big" onfocus=handleFocus() onblur='lostFocus()'  id=inpClientZehut name=inpClientZehut  maxlength=60 size=32 ></td>
+		</tr>
+		<tr>
+			<td class="big"><?=$lang["client_name"]?>:</td>
+			<td><input class="input big" onfocus=handleFocus() onblur='lostFocus()'  id=inpClientName name=inpClientName  maxlength=60 size=32 ></td>
+		</tr>
+		<tr>
+			<td class="big"><?=$lang["phone"]?>:</td>
+			<td><input class="input big" onfocus=handleFocus() onblur='lostFocus()'  id=inpClientPhone name=inpClientPhone maxlength=60 size=32 ></td>
+		</tr>
+		<tr>
+			<td class="big"><?=$lang["address"]?>:</td>
+			<td><input class="input big" onfocus=handleFocus() onblur='lostFocus()'  id=inpClientAddress name=inpClientAddress maxlength=60 size=32 ></td>
+		</tr>
+		<tr>
+			<td class="big"><?=$lang["email1"]?>:</td>
+			<td><input class="input big" onfocus=handleFocus() onblur='lostFocus()'  id=inpClientMail name=inpClientMail maxlength=60 size=32 ></td>
+		</tr>
+	</table>
+	<br>
+	<center>
+		<input type=button class=button style='background-image:url(<?=$imgPath?>ok.gif)' value='<?=$lang["one_time_action"]?>' id="btnOneTimeDeal" onclick='acceptClient(13)'>
+		&nbsp;
+		<input type=button class=button style='background-image:url(<?=$imgPath?>ok.gif)' value='<?=$lang["club_client"]?>' id="btnClubClient" onclick='addClient()'>
+		&nbsp;
+		<input type=button class=button style='background-image:url(<?=$imgPath?>find.gif)' value="<?=$lang["search"]?>" onclick="acceptClient(27);showClient()">
+		&nbsp;
+		<input type=button class=button style='background-image:url(<?=$imgPath?>back.gif)' value='<?=$lang["close_button"]?>'  onclick='acceptClient(27)'>
+	<center>
+</div>
+
+
+<div id=divDiscount class=popupdiv onkeypress='checkDiscountKey(1);window.event.cancelBubble=true' onkeydown='checkDiscountTab(1)'>
+	<table cellpadding=2 cellspacing=15>
+		<tr>
+			<td><b class="big">
+			<?=$lang["discount_in_percent"]?>:</b>
+			</td>
+			<td id=inputcontrol>
+			<input class="big inputOK"  onfocus=handleFocus() onblur='lostFocus()'  id=inpDiscount dir=ltr style="text-align:right" maxlength=6 size=8 >
+			</td>
+		</tr>
+	</table>
+</div>
+
+<div id=divCashDiscount class=popupdiv onkeypress='checkDiscountKey(2);window.event.cancelBubble=true' onkeydown='checkDiscountTab(2)'>
+	<table cellpadding=2 cellspacing=15>
+		<tr>
+			<td><b class="big">
+			<?=$lang["discount_in_nis"]?>:</b>
+			</td>
+			<td id=inputcontrol>
+			<input class="inputOK big"  onfocus=handleFocus() onblur='lostFocus()'  id=inpCashDiscount maxlength=6 size=8 >
+			</td>
+		</tr>
+	</table>
+</div>
+
+<div id=divCash class=popupdiv onkeypress='acceptPayment();window.event.cancelBubble=true'>
+	<table cellpadding=2 cellspacing=15>
+		<tr>
+			<td><b class="big">
+			<?=$lang["amt_cash"]?>:</b>
+			</td>
+			<td id=inputcontrol>
+			<input class="inputOK big"  onfocus=handleFocus() onblur='lostFocus()' name=amtCash id=amtCash maxlength=6 size=8 >
+			</td>
+		</tr>
+	</table>
+	<br>
+	<center>
+		<input type=button class=button style='background:url(<?=$imgPath?>ok.gif) no-repeat left center' value='<?=$lang["submit"]?>' onclick='acceptPayment(13)'>
+		&nbsp;
+		<input type=button class=button style='background:url(<?=$imgPath?>back.gif)  no-repeat left center' value='<?=$lang["close_button"]?>'  onclick='acceptPayment(27)'>
+	<center>
+</div>
+
+
+<div id=divBaseDocNumber class=popupdiv onkeypress='acceptBaseDocNum();window.event.cancelBubble=true'>
+	<table cellpadding=2 cellspacing=15>
+		<tr>
+			<td  colspan=2><b class="big" >
+			<?=$lang["select_base_doc"]?>:</b>
+			</td>
+			</tr>
+			<tr>
+			<td>
+			<select class=big name=lstBaseDocType id=lstBaseDocType>
+			<option value="MASKABALA"><?=$lang["chehbonit_mas_kabala"]?></option>
+			<option value="CHESHBONIT"><?=$lang["invoice"]?></option>
+			</select>
+			</td>
+			<td id=inputcontrol>
+			<input class="inputOK big" onfocus=handleFocus() onblur='lostFocus()' name=txtBaseDocNum id=txtBaseDocNum maxlength=20 size=12 >
+			</td>
+		</tr>
+	</table>
+</div> 
+ 
+<div id=divVoucher class=popupdiv onkeypress='acceptPayment();window.event.cancelBubble=true'>
+	<table  cellpadding=2 cellspacing=15>
+		<tr>
+			<td align=left><b class="big">
+			<?=$lang["coupon_number"]?>:</b>
+			</td>
+			<td >
+			<input class="input big" onfocus=handleFocus() onblur='lostFocus()' onkeypress='if(event.keyCode==13){document.all.amtVoucher.focus();window.event.cancelBubble=true}' name=numVoucher id=numVoucher maxlength=30 size=12 >
+			</td>
+			<td align=left><b class="big">
+			<?=$lang["coupon_amt"]?>:</b>
+			</td>
+			<td id=inputcontrol>
+			<input class="inputOK big" onfocus=handleFocus() onblur='lostFocus()'  name=amtVoucher id=amtVoucher maxlength=6 size=8 >
+			</td>
+		</tr>
+	</table>
+	<center>
+		<input type=button class=button style='background-image:url(<?=$imgPath?>ok.gif)' value='<?=$lang["submit"]?>' onclick='acceptPayment(13)'>
+		&nbsp;
+		<input type=button class=button style='background-image:url(<?=$imgPath?>back.gif)' value='<?=$lang["close_button"]?>'  onclick='acceptPayment(27)'>
+	<center>
+</div>
+
+<div id=divCreditSimple class=popupdiv onkeypress='acceptPayment();window.event.cancelBubble=true'>
+	<table  cellpadding=2 cellspacing=15>
+		<tr>
+			<td align=left><b class="big">
+			<?=$lang["approval_number"]?>:</b>
+			</td>
+			<td >
+			<input class="input big" onfocus=handleFocus() onblur='lostFocus()' name=numIshur id=numIshur maxlength=30 size=12 >
+			</td>
+			<td align=left><b class="big">
+			<?=$lang["amt_to_pay"]?>:</b>
+			</td>
+			<td id=inputcontrol>
+			<input class="inputOK big" onfocus=handleFocus() onblur='lostFocus()'  name=amtCreditSimple id=amtCreditSimple maxlength=6 size=8 >
+			</td>
+		</tr>
+	</table>
+	<center>
+		<input type=button class=button style='background-image:url(<?=$imgPath?>ok.gif)' value='<?=$lang["submit"]?>' onclick='acceptPayment(13)'>
+		&nbsp;
+		<input type=button class=button style='background-image:url(<?=$imgPath?>back.gif)' value='<?=$lang["close_button"]?>'  onclick='acceptPayment(27)'>
+	<center>
+</div>
+
+<div id=divHakafa class=popupdiv onkeypress='acceptPayment();window.event.cancelBubble=true'>
+	<table cellpadding=2 cellspacing=15>
+		<tr>
+			<td><b class="big">
+			<?=$lang["hakafa_amt"]?>:</b>
+			</td>
+			<td id=inputcontrol>
+			<input class="inputOK big" onfocus=handleFocus() onblur='lostFocus()' name=amtHakafa id=amtHakafa maxlength=6 size=8 >
+			</td>
+		</tr>
+	</table>
+	<center>
+		<input type=button class=button style='background-image:url(<?=$imgPath?>ok.gif)' value='<?=$lang["submit"]?>' onclick='acceptPayment(13)'>
+		&nbsp;
+		<input type=button class=button style='background-image:url(<?=$imgPath?>back.gif)' value='<?=$lang["close_button"]?>'  onclick='acceptPayment(27)'>
+	<center>	
+</div>
+
+<div id=divRefund class=popupdiv onkeypress='acceptPayment();window.event.cancelBubble=true'>
+	<table cellpadding=2 cellspacing=15>
+ 
+		<tr>
+			<td><b class="big">
+			<?=$lang["amt_avur_zikui"]?>:</b>
+			</td>
+			<td id=inputcontrol>
+			<input class="inputOK big" onfocus=handleFocus() onblur='lostFocus()' name=amtRefund  id=amtRefund maxlength=10 size=10 >
+			</td>
+		</tr>
+				<tr>
+			<td><b>
+			<?=$lang["rest_balance"]?>:</b>
+			</td>
+			<td  >
+			<input id=txtItra class=readonly readonly maxlength=6 size=10 >
+			</td>
+		</tr>
+	</table>
+	<center>
+		<input type=button class=button style='background-image:url(<?=$imgPath?>ok.gif)' value='<?=$lang["submit"]?>' onclick='acceptPayment(13)'>
+		&nbsp;
+		<input type=button class=button style='background-image:url(<?=$imgPath?>back.gif)' value='<?=$lang["close_button"]?>'  onclick='acceptPayment(27)'>
+	<center>
+</div>
+
+<input id=creditcarddata name=creditcarddata type=hidden>
+<input id=amtCheque name=amtCheque type=hidden>
+<input id=chequedata name=chequedata type=hidden>
+
+
+<div id=divConfirm class=popupdiv onkeypress='checkConfirm();window.event.cancelBubble=true'>
+	<table cellpadding=2 cellspacing=15>
+		<tr>
+			<td align=center><b>
+			<?=$lang["confirm_deal"]?></b>
+			</td>
+			</tr><tr>
+			<td>
+			<input class=bigbutton type=button id=btnConfirm style='width:200;height:40' onclick=confirmDeal() value='<?=$lang["confirm_deal1"]?>'>
+			</td>
+		</tr>
+	</table>
+</div>
+
+<table width=100% height=100% border=0 cellspacing=5>
+<TR valign=top >
+<TD width=99%>
+<!-- products -->
+<div style='height:100%;width:100%;'>
+	<table width=100% height=100%>
+		<tr style='height:1%'>
+			<TD>
+				<table width=100% height=100% cellpadding=0 cellspacing=0>
+					<tr >
+					<td valign=bottom  class=bigtotallabel nowrap width=1%>
+					<?=$lang["topay"]?>: <span dir=ltr class='bigtotal number' id=total></span><span class=bigtotallabelnis>&nbsp;<?=$lang["nis"]?></span>
+					</td>
+					<td valign=bottom width=99% style="padding:3px 20px"><a id="lblClient" onclick="editClient()" class="bigtotallabel"></a></td>
+					<td valign=top width=99% align=<?=$dir=="rtl"?"left":"right"?>><img src="<?=$imgPath?>logo2.gif" style='margin-<?=$dir=="rtl"?"left":"right"?>:15px'></td>
+					<td valign=bottom width=1% nowrap class=modelabel id=modelabel></td>
+					<td valign=bottom width=1% style='padding-right:10'><input disabled type=button value='<?=$lang["submit"]?>' style='display:none' id=btnOK class=bigbutton onclick='openBox("divConfirm");document.all.divConfirm.focus();'></td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				<div id=PRODUCTSDIV class=frame style='height:100%;width:100%;overflow-y:scroll'>
+					<table width=100% id=productsTable>
+						<tr>
+							<th class=tablehead2 width=120><?=$lang["barcode"]?></th>
+							<th class=tablehead2 width=100><?=$lang["num_zar"]?></th>
+							<th class=tablehead2 width=200><?=$lang["admin_listings_editor_title"]?></th>
+							<th class=tablehead2><?=$lang["price"]?><br><?=$lang["include_vat"]?></th>
+							<th class=tablehead2><?=$lang["quantity"]?></th>
+							<th class=tablehead2><?=$lang["amount_in"]?>%</th>
+							<th class=tablehead2><?=$lang["discount_nis"]?></th>  
+							<th class=tablehead2><?=$lang["total_amt"]?> <br><?=$lang["include_vat"]?></th>
+							<th class=tablehead2>&nbsp;</th>
+						</tr>
+						<tr style=display:none>
+							<td><input name=barcode[] class=inputOK onfocus=handleFocus() onblur='lostFocus()' id=barcode maxlength=13 style=width:100% onkeydown='checkBarcode(this)' ></td>
+							<td><input name=misparzar[] disabled class='input greadonly' readonly id=misparzar maxlength=20 style=width:100% tabindex=-1 ></td>
+							<td><input name=productname[] class='input greadonly' onfocus=handleFocus() onblur='closeProductNames();lostFocus();'  id=productname tabindex=-1 onkeyup='checkProduct()' onkeydown='if(!this.readOnly&&event.keyCode==40){window.event.cancelBubble=true;}'  maxlength=60 style=width:100%></td>
+							<td><input name=productprice[] class='input number' onfocus=handleFocus() onblur='lostFocus()' id=productprice onchange=recalcTotal() style=width:100%></td>
+							<td><input name=productquantity[] class='input number' onfocus=handleFocus() onblur='lostFocus()' id=productquantity onchange=recalcTotal() style=width:100%></td>
+							<td><input name=productdiscount[] class='input number' onfocus=handleFocus() onblur='lostFocus()' id=productdiscount onchange=recalcTotal() onkeydown=checkDiscount() style=width:100%></td>
+							<td><input name=productcashdiscount[] class='input number' onfocus=handleFocus() onblur='lostFocus()' id=productcashdiscount onchange=recalcTotal() onkeydown=checkDiscount() style=width:100%></td>
+							<td><input name=producttotal[] class='input number greadonly' id=producttotal tabindex=-1 readonly style=width:100%></td>
+							<td><img class=clickable onclick='deleteRow(this.parentElement.parentElement)' alt='<?=$lang["del_row"]?> (Ctrl+Del)' src="<?=$imgPath?>delete2.gif">
+								<input name=productid[] type=hidden id=productid>
+								<input name=discounttype[] type=hidden id=discounttype>
+								<input name=discountused[] type=hidden id=discountused value="0">
+								<input name=discountamount[] type=hidden id=discountamount>
+								<input name=discountotherlistingid[]  type=hidden id=discountotherlistingid>
+							</td>
+						</tr>
+					</table>
+				</div>			
+			</td>
+		</tr>
+		<tr style='height:1%'  id="divComment" style="display:none">
+			<TD>
+			<b>לסגירת חשבון נא להקליד ברקוד 00 ו-ENTER</b>
+			</td>
+		</tr>			
+	</table>
+</div>
+
+<!-- end of products -->
+</TD> 
+<TD width=1%>
+<!-- Right area-->
+	<table cellpadding=0 cellspacing=0 height=100%>
+		<TR style='height:1%'>
+			<TD>
+				<table width=100%>
+					<tr>
+						<td width="50%">
+							<input type="button" style="margin:0px;height:60px" onclick="openCashbox()" value="<?=$lang["opening"]?>" class="bigbutton" class=bigbutton id="btnOpen" onmouseover='btnOver()' onmouseout='btnOut()' onfocus='btnFocus()' onblur='btnBlur()' style="display:<?=$isOpened?"none":""?>" >
+							<input type="button" style="margin:0px;height:60px" onclick="closeCashbox()" value="<?=$lang["closing_cashbox"]?>" class="bigbutton" class=bigbutton id="btnClose" onmouseover='btnOver()' onmouseout='btnOut()' onfocus='btnFocus()' style="color:#ce0000;display:<?=$isOpened?"":"none"?>" onblur='btnBlur()' >
+						</td>
+						<td width="50%">
+							<input type="button" style="margin:0px;height:60px" onclick="openClient()" value="<?=$lang["paytype_club"]?>" class="bigbutton" class=bigbutton id="btnClients" onmouseover='btnOver()' onmouseout='btnOut()' onfocus='btnFocus()' onblur='btnBlur()' >
+						</td>
+					</tr>
+				</table>			
+				<hr>
+			</td>
+		</tr>	
+		<TR style='height:1%'>
+			<TD>
+			<!-- CLIENT BOX-->
+			<fieldset style='height:120;position:relative;top:-11;display:none'>
+			<legend><?=$lang["client_detail"]?></legend>
+				<table width=250>
+					<tr>
+					<td nowrap><b><?=$lang["client_num"]?>:</td>
+					<td width=99% nowrap>
+					<table cellpadding=0 cellspacing=0><tr>
+					<td width=99% >
+					<input onfocus="handleFocus();this.select()" onblur='lostFocus()'  class="big inputOK" maxlength=20 id=clientNum style=width:100% onkeydown='checkClientNum()' >
+                    </td><td style="padding:0px 5px;">
+                    <input type=button class=button style='width:29px;height:29px;font-size:8pt;background-image:url(<?=$imgPath?>find24.gif)' value="" title='<?=$lang[search]?><?=$lang["client_tooltip_find"]?>' onclick="showClient()">
+                    </td><td >
+                    <input type=button id=btnEditClient disabled class='button disabledbutton' style='width:29px;height:29px;font-size:8pt;background-image:url(<?=$imgPath?>edit24.gif)' value="" title='<?=$lang["manual_deal"]?>' onclick="openClient()">
+					</td></tr></table>
+					</td>
+					</tr>
+					<tr>
+					<td nowrap><?=$lang["client_name"]?>:</td>
+					<td><input class=readonly tabindex=-1 id=clientName style=width:100% readonly></td>
+					</tr>
+					<tr>
+					<td  nowrap><?=$lang["phone"]?>:</td>
+					<td><input class=readonly tabindex=-1 id=clientPhone style=width:100% readonly></td>
+					</tr>
+					<td  nowrap><?=$lang["general_balance"]?>:</td>
+					<td><input class=readonly tabindex=-1 id=clientBalance style=width:100% readonly></td>
+					</tr>
+					<input type=hidden id=clientZehut>
+					<input type=hidden id=clientid name=clientid>
+				</table>
+				
+			</fieldset>
+			<!-- END OF CLIENT BOX-->
+			</TD>
+		</TR>
+		<TR>
+			<TD>
+					<table width=100% height=100% id=modetable>
+					<tr>
+						<td width=50%><input type=button style=text-align:right;padding-right:35 class=bigbutton  onmouseover='btnOver()' onmouseout='btnOut()' onfocus='btnFocus()' onblur='btnBlur()' id="btnCancelDeal" onclick='cancelDeal()' value='<?=$lang["cancellation"]?><?=chr(13)?><?=$lang["account1"]?>'></td>
+						<td width=50%><input type=button style=text-align:right;padding-right:35 class=bigbutton onclick='clearProducts()'  onmouseover='btnOver()' onmouseout='btnOut()' onfocus='btnFocus()' onblur='btnBlur()' value=' <?=$lang["clear_button"]?><?=chr(13)?><?=$lang["account1"]?>'></td>
+					</tr>
+					<tr>
+						<td width=50%><input modebutton=1 id=btnRefundMode1 type=button class=bigbutton onclick="refundMode(false)" onfocus='btnFocus()'  onmouseover='btnOver("blue")' onmouseout='btnOut()' onblur='btnBlur()' value=' <?=$lang["zikui_lelo"]?><?=chr(13)?><?=$lang["cash_refund1"]?>'></td>
+						<td width=50%><input modebutton=1 id=btnRefundMode2 type=button class=bigbutton onclick="refundMode(true)" onfocus='btnFocus()'  onmouseover='btnOver("red")' onmouseout='btnOut()' onblur='btnBlur()' value=' <?=$lang["zikui_colel"]?><?=chr(13)?><?=$lang["cash_refund2"]?>'></td>
+					</tr>
+					<tr>
+						<td width=50%><input type=button style=text-align:right;padding-right:35 class=bigbutton id=btnReportBalance onclick='reportBalance()' onfocus='btnFocus()'  onmouseover='btnOver()' onmouseout='btnOut()' onblur='btnBlur()' value=' <?=$lang["report1"]?><?=chr(13)?><?=$lang["intermediate1"]?>'></td>
+						<td width=50%><input modebutton=1 id=btnPaymentMode3 type=button style=text-align:right;padding-right:30 onfocus='btnFocus()'  onmouseover='btnOver()' onmouseout='btnOut()' onblur='btnBlur()' class=bigbutton onclick=payOnlyMode() value='<?=$lang["payment"]?><?=chr(13)?> <?=$lang["only"]?>'></td>
+					</tr>
+					</table>
+			</TD>
+		</TR>
+		<tr style='height:1%'>
+			<td>
+				<hr>
+				<table cellpadding=0 cellspacing=0><tr><td>
+				<?=$lang["deal_vat_free"]?>&nbsp;
+				</td><td>
+				<input type=checkbox class=input onfocus=handleFocus() onblur='lostFocus()'  id=vatFree name=vatFree  ></td>
+				</td></tr></table>
+			</td>
+		</tr>		
+		<tr style='height:1%'>
+			<td align=left>
+			<hr>
+				<table width=100% >
+					<TR>
+						<TD>
+							<input type=button class=discountbutton onfocus='btnFocus()' onblur='btnBlur()' onmouseover='btnOver()' onmouseout='btnOut()' disabled id=btnDiscount value="<?=$lang["discount_in_percent"]?>" onclick='openDiscount()'></TD>
+						<TD>
+							<input type=button class=discountbutton onfocus='btnFocus()' onblur='btnBlur()'  onmouseover='btnOver()' onmouseout='btnOut()' disabled id=btnCashDiscount value='<?=$lang["discount_in_nis"]?>' onclick='openCashDiscount()'>
+						</TD>
+					</TR>
+					<tr>
+						<td>
+							<input name=totalDiscount dir=ltr tabindex=-1 id=totalDiscount readonly class='input readonly discount' size=5 maxlength=2 onchange=recalcTotal() >
+						</td>
+						<td>
+							<input name=totalCashDiscount dir=ltr tabindex=-1 id=totalCashDiscount readonly class='input readonly discount' size=5 maxlength=2 onchange=recalcTotal() >
+						</td>
+					</tr>
+				</TABLE>
+			</td>
+		</tr>
+	</table>
+<!-- End of right area -->
+</TD>
+
+
+</TR>
+</form>
+<tr style=height:1%> 
+<td colspan=2> 
+	<hr>
+	<table width=100% cellpadding=0> 
+		<tr>
+			<td rowspan=3>
+				<fieldSet style="height:100px;position:relative;top:-7"><legend><?=$lang["payment_options"]?></legend>
+					<table width=100% border="0" id=paymenttable>
+					<tr>
+						<td width=16%><input onfocus='btnFocus()' onblur='btnBlur()' id=btnCash origDisabled=false  onmouseover='btnOver()' onmouseout='btnOut()' onclick='displayDiv("divCash")' type=button class=bigbutton  value='<?=$lang["cash"]?>'></td>
+						<td width=16%><input onfocus='btnFocus()' onblur='btnBlur()' id=btnCredit origDisabled=false  onmouseover='btnOver()' onmouseout='btnOut()' onclick='payCredit()'  type=button class=bigbutton value='<?=$lang["cr_card"]?>'></td>
+						<td width=16%><input onfocus='btnFocus()' onblur='btnBlur()' id=btnCheque origDisabled=false  onmouseover='btnOver()' onmouseout='btnOut()' onclick='displayDiv("divCheque")' type=button class=bigbutton value='<?=$lang["cheque"]?>'></td>
+						<td width=16%><input type=button onfocus='btnFocus()' onblur='btnBlur()' id=btnVoucher origDisabled=false onmouseover='btnOver()' onmouseout='btnOut()'  onclick='displayDiv("divVoucher")' class=bigbutton value='<?=$lang["coupon"]?>'></td>
+						<td width=16%><input type=button onfocus='btnFocus()' onblur='btnBlur()' id=btnHakafa origDisabled=true  onmouseover='btnOver()' onmouseout='btnOut()' onclick='displayDiv("divHakafa")' class=bigbutton value='<?=$lang["hakafa"]?>'></td>
+						<td width=16%><input type=button onfocus='btnFocus()' onblur='btnBlur()' id=btnRefund origDisabled=true  onmouseover='btnOver()' onmouseout='btnOut()' onclick='displayDiv("divRefund")' class=bigbutton value='<?=$lang["avur_zikui"]?>'></td>
+					</tr>
+					</table>
+				</fieldSet>
+			</td>
+			<td width=1% nowrap class=totallabel><?=$lang["rest_to_pay"]?>:</td>
+			<td width=1%><input TABINDEX=-1 size=8 class='readonly total number' readonly id=topay></td>
+		</tr>
+		<tr>
+			<td width=1% class=totallabel><?=$lang["payed"]?>:</td>
+			<td width=1%><input TABINDEX=-1 size=8 class='readonly total number' readonly id=payed></td>
+		</tr>
+		<tr>
+			<td width=1% class=totallabel><?=$lang["change"]?>:</td>
+			<td width=1%><input TABINDEX=-1 size=8 class='readonly total number' readonly id=change ></td>
+		</tr>
+	</table>
+</td>
+</tr>
+</table></td></tr>
+
+</table>
+<script>
+
+</script>
+
+<div style='display:none;position:absolute;top:0;left:0;background-color:blue;color:white' id=ccReading>*</div>
+
+<div id=divCredit class=popupdiv style='width:600;height:380'>
+	<iframe id=frmCredit style='width:600;height:370' frameborder=0 allowtransparency=yes src='blank.htm'></iframe>
+</div>
+
+<div id=divCheque class=popupdiv style='width:300;height:300'>
+	<iframe id=frmCheque style='width:300;height:300' frameborder=0 allowtransparency=yes src='blank.htm'></iframe>
+</div>
+
+<div id=divError class=errordiv style='width:400;height:150' onkeypress='checkErrorKey();window.event.cancelBubble=true'>
+	<table width=100% height=100%>
+		<tr><td id=spanError align=center style='color:white;font-weight:bold;font-size:12pt'></td></tr>
+		<TR style='height:1%'><td align=center><input type=button id=btnError class=bigbutton style='width:100;height:40' value='<?=$lang["close_button"]?>' onclick='disableForm(false);closeCurrentPaymentWindow();'></td></TR>
+	</table>
+</div>
+
+<div id=divCCError class=popupdiv style='width:400;height:150' onkeypress='checkErrorKey();window.event.cancelBubble=true'>
+	<table width=100% height=100%>
+		<tr><td id=spanCCError align=center style='color:white;background-color:red;display:block;font-weight:bold;font-size:12pt'></td></tr>
+		<tr><td align=center>
+		<b id="ccMsg">
+		<br>
+		<?=$lang["call_cred_comp"]?>
+		<br>
+		</b>
+			<table align=center cellpadding=10>
+			<tr valign=top>
+				<td>
+					<table align=center cellpadding=3 cellspacing=0 border=1 bordercolor=black style="border-collapse:collapse">
+						<tr><th colspan=2><?=$lang["credit_company_numbers"]?></th></tr>
+						<tr><td><?=$lang["visa_cal_diners"]?></td><td>03-5726333</td></tr>
+						<tr><td><?=$lang["visa_leumi"]?></td><td>03-6177800</td></tr>
+						<tr><td><?=$lang["isracard"]?></td><td>03-6364444</td></tr>
+					</table>
+				</td>
+				<td>
+					<table align=center cellpadding=3 cellspacing=0 border=1 bordercolor=black style="border-collapse:collapse">
+						<tr><th colspan=2><?=$lang["supplier_num_cred"]?></th></tr>
+						<tr><td><?=$lang["diners"]?></td><td><?=$UserData->fields["DinersTranzilaNumber"]?></td></tr>
+						<tr><td><?=$lang["visa"]?></td><td><?=$UserData->fields["VisaTranzilaNumber"]?></td></tr>
+						<tr><td><?=$lang["isracard"]?></td><td><?=$UserData->fields["IsraTranzilaNumber"]?></td></tr>
+					</table>
+				</td>
+			</tr>
+			</table>
+			<br>
+		</td></tr>
+		<TR style='height:1%' id=confirmCC1><td align=center nowrap>
+			<input type=button id=btnIshur class=button style='color:green;background-image:url(<?=$imgPath?>ok.gif)'  value='<?=$lang["enter_approval_num"]?>' onclick='enterApproval()'>
+			&nbsp;
+			<input type=button id=btnCreditCancel class=button style='color:red;background-image:url(<?=$imgPath?>back.gif)'  value='<?=$lang["cancel_cc_deal"]?>' onclick='cancelCCPayment()'>
+			</td>
+		</TR>
+		<TR style='height:1%' id=confirmCC2><td align=center nowrap>
+			<input type=button  class=button style='color:black;background-image:url(<?=$imgPath?>back.gif)'  value='<?=$lang["close_button"]?>' onclick='closeCurrentPaymentWindow();'>
+			</td>
+		</TR>
+	</table>
+</div>
+ 
+<div style='position:absolute;right:0;top:0;' dir=ltr>
+<img src="<?=$imgPath?>loading_small.gif" id="Waiting" style='display:none;margin-top:2px' align=absmiddle>
+<input id=btnCCInfo type=button  style='background-repeat:no-repeat;width:16px;border:none;background-image:url(<?=$imgPath?>phone.gif);cursor:hand' title='<?=$lang["show_cc_phones"]?>' onclick='showCCInfo()'>
+<input type=button onclick='openPrint()' style='width:16px;cursor:hand;background-image:url(<?=$imgPath?>printer.gif);background-repeat:no-repeat;border:none' title='<?=$lang["print_copy"]?> (Shift+P)'>
+<input type=button onclick='if(opener!=null)try{opener.focus()}catch(e){}' value='_' title='<?=$lang["minimize"]?>'>
+<input type=button onclick='window.close()' value='X' title='<?=$lang["close"]?>'>
+</div>
+ 
+</form>
+<select id=productNames onfocus='this.style.backgroundColor="lightyellow"' onkeypress='checkPrNames()' onclick='getProduct()' style='display:none;position:absolute;minWidth:200;top:0;left:0' size=5></select>
+<div id="DV" style="text-align:center;filter: progid:DXImageTransform.Microsoft.Alpha(opacity=60);position:absolute;top:0;left:0;width:100%;height:100%;opacity:10;background:#999 ; z-order:100000">
+	<div style="padding:0px;display:block;padding:5px;margin:23% 40%;border:solid 2 #333; background:#fff;font-weight:bold;font-size:16px;" >
+		נא המתן...
+	</div>
+</div>
+<script>
+document.all.DV.style.height=document.body.clientHeight;
+document.all.DV.style.width=document.body.clientWidth;
+</script>
+<?php
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

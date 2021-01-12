@@ -1,0 +1,201 @@
+<?
+$simple=1;
+$page_subtitle = "יבוא ויצוא";
+
+include("include/common.php");
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+?>
+<style>
+    .z {color:gray}
+    .b {font-weight:bold}
+    th {background-color:silver}
+</style>
+<script>
+
+    function openReport(url){
+        s = window.open(url+'&simple=1','','top=50,left=100,height=500,width=800,resizable=yes,scrollbars=yes');
+        s.focus();
+    }
+
+    function handleDates(auto){
+        document.F.sDate.disabled = document.F.eDate.disabled = auto
+        document.all.CALFROM.disabled = document.all.CALTO.disabled = document.F.stock.disabled = auto;
+        if (auto) document.F.stock.selectedIndex = 0;
+    }
+
+    function validate(){
+        if(document.getElementById("DATES").style.display=="")
+        {
+            if(document.F.sDate.value==""||isNaN(Date.parse(document.F.sDate.value))){
+                alert("הערך שהוזן אינו תקין");
+                document.F.sDate.focus();
+                return false;
+            }
+            if(document.F.eDate.value==""||isNaN(Date.parse(document.F.eDate.value))){
+                alert("הערך שהוזן אינו תקין");
+                document.F.eDate.focus();
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function chMode(mode){
+        document.getElementById("ETYPE").style.display=(mode=="e")?"":"none";
+        document.getElementById("ITYPE").style.display=(mode=="i")?"":"none";
+        document.getElementById((mode=="e")?"ETYPE":"ITYPE").onchange();
+
+        document.getElementById("FILE").style.display=(mode=="i")?"":"none";
+        document.getElementById("DATES").style.display=(mode=="e")?"none":"none";
+
+        if (mode=="e")
+        {
+            document.getElementById("STOCK").style.display=(document.getElementById("ETYPE").value=="hm"||document.getElementById("ETYPE").value=="hmz"||document.getElementById("ETYPE").value=="sapt"||document.getElementById("ETYPE").value=="saps")?"":"none";
+            document.getElementById("OPTIONS").style.display="none";
+        }
+        else{
+            document.getElementById("STOCK").style.display="none";
+            document.getElementById("OPTIONS").style.display=(document.getElementById("ITYPE").value=="e")?"":"none";
+
+        }
+
+    }
+
+    function chTypeE(v){
+        document.getElementById("DATES").style.display=(v=="h"||v=="hm"||v=="hmz"||v=="sapt"||v=="saps")?"":"none";
+        switch (v){
+            case "e":
+                document.getElementById("FRAME").src="exportclients.php?rmodule=<?=$rmodule?>";
+                document.getElementById("OPTIONS1").style.display="";
+                F.action='exportclients.php?simple=1&action=do&rmodule=<?=$rmodule?>';
+                document.getElementById("STOCK").style.display="none";
+                break;
+            }
+        }
+
+
+        function chTypeI(v){
+            document.getElementById("OPTIONS1").style.display="none";
+            switch(v){
+                case"i":
+                    document.getElementById("FRAME").src="importclients.php?rmodule=<?=$rmodule?>";
+                    document.getElementById("OPTIONS").style.display="none";
+                    document.getElementById("FRAME").src="importclients.php?rmodule=<?=$rmodule?>";
+                    F.action='importclients.php?simple=1&action=do&rmodule=<?=$rmodule?>';
+                    break;
+                }
+            }
+
+
+
+</script>
+
+<?php
+
+if (!$sDate)
+{
+    $firstday = mktime(0,0,0,date("m"),1,date("Y"));
+    $sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+    $eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+}
+?>
+<body >
+    <table cellpadding=5 border=0 width=100%>
+        <tr>
+            <td colspan=2 bgcolor=#ffffcc align=center>
+                <center><strong><?=$lang["admin_menu_imports"]?></strong></center>
+            </td>
+        </tr>
+        <tr></tr>
+        <tr></tr>
+        <tr></tr>
+        <form name=F  onsubmit='return validate();' method=post action='importclients.php?simple=1&action=do&rmodule=<?=$rmodule?>' encType=multipart/form-data target=log>
+              <tr>
+                <td width=120 bgcolor=#efefef width=1% nowrap>סוג פעולה</td>
+                <td>
+                    <input checked type=radio onclick='chMode("i")' name=mode value=i onclick='sswitch(1)'>יבוא
+                    <input type=radio name=mode onclick='chMode("e")' value=e onclick='sswitch(2)'>יצוא
+                </td>
+            </tr>
+            <tr>
+                <td bgcolor=#efefef width=1% nowrap>סוג תוכנה זרה</td>
+                <td>
+                    <select id=ITYPE name=itype style='width:100%' onchange="chTypeI(this.value)">
+                        <option value=i>קובץ EXCEL - לקוחות
+                    </select>
+
+                    <select style='display:none' id=ETYPE name=etype style='width:100%' onchange="chTypeE(this.value)">
+                        <option value=e>להעתיק לקוחות למועדון
+                    </select>
+                </td>
+            </tr>
+            <tr id=FILE >
+                <td height=37 bgcolor=#efefef nowrap> שם קובץ ליבוא</td>
+                <td><input  type=file name=impfile style='width:100%'></td>
+            </tr>
+            <tr id=DATES style='display:none'>
+                <td height=37  bgcolor=#efefef nowrap> תאריכי יצוא</td>
+                <td>
+                    <input type=radio name=auto value=1 checked onclick=handleDates(true)> אוטומטי
+                    <input type=radio name=auto value=0  onclick=handleDates(false)>
+                    <?=$lang["from"]?> <input disabled size=6 name=sDate id=sDate value="<?=$sDate?>">
+                    <img id=CALFROM disabled align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.sDate")'>
+                    <?=$lang["to"]?> <input disabled size=6 name=eDate id=eDate value="<?=$eDate?>">
+                    <img id=CALTO disabled align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.eDate")'>
+
+                </td>
+            </tr>
+            <tr id=OPTIONS style='display:none'>
+                <td height=37  bgcolor=#efefef nowrap>אפשרויות</td>
+                <td>
+                    <input type='checkbox' name=translit>להפוך רוסית לאנגלית
+                    <?if (false)
+                    {?>
+                    &nbsp;<input type='checkbox' name=forcepriceupdate>לעדכן מכיר בכל נקודות המכירה
+                        <?}?>
+                </td>
+            </tr>
+            <tr id=OPTIONS1 style='display:none'>
+                <td height=37  bgcolor=#efefef nowrap>אפשרויות</td>
+                <td>
+                    <input type='checkbox' name=update>לעדכן לקוחות קיימים 
+                    <?if (false)
+                    {?>
+                    &nbsp;<input type='checkbox' name=forcepriceupdate>לעדכן מכיר בכל נקודות המכירה
+                        <?}?>
+                </td>
+            </tr>
+            <tr id=STOCK style='display:none' >
+                <td height=37  bgcolor=#efefef nowrap> נקודת מכירה</td>
+                <td>
+                    <?
+                    //$stocks = GetStocks(true);
+                    ?>
+                    <select name=stock disabled style='width:100%'>
+                        <?//FillStockList($stocks,$stock);?>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td colspan=2 align=center><hr><input type=submit class=button style='background-image:url(<?=$imgPath?>ok.gif)' value="&nbsp;אישור&nbsp;"></td>
+            </tr>
+            <tr><td colspan=2 ><iframe id=FRAME name=log src='importclients.php?simple=1&rmodule=<?=$rmodule?>' style='width:100%;height:240'></iframe></td></tr>
+        </form>
+    </table>
+    <script>
+                function sswitch(mode){
+                    document.F.file.disabled = (mode==2)
+                    if (mode==2){
+                        document.F.file.value="";
+                    }
+
+                }
+
+    </script>
+    <?
+    include("$config[template_path]/admin_bottom.html");
+    $conn->Close(); // close the db connection
+    ?>

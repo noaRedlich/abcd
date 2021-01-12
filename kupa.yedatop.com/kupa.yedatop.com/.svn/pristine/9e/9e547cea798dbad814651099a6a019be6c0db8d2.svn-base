@@ -1,0 +1,32 @@
+<TABLE cellSpacing=2 cellPadding=1 align=center border=0 valign="center">
+<FORM target="_blank" name=login action="http://www.vcx.co.il/index.php" method=post>
+<INPUT type=hidden value=login name=task>
+<INPUT type=hidden value=Hebrew name=SET_LANGUAGE>
+<INPUT type=hidden value=0 name=table_tabindex>
+<TR>
+<TD colSpan=2 align=center>
+Вход в оффис
+</TD></TR>
+<TR>
+	<TD noWrap align=right>Логин:&nbsp; </TD>
+	<TD><INPUT class=textbox style="WIDTH: 150px" size=30 name=username> </TD></TR>
+<TR>
+	<TD noWrap align=right>Пароль:&nbsp; </TD>
+	<TD><INPUT class=textbox style="WIDTH: 150px" type=password size=30 value="" name=password> </TD></TR>
+<TR>
+		<TD colSpan=2 align=center> 
+		<INPUT type=checkbox value=true name=remind>Запомнить меня
+	</TD>
+</TR>
+<TR>
+	<TD align=middle colSpan=2>
+	<INPUT type=submit value="Вход">
+	<hr size=1>
+	 <a target="_blank" href='http://www.vcx.co.il/users/register.php'>Регистрация</a><BR>
+ 	 <A target="_blank" href="http://www.vcx.co.il/users/forgot.php">Забыли пароль?</A>
+  	 </TD>
+  </TR>
+ </FORM>
+ </TABLE>
+
+

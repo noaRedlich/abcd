@@ -1,0 +1,129 @@
+<?
+
+class Movement
+{
+    var $docid;
+    var $defaultcurrency;
+    
+    function Movement()
+    {
+		global $userID;
+		        //assume NIS as currency
+        $sql = "select id,course from currencies where user_id = $userID and is_default = 1";
+        $currency = DBQuery($sql);
+        $this->defaultcurrency = $currency->fields["id"];
+        if (!$this->defaultcurrency)
+        {
+             $this->defaultcurrency = InitializeUserCurrency($userID);
+        } 
+    }
+    
+    function Create($documentid)
+    {
+        global $config,$userID,$officeUserID,$conn,$TABLE_DOCUMENT_TYPE,$UserData;
+
+		$this->docid = $documentid;
+         
+        $sql = "select doc_type, balance,movement_type,is_product,is_payment from documents d, $TABLE_DOCUMENT_TYPE dt where dt.id = d.doc_type and d.id = $documentid";
+        $docRS = DBQuery($sql);
+
+		if (!$docRS->Fields("movement_type") && !$docRS->Fields("is_payment"))
+		{
+			return;
+		}
+
+        $movementtype = ($docRS->Fields("movement_type")=="I")?"incomes":"expences";
+        $movementtypetitle = ($docRS->Fields("movement_type")=="I")?"הכנסות":"הוצאות";
+
+		$defaultaccount = $UserData->Fields("CodeMechirot");
+		$defaultvataccount = $UserData->Fields("CodeVAT");
+
+        $dk1 = ($docRS->Fields("movement_type")=="I" )?"zhut":"hova";
+        $dk2 = ($docRS->Fields("movement_type")=="I" )?"hova":"zhut";
+        
+        if ($docRS->Fields("doc_type")=="MASZIKUI")
+        {
+			$swap = $dk1;
+			$dk1 = $dk2;
+			$dk2 = $swap;
+		}
+        
+        
+        //from client to expences/incomes 
+        //union from client to vat
+        //union takbulim
+        $sql = "select  
+			currency_id, 
+			doc_date as erech_date,
+			'".addslashes($defaultaccount)."' as $dk1,
+			c.AccountNum as $dk2, 
+			sum(
+            (price - ((price - price /(1 + vat / 100)) * 100 / 100)) * (100-d.discount)/100
+            ) as price
+			from
+			document_products dp 
+			inner join documents d on dp.doc_id = d.id 
+			inner join listingsSuppliers c on c.id = d.client_id
+			where d.id = $documentid 
+			group by 
+			currency_id
+			
+			union all 
+			
+			select 
+			currency_id,
+			doc_date as erech_date,
+			'".addslashes($defaultvataccount)."' as $dk1,
+			c.AccountNum as $dk2,
+			sum(
+            ((price - price /(1 + vat / 100)) * 100 / 100) * (100-d.discount)/100
+            ) as price
+			from
+			document_products dp 
+			inner join documents d on d.id = dp.doc_id
+			inner join listingsSuppliers c on c.id = d.client_id
+			where d.id = $documentid 
+			group by currency_id
+			
+			union all
+			
+			select ".$this->defaultcurrency." as currency_id,
+			(case when checkdate is null or checkdate = '0000-00-00' then doc_date else checkdate end) as erech_date,
+			c.AccountNum as $dk1, 
+			k.account_id as $dk2,
+			sum(dp.amount) as price from
+			document_payments dp
+			inner join documents d on d.id = dp.doc_id
+			inner join listingsSuppliers c on c.id = d.client_id
+			inner join kupot k on k.id = dp.kupa_id
+			where d.id = $documentid
+			group by kupa_id, payment_type, checknumber, checkdate
+	
+			
+        ";
+        //die("<pre>".$sql);
+        
+        $rs = DBQuery($sql);
+        while (!$rs->EOF)
+        {
+			if (floatval($rs->Fields("price"))!=0)
+			{ 
+				$sql = "insert into zmovements (hova_account_id,zhut_account_id,amount,doc_id,currency_id,erech_date) values (
+				'".$rs->Fields("hova")."',
+				'".$rs->Fields("zhut")."',
+				".$rs->Fields("price").",
+				".$documentid.",
+				".$rs->Fields("currency_id").", 
+				'".$rs->Fields("erech_date")."')";
+				
+				DBQuery($sql);
+				//die($sql);
+				//DBQuery("update listingsSuppliers set balance = balance - ".$rs->Fields("price")." where id  = ".$rs->Fields("hova"));
+				//DBQuery("update listingsSuppliers set balance = balance + ".$rs->Fields("price")." where id  = ".$rs->Fields("zhut"));
+			} 
+			$rs->MoveNext();
+		}
+    }  
+ }
+
+?>

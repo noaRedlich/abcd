@@ -1,0 +1,540 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+/////////////////////////////////////////////////////////////////////////////////
+///////////////////// This file contains account management   ///////////////////
+///////////////////// functions                               ///////////////////
+/////////////////////////////////////////////////////////////////////////////////
+class users extends db
+{ 
+	var $user_id;
+	function users()
+	{
+		$this->db();
+ 
+		session_start();
+		if (session_is_registered("user_id"))
+		{
+			global $user_id;
+			$this->logged_in=true;
+			$this->user_id=$user_id; 
+		}
+	}
+
+
+	function delete_samba_account($user_id)
+	{
+		global $GO_CONFIG;
+		$sql = "UPDATE users SET samba_user='0' WHERE id='$user_id'";
+		if ($user = $this->get_user($user_id) && $this->query($sql))
+		{
+			exec($GO_CONFIG->sudo." ".$GO_CONFIG->smbdeluser." \"".$user['username']."\"");
+		}
+	}
+
+	function create_samba_account($user_id)
+	{
+		global $GO_CONFIG;
+
+		$sql = "UPDATE users SET samba_user='1' WHERE id='$user_id'";
+		if ($user = $this->get_user($user_id) && $this->query($sql))
+		{
+			exec($GO_CONFIG->sudo.' '.$GO_CONFIG->auto_smbadduser.' "'.$user['username'].'" "'.$user['password'].'"');
+		}
+	}
+
+	function get_users($sort="username",$direction="ASC")
+	{
+		$sql = "SELECT * FROM users ORDER BY ".$sort." ".$direction;
+		$this->query($sql);
+		return $this->num_rows();
+	}
+
+	function get_profile_by_email($email)
+	{
+		$sql = "SELECT * FROM users WHERE email='$email'";
+		$this->query($sql);
+
+		if ($this->next_record())
+			return $this->Record;
+		else
+			return false;
+	}
+
+	function get_user_id_by_email($email)
+	{
+
+		$sql = "SELECT id FROM users WHERE email='$email'";
+		$this->query($sql);
+
+		if ($this->next_record())
+			return $this->f("id");
+		else
+			return false;
+	}
+
+	function get_user_id_by_name($name)
+	{
+
+		$sql = "SELECT id FROM users WHERE username='$name'";
+		$this->query($sql);
+
+		if ($this->next_record())
+			return $this->f("id");
+		else
+			return false;
+	}
+		
+	function check_answer($email, $answer)
+	{
+			$this->query("SELECT id FROM users WHERE email='$email' AND answer='$answer'");
+			if ($this->num_rows() > 0)
+			{
+					return true;
+			}else
+			{
+					return false;
+			}
+	}
+
+	function get_question($email)
+	{
+
+			$this->query("SELECT question FROM users WHERE email='$email'");
+			if ($this->num_rows() > 0)
+			{
+					$this->next_record();
+					return $this->Record["question"];
+			}
+	}
+
+	function check_password($password)
+	{
+
+			$this->query("SELECT id FROM users WHERE password='".md5($password)."' AND id='$this->user_id'");
+			if ($this->num_rows() > 0)
+			{
+					return true;
+			}else
+			{
+					return false;
+			}
+	}
+
+	function get_user($user_id)
+	{
+			$sql = "SELECT * FROM users WHERE id='$user_id'";
+			if ($this->query($sql))
+			{
+					if ($this->next_record())
+					{
+							return $this->Record;
+					}
+
+			}
+			return false;
+	}
+	
+	function get_stock_user($user_id)
+	{
+		$sql = "SELECT * FROM users WHERE id = (select stock_user from users where id = '$user_id')";
+		if ($this->query($sql))
+		{ 
+			if ($this->next_record())
+			{
+				return $this->Record;
+			}
+			
+		}
+		return false;
+	}
+
+	
+	function get_all_users()
+	{
+		$arr= array();
+		$sql = "SELECT id, username, provider_user, stock_user, credit_user FROM users";
+		if ($this->query($sql))
+		{
+			while($this->next_record())
+			{
+				$arr[] = $this->Record;
+			}
+			return $arr;
+			
+		}
+		return false;
+	}	
+	
+	function get_subusers($userid)
+	{
+		$arr= array();
+		$sql = "SELECT id, username, provider_user, stock_user FROM users where stock_user = $userid or credit_user = $userid";
+		if ($this->query($sql))
+		{
+			while($this->next_record())
+			{
+				$arr[] = $this->Record;
+			}
+			return $arr;
+			
+		}
+		return false;
+	}	
+
+	function update_profile($name, $email,$work_phone, $home_phone, $fax, $cellular, $country, $state, $city, $zip, $address, $company, $work_country, $work_state, $work_city, $work_zip, $work_address, $work_fax, $businessnum, $zehut, $homepage, $department, $function)
+	{
+			global $ses_name;
+			global $ses_email;
+
+			$sql = "UPDATE users SET name='$name', email='$email', work_phone='$work_phone', home_phone='$home_phone', fax='$fax', cellular='$cellular', country='$country', state='$state'";
+			$sql .= ", city='$city', zip='$zip', address='$address',company='$company', department='$department', function='$function', work_country='$work_country', work_state='$work_state', work_city='$work_city', businessnum = '$businessnum', zehut='$zehut', work_zip='$work_zip', work_address='$work_address', work_fax='$work_fax', homepage='$homepage' WHERE id='$this->user_id'";
+			if ($this->query($sql))
+			{
+				$ses_name  = $name;
+				$ses_email = $email;
+				session_register('ses_name','ses_email');
+				return true;
+			}else
+			{
+					return false;
+			}
+	}
+
+	function update_password($user_id, $password)
+	{
+		global $GO_CONFIG;
+		if($profile = $this->get_user($user_id))
+		{
+			$sql = "UPDATE users SET password='".md5($password)."' WHERE id='$user_id'";
+			if ($this->query($sql))
+			{
+				if ($GO_CONFIG->enable_system_accounts)
+				{
+					if ($profile["samba_user"] == '1' && $GO_CONFIG->enable_samba_accounts)
+					{
+						exec($GO_CONFIG->sudo.' '.$GO_CONFIG->auto_smbpasswd.' "'.$profile["username"].'" "'.$password.'"');
+					}
+					exec("echo '".$profile["username"].":".$password."' | ".$GO_CONFIG->sudo." ".$GO_CONFIG->chpasswd);
+					$sql = "UPDATE emAccounts SET password='".md5($password)."' WHERE host='".$GO_CONFIG->local_email_host."' AND username='".$profile["username"]."'";
+					$this->query($sql);
+				}
+				return true;
+			}
+		}
+		return false;
+	}
+
+	function update_authcode($authcode)
+	{
+
+			$sql = "UPDATE users SET authcode='$authcode' WHERE id='$this->user_id'";
+			if ($this->query($sql))
+			{
+					return true;
+			}else
+			{
+					return false;
+			}
+	}
+
+	function update_question_answer($question, $answer)
+	{
+
+			$sql = "UPDATE users SET question='$question', answer='$answer' WHERE id='$this->user_id'";
+			if ($this->query($sql) != 0)
+			{
+					return true;
+			}else
+			{
+					return false;
+			}
+	}
+
+	function update_expiration($userid,$expiration)
+	{
+			if ($expiration=='')
+				$expiration	='null';
+			else
+				$expiration = "'".$expiration."'";
+			$sql = "UPDATE users SET expiration=$expiration WHERE id='$userid'";
+			if ($this->query($sql) != 0)
+			{
+					return true;
+			}else
+			{
+					return false;
+			}
+	}
+
+
+	function update_diskquota($userid,$diskquota)
+	{
+			if ($diskquota=='')
+				$diskquota='null';
+			else
+				$diskquota = "'".$diskquota."'";
+			$sql = "UPDATE users SET diskquota=$diskquota WHERE id='$userid'";
+			if ($this->query($sql) != 0)
+			{
+					return true;
+			}else
+			{
+					return false;
+			}
+	}
+
+	function update_stockuser($userid,$stockuser,$credituser,$provideruser)
+	{
+			if ($stockuser=='')
+				$stockuser='null';
+			else
+				$stockuser = "'".$stockuser."'";
+
+			if ($credituser=='')
+				$credituser='null';
+			else
+				$credituser = "'".$credituser."'";
+		if ($provideruser=='')
+			$provideruser='null';
+		else
+			$provideruser = "'".$provideruser."'";			
+		
+		$sql = "UPDATE users SET provider_user=$provideruser, credit_user=$credituser,  stock_user=$stockuser  WHERE id='$userid'";
+			if ($this->query($sql) != 0)
+			{
+					return true;
+			}else
+			{
+					return false;
+			}
+	}	
+
+	function username_exists($username)
+	{
+
+			$sql = "SELECT id FROM users WHERE username='$username'";
+			$this->query($sql);
+			if ($this->num_rows() > 0)
+			{
+					return true;
+			}else
+			{
+					return false;
+			}
+	}
+
+	function email_exists($email)
+	{
+
+			$sql = "SELECT id FROM users WHERE email='$email'";
+			$this->query($sql);
+			if ($this->num_rows() > 0)
+			{
+					return true;
+			}else
+			{
+					return false;
+			}
+	}
+
+
+	function add_user($username, $password, $name, $email, $authcode, $question, $answer, $work_phone, $home_phone, $fax, $cellular, $country, $state, $city, $zip, $address, $company, $work_country, $work_state, $work_city, $work_zip, $work_address, $work_fax, $businessnum, $homepage, $department, $function, $acl_id, $create_samba_user=false)
+	{
+		if ($create_samba_user)
+		{
+			$smb = '1';
+		}else
+		{
+			$smb = '0';
+		}
+		global $GO_CONFIG;
+		$user_id = $this->nextid("users");
+		if ($user_id > 0)
+		{
+			$sql = "INSERT INTO users (id, username,password, name, email, authcode, question, answer, work_phone, home_phone, fax, cellular, state, country, city, zip, address, company, work_country, work_state, work_city, work_zip, work_address, work_fax, homepage, department, function, acl_id, registration_time, samba_user,expiration,diskquota,businessnum)";
+			$sql .= " VALUES ('$user_id', '$username','".md5($password)."', '$name', '$email', '$authcode', '$question', '$answer', '$work_phone', '$home_phone', '$fax', '$cellular', '$country','$state', '$city', '$zip', '$address', '$company', '$work_country', '$work_state', '$work_city', '$work_zip', '$work_address', '$work_fax', '$homepage', '$department', '$function', '$acl_id', '".time()."','$smb',date_add(now(),interval ".$GO_CONFIG->account_expiration_days." day),$GO_CONFIG->user_disk_quota,'$businessnum')";
+			if ($this->query($sql))
+			{
+				if ($GO_CONFIG->enable_system_accounts)
+				{
+					system($GO_CONFIG->sudo." ".$GO_CONFIG->useradd." \"".$username."\" -s ".$GO_CONFIG->shell." -p ".crypt($password,substr($password,0,2)));
+					if ($GO_CONFIG->enable_samba_accounts && $create_samba_user)
+					{
+						exec($GO_CONFIG->sudo.' '.$GO_CONFIG->auto_smbadduser.' "'.$username.'" "'.$password.'"');
+					}
+				}
+
+				return $user_id;
+			}else
+			{
+				return -1;
+			}
+		}
+	}
+
+	function set_preferences($user_id, $date_format, $thousands_seperator, $decimal_seperator, $mail_client)
+	{
+		$this->query("UPDATE users SET date_format='$date_format', thousands_seperator='$thousands_seperator', decimal_seperator='$decimal_seperator', mail_client='$mail_client' WHERE id='$user_id'");
+		global $ses_thousands_seperator;
+		$ses_thousands_seperator = $thousands_seperator;
+		global $ses_decimal_seperator;
+		$ses_decimal_seperator = $decimal_seperator;
+		global $ses_date_format;
+		$ses_date_format= $date_format;
+        global $ses_mail_client;
+        $ses_mail_client = $mail_client;
+		session_register("ses_date_format", "ses_thousands_seperator", "ses_decimal_seperator", "ses_mail_client");
+	}
+
+	function delete_user($user_id)
+	{
+		global $GO_CONFIG;
+		global $GO_SECURITY;
+		require_once($GO_CONFIG->class_path."email.class.inc");
+		require_once($GO_CONFIG->class_path."contacts.class.inc");
+		require_once($GO_CONFIG->class_path."bookmarks.class.inc");
+		require_once($GO_CONFIG->class_path."groups.class.inc");
+		require_once($GO_CONFIG->class_path."scheduler.class.inc");
+		require_once($GO_CONFIG->class_path."filesystem.class.inc");
+
+		$email = new email();
+		$contacts = new contacts();
+		$bookmarks = new bookmarks();
+		$groups = new groups();
+		$scheduler = new scheduler();
+		$filesystem = new filesystem();
+
+		if($user = $this->get_user($user_id))
+		{
+			$acl_id = $this->f("acl_id");
+			$username = $this->f("username");
+			if ($this->f("samba_user") == '1')
+			{
+				$samba_user = true;
+			}else
+			{
+				$samba_user = false;
+			}
+
+			$sql = "DELETE FROM users WHERE id='$user_id'";
+			if ($this->query($sql))
+			{
+				if ($GO_CONFIG->enable_system_accounts)
+				{
+					system($GO_CONFIG->sudo." ".$GO_CONFIG->userdel." -r \"".$username."\"");
+					if ($samba_user)
+					{
+						exec($GO_CONFIG->sudo." ".$GO_CONFIG->smbdeluser." \"".$username."\"");
+					}
+				}
+
+				$GO_SECURITY->delete_acl($acl_id);
+				$GO_SECURITY->delete_user($acl_id);
+				$email->delete_user($user_id);
+				$contacts->delete_user($user_id);
+				$bookmarks->delete_user($user_id);
+				$groups->delete_user($user_id);
+				$scheduler->delete_user($user_id);
+				$filesystem->delete_user($user_id);
+
+				system('rm -Rf '.$GO_CONFIG->file_storage_path.$username);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	function random_password($characters_allow = 'a-z,1-9',$characters_disallow = 'i,o',$password_length = 8,$repeat = 0)
+	{
+			// Generate array of allowable characters.
+
+			$characters_allow = explode( ',', $characters_allow );
+
+			for ( $i = 0; $i < count( $characters_allow ); $i++ )
+			{
+					if ( substr_count( $characters_allow[$i], '-' ) > 0 )
+					{
+					$character_range = explode( '-', $characters_allow[$i] );
+
+					for ( $j = ord( $character_range[0] );
+							$j <= ord( $character_range[1] ); $j++ )
+					{
+							$array_allow[] = chr( $j );
+					}
+					}
+					else
+					{
+							$array_allow[] = $characters_allow[$i];
+					}
+			}
+
+			// Generate array of disallowed characters.
+
+			$characters_disallow = explode( ',', $characters_disallow );
+
+			for ( $i = 0; $i < count( $characters_disallow ); $i++ )
+			{
+					if ( substr_count( $characters_disallow[$i], '-' ) > 0 )
+					{
+							$character_range = explode( '-', $characters_disallow[$i] );
+
+							for ( $j = ord( $character_range[0] );
+							$j <= ord( $character_range[1] ); $j++ )
+							{
+									$array_disallow[] = chr( $j );
+							}
+					}
+					else
+					{
+							$array_disallow[] = $characters_disallow[$i];
+					}
+			}
+
+			mt_srand( ( double ) microtime() * 1000000 );
+
+			// Generate array of allowed characters by removing disallowed
+			// characters from array.
+			$array_allow = array_diff( $array_allow, $array_disallow );
+
+			// Resets the keys since they won't be consecutive after
+			// removing the disallowed characters.
+			reset( $array_allow );
+			$new_key = 0;
+			while( list( $key, $val ) = each( $array_allow ) )
+			{
+					$array_allow_tmp[$new_key] = $val;
+					$new_key++;
+			}
+
+			$array_allow = $array_allow_tmp;
+
+			while ( strlen( $password ) < $password_length )
+			{
+					$character = mt_rand( 0, count( $array_allow ) - 1 );
+
+			// If characters are not allowed to repeat,
+			// only add character if not found in partial password string.
+					if ( $repeat == 0 )
+					{
+							if ( substr_count( $password, $array_allow[$character] )
+							== 0 )
+							{
+									$password .= $array_allow[$character];
+							}
+					}
+					else
+					{
+							$password .= $array_allow[$character];
+					}
+			}
+
+			return $password;
+	}
+}
+?>

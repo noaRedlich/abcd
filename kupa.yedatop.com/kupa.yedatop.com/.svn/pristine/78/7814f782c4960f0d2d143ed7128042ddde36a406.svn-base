@@ -1,0 +1,178 @@
+<?
+ini_set("max_execution_time",300);
+?>
+<form>
+Please select a report  <select name=stats_type>
+	<option value=''>--- Members ------------------------------------</option>
+	<option value='members_by_date' <?=($stats_type=="members_by_date")?"selected":""?>>Members registered by date</option>
+	<option value='members_by_month' <?=($stats_type=="members_by_month")?"selected":""?>>Members registered by month</option>
+	<option value='lang_total' <?=($stats_type=="lang_total")?"selected":""?>>Members by their language</option>
+	<option value='members_online' <?=($stats_type=="members_online")?"selected":""?>>Members online now</option>
+	<option value=''>--- Subscribers ---------------------------------</option>
+	<option value='subscribers' <?=($stats_type=="subscribers")?"selected":""?>>Subscribers Total</option>
+	<option value='contact_free' <?=($stats_type=="contact_free")?"selected":""?>>Contact-Free Subscribers</option>
+	<option value='unlimited' <?=($stats_type=="unlimited")?"selected":""?>>Unlimited Contact Subscribers</option>
+	<option value='stamps' <?=($stats_type=="stamps")?"selected":""?>>Contact Stamps Subscribers</option>
+	<option value=''>--- Messages ------------------------------------</option>
+	<option value='messages_by_date' <?=($stats_type=="messages_by_date")?"selected":""?>>Messages sent by date</option>
+	<option value='messages_by_month' <?=($stats_type=="messages_by_month")?"selected":""?>>Messages sent by month</option>
+</select>
+<input type=submit value='Show'>
+<hr>
+</form>
+
+<?
+
+if ($stats_type){
+switch($stats_type)
+{
+	case "members_by_date":{
+		$sql = 
+		"	select 
+			date_format(from_unixtime(reg_date),'%d/%m/%Y') as \"Registration date\", 
+			count(*) \"Total members registered\", count(p1.gender) \"Men\", count(p2.gender) \"Women\"
+			from dt_members m
+			left outer join dt_profile p1 on p1.member_id = m.id and p1.gender ='Male'
+			left outer join dt_profile p2 on p2.member_id = m.id and p2.gender ='Female'
+			group by \"Registration date\"
+			order by reg_date desc";
+		break;
+	}
+	
+	case "messages_by_date":{
+		$sql = 
+		"  select 
+			date_format(from_unixtime(timesent),'%d/%m/%Y') as \"Date\", 
+			count(*) as \"Messages sent\"
+			from dt_messages m
+			group by \"Date\"
+			order by timesent desc";
+			break;
+	}
+
+	case "members_online":{
+	 	$sql=
+	"	select 
+		count(*) as \"Total users online\", 
+		count(p1.id) as \"Men online\",
+		count(p2.id) as \"Women online\"
+		from dt_members m inner join dt_usersonline uo
+		on uo.userid = m.id
+		left outer join dt_profile p1 on p1.member_id = m.id and p1.gender='Male'
+		left outer join dt_profile p2 on p2.member_id = m.id and p2.gender='Female'";
+		break;
+	}
+	
+	case "messages_by_month":{
+		$sql = 
+		"  select 
+			date_format(from_unixtime(timesent),'%m/%Y') as \"Month\", 
+			count(*) as \"Messages sent\"
+			from dt_messages m
+			group by \"Month\"
+			order by timesent desc";
+			break;
+	}
+
+	case "subscribers":{
+
+		q("	drop table if exists temp");
+		q("	create temporary table temp
+			select 
+			'Free-Contact Subscription' as \"Membership type\", count(*) as \"Members Total\"from dt_members 
+			where system_status=1 and from_unixtime(system_status_end)>now()");
+		q("insert into temp
+			select
+			'Unlimited Contacts' , count(*) from dt_members 
+			where unlimited=1 and from_unixtime(unlimited_end)>now()");
+		 q("insert into temp
+			select
+			'Contact Stamps Owners' , count(distinct member_id) from dt_stamps_balance
+			where balance > 0");
+		$sql="select * from temp";
+		break;
+	}
+	
+	case "contact_free":{
+		$sql = "
+			select 
+			login as \"Login\",
+			date_format(from_unixtime(reg_date),'%d/%m/%Y') as \"Registration Date\",
+			date_format(from_unixtime(system_status_end),'%d/%m/%Y') as \"Subscription Expiration Date\",
+			amount as \"Amount\",
+			date_format(from_unixtime(order_date),'%d/%m/%Y') as \"Order Date\"
+			from dt_members m
+			left outer join dt_billing_history h on h.member_id = m.id
+			where system_status=1 and from_unixtime(system_status_end)>now() 
+			order by order_date desc,reg_date desc
+		";
+		break;
+		}
+		
+		case "unlimited":{
+		$sql = "
+			select 
+			login as \"Login\",
+			date_format(from_unixtime(reg_date),'%d/%m/%Y') as \"Registration Date\",
+			date_format(from_unixtime(unlimited_end),'%d/%m/%Y') as \"Subscription Expiration Date\",
+			amount as \"Amount\",
+			date_format(from_unixtime(order_date),'%d/%m/%Y') as \"Order Date\"
+			from dt_members m
+			left outer join dt_billing_history h on h.member_id = m.id
+			where unlimited=1 and from_unixtime(unlimited_end)>now() 
+			order by order_date desc,reg_date desc
+		";
+		break;
+		}
+		
+		case "stamps":{
+		$sql = "
+			select 
+			m.id,
+			login as \"Login\",
+			date_format(from_unixtime(reg_date),'%d/%m/%Y') as \"Registration Date\",
+			b.balance as \"Stamps Balance\",
+			amount as \"Amount\",
+			date_format(from_unixtime(order_date),'%d/%m/%Y') as \"Order Date\"
+			from dt_members m
+			inner join dt_stamps_balance b on b.member_id = m.id and balance >0
+			left outer join dt_billing_history h on h.member_id = m.id
+			order by order_date desc,reg_date desc
+		";
+			break;
+		}
+		
+		case "lang_total":{
+			$sql = "
+			select language as \"User's language\", 
+			count(*) as \"Total\"
+			from dt_members group by language
+			";
+			break;
+		}
+	
+}
+
+$res = q($sql);
+echo "<table border=1 width=100%>";
+echo "<tr>";
+for ($i=0;$i<mysql_num_fields($res);$i++ ){
+	$field = mysql_fetch_field($res);
+	echo "<td align=center bgcolor=#efefef>".$field->name."&nbsp;</td>";
+}
+echo "</tr>";
+
+while ($row = mysql_fetch_array($res)){
+	echo "<tr>";
+	for ($i=0;$i<mysql_num_fields($res);$i++ ){
+		echo "<td align=center>".$row[$i]."&nbsp;</td>";
+	}
+	echo "</tr>";
+}
+
+echo "</table>";
+
+
+}//if stats_type
+
+?>

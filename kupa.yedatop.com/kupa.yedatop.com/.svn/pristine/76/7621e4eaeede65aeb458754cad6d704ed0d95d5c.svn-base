@@ -1,0 +1,30 @@
+# /etc/sudoers file.
+#
+# This file MUST be edited with the 'visudo' command as root.
+#
+# See the sudoers man page for the details on how to write a sudoers file.
+#
+
+# Host alias specification
+
+# User alias specification
+
+# Cmnd alias specification
+Cmnd_Alias	ADDUSER = /usr/sbin/useradd
+Cmnd_Alias	USERDEL = /usr/sbin/userdel
+Cmnd_Alias	CHPASSWD = /usr/sbin/chpasswd
+Cmnd_Alias	REBOOT = /sbin/reboot
+Cmnd_Alias 	POWEROFF = /sbin/poweroff
+Cmnd_Alias      SMBADDUSER = /usr/sbin/auto_smbadduser.exp
+Cmnd_Alias      SMBPASSWD = /usr/sbin/auto_smbpasswd.exp
+Cmnd_Alias      SMBDELUSER = /usr/bin/smbpasswd
+Cmnd_Alias	FETCHMAIL  = /usr/bin/fetchmail
+
+# User privilege specification
+
+Defaults	syslog=auth
+Defaults:apache	!authenticate
+
+root	ALL=(ALL) ALL
+apache  ALL=  NOPASSWD: ADDUSER, CHPASSWD, REBOOT, POWEROFF, USERDEL, SMBADDUSER, SMBPASSWD, SMBDELUSER, FETCHMAIL
+mschering  ALL=  NOPASSWD: ADDUSER, CHPASSWD, REBOOT, POWEROFF, USERDEL, SMBADDUSER, SMBPASSWD, SMBDELUSER, FETCHMAIL

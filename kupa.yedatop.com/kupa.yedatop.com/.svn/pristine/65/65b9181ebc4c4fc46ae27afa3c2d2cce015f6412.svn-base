@@ -1,0 +1,56 @@
+
+<link rel="stylesheet" href="../style.css" type="text/css">
+
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="100%" nowrap bgcolor="#FFFFFF"><b>תפריט ניהול&nbsp;&nbsp;</b></td>
+    <td width="10" nowrap bgcolor="#5879A5"><spacer type=block height=100% width=10></td>
+  </tr>
+  <tr>
+    <td width="13%" nowrap colspan="2">
+      <table border="0" cellspacing="0" cellpadding="0" width="100%">
+        <tr bgcolor="#5879A5">
+          <td height=4 colspan="2"><spacer type=block height=4 width=100%></td>
+        </tr>
+        <tr>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="100%">
+              <a href="main.php?plugin=sysinfo" class=navbarmain>&nbsp;1. System Information</a>
+          </td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" bgcolor="ABBCD2"><spacer type=block height=100% width=10></td>
+        </tr>
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+        <tr>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="100%">
+              <a href="main.php?service=services" class=navbarmain>&nbsp;2. Services List</a>
+          </td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" bgcolor="ABBCD2"><spacer type=block height=100% width=10></td>
+        </tr>
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+        <?
+	$rRootServices = q("select * from webDate_bd_services where admin_only='1' order by name");
+
+	$nCount = 2;
+	while($fRootService = f($rRootServices))
+	{
+?>
+        <tr>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="100%"><a href="<? echo "main.php?service=$fRootService[link] "?>" class=navbarmain>
+            <? echo "&nbsp;$nCount. ".$fRootService[name]; $nCount++; ?>
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" width="10" bgcolor="ABBCD2"><spacer type=block height=100% width=10></td>
+        </tr>
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+        <?
+	}
+?>
+      </table>
+    </td>
+  </tr>
+</table>
+<br>

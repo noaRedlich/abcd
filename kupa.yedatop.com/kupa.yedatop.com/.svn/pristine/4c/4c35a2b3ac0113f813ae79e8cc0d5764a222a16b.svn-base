@@ -1,0 +1,771 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0  Release date: 14 March 2003									//
+// 			1.01 Release date: 10 April 2003									//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+if ($SCRIPT_FILENAME != '') { $script_path=stripslashes($SCRIPT_FILENAME); }
+else { $script_path=stripslashes($PATH_TRANSLATED); }
+
+if ($script_path == '')
+    { exit ('<b>Fatal error:</b> Could not get the path of the this script. make sure register globals is set to <b>on</b> or change the code to work without register globals :)');
+    }
+
+$root_path=str_replace('install.php', '', $script_path);
+
+$slash    =stristr(PHP_OS, 'Win') ? '\\' : '/';
+$linux    =!stristr(PHP_OS, 'Win');
+
+if ($REQUEST_METHOD == "POST" && $post_action == 'create_config')
+{
+    $tpl_file      =str_replace('install.php', 'Group-Office.tpl', $script_path);
+    $GO_CONFIG_file=str_replace('install.php', 'Group-Office.php', $script_path);
+    $fp            =fopen($tpl_file, 'r');
+    $GO_CONFIG_data=fread($fp, filesize($tpl_file));
+    fclose ($fp);
+    $GO_CONFIG_data=str_replace('%title%', trim($title), $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%slash%', addslashes($slash), $GO_CONFIG_data);
+
+    if (substr($hostname, -1) == '/')
+        $hostname=substr($hostname, 0, strlen($hostname) - 1);
+
+    $GO_CONFIG_data=str_replace('%hostname%', $hostname, $GO_CONFIG_data);
+
+    if (substr($root_path, -1) != $slash)
+        $root_path=$root_path . $slash;
+
+    $GO_CONFIG_data=str_replace('%root_path%', addslashes($root_path), $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%protocol%', $protocol, $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%language%', $language, $GO_CONFIG_data);
+
+    if (substr($tmpdir, -1) != $slash)
+        $tmpdir=$tmpdir . $slash;
+
+    $GO_CONFIG_data       =str_replace('%tmpdir%', $tmpdir, $GO_CONFIG_data);
+    $GO_CONFIG_data       =str_replace('%theme%', $theme, $GO_CONFIG_data);
+    $GO_CONFIG_data       =str_replace('%allow_themes%', $allow_themes, $GO_CONFIG_data);
+    $GO_CONFIG_data       =str_replace('%enable_system_accounts%', $enable_system_accounts, $GO_CONFIG_data);
+    $GO_CONFIG_data       =str_replace('%enable_system_control%', $enable_system_control, $GO_CONFIG_data);
+    $enable_samba_accounts=isset($enable_samba_accounts) ? $enable_samba_accounts : 'false';
+    $GO_CONFIG_data       =str_replace('%enable_samba_accounts%', $enable_samba_accounts, $GO_CONFIG_data);
+    $GO_CONFIG_data       =str_replace('%smtp_server%', $smtp_server, $GO_CONFIG_data);
+    $GO_CONFIG_data       =str_replace('%smtp_port%', $smtp_port, $GO_CONFIG_data);
+    $GO_CONFIG_data       =str_replace('%max_attachment_size%', $max_attachment_size, $GO_CONFIG_data);
+    $inmail_host          =isset($inmail_host) ? $inmail_host : '';
+    $inmail_port          =isset($inmail_port) ? $inmail_port : '';
+    $inmail_type          =isset($inmail_type) ? $inmail_type : '';
+    $local_email_host     =isset($local_email_host) ? $local_email_host : '';
+
+    $GO_CONFIG_data       =str_replace('%inmail_host%', $inmail_host, $GO_CONFIG_data);
+    $GO_CONFIG_data       =str_replace('%inmail_port%', $inmail_port, $GO_CONFIG_data);
+    $GO_CONFIG_data       =str_replace('%inmail_type%', $inmail_type, $GO_CONFIG_data);
+    $GO_CONFIG_data       =str_replace('%inmail_root%', $inmail_root, $GO_CONFIG_data);
+    $GO_CONFIG_data       =str_replace('%local_email_host%', $local_email_host, $GO_CONFIG_data);
+
+    if (substr($file_storage_path, -1) != $slash)
+        $file_storage_path=$file_storage_path . $slash;
+
+    $GO_CONFIG_data=str_replace('%file_storage_path%', $file_storage_path, $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%create_mode%', $create_mode, $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%max_file_size%', $max_file_size, $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%webmaster_email%', $webmaster_email, $GO_CONFIG_data);
+
+    $GO_CONFIG_data=str_replace('%db_type%', $db_type, $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%db_host%', $db_host, $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%db_name%', $db_name, $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%db_user%', $db_user, $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%db_pass%', $db_pass, $GO_CONFIG_data);
+
+    $feedback      ='';
+
+    if (!file_exists($root_path)) { $feedback.='<p><font color="red">WARNING! path to Group-Office ("' . stripslashes(
+                                                                                                             $root_path)
+        . '") does not exist.</font></p>'; }
+
+    if (!is_writable(
+             $file_storage_path)) { $feedback.='<p><font color="red">WARNING! File storage directory ("' . stripslashes(
+                                                                                                               $file_storage_path)
+        . '") is not writable.</font></p>'; }
+
+    if (!is_writable(
+             $tmpdir)) { $feedback.='<p><font color="red">WARNING! Temporarily files directory ("' . stripslashes(
+                                                                                                         $tmpdir)
+        . '") is not writable.</font></p>'; }
+
+    $fp=fopen($GO_CONFIG_file, 'w+');
+    fwrite($fp, $GO_CONFIG_data);
+    fclose ($fp);
+
+    if ($feedback == '')
+    {
+        require ($root_path . 'database/' . $db_type . '.class.inc');
+        $db               =new db();
+        $db->Halt_On_Error='no';
+
+        if ($db->connect($db_name, $db_host, $db_user, $db_pass)) { $create_admin=true; }
+        else { $feedback.='<p><font color="red">Could not connect to database!</font></p>'; }
+    }
+}
+
+if (!file_exists("Group-Office.php"))
+{
+    $tpl_file      =str_replace('install.php', 'Group-Office.tpl', $script_path);
+    $GO_CONFIG_file=str_replace('install.php', 'Group-Office.php', $script_path);
+    $fp            =fopen($tpl_file, 'r');
+    $GO_CONFIG_data=fread($fp, filesize($tpl_file));
+    fclose ($fp);
+
+    $GO_CONFIG_data=str_replace('%title%', 'Group-Office', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%slash%', addslashes($slash), $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%hostname%', $HTTP_HOST, $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%root_path%', addslashes($root_path), $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%protocol%', 'http://', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%language%', 'Nederlands', $GO_CONFIG_data);
+
+    if ($linux)
+    {
+        $tmpdir  ='/tmp/';
+        $filesdir='/home/groupoffice';
+    }
+    else
+    {
+        $tmpdir  ='c:\\\\temp\\\\';
+        $filesdir='c:\\\\GroupOffice\\\\';
+    }
+
+    $GO_CONFIG_data=str_replace('%tmpdir%', $tmpdir, $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%theme%', 'standard', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%allow_themes%', 'true', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%enable_system_accounts%', 'false', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%enable_system_control%', 'false', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%enable_samba_accounts%', 'false', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%smtp_server%', '', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%smtp_port%', '', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%max_attachment_size%', '10000000', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%inmail_host%', 'example.com', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%inmail_port%', '143', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%inmail_type%', 'imap', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%inmail_root%', '', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%local_email_host%', 'localhost', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%file_storage_path%', $filesdir, $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%create_mode%', '0755', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%max_file_size%', '100000000', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%webmaster_email%', 'webmaster@example.com', $GO_CONFIG_data);
+
+    $GO_CONFIG_data=str_replace('%db_type%', 'mysql', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%db_host%', 'localhost', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%db_name%', 'groupoffice', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%db_user%', 'groupoffice', $GO_CONFIG_data);
+    $GO_CONFIG_data=str_replace('%db_pass%', '', $GO_CONFIG_data);
+
+    $fp            =fopen($GO_CONFIG_file, 'w+');
+    fwrite($fp, $GO_CONFIG_data);
+    fclose ($fp);
+
+    $clean_install_check='checked';
+    $authenticate       ='false';
+}
+else { $authenticate=isset($authenticate) ? $authenticate : 'true'; }
+
+require ("Group-Office.php");
+
+if ($authenticate == 'true')
+{
+    require_once ($GO_CONFIG->class_path . 'users.class.inc');
+    $users=new users();
+
+    if ($users->get_users() > 0) { $GO_SECURITY->authenticate(true); }
+}
+
+echo '<html><head><title>Group-Office Installation</title></head><body style="font-family: Arial,Helvetica">';
+
+if ($REQUEST_METHOD == 'POST' && $post_action == 'create_admin')
+{
+    $create_admin=true;
+    require_once ($GO_CONFIG->class_path . 'users.class.inc');
+    $users       =new users();
+
+    $users->get_users();
+
+    while ($users->next_record())
+    {
+        $delete = new users;
+        $delete->delete_user($users->f('id'));
+    }
+
+    $users->query("DELETE FROM `acl`");
+    $users->query("DELETE FROM `acl_items`");
+    $users->query("DELETE FROM `bookmarks`");
+    $users->query("DELETE FROM `contact_groups`");
+    $users->query("DELETE FROM `contacts`");
+    $users->query("DELETE FROM `db_sequence`");
+    $users->query("DELETE FROM `emAccounts`");
+    $users->query("DELETE FROM `emFilters`");
+    $users->query("DELETE FROM `emFolders`");
+    $users->query("DELETE FROM `groups`");
+    $users->query("DELETE FROM `scEvents`");
+    $users->query("DELETE FROM `scEventsSchedulers`");
+    $users->query("DELETE FROM `scParticipants`");
+    $users->query("DELETE FROM `scSchedulers`");
+    $users->query("DELETE FROM `scSubscribed`");
+    $users->query("DELETE FROM `users_groups`");
+    $users->query("DELETE FROM `fsShares`");
+
+    system ('rm -Rf ' . $GO_CONFIG->file_storage_path . '*');
+
+    if ($pass1 == $pass2)
+    {
+        if (!eregi("^([a-z0-9]+)([._-]([a-z0-9]+))*[@]([a-z0-9]+)([._-]([a-z0-9]+))*[.]([a-z0-9]){2}([a-z0-9])?$",
+                   $email)) { $feedback.='<p><font color="red">Invalid E-mail address!</font></p>'; }
+        else
+        {
+            $acl_id=$GO_SECURITY->get_new_acl($email);
+
+            if ($acl_id != -1)
+            {
+                $new_user_id
+                          =$users->add_user('administrator', $pass1,        'administrator', $email,      $auth1,
+                                            $question,       $answer,       $work_phone,     $home_phone, $fax,
+                                            $cellular,       $country,      $state,          $city,       $zip,
+                                            $address,        $company,      $work_country,   $work_state, $work_city,
+                                            $work_zip,       $work_address, $work_fax,       $homepage,   $department,
+                                            $function,       $acl_id);
+                $old_umask=umask(000);
+                mkdir($GO_CONFIG->file_storage_path . 'administrator', $GO_CONFIG->create_mode);
+                umask ($old_umask);
+
+                require_once ($GO_CONFIG->class_path . "groups.class.inc");
+                $groups  =new groups;
+                $group_id=$groups->add_group($new_user_id, 'Admins');
+                $groups->add_user_to_group($new_user_id, $group_id);
+                $group_id=$groups->add_group($new_user_id, 'Everyone');
+                $groups->add_user_to_group($new_user_id, $group_id);
+                $GO_SECURITY->add_group_to_acl($group_id, $acl_id);
+                echo "<h1>Installation complete!</h1>";
+                echo '<a href="' . $GO_CONFIG->host . '">Click here to start Group-Office</a>';
+                echo '</body></html>';
+                exit;
+            }
+            else { $feedback.='<p><font color="red">' . $strSaveError . '</font></p>'; }
+        }
+    }
+    else { $feedback.='<p><font color="red">Passwords did not match!</font></p>'; }
+}
+
+if (isset($create_admin))
+{
+    if (isset($clean_install))
+    {
+?>
+
+        <form name = "setup" method = "post" action = "<?php echo $PHP_SELF; ?>">
+            <input type = "hidden" name = "post_action" value = "create_admin"/>
+
+            <table border = "0" cellpadding = "10" cellspacing = "0">
+                <tr>
+                    <td><h1>Create administrator account</h1></td>
+                </tr>
+
+                <tr>
+                    <td>
+                        <table border = "0">
+                            <tr>
+                                <td colspan = "2">Username will be 'administrator' please create a password.</td>
+                            </tr>
+
+                    <?php
+                            if (isset($feedback)) { echo '<tr><td colspan="2">' . $feedback . '</td></tr>'; }
+                    ?>
+
+                            <tr>
+                                <td>
+                                    Password:
+                                </td>
+
+                                <td>
+                                    <input type = "password" name = "pass1"/>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>
+                                    Confirm password:
+                                </td>
+
+                                <td>
+                                    <input type = "password" name = "pass2"/>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>
+                                    E-mail:
+                                </td>
+
+                                <td>
+                                    <input type = "text" size = "40" name = "email"
+                                           value = "<?php if (isset($email)) echo  $email; ?>"/>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td colspan = "2">
+                                    <input type = "submit" value = "<?php echo $cmdSave; ?>"/>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </form>
+
+<?php
+    }
+    else
+    {
+        echo "<h1>Installation complete!</h1>";
+        echo '<a href="' . $GO_CONFIG->host . '">Click here to start Group-Office</a>';
+        echo '</body></html>';
+        exit;
+    }
+}
+else
+{
+
+?>
+	<script type="text/javascript" language="javascript">
+	function confirm_submit()
+	{
+		if (document.forms[0].clean_install.checked == true)
+		{
+			if (confirm('THIS WILL DELETE ALL GROUP-OFFICE USERS AND DATA!!! ARE YOU SURE YOU WANT TO DO THIS?'))
+			{
+				document.forms[0].submit();
+			}
+		}else
+		{
+			document.forms[0].submit();
+		}
+	}
+	</script>
+	<form name="setup" method="post" action="<?php echo $PHP_SELF; ?>">
+	<input type="hidden" name="post_action" value="create_config" />
+	<input type="hidden" name="root_path" value="<?php echo $root_path; ?>" />
+	<input type="hidden" name="slash" value="<?php echo $slash; ?>" />
+	<input type="hidden" name="authenticate" value="<?php echo $authenticate; ?>" />
+
+	<table border="0" cellpadding="10" cellspacing="0">
+	<tr>
+		<td><h1>Group-Office Installation</h1><a href="LICENSE.GPL" target="_blank">read license agreement</a></td>
+	</tr>
+	<tr>
+		<td>
+		<?php
+		$disabled = '';
+		if (!is_writable('Group-Office.php'))
+		{
+			$disabled = 'disabled';
+			echo '<b>Group-Office.php</b> is not writable by the webserver.<br /><br />Please temporary change the permissions or ownership if you want to save changes.<br /><br />';
+		}
+		if (isset($feedback))
+		{
+			echo $feedback;
+		}
+		?>
+		<table border="0">
+
+		<tr>
+			<td colspan="2">
+			<b>Main configuration</b>
+			</td>
+		</tr>
+		<tr>
+			<td>
+			Title:
+			</td>
+			<td>
+			<input type="text" size="40" name="title" value="<?php echo $GO_CONFIG->title; ?>" <?php echo $disabled; ?> />
+			</td>
+		</tr>
+		<tr>
+			<td>
+			Hostname:
+			</td>
+			<td>
+			<input type="text" size="40" name="hostname" value="<?php echo $GO_CONFIG->hostname; ?>" <?php echo $disabled; ?> />
+			</td>
+		</tr>
+		<tr>
+			<td>
+			Temporarily files directory:
+			</td>
+			<td>
+			<input type="text" size="40" name="tmpdir" value="<?php echo $GO_CONFIG->tmpdir; ?>" <?php echo $disabled; ?> />
+			</td>
+		</tr>
+		<tr>
+			<td>Use SSL:</td>
+			<td>
+			<?php
+			if ($GO_CONFIG->protocol == 'https://')
+			{
+				$yes = "selected";
+				$no="";
+			}else
+			{
+				$no = "selected";
+				$yes="";
+			}
+			?>
+			<select name="protocol" <?php echo $disabled; ?>>
+				<option value="https://" <?php echo $yes; ?>><?php echo $cmdYes; ?></option>
+				<option value="http://" <?php echo $no; ?>><?php echo $cmdNo; ?></option>
+			</select>
+			</td>
+		</tr>
+		<tr>
+			<td>Default language:</td>
+			<td>
+				<?php
+				$languages = $GO_LANGUAGE->get_languages();
+				$dropbox = new dropbox();
+				$dropbox->add_arrays($languages, $languages);
+				$dropbox->print_dropbox("language", $GO_CONFIG->language, $disabled);
+				?>
+			</td>
+		</tr>
+		<tr>
+			<td>Default theme:</td>
+			<td>
+				<?php
+				$themes = $GO_THEME->get_themes();
+				$dropbox = new dropbox();
+				$dropbox->add_arrays($themes, $themes);
+				$dropbox->print_dropbox("theme", $GO_CONFIG->theme, $disabled);
+				?>
+			</td>
+		</tr>
+		<tr>
+			<td>Allow users to change theme:</td>
+			<td>
+			<?php
+			if ($GO_CONFIG->allow_themes)
+			{
+				$yes = "selected";
+				$no="";
+			}else
+			{
+				$no = "selected";
+				$yes="";
+			}
+			?>
+			<select name="allow_themes" <?php echo $disabled; ?>>
+				<option value="true" <?php echo $yes; ?>><?php echo $cmdYes; ?></option>
+				<option value="false" <?php echo $no; ?>><?php echo $cmdNo; ?></option>
+			</select>
+			</td>
+		</tr>
+		<?php
+		if ($linux)
+		{
+		?>
+		<tr>
+			<td>Use system accounts:</td>
+			<td>
+			<?php
+			if ($GO_CONFIG->enable_system_accounts)
+			{
+				$yes = "selected";
+				$no="";
+			}else
+			{
+				$no = "selected";
+				$yes="";
+			}
+			?>
+			<select name="enable_system_accounts" onchange="javascript:toggle_email()" <?php echo $disabled; ?>>
+				<option value="true" <?php echo $yes; ?>><?php echo $cmdYes; ?></option>
+				<option value="false" <?php echo $no; ?>><?php echo $cmdNo; ?></option>
+			</select>
+			</td>
+		</tr>
+		<tr>
+			<td>Use samba accounts:</td>
+			<td>
+			<?php
+			if ($GO_CONFIG->enable_samba_accounts)
+			{
+				$yes = "selected";
+				$no="";
+			}else
+			{
+				$no = "selected";
+				$yes="";
+			}
+			?>
+			<select name="enable_samba_accounts" <?php echo $disabled; ?>>
+				<option value="true" <?php echo $yes; ?>><?php echo $cmdYes; ?></option>
+				<option value="false" <?php echo $no; ?>><?php echo $cmdNo; ?></option>
+			</select>
+			</td>
+		</tr>
+		<tr>
+			<td>Admins can stop or restart server:</td>
+			<td>
+			<?php
+			if ($GO_CONFIG->enable_system_control)
+			{
+				$yes = "selected";
+				$no="";
+			}else
+			{
+				$no = "selected";
+				$yes="";
+			}
+			?>
+			<select name="enable_system_control" <?php echo $disabled; ?>>
+				<option value="true" <?php echo $yes; ?>><?php echo $cmdYes; ?></option>
+				<option value="false" <?php echo $no; ?>><?php echo $cmdNo; ?></option>
+			</select>
+			</td>
+		</tr>
+		<?php
+		}else
+		{
+			echo '<input type="hidden" name="enable_samba_accounts" value="false" />';
+			echo '<input type="hidden" name="enable_system_control" value="false" />';
+			echo '<input type="hidden" name="enable_system_accounts" value="false" />';
+		}
+		?>
+		<tr>
+			<td>
+			Webmaster E-mail:
+			</td>
+			<td>
+			<input type="text" size="40" name="webmaster_email" value="<?php echo $GO_CONFIG->webmaster_email; ?>" <?php echo $disabled; ?> />
+			</td>
+		</tr>
+
+		<tr>
+			<td colspan="2">
+			<br />
+			<b>Database configuration</b>
+			</td>
+		</tr>
+		<tr>
+			<td>
+			Host:
+			</td>
+			<td>
+			<input type="text" size="40" name="db_host" value="<?php echo $GO_CONFIG->db_host; ?>" <?php echo $disabled; ?> />
+			</td>
+		</tr>
+		<tr>
+			<td>
+			Type:
+			</td>
+			<td>
+			<input type="text" size="40" name="db_type" value="<?php echo $GO_CONFIG->db_type; ?>" <?php echo $disabled; ?> />
+			</td>
+		</tr>
+		<tr>
+			<td>
+			Database:
+			</td>
+			<td>
+			<input type="text" size="40" name="db_name" value="<?php echo $GO_CONFIG->db_name; ?>" <?php echo $disabled; ?> />
+			</td>
+		</tr>
+
+		<tr>
+			<td>
+			Username:
+			</td>
+			<td>
+			<input type="text" size="40" name="db_user" value="<?php echo $GO_CONFIG->db_user; ?>" <?php echo $disabled; ?> />
+			</td>
+		</tr>
+		<tr>
+			<td>
+			Password:
+			</td>
+			<td>
+			<input type="password" size="40" name="db_pass" value="<?php echo $GO_CONFIG->db_pass; ?>" <?php echo $disabled; ?> />
+			</td>
+		</tr>
+
+
+
+		<tr>
+			<td colspan="2">
+			<br />
+			<b>E-mail configuration</b>
+			</td>
+		</tr>
+		<tr>
+			<td>
+			SMTP server:
+			</td>
+			<td>
+			<input type="text" size="40" name="smtp_server" value="<?php echo $GO_CONFIG->smtp_server; ?>" <?php echo $disabled; ?> /><small>(Leave blank for local sendmail)</small>
+			</td>
+		</tr>
+		<tr>
+			<td>
+			SMTP port:
+			</td>
+			<td>
+			<input type="text" size="40" name="smtp_port" value="<?php echo $GO_CONFIG->smtp_port; ?>" <?php echo $disabled; ?> /><small>(Leave blank for local sendmail)</small>
+			</td>
+		</tr>
+		<tr>
+			<td>
+			Maximum size of attachments:
+			</td>
+			<td>
+			<input type="text" size="40" name="max_attachment_size" value="<?php echo $GO_CONFIG->max_attachment_size; ?>" <?php echo $disabled; ?> />
+			</td>
+		</tr>
+		<?php
+		if ($linux)
+		{
+		?>
+
+		<tr>
+			<td>Local e-mail domain name:</td>
+			<td>
+			<input type="text" size="40" name="inmail_host" value="<?php echo $GO_CONFIG->inmail_host; ?>" <?php echo $disabled; ?> />
+			</td>
+		</tr>
+		<tr>
+			<td>Local hostname:</td>
+			<td>
+			<input type="text" size="40" name="local_email_host" value="<?php echo $GO_CONFIG->local_email_host; ?>" <?php echo $disabled; ?> /><small>(And optionally specify options for the connection like '/notls' for redhat bug)</small>
+			</td>
+		</tr>
+		<tr>
+			<td>Local server protocol:</td>
+			<td>
+			<?php
+			$imap = ($GO_CONFIG->inmail_type == "imap") ? 'selected' : '';
+			?>
+			<select name="inmail_type" onchange="change_port()" <?php echo $disabled; ?>>
+				<option value="pop3">POP3</option>
+				<option value="imap" <?php echo $imap; ?>>IMAP</option>
+			</select>
+			</td>
+		</tr>
+		<tr>
+			<td>Local server port:</td>
+			<td>
+			<input type="text" size="4" name="inmail_port" value="<?php echo $GO_CONFIG->inmail_port; ?>" <?php echo $disabled; ?> />
+			</td>
+		</tr>
+		<tr>
+			<td>Local root folder:</td>
+			<td>
+			<input type="text" size="40" name="inmail_root" value="<?php echo $GO_CONFIG->inmail_root; ?>" <?php echo $disabled; ?> /><small>(Leave blank or mail/ for UW IMAP or INBOX. for Cyrus)</small>
+			</td>
+		</tr>
+		<script type="text/javascript" language="javascript">
+		function toggle_email()
+		{
+			if (document.forms[0].enable_system_accounts.value == "false")
+			{
+				document.forms[0].inmail_host.disabled = true;
+				document.forms[0].inmail_port.disabled = true;
+				document.forms[0].inmail_type.disabled = true;
+				document.forms[0].inmail_root.disabled = true;
+				document.forms[0].local_email_host.disabled = true;
+				document.forms[0].enable_samba_accounts.disabled = true;
+			}else
+			{
+				document.forms[0].inmail_host.disabled = false;
+				document.forms[0].inmail_port.disabled = false;
+				document.forms[0].inmail_type.disabled = false;
+				document.forms[0].inmail_root.disabled = false;
+				document.forms[0].local_email_host.disabled = false;
+				document.forms[0].enable_samba_accounts.disabled = false;
+			}
+		}
+
+		function change_port()
+		{
+			if (document.forms[0].inmail_type.value == "imap")
+			{
+				document.forms[0].inmail_port.value = "143";
+			}else
+			{
+				document.forms[0].inmail_port.value = "110";
+			}
+		}
+		<?php
+		if ($disabled == '')
+		{
+			echo 'toggle_email();';
+		}
+		echo '</script>';
+
+		}
+		?>
+		<tr>
+			<td colspan="2">
+			<br />
+			<b>File storage configuration</b>
+			</td>
+		</tr>
+		<tr>
+			<td>
+			File storage path:
+			</td>
+			<td>
+			<input type="text" size="40" name="file_storage_path" value="<?php echo $GO_CONFIG->file_storage_path; ?>" <?php echo $disabled; ?> />
+			</td>
+		</tr>
+		<tr>
+			<td>
+			Create mode:
+			</td>
+			<td>
+			<?php
+			$create_mode_string = decoct((string)$GO_CONFIG->create_mode);
+			if (strlen($create_mode_string) == 3)
+			{
+				$create_mode_string = '0'.$create_mode_string;
+			}
+			?>
+			<input type="text" size="4" name="create_mode" value="<?php echo $create_mode_string; ?>" <?php echo $disabled; ?> />
+			</td>
+		</tr>
+		<tr>
+			<td>
+			Maximum upload size:
+			</td>
+			<td>
+			<input type="text" size="40" name="max_file_size" value="<?php echo $GO_CONFIG->max_file_size; ?>" <?php echo $disabled; ?> /><small>(/etc/php.ini needs to be set accordingly)</small>
+			</td>
+		</tr>
+		<?php
+
+		if (is_writable('Group-Office.php'))
+		{
+			$clean_install_check = isset($clean_install_check) ? $clean_install_check : '';
+			echo '<tr><td colspan="2"><input type="checkbox" name="clean_install" value="true" '.$clean_install_check.' />(Re-)install Group-Office. WARNING! ALL EXISTING GROUP-OFFICE USER DATA WILL BE DELETED!</td></tr>';
+			echo '<tr><td colspan="2"><br /><input type="button" value="'.$cmdSave.'" onclick="javascript:confirm_submit()"/></td></tr>';
+		}
+
+		?>
+
+		</table>
+		</td>
+	</tr>
+	</table>
+	</form>
+
+<?php
+}
+echo '</body></html>';
+?>

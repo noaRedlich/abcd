@@ -1,0 +1,263 @@
+<?php
+	$simple=1;
+	global $action, $id, $lang, $conn, $config;
+
+	$page_subtitle = "תשלום לספק";
+	
+
+	include("include/common.php");
+	if(!loginCheck('User'))exit;
+
+
+	include("$config[template_path]/admin_top.html");
+
+	if ($do){
+		if ( !$trandate ){
+			$error = "יש להזין כל השדות חובה";
+		}
+		elseif (!preg_match("/^\d\d\/\d\d\/\d\d\d\d$/",$trandate)){
+			$error = "יש להזין תאריך עסקה בפורמת DD/MM/YYYY";
+		}
+		elseif(!array_sum($sum)){
+			$error = "יש להזין לפחות תשלום אחד";
+		}
+		else
+		{
+
+			$paymcount = count($paymid);
+			$sql="select max(group_id) as group_id from supplierpayments where user_id = $userID";
+			$gid=$conn->Execute($sql);
+			if ($gid===false){echo $conn->ErrorMsg()."<br>".$sql;die();}
+			$groupid=($gid->fields["group_id"])?($gid->fields["group_id"]+1):1;
+
+			for ($i=0;$i<$paymcount;$i++){
+				$sql = "INSERT INTO supplierpayments
+				(supplier_id, hov, Day, Amount, comment,
+				checknumber, checkdate, checkbank, checksnif,
+				checkaccount, user_id, status, payment_type, group_id)
+				VALUES
+				($sid, 0, '".dateToSQL($trandate)."', '".$sum[$i]."', '".addslashes($comments)."',
+				'".$chequenumber[$i]."', '".dateToSQL($paydate[$i])."', '".$bankno[$i]."', '".$bankdeptno[$i]."',
+				'".$bankcntno[$i]."', $userID, 1, ".$paymid[$i].", $groupid)";
+				if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;die();}
+			}
+			//success
+			echo "<script>location='supplier_payment.php?added=1&sid=$sid'</script>";die();
+			
+		}
+	}
+	
+	$sql = "select ID,SupplierName from listingsSuppliers where status = 1 and user_id = $userID order by binary supplierName ";
+	$suppliers = $conn->Execute($sql);
+	if ($suppliers === false){log_error($sql);die();}
+	if (!$trandate){
+		$trandate = date("d/m/Y");
+	}
+	
+	?>
+
+<table width=100% height=100%>
+<form method=post name=F action="supplier_payment.php">
+<tr style='height:1%'><td align=center>
+<?	if ($usr){echo "משתמש: <strong>$username</strong>&nbsp;&nbsp;";}?>
+<?if ($error){?>
+<span style='color:white;background-color:red'><strong>&nbsp;<?=$error?>&nbsp;</strong></span>
+<?}elseif($added){?>
+<script>try{window.opener.location=window.opener.location.href;}catch(e){}</script>
+<span style='color:white;background-color:green'><strong>&nbsp;העסקה נשמרה בהצלחה&nbsp;</strong></span>
+<?}?>
+&nbsp;</td></tr>
+<tr style='height:1%'><td>
+	<fieldset><LEGEND>תשלום לספק</LEGEND>
+	<table width=100%>
+	<tr>
+	<td width=1%><font color=red><strong>*</strong></font>ספק</td>
+	<td><?echo"
+		<select name=sid onchange='s=this.parentElement.parentElement.cells[4].all(0);if(this.value==-1){s.disabled=true;s.style.backgroundColor=\"buttonface\";s.value=\"\"}else{s.style.backgroundColor=\"\";s.disabled=false};'>
+			";
+			$issupplier=false;
+			$suppliers->MoveFirst();
+			while (!$suppliers->EOF){
+				echo "<option ".(($suppliers->fields["ID"]==$sid)?"selected":"")." value=".$suppliers->fields["ID"].">".$suppliers->fields['SupplierName']."</option>";
+				$suppliers->MoveNext();
+				$issupplier=true;
+			}
+			echo "</select>";
+		?>
+	</td>
+	<td nowrap><font color=red><strong>*</strong></font>תאריך עסקה</td>
+	<td width=99%><input name=trandate size=6 maxlength=10 value='<?=$trandate?>'>
+	<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.trandate")'>
+	</td>
+	</tr>
+	<tr>
+	<td>&nbsp;הערות</td>
+	<td colspan=20><textarea style='width:100%' name=comments><?=$comments?></textarea></td>
+	</tr>
+	</table>
+	</fieldset>
+</td></tr>
+
+</tr>
+
+<tr style='height:99%'><td>
+	<?
+	if (!$numpayments)$numpayments=1;
+	?>
+	<fieldset><LEGEND>פרוט תשלומים
+	<input type=hidden name=copy>
+	<input type=button value='-' onclick='if(document.F.numpayments.value>1){document.F.numpayments.value--;document.F.submit()}'>
+	<input size=2 maxlength=2 name=numpayments value=<?=$numpayments?>>
+	<input type=button value='+' onclick='document.F.numpayments.value++;document.F.submit()'>
+	<input type=submit value='OK'>
+	<input type=button value='העתק' onclick='document.F.copy.value=1;document.F.numpayments.value++;document.F.submit()'>
+	<input type=button value='חולל תשלומים' onclick='generate()'>
+	&nbsp;
+	&nbsp;</legend>
+	<div style='overflow-Y:scroll;overflow-X:auto;width:100%;height:150px;border:solid 1 gray'>	
+	<table width=100% style='border-collapse:collapse' border=1>
+	<tr style='background-color:silver'>
+		<th>#</th>
+		<th>סוג תשלום</th>
+		<th>סכום</th>
+		<th>תאריך פרעון</th>
+		<th>מס' שיק</th>
+		<th>מס' בנק </th>
+		<th>מס' סניף</th>
+		<th>מס' חשבון</th>
+	</tr>
+	<?
+	for ($i=0;$i<$numpayments;$i++){
+	
+		if ($copy==2){
+			//generate payments
+			if(!$cheque)$cheque=1;
+			if(!$date)$date=date("d/m/Y");
+			$sum[$i]=($i==0)?$sum1:(($totalsum-$sum1)/($numpayments-1));
+			$time=mktime(0,0,0,substr($date,3,2),substr($date,0,2),substr($date,6,4));
+			$paydate[$i]=date("d/m/Y",strtotime("+".($i)." month",$time));
+			$chequenumber[$i]=$cheque+$i;
+			$bankno[$i]=$bank;
+			$bankdeptno[$i]=$snif;
+			$bankcntno[$i]=$acc;
+			$paymid[$i]=0;
+		}
+		else
+		{
+			if ($i==$numpayments-1){
+				if (!$paymid[$i]&&$paymid[$i-1])$paymid[$i]=$paymid[$i-1];
+			}
+			elseif (!$paymid[$i]){
+				$paymid[$i]=0;
+			}
+			//copy previous row
+			if ($copy==1&&$i==$numpayments-1){
+				$bankno[$i]=$bankno[$i-1];
+				$bankdeptno[$i]=$bankdeptno[$i-1];
+				$bankcntno[$i]=$bankcntno[$i-1];
+				$sum[$i]=$sum[$i-1];
+				if ($paymid[$i-1]=="0"){
+					if ($chequenumber[$i-1]){
+						$chequenumber[$i]=$chequenumber[$i-1]+1;
+					}
+					if ($paydate[$i-1]){
+						$time=mktime(0,0,0,substr($paydate[$i-1],3,2),substr($paydate[$i-1],0,2),substr($paydate[$i-1],6,4));
+						$paydate[$i]=date("d/m/Y",strtotime("+1 month",$time));
+					}
+				}
+			}
+			
+		}
+	?>
+	<tr>
+		<td align=center><?=($i+1)?></td>
+		<td>
+		<select name=paymid[] style='width:100%' onchange=paym(this)>
+			<option value=0 <?=($paymid[$i]==0)?"selected":""?>>ש'ק
+			<option value=1 <?=($paymid[$i]==1)?"selected":""?>>מזומן
+			<option value=2 <?=($paymid[$i]==2)?"selected":""?>>אשראי
+			<option value=3 <?=($paymid[$i]==3)?"selected":""?>>העברה בנקאית
+			<option value=4 <?=($paymid[$i]==4)?"selected":""?>>הוראת קבע
+		</select>
+		</td>
+		<td ><input style='width:100%' name=sum[]  value="<?=number_format($sum[$i],2,".","")?>"></td>
+		<td width=1% nowrap>
+		<input style='width:80px' name=paydate[] id=paydate<?=$i?> value="<?=$paydate[$i]?>">
+			<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("getElementById(\"paydate<?=$i?>\")")'>
+		</td>
+		<td><input style='width:100%' name=chequenumber[] value="<?=$chequenumber[$i]?>"></td>
+		<td><input style='width:100%' name=bankno[] value="<?=$bankno[$i]?>"></td>
+		<td><input style='width:100%' name=bankdeptno[] value="<?=$bankdeptno[$i]?>"></td>
+		<td><input style='width:100%' name=bankcntno[] value="<?=$bankcntno[$i]?>"></td>
+	</tr>
+	<?}?>
+	</table>
+	</div>
+	</fieldset>
+</td></tr>
+<script>
+function generate(){
+	if (confirm("הפעולה הזו  ימחק פרות תשלומים הקיים ויחולל תשלומים  מחדש. להמשיך?")){
+		s = showModalDialog("generatepayment.php","","center:yes;dialogWidth:400px;dialogHeight:300px;status:no");
+		if (typeof(s)!="undefined"){
+			arr=s.split("|");
+			document.F.copy.value=2;
+			document.F.totalsum.value=arr[0];
+			document.F.numpayments.value=arr[1];
+			document.F.date.value=arr[2];
+			document.F.cheque.value=arr[3];
+			document.F.bank.value=arr[4];
+			document.F.snif.value=arr[5];
+			document.F.acc.value=arr[6];
+			document.F.sum1.value=arr[7];
+			document.F.submit();
+		}
+	}
+}
+
+function paym(el){
+	tr = el.parentElement.parentElement;
+	switch (el.value+""){
+		case "0":
+			num="";
+			ch="";
+			break;
+		case "1"://mezuman
+			num="999999";
+			ch=1;
+			break;
+		case "2"://ashrai
+			num="888888";
+			ch=1;
+			break;
+		case "3":case "4"://bank
+			num="777777";
+			ch=1;
+			break;
+	}
+	tr.cells[4].all(0).value=ch;
+	tr.cells[5].all(0).value=num;
+	tr.cells[6].all(0).value=num;
+	tr.cells[7].all(0).value=num;
+}
+</script>
+<tr style='height:1%'>
+<td align=center>
+<input type=submit style='color:green;font-weight:bold' name=do value='אישור'> <input type=button value='סגור' onclick='window.close()'>
+</td>
+</tr>
+<input type=hidden name=totalsum>
+<input type=hidden name=date>
+<input type=hidden name=cheque>
+<input type=hidden name=bank>
+<input type=hidden name=snif>
+<input type=hidden name=acc>
+<input type=hidden name=sum1>
+</form>
+</table>
+
+		
+	<?php
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

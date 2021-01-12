@@ -1,0 +1,288 @@
+<?php
+    $PTYPE_CHEQUE = 0;
+    $PTYPE_MEZUMAN = 1;
+    $PTYPE_ASHRAI = 2;
+    $PTYPE_HAAVARA = 3;
+    $PTYPE_ORAATKEVA = 4;
+	$simple=1;
+	global $action, $id, $lang, $conn, $config;
+
+	$page_subtitle = "חיוב תקופתי";
+
+	require("include/common.php");
+    require("include/business_functions.php");
+    require("include/document.php");
+	if(!loginCheck('User'))exit;
+
+	include("$config[template_path]/admin_top.html");
+
+    if ($success)
+    {  
+        $q = " b.id in ($bids)";
+    } 
+    else
+    {
+        $q = " PERIOD_DIFF(extract(YEAR_MONTH from now()),extract(YEAR_MONTH from from_unixtime(last_billed))) >= month_frequency ";
+    }
+    
+    $sql = "select b.id, s.id as clientid, suppliername, dt.name as doctype, b.comment, dt.id as doctypeid,dt.is_payment,
+    b.stock_id,b.supplier_id, b.month_frequency,
+    b.payment_type, b.kupa_id,
+    case when (last_billed) = 0 then null else from_unixtime(last_billed) end as last_billed,
+    (sum(
+        bp.quantity *
+        (case when bp.listing_id then
+            ifnull(
+                (case when dt.metric='SalePrice' then lse.saleprice else null end),
+                (case when dt.metric='SalePrice' then l.saleprice else l.cost end)
+            ) 
+         else product_price*(1+".$config["VAT"]."/100) end
+        ) * ((100-ifnull(bp.discount,0))/100))
+        
+    ) as amount,
+    s.Bank, s.Snif, s.Account
+    from billing b
+    inner join listingsSuppliers s on  b.supplier_id = s.id
+    inner join $TABLE_DOCUMENT_TYPE dt on dt.id = b.doc_type
+    inner join billing_products bp on bp.billing_id = b.id 
+    left outer join listingsDB l on l.id = bp.listing_id
+    left outer join listingsStocksElements lse on lse.listingid = bp.listing_id and lse.stockid = b.stock_id
+    where  
+        b.user_id = $userID and
+        b.status = 1 and
+        $q
+    group by b.id,s.id having count(bp.id) > 0    
+    order by b.user_id, b.sortorder        
+    ";
+    
+
+    
+    $rs = DBQuery($sql);
+
+    //echo "<!--SQL:$sql-->";
+    
+        
+    if ($doPayment)
+    {
+        $dids="";$bids="";
+        while (!$rs->EOF)
+        {
+
+            $doc = new Document($rs->Fields("doctypeid"),$rs->Fields("stock_id"),$rs->Fields("supplier_id"));
+            $doc->comment = $rs->Fields("comment")."\n"."עבור חודש ".date("m/Y");
+            $doc->billingid = $rs->Fields("id");
+            $doc->UpdateStock = true;
+            $doc->Create($STATUS_ACTIVE);
+            $dids.=",".$doc->id;
+            $bids.=",".$rs->Fields("id");
+            $sql = "select * from billing_products where  billing_id = ".$rs->Fields("id")." order by sortorder";
+            $prods = DBQuery($sql);
+            while (!$prods->EOF)
+            {
+                $pbefore = $prods->Fields("listing_id")?"":$prods->Fields("product_price");
+                $doc->AddItem($prods->Fields("listing_id"),$prods->Fields("quantity"),$pbefore,$prods->Fields("discount"),$prods->Fields("product_name"),$prods->Fields("product_barcode"));
+                $prods->MoveNext();
+            }
+            if ($rs->Fields("is_payment"))
+            {
+				$bank = $snif = $account = "";
+				if ($rs->Fields("payment_type")==$PTYPE_CHEQUE||$rs->Fields("payment_type")==$PTYPE_ORAATKEVA)
+				{
+					$bank = $rs->Fields("Bank");
+					$snif = $rs->Fields("Snif");
+					$account = $rs->Fields("Account");
+				}
+                $doc->AddPayment($rs->Fields("amount"),$rs->Fields("payment_type"),$rs->Fields("kupa_id"),"",$bank,$snif,$account); 
+            }
+            DBQuery("update billing set last_billed = unix_timestamp() where id = ".$rs->Fields("id"));
+            $rs->MoveNext();
+        }
+        if ($dids)$dids=substr($dids,1);
+        if ($bids)$bids=substr($bids,1);
+        echo "<script>location='billing.php?success=1&dids=$dids&bids=$bids'</script>";
+    }
+    
+    
+?>
+<table width=100% height=380>
+<form method=post name=F onsubmit='return Validate()'>
+<tr><td>
+
+<div style='background-color:white;overflow-x:auto;overflow-y:scroll;border:inset 2;width:100%;height:100%'>
+<table id=REPORT_TAB width=100% border=1 cellpadding=2 style='border-collapse:collapse'>
+<tr class=printonly>
+<td colspan=7><b>חיוב תקופתי עבור חודש <?=date("m/Y")?></b></td>
+</tr>
+<tr class=tableHead2 align=center>
+    <td class="tableHead2 none" width=1% >&nbsp;</td>
+    <td class="tableHead2" >שם לקוח</td>
+    <td class="tableHead2" width=1% nowrap >סוג מסמך</td>
+    <td class="tableHead2" width=1% nowrap >סכום</td>
+    <td class="tableHead2"  >הערה</td>
+    <td class="tableHead2" width=1%  >תדירות 
+    (חודשום)</td>
+    <td class="tableHead2" width=1% nowrap>תאריך חיוב אחרון</td>
+</tr>
+<?
+$rs->MoveFirst();
+$TOTAL=0;
+$found = false;
+while (!$rs->EOF)
+{
+    $TOTAL += $rs->Fields("amount");
+    $found=true;?>
+<tr>
+    <td class=none><img style='cursor:hand' alt='להציג\להסתיר פריטים' src='<?=$imgPath?>plus_node.gif' id=img<?=$rs->Fields("id")?> align=absmiddle onclick='expand(<?=$rs->Fields("id")?>)'></td>
+    <td><a href="javascript:wopen('cppro/main.php?service=suppliers&cid=1&bd_event=edit_record&record_id=<?=$rs->Fields("clientid")?>','client',600,450)"><?=$rs->Fields("suppliername")?></a></td>
+    <td nowrap><a href="javascript:wopen('cppro/main.php?service=billing&bd_event=edit_record&cid=<?=$rs->Fields("clientid")?>&record_id=<?=$rs->Fields("id")?>','billing',400,450)"><?=$rs->Fields("doctype")?></a></td>
+    <td nowrap><?=number_format($rs->Fields("amount"),2)?></td>
+    <td nowrap><?=$rs->Fields("comment")?></td>
+    <td nowrap><?=$rs->Fields("month_frequency")?></td>
+    <td nowrap><?=$rs->Fields("last_billed")?DateFromSQL($rs->Fields("last_billed")):""?></td>
+</tr>
+<tr id=details<?=$rs->Fields("id")?> style=display:none>
+<td width=1%>&nbsp;</td>
+<td colspan=7>
+    <?
+    $sql = "select b.id, dt.name as doctype, bp.listing_id,
+        (case when bp.listing_id > 0 then l.title  else product_name end) as product_name,
+        (case when bp.listing_id > 0 then barcode else product_barcode  end) as product_barcode,
+        (case when bp.listing_id then 
+            ifnull(
+                (case when dt.metric='SalePrice' then lse.saleprice else null end),
+                (case when dt.metric='SalePrice' then l.saleprice else l.cost end)
+                ) /(1+$config[VAT]/100)
+         else product_price end
+        ) as amount,
+        (case when bp.listing_id then 
+            ifnull(
+                (case when dt.metric='SalePrice' then lse.saleprice else null end),
+                (case when dt.metric='SalePrice' then l.saleprice else l.cost end)
+            ) 
+         else product_price*(1+$config[VAT]/100) end
+        )
+        *bp.quantity*(100-bp.discount)/100 as total,
+        bp.quantity, 
+        bp.discount
+    from billing b
+    inner join $TABLE_DOCUMENT_TYPE dt on dt.id = b.doc_type 
+    inner join billing_products bp on bp.billing_id = b.id 
+    left outer join listingsDB l on l.id = bp.listing_id 
+    left outer join listingsStocksElements lse on lse.listingid = bp.listing_id and lse.stockid = b.stock_id
+    where 
+        b.id = ".$rs->Fields("id")." 
+    order by bp.sortorder        
+    ";
+    $productsRS = DBQuery($sql);
+    ?>
+    <table width=100% border=1 cellpadding=1 style='border-collapse:collapse;'>
+        <tr style='background-color:#efefef' align=center>
+            <td width=1% nowrap>ברקוד</td>
+            <td >שם פריט</td>
+            <td width=1% nowrap >מחיר לפני 
+            <br>
+            מע"מ</td>
+            <td width=1% nowrap >הנחה %</td>
+            <td width=1% nowrap>כמות</td>
+            <td width=1% nowrap>מע"מ</td>
+            <td width=1% nowrap>סה"כ</td>
+        </tr>
+        <?while (!$productsRS->EOF){?>
+        <tr>
+            <td><?=$productsRS->Fields("product_barcode")?></td>
+            <td>
+            <?if ($productsRS->Fields("listing_id")){?>
+            <a href='javascript:wopen("edit_my_listings.php?simple=1&edit=<?=$productsRS->Fields("listing_id")?>")'><u>
+            <?}?>
+            <?=$productsRS->Fields("product_name")?></a></td>
+            <td><?=number_format($productsRS->Fields("amount"),2)?></td>
+            <td><?=$productsRS->Fields("discount")?></td>
+            <td><?=$productsRS->Fields("quantity")?></td>
+            <td><?=number_format($productsRS->Fields("total")-($productsRS->Fields("total")/(1+$config[VAT]/100)),2)?></td>
+            <td><?=number_format($productsRS->Fields("total"),2)?></td>
+        </tr>
+        <?$productsRS->MoveNext();}?>
+    </table>
+</td>
+</tr>
+    
+<?$rs->MoveNext();}?>
+
+<?if (!$found){?>
+<tr><td colspan=7 align=center><br><b>אין מסמכים מתאימים לחיוב תקופתי בחודש זה<br><br></td></tr>
+<?}else{?>
+<tr>
+<td><b>סה"כ</b></td>
+<td colspan=2></td>
+<td><b><?=number_format($TOTAL,2)?></b></td>
+<td colspan=3></td>
+</tr>
+<?}?>
+</table>
+</div>
+
+
+</td></tr>
+
+
+    <tr style='height:1%'>
+    <td align=center>
+     <table width=100% cellpadding=0 cellspacing=0>
+         <tr>
+             <td align=center>
+             <?if ($success){?>
+                <input type=button value='הדפס מסמכים' onclick='printCopies()' class=button style='background-image:url(<?=$imgPath?>printer.gif)'>
+             <?}else{?>
+                <?if ($found){?>
+                <input type=submit id=btnOK name=doPayment value='לבצע חיוב תקופתי' class=button style='background-image:url("<?=$imgPath?>ok.gif")'>
+                <input type=button value='הדפס' onclick='printList()' class=button style='background-image:url(<?=$imgPath?>printer.gif)'>
+                <?}?>
+             <?}?>
+             <input type=button value='סגור' onclick='window.close();' class=button style='background-image:url("<?=$imgPath?>back.gif")'>
+             </td>
+         </tr>
+     </table>
+
+    </td>
+    </tr>
+    
+</form> 
+</table>
+
+<script>
+function expand(id)
+{
+    unvisible =  document.getElementById("details"+id).style.display =="none"
+    document.getElementById("details"+id).style.display = (unvisible)?"":"none";
+    document.getElementById("img"+id).src = (unvisible)?("<?=$imgPath?>min_node.gif"):("<?=$imgPath?>plus_node.gif");
+}
+
+function Validate()
+{
+    return confirm("האם ברצונך לבצע חיוב תקופתי לפי המסמכים שהוצגו?");
+}
+
+<?if ($success){?>
+
+function printCopies(){
+    return showModalDialog("printdoc.php?docid=<?=$dids?>","","dialogWidth:300px;dialogHeight:250px;center:yes;resizable:no;status:no;help:no");
+}
+
+
+document.body.onload = printCopies;
+    
+<?}?>
+
+function printList(){
+	s = window.open('print.php?simple=1','print','top=50,left=100,height=300,width=700,resizable=yes,scrollbars=yes');
+    s.focus();
+}
+</script>
+
+<?
+    
+    
+    
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

@@ -1,0 +1,185 @@
+<?
+	//	XML library to parse modules in XML format
+	//	for BD3 project's services
+	//	This code should convert XML structured tags to
+	//	PHP code.
+	//
+
+	$pParsers = array();
+	$nId = 0;
+
+	//	CXMLTree Class defines 1 item of the XML btree...
+ 	class CXMLTree
+	{
+		var $sName = "";
+		var $nDepth = 0;
+		var $sAttr = "";
+		var $sData = "";
+		var $xtParent = 0;
+		var $nId = 0; 
+	}
+
+	//	This class makes all routines to gather XML btree
+	class CModXMLParser
+	{
+		//	Global data.
+		var $xtTree = array();
+		var $xtTemp;
+		var $xtLast;
+
+		//	Array is using for many parsers runned already
+		var $sDepth = array();
+		var $nId;
+
+		function CModXMLParser($sFileName)
+		{
+		 	$this->xtTemp = new CXMLTree;
+			$this->xtLast = new CXMLTree;
+			$this->nId = 10000;
+
+			$this->mxmlParseFile($sFileName);
+
+		}
+
+		function mxmlParseXML($sXMLCode)
+		{
+			global $pParsers;
+
+			$pXMLParser = xml_parser_create();
+			$sXMLIndex = $sXMLValues = 0;
+
+			$pParsers[ $pXMLParser ] =& $this;
+
+			xml_parser_set_option($pXMLParser, XML_OPTION_CASE_FOLDING, 0);
+    		xml_parser_set_option($pXMLParser, XML_OPTION_SKIP_WHITE, 1);
+
+			xml_set_character_data_handler($pXMLParser, "mxmlTagCharacterData");
+			xml_set_element_handler($pXMLParser, "mxmlBeginXMLTag", "mxmlEndXMLTag");
+
+			if(!xml_parse($pXMLParser, $sXMLCode))
+			{
+			   	$this->mxmlParserError($pXMLParser);
+			}
+
+			xml_parser_free($pXMLParser);
+		}
+
+		function mxmlParseFile($sFileName)
+		{
+			if($sFileName == "" || !($pHandle = @fopen($sFileName, "r")))
+			{
+				return 0;
+			}
+
+			//	Reading XML file data
+			$sTmpXMLCode = fread($pHandle, filesize($sFileName));
+			fclose($pHandle);
+
+			//	Forwarding XML code to the main parser function
+			$this->mxmlParseXML($sTmpXMLCode);
+		}
+
+		function mxmlGetBTree()
+		{
+			return $this->xtTree;
+		}
+
+		function mxmlParserError($pXMLParser)
+		{
+        	echo(sprintf("<font color=C00000 size=-1><b>XML error:</b> %s at line %d</font>", xml_error_string(xml_get_error_code($pXMLParser)),
+    	                xml_get_current_line_number($pXMLParser)));
+		}
+	}	// CModXMLParser
+
+
+		function mxmlBeginXMLTag($pXMLParser, $sName, $sAttr)
+		{
+			global $pParsers, $nId;
+			$mxpObj =& $pParsers[ $pXMLParser ];
+
+			$nId++;
+			$mxpObj->sDepth[ $pXMLParser ]++;
+
+			$xtObj = new CXMLTree;
+			$xtObj->sName = strtoupper($sName);
+			$xtObj->sAttr = $sAttr;
+			$xtObj->nDepth = $mxpObj->sDepth[ $pXMLParser ];
+			$xtObj->nId = $nId;
+
+			if(!$mxpObj->xtTemp->sName)
+			{
+				//	root item
+				$xtObj->xtParent = 0;
+				$mxpObj->xtTemp = $xtObj;
+			}
+			else
+			{
+				if($mxpObj->xtLast->nDepth < $xtObj->nDepth)
+				{
+					$mxpObj->xtTemp = $mxpObj->xtLast;
+				}
+				else
+				{
+					if($mxpObj->xtTemp->nDepth != $xtObj->nDepth)
+					{
+						$xtTempObj = $mxpObj->xtTemp;
+
+						while($xtTempObj->xtParent)
+						{
+ 							if($xtTempObj->nDepth == $xtObj->nDepth)
+							{
+								$mxpObj->xtTemp = $xtTempObj->xtParent;
+								break;
+							}
+							else
+							{
+								$xtTempObj = $xtTempObj->xtParent;
+							}
+						}
+					}
+
+					if($mxpObj->xtTemp->nDepth == $xtObj->nDepth)
+					{
+						$mxpObj->xtTemp = $mxpObj->xtTemp->xtParent;
+					}
+				}
+
+				$xtObj->xtParent = $mxpObj->xtTemp;
+			}
+
+			//	Push current item to the global variable
+			$mxpObj->xtLast = $xtObj;
+			$mxpObj->xtTree[] = $xtObj;
+
+//			$pParsers[ $pXMLParser ] =& $mxpObj;
+		}
+
+		function mxmlEndXMLTag($pXMLParser, $sName)
+		{
+			global $pParsers;
+			$mxpObj =& $pParsers[ $pXMLParser ];
+			$mxpObj->sDepth[ $pXMLParser ]--;
+ //			$pParsers[ $pXMLParser ] =& $mxpObj;
+		}
+
+		function mxmlTagCharacterData($pXMLParser, $sData)
+		{
+			global $pParsers;
+			$mxpObj =& $pParsers[ $pXMLParser ];
+
+			if($sData != "\n" && $sData != "\t" && ord($sData) != 0x09 && trim($sData) != "" && $sData != "\r")
+			{
+				for($i = 0; $i < sizeof($mxpObj->xtTree); $i++)
+				{
+					if($mxpObj->xtTree[ $i ] == $mxpObj->xtLast)
+					{
+						//if php5, then encode the string
+						$mxpObj->xtTree[ $i ]->sData = !function_exists("iconv_substr") ? $sData : iconv("UTF-8","WINDOWS-1255",$sData);
+						break;
+					}
+				}
+			}
+ //			$pParsers[ $pXMLParser ] =& $mxpObj;
+		}
+
+ ?>

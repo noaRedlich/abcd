@@ -1,0 +1,289 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+//////////////////////////////////////////////////////////////////////////////////
+///////////////////// This file handles registration          ////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
+require("../Group-Office.php");
+
+if (!$GO_CONFIG->allow_registration){
+	$GO_SECURITY->authenticate(true);
+}
+
+require($GO_LANGUAGE->get_language_file('users'));
+require($GO_CONFIG->class_path."/users.class.inc");
+$users = new users;
+
+$page_title = $registration_title;
+require($GO_THEME->theme_path."header.inc");
+
+require($GO_CONFIG->class_path."/validate.class.inc");
+$val = new validate;
+
+$module_acl = isset($module_acl) ? $module_acl : array();
+
+echo '<table border="0" cellpadding="10" cellspacing="0"><tr><td>';
+
+if ($REQUEST_METHOD == "POST")
+{
+	$username = strtolower($_POST['username']);
+
+
+	$val->error_required = $error_required;
+	$val->error_min_length = $error_min_length;
+	$val->error_max_length = $error_max_length;
+	$val->error_expression = $error_email;
+
+	$val->name="name";
+	$val->input=$name;
+	$val->max_length=50;
+	$val->required=true;
+	$val->validate_input();
+
+	$val->name="username";
+	$val->input=$username;
+	$val->min_length=3;
+	$val->max_length=20;
+	$val->required=true;
+	$val->validate_input();
+	
+	if ($GO_CONFIG->require_businessnum){
+		$val->name="businessnum";
+		$val->input=$businessnum;
+		$val->min_length=3;
+		$val->max_length=20;
+		$val->required=true;
+		$val->validate_input();
+	}
+	
+
+	$val->name="auth1";
+	$val->input=$auth1;
+	$val->min_length=3;
+	$val->max_length=20;
+	$val->required=false;
+	$val->validate_input();
+
+	$val->name="auth2";
+	$val->input=$auth2;
+	$val->min_length=3;
+	$val->max_length=20;
+	$val->required=false;
+	$val->validate_input();
+
+	$val->name="pass1";
+	$val->input=$pass1;
+	$val->min_length=3;
+	$val->max_length=8;
+	$val->required=true;
+	$val->validate_input();
+
+	$val->name="pass2";
+	$val->input=$pass2;
+	$val->min_length=3;
+	$val->max_length=8;
+	$val->required=true;
+	$val->validate_input();
+	
+/*
+	$val->name="question";
+	$val->input=$question;
+	$val->max_length=100;
+	$val->required=true;
+	$val->validate_input();
+
+	$val->name="answer";
+	$val->input=$answer;
+	$val->max_length=50;
+	$val->required=true;
+	$val->validate_input();
+*/
+	$val->name="email";
+	$val->input=$email;
+	$val->max_length=75;
+
+	if (!isset($create_email))
+	{
+		$val->required=true;
+	}
+
+	$val->expression="^([a-z0-9]+)([._-]([a-z0-9]+))*[@]([a-z0-9]+)([._-]([a-z0-9]+))*[.]([a-z0-9]){2}([a-z0-9])?$";
+	$val->validate_input();
+
+	if ($auth1!='' || $auth2!=''){
+		$val->error_match = $error_match_auth;
+		$val->name="auth1";
+		$val->match1=$auth1;
+		$val->match2=$auth2;
+		$val->validate_input();
+	}
+
+	$val->error_match = $error_match_pass;
+	$val->name="pass1";
+	$val->match1=$pass1;
+	$val->match2=$pass2;
+	$val->validate_input();
+
+	if (!$val->validated)
+	{
+		$error ="<p class='Error'>".$errors_in_form."</p>";
+	//check if username already exists
+	}elseif($users->username_exists($username))
+	{
+		$error = "<p class='Error'>".$error_username_exists."</p>";
+	//check if email is already registered
+	}elseif($users->email_exists($email))
+	{
+		$error =  "<p class='Error'>".$error_email_exists."</p>";
+	}else
+	{
+		if ($email == '')
+		{
+		   $email = $username.'@'.$GO_CONFIG->inmail_host;
+		}
+
+		//get a new acl_id for the user
+		if ($acl_id = $GO_SECURITY->get_new_acl($email))
+		{
+			$create_samba_user = isset($create_samba_user) ? true : false;
+
+			//register the new user. function returns new user_id or -1 on failure.
+			if ($new_user_id = $users->add_user($username,$pass1, $name, $email, $auth1, $question, $answer, $work_phone, $home_phone, $fax, $cellular, $country, $state, $city, $zip, $address, $company, $work_country, $work_state, $work_city, $work_zip, $work_address, $work_fax, $businessnum, $homepage, $department, $function, $acl_id, $create_samba_user))
+			{
+				if (isset($create_email))
+				{
+					require($GO_CONFIG->class_path."imap.class.inc");
+					$mail= new imap;
+					if ($mail->open($GO_CONFIG->local_email_host, $GO_CONFIG->inmail_type, $GO_CONFIG->inmail_port, $username, $pass1))
+					{
+						require($GO_CONFIG->class_path."email.class.inc");
+						$emac = new email;
+
+						if ($account_id = $emac->add_account($new_user_id, $GO_CONFIG->inmail_type,$GO_CONFIG->local_email_host, $GO_CONFIG->inmail_port, $GO_CONFIG->inmail_root, $username, $pass1, $name, $username."@".$GO_CONFIG->inmail_host, ""))
+						{
+							$mailboxes =  $mail->get_mailboxes();
+							$subscribed =  $mail->get_subscribed();
+							$emac->synchronise($account_id, $subscribed);
+
+							//create sent items folder
+							if (!in_array($GO_CONFIG->inmail_root.$ml_sent_items, $mailboxes))
+							{
+								$mail->create_folder($GO_CONFIG->inmail_root.$ml_sent_items);
+							}else
+							{
+								if (!in_array($GO_CONFIG->inmail_root.$ml_sent_items, $subscribed))
+								{
+									$mail->subscribe($GO_CONFIG->inmail_root.$ml_sent_items);
+								}
+							}
+
+							if (!$emac->folder_exists($account_id, $GO_CONFIG->inmail_root.$ml_sent_items))
+							{
+								$emac->add_folder($account_id, $GO_CONFIG->inmail_root.$ml_sent_items);
+							}
+
+							$emac->set_as_sent_folder($account_id, $GO_CONFIG->inmail_root.$ml_sent_items);
+
+							//create spam folder
+							if (!in_array($ml_spam, $mailboxes))
+							{
+								$mail->create_folder($GO_CONFIG->inmail_root.$ml_spam);
+							}else
+							{
+								if (!in_array($GO_CONFIG->inmail_root.$ml_spam, $subscribed))
+								{
+										$mail->subscribe($GO_CONFIG->inmail_root.$ml_spam);
+								}
+							}
+
+							if (!$emac->folder_exists($account_id, $GO_CONFIG->inmail_root.$ml_spam))
+									$emac->add_folder($account_id, $GO_CONFIG->inmail_root.$ml_spam);
+
+							$emac->set_as_spam_folder($account_id, $GO_CONFIG->inmail_root.$ml_spam);
+
+							$mail->close();
+						}else
+						{
+								echo "<p class=\"Error\">".$registration_email_error."</p>";
+								echo "<p class=\"Error\">".imap_last_error()."</p>";
+						}
+					}else
+					{
+							echo "<p class=\"Error\">".$registration_email_error."</p>";
+							echo "<p class=\"Error\">".imap_last_error()."</p>";
+					}
+				}
+
+				//user was added
+
+				//send email to the user with password
+				$registration_mail_body = str_replace("%name%",$name, $registration_mail_body);
+				$registration_mail_body .= "\n\n".$GO_CONFIG->host;
+				sendmail($email,  $GO_CONFIG->webmaster_email, $GO_CONFIG->title, $registration_mail_subject, $registration_mail_body);
+
+				$body  = "Host: ".$GO_CONFIG->host."\r\n";
+				$body .= $strName.": ".$name."\r\n";
+				$body .= "E-mail: ".$email."\r\n";
+				$body .= $strCompany.": ".$company."\r\n";
+
+				sendmail($GO_CONFIG->webmaster_email, $GO_CONFIG->webmaster_email, $GO_CONFIG->title, "New Group-Office member registered", $body);
+
+				//add the user to the everyone group
+				require_once($GO_CONFIG->class_path."groups.class.inc");
+				$groups = new groups;
+				$groups->add_user_to_group($new_user_id,$GO_SECURITY->group_everyone);
+
+				//add administrator to the users acl
+				$GO_SECURITY->add_group_to_acl($GO_SECURITY->group_root, $acl_id);
+
+				//if user want's to be visible to any one add the everyone group to the users acl_id
+				if (isset($visible))
+				{
+					$GO_SECURITY->add_group_to_acl($GO_SECURITY->group_everyone, $acl_id);
+				}
+
+				//set module permissions
+				for ($i=0;$i<count($module_acl);$i++)
+				{
+					$GO_SECURITY->add_user_to_acl($new_user_id, $module_acl[$i]);
+				}
+
+				//create Group-Office home directory
+				$old_umask = umask(000);
+				mkdir($GO_CONFIG->file_storage_path.$username, $GO_CONFIG->create_mode);
+				umask($old_umask);
+
+				//confirm registration to the user and exit the script so the form won't load
+				echo $registration_success." <b>".$email."</b>";
+
+				echo '<br /><br />';
+				$button = new button($cmdContinue, "javascript:document.location='../index.php';");
+				echo '</td></tr></table>';
+				require($GO_THEME->theme_path."footer.inc");
+				exit;
+			}else
+			{
+					$error = "<p class=\"Error\">".$registration_failure."</p>";
+			}
+		}else
+		{
+				$error = "<p class=\"Error\">".$registration_failure."</p>";
+		}
+	}
+}
+if ($users->get_users() < $GO_CONFIG->max_users || $GO_CONFIG->max_users == 0)
+{
+        require("register_form.inc");
+}else
+{
+        echo '<h1>'.$max_user_limit.'</h1>'.$max_users_text;
+}
+echo '</td></tr></table>';
+require($GO_THEME->theme_path."footer.inc");
+?>

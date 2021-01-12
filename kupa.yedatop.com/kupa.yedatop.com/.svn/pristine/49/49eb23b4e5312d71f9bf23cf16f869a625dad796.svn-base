@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>userdata</main_table> 
+	<name>הגדרות חשבשבת</name>
+	<options>
+		<opt name="create_record" type="none"></opt>
+		<opt name="edit_record" type="sometime"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="UserName" >שם משתמש</vcol>
+	</view>
+	<edit>
+		<ecol tab="1"  name="CodeMechirot" type="string">מפתח חשבון מכירות</ecol>
+    <ecol tab="1" name="CodeVAT" type="string">מפתח חשבון מע''מ</ecol>
+		<ecol tab="1" name="CodeIsra" type="string">מפתח חשבון ישקאכרט</ecol>
+    <ecol tab="1" name="CodeVisa" type="string">מפתח חשבון ויזה</ecol>
+		<ecol tab="1" name="CodeAMEX" type="string">מפתח חשבון AMEX</ecol>
+		<ecol tab="1" name="CodeDiners" type="string">מפתח חשבון דיינרס</ecol>
+    <ecol tab="1" name="CodeMastercard" type="string">מפתח חשבון מסטרכארט</ecol>
+    <ecol tab="1" name="CodeEurocard" type="string">מפתח חשבון ירוכארט</ecol>
+		<ecol tab="1" name="CodeCheque" type="string">מפתח חשבון שיקים</ecol>
+    <ecol tab="1" name="CodeCash" type="string">מפתח חשבון מזומן</ecol>
+    <ecol tab="1" name="CodeShovar" type="string">מפתח חשבון שוברים</ecol>
+    <ecol name="ShovarRules"  type="cross_parent" service="shovar_rules" cross_field="user_id" tab="2"></ecol>
+    <ecol tab="1" type="yes_no" name="UseShovarRules">להשתמש בכללי שוברים</ecol>
+  </edit>
+	<sql_actions>
+		<opt name="order" val="UserName"></opt>
+		<opt name="search_by" type="UserName"></opt>
+	</sql_actions>
+  <tabs>
+    <tab index="1" name="מפתחות"></tab>
+    <tab index="2" name="כללי שוברים"></tab>
+  </tabs>
+</xml>

@@ -1,0 +1,225 @@
+<?if ($excelonly){?>
+<input type=button value=" Excel " onclick='location="../../tmp/<?=$xlsfilename?>_<?=$userID?>.xls"'>
+<?}?>
+<div id=Query style='padding:3px 0px'>
+<?if(!$excelmode){?>
+<input type=button value=" <?=$lang["print"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>printrep.gif);background-repeat:no-repeat;background-position:left top" onclick='printMe()'>&nbsp;
+<input type=button value=" <?=$lang["sendmail"]?> " style="width:160;cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>email.gif);background-repeat:no-repeat;background-position:left top" onclick='sendReport(1)'>
+<input type=button value=" <?=$lang["sendfax"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>fax.gif);background-repeat:no-repeat;background-position:left top" onclick='sendReport(2)'>
+<?if ($xlsfilename){?>
+<input type=button value=" Excel " style="cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>excel.gif);background-repeat:no-repeat;background-position:left top" onclick='location="../../tmp/<?=$xlsfilename?>_<?=$userID?>.xls"'>
+<?}?>
+<?if ($sendtobasket){?>
+<input type=button value=" <?=$lang["add_items_to_basket"]?> " style="cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>shoppingbasket_add.png);background-repeat:no-repeat;background-position:left top" onclick='sendToBasket()'>
+<?}?>
+<?}?> 
+<script>
+
+function toggleElements(mode)
+{          
+    for(i=0;i<document.all.tags("IMG").length;i++)
+    {
+        document.all.tags("IMG")[i].style.display=mode;    
+    }
+    for(i=0;i<document.all.tags("INPUT").length;i++)
+    {
+        el = document.all.tags("INPUT")[i];
+        if (el.type=="submit"||el.type=="button")
+        {
+            document.all.tags("INPUT")[i].style.display=mode;    
+        }
+    }
+    for(i=0;i<document.all.tags("SELECT").length;i++)
+    {
+        el = document.all.tags("SELECT")[i];
+        if (el.name=="stock")
+        {
+            document.all.tags("SELECT")[i].style.display=mode;    
+        }
+    }
+}
+function sendToBasket(){
+    document.IDS.submit();
+}
+
+function printMe()
+{
+    document.getElementById("REPORTHEADER").style.display = "";   
+    toggleElements("none");
+
+    if (PrintReport)
+    {
+        PrintReport();
+    }
+    else
+    {
+        document.getElementById("Query").style.display = "none";
+		window.print();
+        document.getElementById("Query").style.display = "block"; 
+    }
+    
+
+    toggleElements(""); 
+    document.getElementById("REPORTHEADER").style.display = "none";       
+    
+}   
+
+function sendReport(mode){
+
+	address = (mode==1)?"<?=$usermail?>":"<?=$userfax?>";
+
+	if (!address){
+		if (mode==1){
+			alert("<?=$lang["no_mail"]?>");
+		}
+		else{
+			alert("<?=$lang["no_fax"]?>");
+		}
+	}
+	else{
+		document.F.saction.value = "sendreport";
+		document.F.sendmode.value = mode;
+		document.F.reportbody.value = document.getElementById("REPORTTABLE").outerHTML;
+		document.F.submit();
+	}
+}
+
+</script>
+</div>
+<?
+ReportHeader();
+    
+    if ($xlsfilename){ 
+    	$fname = tempnam("../../tmp",$xlsfilename.".xls");
+    	$workbook =new writeexcel_workbookbig($fname);
+    	$workbook->set_tempdir('../../tmp');
+    	$worksheet =$workbook->addworksheet();
+    	$header  =$workbook->addformat(array(
+                                            bold    => 1,
+                                            color   => 'blue',
+    										font 	=> "Arial Hebrew",
+    										size	=> 18,
+    										align  => 'left',
+                                            ));
+    	$heading  = $workbook->addformat(array(
+                                            bold    => 1,
+                                            color   => 'blue',
+    										font 	=> "Arial Hebrew",
+    										valign  => 'top',
+    										align	=> 'center',
+    										border	=> 1
+                                            ));
+    	$body  = $workbook->addformat(array(
+                                            bold    => 0,
+    										font 	=> "Arial Hebrew",
+    										valign  => 'top',
+    										border	=> 1,
+    										num_format  =>  '#######################0',
+                                            ));
+    	$bodyr  = $workbook->addformat(array(
+                                            bold    => 0,
+    										font 	=> "Arial Hebrew",
+    										valign  => 'top',
+    										align   => 'right',
+    										border	=> 1,
+    										num_format  =>  '#######################0',
+                                            ));
+    	$bodyred  = $workbook->addformat(array(
+                                            bold    => 0,
+    										font 	=> "Arial Hebrew",
+    										valign  => 'top',
+    										color	=> "red",
+    										border	=> 1,
+    										num_format  =>  '#######################0',
+                                            ));
+    	$bodyredr  = $workbook->addformat(array(
+                                            bold    => 0,
+    										font 	=> "Arial Hebrew",
+    										valign  => 'top',
+    										align   => 'right',
+    										color	=> "red",
+    										border	=> 1,
+    										num_format  =>  '#######################0',
+                                            ));
+    	$numformat  = $workbook->addformat(array(
+    										num_format  =>  '0.00',
+    										bold    => 0,
+    										font 	=> "Arial Hebrew",
+    										valign  => 'top',
+    										border	=> 1
+                                            ));
+    	$numformatb  = $workbook->addformat(array(
+    										num_format  =>  '0.00',
+    										bold    => 1,
+    										font 	=> "Arial Hebrew",
+    										valign  => 'top',
+    										border	=> 1
+                                            ));
+    	$numformatred  = $workbook->addformat(array(
+    										num_format  =>  '############0.00',
+    										bold    => 0,
+    										color	=> "red",
+    										font 	=> "Arial Hebrew",
+    										valign  => 'top',
+    										border	=> 1
+                                            ));
+    	$heading->set_text_wrap();
+    	$body->set_text_wrap();
+    	$worksheet->hide_gridlines(2);
+
+
+           
+        if(!$noexcelheader)
+        {
+    	    $worksheet->write("A1",$page_subtitle,$header);
+    	    $rrow=3;
+        }
+        else
+        {
+            $rrow=1;
+        }        
+    }
+    
+    
+function ReportHeader()
+{
+    global $GO_CONFIG,$userID,$stock,$TABLE_LISTINGSSTOCKS;
+    $userinfo = DBQuery("select * from ".$GO_CONFIG->db_name.".users u where id = $userID");
+    echo "<div id=REPORTHEADER style=display:none><hr><table width=100%><tr><td colspan=100>";
+    
+    $phonefax = "טל. ".$userinfo->fields["work_phone"];
+    if ($userinfo->fields["work_fax"]){
+        $phonefax.=" פקס. ".$userinfo->fields["work_fax"];
+    }
+    $address= $userinfo->fields["work_address"]. " ".$userinfo->fields["work_city"]." ".$userinfo->fields["work_zip"];
+
+    $mail = "דואר אלקטרוני: ".$userinfo->fields["email"];
+
+    if ($userinfo->fields["homepage"]){
+        $web = "אתר: ".$userinfo->fields["homepage"];
+    }
+
+    echo "<B style='font-size:12pt'>".$userinfo->fields["company"]."</B>";
+    if (trim($address))
+    {
+        echo "<br>".$address;
+    }
+    if ($phonefax || $mail || $web)
+    {
+        echo "<span style=font-size:8pt>";
+        echo "<br>".$phonefax;
+        echo " ".$mail;
+        echo " ".$web;
+        echo "</span>";
+    }
+    if($stock)
+    {
+        $srs = DBQuery("select stockname from $TABLE_LISTINGSSTOCKS where id = $stock");
+        echo "<br><span style=font-size:8pt>נקודת מכירה: <b>".$srs->fields["stockname"]."</b></span>";
+    }
+
+
+        
+    echo "</td></tr></table></div>";
+}
+?>

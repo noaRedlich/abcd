@@ -1,0 +1,242 @@
+<html dir='<?=$direction?>'>
+<head>
+<link href="<?php echo $GO_THEME->stylesheet; ?>?2" rel="stylesheet" type="text/css">
+<script language="javascript" type="text/javascript" src="<?php echo $GO_CONFIG->host; ?>javascript/common.js"></script>
+<script language="JavaScript" src="<?php echo $GO_THEME->theme_url; ?>JSCookMenu.js"></script>
+<meta http-equiv="content-type" content="text/html; charset=<?=$charset?>">
+
+<title>
+<?php
+echo $GO_CONFIG->title;
+if (isset($page_title))
+{
+        echo " - ".$page_title;
+}
+
+echo "</title></head>";
+echo '<body scroll=no scrolling=no marginwidth="0" marginheight="0" leftmargin="0" topmargin="0" ';
+if (isset($header_body_args)) echo $header_body_args;
+echo '>';
+                                                                              
+?>
+<table border="0" cellpadding="0" cellspacing="0" height="100%" width="100%">
+<?/*
+<tr style='height:1%'>
+	<td valign="top">
+	<table border="0" cellpadding="0" cellspacing="0" width="100%">
+	<tr>
+		<td class="Header">&nbsp;</td>
+		<td height="49" width=99% class="Header">
+		<a style=color:white href="<?php echo $GO_CONFIG->host; ?>">
+		<span class=Header style=font-weight:900><?=$GO_CONFIG->title?></span></a>
+		<br><span style='font-size:10pt;color:lightblue'><?=$GO_CONFIG->admin_phone?>  <a style='color:lightblue' href="mailto:<?=$GO_CONFIG->support_email?>"><?=$GO_CONFIG->support_email?></a></span></td>
+		<td valign=bottom align="right" class="Header" background="<?php echo $GO_THEME->image_url."verloop_$direction.jpg"; ?>" border="0" width="250" height="49" style='padding-left:10px;padding-bottom:3px'>
+            <span style='font-size:20pt;width:300;text-align:left;font-style:normal;color:blue;font-weight:bold;'>
+            <?if (strpos($PHP_SELF,"stock/pro.php")){?>
+            מלאיטק פרו<?}
+            elseif (strpos($PHP_SELF,"stock/clients.php")){?>
+            פרופיט<?}
+            elseif (strpos($PHP_SELF,"stock/")){?>
+            מלאיטק<?
+            }?> 
+            <span style='font-size:8pt;font-weight:normal' dir=ltr><br>
+            <?if (strpos($PHP_SELF,"stock/clients.php")){?>
+			גירסת בטא &nbsp;
+            <?}?>
+            Copyright &copy; 2004-2005 NetCity</span></span></td>
+	</tr>
+	</table>
+	</td>
+</tr>
+*/?>
+<tr height="1%">
+	<td >
+	<table border="0" cellpadding="0" cellspacing="0" width="100%" height="25" class="topbar">
+	<tr>
+		<?php
+		if ($GO_SECURITY->logged_in){
+		?>
+		<td width=1% >
+			<div>
+			<table border="0" cellpadding="0" cellspacing="0" width="100%">
+			<tr>
+				<td width=1% style='border:outset 2px;' id="GO_MENU">
+				<script language="JavaScript">
+				<!--
+
+				// directory of where all the images are
+				var cmThemeBase = '<?php echo $GO_THEME->image_url; ?>menu/';
+
+				var cmTheme =
+				{
+					// main menu display attributes
+					//
+					// Note.  When the menu bar is horizontal,
+					// mainFolderLeft and mainFolderRight are
+					// put in <span></span>.  When the menu
+					// bar is vertical, they would be put in
+					// a separate TD cell.
+
+					// HTML code to the left of the folder item
+					mainFolderLeft: '&nbsp;',
+					// HTML code to the right of the folder item
+					mainFolderRight: '&nbsp;',
+					// HTML code to the left of the regular item
+					mainItemLeft: '&nbsp;',
+					// HTML code to the right of the regular item
+					mainItemRight: '&nbsp;',
+
+					// sub menu display attributes
+
+					// 0, HTML code to the left of the folder item
+					folderLeft: '<img alt="" src="' + cmThemeBase + 'spacer.gif">',
+					// 1, HTML code to the right of the folder item
+					folderRight: '<img alt="" src="' + cmThemeBase + 'arrow_<?=$direction?>.gif">',
+					// 2, HTML code to the left of the regular item
+					itemLeft: '<img alt="" src="' + cmThemeBase + 'spacer.gif">',
+					// 3, HTML code to the right of the regular item
+					itemRight: '<img alt="" src="' + cmThemeBase + 'blank.gif">',
+					// 4, cell spacing for main menu
+					mainSpacing: 0,
+					// 5, cell spacing for sub menus
+					subSpacing: 0,
+					// 6, auto dispear time for submenus in milli-seconds
+					delay: 500
+				};
+
+				// for horizontal menu split
+				//var cmThemeHSplit = [_cmNoAction, '<td class="ThemeMenuItemLeft"></td><td colspan="2"><div class="ThemeMenuSplit"></div></td>'];
+				var cmThemeHSplit = [_cmNoAction, '<td colspan="3" class="ThemeMenuSplit"></td>'];
+				var cmThemeMainHSplit = [_cmNoAction, '<td class="ThemeMainItemLeft"></td><td colspan="2"><div class="ThemeMenuSplit"></div></td>'];
+				var cmThemeMainVSplit = [_cmNoAction, '|'];
+
+				<?
+				$addressimg = "<img align=absmiddle height=18 src='".$GO_THEME->image_url."buttons/addressbook_big.gif'>";
+				$searchimg = "<img align=absmiddle height=18 src='".$GO_THEME->image_url."buttons/search.gif'>";
+				$logoutimg = "<img align=absmiddle height=18 src='".$GO_THEME->image_url."buttons/logout.gif'>";
+				$helpimg = "<img align=absmiddle height=18 src='".$GO_THEME->image_url."buttons/help.gif'>";
+				$favimg = "<img align=absmiddle height=18 src='".$GO_THEME->image_url."buttons/favorites.gif'>";				
+				$minimg = "<img align=absmiddle height=18 src='".$GO_THEME->image_url."buttons/minimize.gif'>";				
+				$appimg = "<img align=absmiddle height=18 src='".$GO_THEME->image_url."buttons/app.gif'>";				
+				$keyimg = "<img align=absmiddle height=18 src='".$GO_THEME->image_url."buttons/key.gif'>";				
+				$configimg = "<img align=absmiddle height=18 src='".$GO_THEME->image_url."buttons/config.gif'>";				?>
+				var go_menu =
+				[
+				["", "<b><?=$start?></b>", "", "_self", "",
+					["", "<?php echo $appimg."&nbsp;&nbsp;".$menu_applications; ?>", "", "_self", "",
+						//["", "<?php echo $searchimg ."&nbsp;&nbsp;". $menu_search; ?>","<?php echo $GO_CONFIG->host; ?>search/","",""],
+						//["", "<?php echo $addressimg ."&nbsp;&nbsp;". $menu_contacts; ?>","<?php echo $GO_CONFIG->host; ?>contacts/","",""],
+						<?php
+							$GO_MODULES->get_modules();
+							while ($GO_MODULES->next_record())
+							{
+								if ($GO_SECURITY->has_permission($GO_SECURITY->user_id, $GO_MODULES->f('acl_read')) || $GO_SECURITY->has_permission($GO_SECURITY->user_id, $GO_MODULES->f('acl_write')))
+								{
+									$lang_var = isset($lang_modules[$GO_MODULES->f('id')]) ? $lang_modules[$GO_MODULES->f('id')] : $GO_MODULES->f('id');
+									$img = "<img align=absmiddle height=18 src='".$GO_THEME->image_url."buttons/".$GO_MODULES->f('id').".gif'>";
+									echo '["", "'.$img.'&nbsp;&nbsp;'.$lang_var.'","'.str_replace('\\','\\\\',$GO_CONFIG->host.$GO_MODULES->f('path')).'","",""],';
+
+								}
+							}
+						?>
+					],
+					<?php
+					if ($GO_SECURITY->has_admin_permission($GO_SECURITY->user_id))
+					{
+						echo '["", "'.$keyimg ."&nbsp;&nbsp;". $menu_admin.'", "", "_self", "",';
+						echo '  ["", "'.$menu_modules.'", "'.$GO_CONFIG->host.'modules_config/","",""],';
+						echo '  ["", "'.$menu_users.'", "'.$GO_CONFIG->host.'users/","",""],';
+						//echo '  ["", "'.$menu_sysinfo.'", "'.$GO_CONFIG->host.'sysinfo/","",""],';
+						echo '  ["", "'.$menu_filetypes.'", "'.$GO_CONFIG->host.'filetypes/","",""],';
+
+						if ($GO_CONFIG->enable_system_control == true)
+						{
+							echo "	_cmSplit,\r\n";
+							echo '  ["", "'.$menu_reboot.'", \'javascript:confirm_action("'.$GO_CONFIG->host.'system.php?action=reboot","'.rawurlencode($menu_reboot_text).'")\',"",""],';
+							echo '  ["", "'.$menu_halt.'", \'javascript:confirm_action("'.$GO_CONFIG->host.'system.php?action=poweroff","'.rawurlencode($menu_halt_text).'")\',"",""]';
+						}
+						echo "],\r\n";
+
+					}
+					?>
+					["", "<?php echo  $configimg."&nbsp;&nbsp;".$menu_configuration; ?>", "", "_self", "",
+						["","<?php echo $menu_accounts; ?>","<?php echo $GO_CONFIG->host; ?>account/","",""],
+						["","<?php echo $menu_groups; ?>","<?php echo $GO_CONFIG->host; ?>groups/","",""],
+						["","<?php echo $menu_preferences; ?>","<?php echo $GO_CONFIG->host; ?>preferences/","",""]
+					],
+
+					["", "<?php echo $helpimg . "&nbsp;&nbsp;".$menu_help; ?>", "", "_self", "",
+						["","<?php echo $menu_manual; ?>", "<?php echo $GO_CONFIG->host; ?>doc/Group-Office_user_manual.html","go_manual",""],
+						["","<?php echo $menu_support; ?>", "<?php echo addslashes(mail_to($GO_CONFIG->webmaster_email, '', '', false)); ?>","_self",""],
+					],
+					["", "<?php echo $logoutimg . "&nbsp;&nbsp;". $menu_logout; ?>", "<?php echo $GO_CONFIG->host; ?>index.php?task=logout", "", ""]
+				]	
+				];
+				cmDraw('GO_MENU', go_menu, 'vb<?=($direction=="rtl")?"l":"r"?>', cmTheme, 'Theme');
+				-->
+				</script>
+				</td>
+			</tr>
+			</table>
+			</div>
+		</td>
+		<?}?>
+
+		<td width="99%" nowrap>
+		<?			
+			if ($GO_SECURITY->logged_in){ 
+					//$addressimg = "<img hspace=3 alt='$menu_contacts' border=0 align=middle height=18 src='".$GO_THEME->image_url."buttons/addressbook_big.gif'>";
+					//$searchimg = "<img hspace=3 border=0 alt='$menu_search' align=middle height=18 src='".$GO_THEME->image_url."buttons/search.gif'>";
+					//echo "<a href=".$GO_CONFIG->host. "search/>" .$searchimg ."</a>";
+					//echo "<a href=".$GO_CONFIG->host."contacts/>". $addressimg ."</a>";
+			}
+			$GO_MODULES->get_modules();
+			while ($GO_MODULES->next_record())
+			{
+				if ($GO_SECURITY->has_permission($GO_SECURITY->user_id, $GO_MODULES->f('acl_read')) || $GO_SECURITY->has_permission($GO_SECURITY->user_id, $GO_MODULES->f('acl_write')))
+				{
+					$lang_var = isset($lang_modules[$GO_MODULES->f('id')]) ? $lang_modules[$GO_MODULES->f('id')] : $GO_MODULES->f('id');
+					$img = "<img hspace=3 border=0 alt='$lang_var' align=middle height=18 src='".$GO_THEME->image_url."buttons/".$GO_MODULES->f('id').".gif'>";
+					echo '<a href='.str_replace('\\','\\\\',$GO_CONFIG->host.$GO_MODULES->f('path')).'>'.$img.'</a>';
+
+				}
+			}
+
+		?><a href="<?php echo $GO_CONFIG->host; ?>account/"><img hspace=3  src="<?php echo $GO_THEME->image_url; ?>buttons/account.gif" border="0" align=middle title="<?php echo $lang_modules['account'] ; ?>" width="16" height="16" /></a></td>
+		
+		<?php
+		if ($GO_SECURITY->logged_in)
+			echo "<td nowrap><span class=copyright>".$strLoggedInAs.$ses_name.'.&nbsp;</span></td><td nowrap><span class=copyright dir=ltr>'.date($ses_date_format)."</span></td>";
+
+		?>
+		<td width="10">&nbsp;</td>
+
+	</tr>
+	</table>
+	</td>
+</tr>
+<tr style='height:1%'><td background=<?=$GO_THEME->image_url?>menubar.gif>
+<table width=100% cellpadding=2 cellspacing=0 height="21"><tr>
+	<td width=99%>&nbsp;<b><?=$page_title?></b></td>
+	<td width=1% style="height:21px" nowrap style='padding:0px' valign="bottom">
+	<span class=copyright><?=$strCopyright?> &nbsp; <a href="mailto:<?=$GO_CONFIG->support_email?>"><?=$GO_CONFIG->support_email?></a></span>
+    <?if (strpos($PHP_SELF,"/stock")){?>
+    
+        <a href="https://www.vcx.co.il/FAQ/WEB/" target=_blank><img border=0 hspace=1 alt='Help' align=absmiddle src='<?=$GO_THEME->image_url?>buttons/help.gif'></a>
+   
+    <?}?>
+	<?
+	if ($PHP_SELF!='/index.php' && $PHP_SELF!='/office/index.php' && $PHP_SELF!=''){
+		$delimg = "<img border=0 hspace=1 alt='Close' align=middle src='".$GO_THEME->image_url."buttons/close.gif'>";
+		echo "<a href='".$GO_CONFIG->host. "index.php?task=logout'>" .$delimg ."</a>";
+		}
+	?>  
+	</td>
+</tr></table>
+</td></tr>
+
+<tr>
+<td valign=top>
+<table cellpadding=0 cellspacing=0 width=100% height=100%><tr><td>
+<div style='width:100%;height:100%;border:none;overflow:auto'>
+<!--Einde header-->

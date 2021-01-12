@@ -1,0 +1,17 @@
+<?
+$simple=1;
+global $action, $id, $lang, $conn, $config;
+
+$page_subtitle = $lang["auto_billing"];
+
+require("include/common.php");
+require("include/business_functions.php");
+require("include/document.php");
+require("include/movement.php");
+if(!loginCheck('User'))exit;
+
+include("$config[template_path]/admin_top.html");
+?>
+<pre dir="<?=$dir?>">
+נא לבחור סוג תוכנה זרה / ממשק
+</pre>

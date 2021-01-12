@@ -1,0 +1,133 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+if ($REQUEST_METHOD == "POST")
+{
+	if (!isset($mail_client))
+	{
+			$mail_client = "0";
+	}
+	require($GO_CONFIG->class_path."users.class.inc");
+	$users = new users;
+	$users->set_preferences($users->user_id, $date_format, $thousands_seperator, $decimal_seperator, $mail_client);
+}
+?>
+
+<form name="preferences" method="post" action="<?php echo $PHP_SELF; ?>">
+<table border="0" cellpadding="0" cellspacing="3">
+<tr>
+	<td>&nbsp;</td>
+</tr>
+<tr>
+	<td ><h2><?php echo $pref_look; ?></h2></td>
+</tr>
+<tr>
+	<td>
+	<table border="0">
+	<tr>
+		<td nowrap>
+			<?php echo $pref_language; ?>:
+		</td>
+		<td>
+			<?php
+			$languages = $GO_LANGUAGE->get_languages();
+			$dropbox = new dropbox();
+			$dropbox->add_arrays($languages, $languages);
+			$dropbox->print_dropbox("SET_LANGUAGE", $GO_LANGUAGE->language);
+			?>
+		</td>
+	</tr>
+	<?php
+	if ($GO_CONFIG->allow_themes == true)
+	{
+	?>
+	<tr>
+		<td nowrap>
+			<?php echo $pref_theme; ?>:
+		</td>
+		<td>
+			<?php
+			$themes = $GO_THEME->get_themes();
+			$dropbox = new dropbox();
+			$dropbox->add_arrays($themes, $themes);
+			$dropbox->print_dropbox("SET_THEME", $GO_THEME->theme);
+			?>
+		</td>
+	</tr>
+	<?php
+	}
+	?>
+	</table>
+	</td>
+</tr>
+<tr>
+	<td>
+		<?php
+		$module = $GO_MODULES->get_module('email');
+
+		if ($GO_SECURITY->has_permission($GO_SECURITY->user_id, $module['acl_read']) || $GO_SECURITY->has_permission($GO_SECURITY->user_id, $module['acl_write']))
+		{
+			$checked = "";
+			if ($ses_mail_client == 1)
+			{
+				$checked = "checked";
+			}
+
+			echo '<input type="checkbox" value="1" name="mail_client" '.$checked.' />';
+			echo $pref_mail_client;
+		}
+        ?>
+	</td>
+</tr>
+<tr>
+	<td >&nbsp;</td>
+</tr>
+<tr>
+	<td><h2><?php echo $pref_notations; ?></h2></td>
+</tr>
+<tr>
+	<td>
+	<table border="0">
+	<tr>
+		<td nowrap>
+			<?php echo $pref_date_format; ?>:
+		</td>
+		<td>
+			<?php
+			$dropbox = new dropbox();
+			$dropbox->add_arrays($GO_CONFIG->get_date_formats(), $GO_CONFIG->get_date_formats_friendly());
+			$dropbox->print_dropbox("date_format", $ses_date_format);
+			?>
+		</td>
+	</tr>
+	<tr>
+		<td>
+			<?php echo $pref_thousands_seperator; ?>:
+		</td>
+		<td>
+			<input type="text" class="textbox" size="2" name="thousands_seperator" value="<?php echo $ses_thousands_seperator; ?>" maxlength="1" />
+		</td>
+	</tr>
+	<tr>
+		<td>
+			<?php echo $pref_decimal_seperator; ?>:
+		</td>
+		<td>
+			<input type="text" class="textbox" size="2" name="decimal_seperator" value="<?php echo $ses_decimal_seperator; ?>" maxlength="1" />
+		</td>
+	</tr>
+	</table>
+	</td>
+</tr>
+<tr>
+	<td colspan="2" height="40">
+	<?php $button = new button($cmdSave, 'javascript:document.forms[0].submit()'); ?>
+	</td>
+</tr>
+
+</table>

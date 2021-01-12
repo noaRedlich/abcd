@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>billing_products</main_table>
+	<name>הסכמים</name>
+	<options>
+		<opt name="create_record" type="sometime"></opt>
+		<opt name="edit_record" type="sometime"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+    		<vcol name="listing_id" type="cross" cross="listingsDB" cross_field="ID" lookup_field="Title" ifnull="product_name">שם פריט</vcol>
+			<vcol name="quantity" >כמות</vcol>
+	</view>
+	<edit>
+    		<ecol tab="3" name="billing_id" type="cross" cross="billing" cross_field="id" lookup_field="doc_type" >מסמך</ecol>
+    		<ecol name="listing_id" type="cross_more" url="/modules/stock/product_select.php" dialogwidth="600" dialogheight="500" cross="listingsDB" cross_field="id" lookup_field="title" >בחר פריט</ecol>
+			<ecol name="product_name" type="string" >או הזין שם פריט וויטואלי</ecol>
+			<ecol name="product_barcode" type="string"> ברקוד (פריט וורטואלי)</ecol>
+			<ecol name="product_price" type="string" >מחיר לפני מע''מ  (פריט וורטואלי)</ecol>
+			<ecol name="quantity" type="string" >כמות</ecol>
+			<ecol name="discount" type="string" >אחוז הנחה</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="SortOrder"></opt>
+	</sql_actions>
+</xml>

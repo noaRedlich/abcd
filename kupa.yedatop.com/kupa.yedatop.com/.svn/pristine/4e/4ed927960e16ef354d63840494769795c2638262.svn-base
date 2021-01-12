@@ -1,0 +1,447 @@
+<?php
+$mode = $_GET["mode"];
+if (!$mode) $mode = $_POST["mode"]; 
+
+$page_subtitle = "סל פרטים";
+$noheader=1;
+include("include/common.php");        
+include("include/business_functions.php");
+include("include/document.php");   
+echo "<script src='/javascript/common.js'></script>";
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+
+    ?>
+
+      <script>
+         
+        function validateMyForm(){
+            <?if ($mode=="basket"){?>
+            for (i=0;i<document.all.quantities.length;i++){
+                //alert(parseInt(document.all.quantities[i].value));
+                if (document.all.quantities[i].value!="" && parseFloat(document.all.quantities[i].value)!=document.all.quantities[i].value)
+                {
+                    alert('שדה זה אמור להכיל ערך נומרי');
+                    document.all.quantities[i].focus();
+                    return false;
+                }
+                else if (parseFloat(document.all.quantities[i].value)<0){
+                    alert('שדה זה אמור להכיל ערך נומרי לא פחות מאפס');
+                    document.all.quantities[i].focus();
+                    return false;
+                }
+            }
+            <?}else{?>
+            if (document.update_listing.quantity.value!="" && parseFloat(document.update_listing.quantity.value)!=document.update_listing.quantity.value)
+            {
+                alert('שדה זה אמור להכיל ערך נומרי');
+                document.update_listing.quantity.focus();
+                return false;
+            }
+            else if (parseFloat(document.update_listing.quantity.value)<0){
+                alert('שדה זה אמור להכיל ערך נומרי לא פחות מאפס');
+                document.update_listing.quantity.focus();
+                return false;
+            }
+            <?}?>
+            return true;
+        }
+     </script>
+<?
+
+if ($edit)
+{
+	$sql_edit = make_db_safe($edit);
+	
+	// first, grab the listings's main info
+	$sql = "SELECT l.ID, title, notes, last_modified, featured, active, expiration, SalePrice
+		FROM listingsDB l
+		WHERE l.ID = $sql_edit AND l.user_ID = '$userID'";
+	
+	$recordSet = $conn->Execute($sql);
+	
+	if ($recordSet === false)
+	{
+		log_error($sql);
+	}
+	
+	$num_records = $recordSet->RecordCount();
+	
+	while (!$recordSet->EOF)
+	{
+		// collect up the main DB's various fields
+		$listing_ID = make_db_unsafe ($recordSet->fields[ID]);
+		$edit_title = make_db_unsafe ($recordSet->fields[title]);
+		$SalePrice = make_db_unsafe ($recordSet->fields[SalePrice]);
+		$recordSet->MoveNext();
+	} // end while
+	
+}
+
+if ($doaction == "update_listing")
+{	
+	$temp_edit = $edit;
+	$temp_quantity = $quantity;
+	
+	if ($mode!="basket")
+	{
+		$basketid = array($edit);
+		$quantities = array($quantity);
+		$grams_rate = array($gramsrate);
+	}
+	
+	if ($moveto == $movefrom)
+	{
+		$message = $lang["move_dest_error"];
+	}	
+	
+	
+	$errorids = array();      
+	if (!$message){
+		
+		//first check quantities
+		$i=0;
+		foreach($basketid as $edit)
+		{
+			$quantity = $quantities[$i];
+			if ($grams_rate[$i])
+			{
+				$quantity*=$grams_rate[$i]; 
+			}
+			if ($quantity and is_numeric($quantity)){
+				$sql = "select d.id,se.Quantity,Title from listingsStocksElements se,listingsDB d where d.ID = se.ListingID and  StockID = '". $movefrom."' and ListingID = '".$edit."'";
+				$rs = $conn->Execute($sql);
+				if ($rs === false){log_error($sql);}
+				
+				$fromquantity = $rs->fields["Quantity"];
+				if ($fromquantity<$quantity && !$UserData->fields["EnableStockOverdraft"])
+				{
+					if (!$message)
+					{
+						$message = "אין כמות מספקת במלאי לפריטים שמסומנים באדום";
+					}
+					$errorids[]=$i;
+				}
+			}
+			else{
+				//$message = $lang["move_quantity_error2"];
+			}
+			$i++;
+		}
+		
+	}
+	
+	if (!$message)
+	{
+		//then run the movement service
+		
+		reset($edit);
+		$i=0;
+		$total=0;
+		
+		//create document
+		$document = new Document("HAAVARATPRITIM",$movefrom);
+		$document->sourcestockid = $movefrom;
+		$document->targetstockid = $moveto;
+		$document->comment = $note; 
+		
+		$document->Create();
+		$docid = $document->id;
+		
+		foreach($basketid as $edit)
+		{
+			$quantitytocalc = $quantity = $quantities[$i];
+			if ($grams_rate[$i])
+			{
+				$quantity*=$grams_rate[$i];
+			}
+			if ($quantity && is_numeric($quantity))
+			{
+				if (!$kupa)
+				{
+					$sql = "select ID from listingsStocksElements where StockID = '". $moveto."' and ListingID = '".$edit."'";
+					$rs = $conn->Execute($sql);
+					if ($rs === false){log_error($sql);}
+					if (!$rs->EOF){
+						$sql = "update listingsStocksElements set Quantity=ifnull(Quantity,0)+(".$quantity.") where StockID = '". $moveto."' and ListingID = '".$edit."'";
+					}
+					else{
+						$sql = "insert into listingsStocksElements (Quantity,SalePrice,StockID,ListingID) values('".$quantity."',null,'". $moveto."','".$edit."')";
+					}
+					DBQuery($sql);
+					
+				}
+				
+				$sql = "update listingsStocksElements set Quantity=ifnull(Quantity,0)-(".$quantity.") where StockID = '". $movefrom."' and ListingID = '".$edit."'";
+				DBQuery($sql);
+				
+				//save in history
+				$sql = "insert into history (timestamp,datetime,type,listing_id,note,stock_id_from,stock_id_to,quantity_from,quantity_to) values
+					(unix_timestamp(),now(),'movement',$edit,'".dbsafe($note)."',$movefrom,$moveto,".$quantity.",".$quantity.")";
+				DBQuery($sql);
+				
+				$document->AddItem($edit,$quantity);
+			}
+			$i++;
+		}
+		
+		$message = "success";
+		$quantity="";
+		$note="";
+		
+		if ($clear)
+		{
+			DBQuery("update listingsDB set basket=0 where user_id = $userID");
+		}
+		
+		echo "<script>reloadParent()</script>";
+		log_action ("$lang[log_updated_listing] $edit");
+		echo "<script>window.location='move_listings.php?docid=$docid&doaction=success'</script>";
+		die();
+		
+	}
+	
+	$edit = $temp_edit;
+	$quantity = $temp_quantity;
+	
+	
+	
+} // end if $action == "update listing"
+
+if ($doaction=="success"){
+	$simple=1;
+	require($GO_THEME->theme_path."simple_header.inc");
+	include("$config[template_path]/admin_top.html");
+	
+	echo "<center><br><p style=color:green><b>הפעולה הסתיימה בהצלחה.
+		<br>
+		רק הפריטים שהוזנה להם כמות נחשבו.
+		</p>";
+	echo "<br><hr>
+		<input class=button style='width:190;background-image:url(".$imgPath."printer.gif)' type=button value='להדפיס תעודת העברת פריטים' onclick='printDocument()'>
+		<input type=button class=button value='סגור' style='background-image:url(".$imgPath."back.gif)' onclick='window.close()'>
+		";
+        ?>
+        <script>
+        function printDocument(){
+               return showModalDialog("printdoc.php?docid=<?=$docid?>","","dialogWidth:300px;dialogHeight:230px;center:yes;resizable:no;status:no;help:no");
+        }
+        </script>
+
+	<?
+	exit();
+}
+
+
+if ($edit != "")
+{
+	
+	require($GO_THEME->theme_path."simple_header.inc");
+	include("$config[template_path]/admin_top.html");
+	// now, display all that stuff
+		?>
+
+
+
+		<table width=100% height=480 cellpadding=0 cellspacing=0>
+		<TR><TD align=center>
+			<?include("productmenu.php")?>
+		</td></td>
+		<TR><TD align=center style='padding:5px'><b>
+	<?
+	if ($doaction="update_listing" && $message){
+		echo "<p style=color:red>$message</p>";
+	}
+				?>
+		</TD></TR>
+		<tr style='height:100%'><td>
+			<div style='overflow-Y:auto;width:100%;height:100%;border:inset 1'>
+			<table border="<?php echo $style[form_border] ?>" cellspacing="<?php echo $style[form_cellspacing] ?>" cellpadding="<?php echo $style[form_cellpadding] ?>" width="100%" class="form_main">
+				<form name="update_listing" action="<?php echo "$PHP_SELF";?>" method="post" onsubmit='return validateMyForm()'>
+				<input type="hidden" name="doaction" value="update_listing">
+				<input type="hidden" name="mode" value="<?=$mode?>">
+				<input type="hidden" name="simple" value="<?=$simple?>">
+				<input type="hidden" name="edit" value="<?php echo $edit ?>">
+				<tr><td align=center>
+
+				<?if ($mode=="basket"){?>
+				
+				<script type="text/javascript">
+
+					function wopen1(url){
+						s = window.open(url+'&simple=1','edit','top=70,left=170,height=500,width=440,resizable=yes,scrollbars=yes');
+						s.focus();
+					}
+				</script>
+				<div style='height:200px;overflow-Y:scroll;border:solid 1 black'>
+				<table width=100% cellpadding=1 cellspacing=1><tr bgcolor=#4a0194>
+                        <td width=1% nowrap  style=color:white align=center><b>ברקוד</td>
+						<td width=99% style=color:white align=center><b>שם</td>
+						<td width=1% nowrap style=color:white align=center><b>&nbsp;כמות לתזוזה&nbsp;<input id=quantities type=hidden></td>
+					    <td width=1% nowrap style=color:white >&nbsp;יח'&nbsp;</td>
+                    </tr>
+		<?
+		if (!$movefrom){
+			$sql = "select id from $TABLE_LISTINGSSTOCKS where user_id = $userID and terminalId = '".$config["MainStock"]."'";
+			$r=$conn->Execute($sql);
+			if ($r === false){log_error($sql);}
+			$movefrom=$r->fields["id"];
+		}
+		
+		$f=false;
+		$i=0;
+		$sql="select l.*, BarCode,
+			u.abbreviation, u.grams_rate,u.decimals,
+			(case when s.quantity is null then 0 else s.quantity end) as quantity
+			from listingsDB l
+			left outer join listingsStocksElements s on s.listingId = l.id and stockid = $movefrom
+			,$TABLE_UNITS u
+			where 
+			u.id = unit
+			and basket<>0 and l.user_ID = $userID and is_tree=0 order by basket";
+		$r=$conn->Execute($sql);
+		if ($r === false){log_error($sql);die();}
+		$i=0;
+		while (!$r->EOF)
+		{
+			if ($r->fields["grams_rate"])
+			{
+				$r->fields["quantity"]=$r->fields["quantity"]/$r->fields["grams_rate"];
+			}
+			$f=1;
+							?>
+						
+							<tr valign=middle bgColor=<?=($cnt++ %2 == 0)?"#efefef":"silver"?>>
+                                <td><?=$r->fields["BarCode"]?></td>
+								<td>
+									<a tabindex=-1 href='javascript:wopen1("edit_my_listings.php?simple=1&edit=<?=$r->fields["ID"]?>")'><u><?=$r->fields["Title"]?></u></a>
+									<input type=hidden name=basketid[] value=<?=$r->fields["ID"]?>>
+								</td>
+								<td nowrap align=center>
+									<input dir=ltr style='text-align:right' size=4 maxlength=6 id=quantities name=quantities[] value="<?=number_format(($quantities[$i]&&!$resetq)?$quantities[$i]:$r->fields["quantity"],$r->fields["decimals"],".","")?>" <?if (in_array($i,$errorids)){?>style='border:solid 2 red'<?}?>>
+									<input type=hidden name=grams_rate[] value="<?=$r->fields["grams_rate"]?>">
+                                                                </td>
+                                <td width=1% align=center><?=$r->fields["abbreviation"]?></td>
+							</tr>
+			<?$r->MoveNext();$i++;
+                        } ?>
+				</table>
+				</div>
+				<input type=checkbox value=1 name=clear <?=($clear)?"checked":""?>> <?=$lang['clear_after_move'] ?>
+								<br><br>
+				<?}else{?>
+								<br><br><br><br>
+				<?}?>
+
+				<strong>
+				
+
+				<?=$lang['move_from']?></strong></td></tr>
+				<tr><td align=center>
+                <input type=hidden name=resetq>
+				<select name=movefrom style='width:350px' onchange='document.update_listing.resetq.value="1";document.update_listing.doaction.value="";document.update_listing.submit();'>
+	<?
+	$sql = "
+		select s.ID,TerminalID,StockName,se.Quantity,se.SalePrice, grams_rate,abbreviation,decimals from 
+		$TABLE_LISTINGSSTOCKS s
+		left join listingsStocksElements se on se.StockID = s.ID and ListingID = $edit 
+		,$TABLE_UNITS u 
+		,listingsDB l              
+		where s.user_ID = $userID and Status=1 
+		and l.id = $edit 
+		and u.id = unit
+		and (s.id in (select stock_id from $TABLE_USERSTOCKS where userid = $officeUserID and r=1) or $officeUserID=$userID)
+		order by s.SortOrder, binary StockName";
+	$rs = $conn->Execute($sql);
+	if ($rs === false){log_error($sql);}
+	$tq=0;
+	$rs->MoveFirst();
+	$exists = false;
+	$GramsRate = $rs->fields[grams_rate];
+	while (!$rs->EOF){
+		$q = ($rs->fields[Quantity])?$rs->fields[Quantity]:0;
+		if ($rs->fields[grams_rate])
+		{
+			$q/=$rs->fields[grams_rate];
+		}
+		$p = ($rs->fields[SalePrice])?$rs->fields[SalePrice]:$SalePrice;
+		$s='';
+		if ($rs->fields[SalePrice]){
+			$s = 'style="color:green"';
+		}
+		if ($q>0 || $mode=="basket" || $UserData->fields["EnableStockOverdraft"]){
+			echo "<option ".(($movefrom==$rs->fields[ID])?"selected":"")." value=".$rs->fields[ID].">".$rs->fields[StockName].(($mode!="basket")?(" (".number_format($q,$rs->fields[decimals])." ".$rs->fields[abbreviation].")"):"");
+			$exists=true;
+		}
+		$rs->MoveNext();
+	}
+	if (!$exists){
+		echo "<option value=''>".$lang[no_points];
+	}
+	
+				?>
+				</select>
+				</td></tr>
+				<tr><td align=center><strong><?=$lang['move_to']?></strong></strong></td></tr>
+				<tr><td align=center>
+				<select name=moveto style='width:350px'>
+	<?
+	$rs->MoveFirst();
+	while (!$rs->EOF)
+	{
+		$q = ($rs->fields[Quantity])?$rs->fields[Quantity]:0;
+		if ($rs->fields[grams_rate])
+		{
+			$q/=$rs->fields[grams_rate];
+		}
+		
+		$p = ($rs->fields[SalePrice])?$rs->fields[SalePrice]:$SalePrice;
+		$s='';
+		if ($rs->fields[SalePrice]){
+			$s = 'style="color:green"';
+		}
+		echo "<option ".(($moveto==$rs->fields[ID])?"selected":"")." value=".$rs->fields[ID].">".$rs->fields[StockName].(($mode!="basket")?(" (".number_format($q,$rs->fields[decimals])." ".$rs->fields[abbreviation].")"):"");
+		$rs->MoveNext();
+	}
+				?>
+				</select>
+				</td></tr>		
+				<?if ($mode!="basket"){	?>		
+				<tr><td align=center><strong><?=$lang['quantity_to_move']?></strong></td></tr>
+				<tr><td align=center>
+                        <input size=6 name=quantity value="<?=$quantity?>">
+                        <input size=6 name=gramsrate type=hidden value="<?=$GramsRate?>">
+                </td></tr>
+				<?}?>
+				<tr><td align=center><strong><?=$lang['comment']?></strong></td></tr>
+				<tr><td align=center><input style='width:350px' size=40 name=note value="<?=stripslashes($note)?>"></td></tr>
+				<tr><td align=center><input type=checkbox <?=($workmode == "A" && !$updateQtyFromPludata)?"disabled":""?> name=kupa value=1 <?=($kupa==1)?"checked":""?>>מלאי עדכון ע"י קופה. להזיז פריט בלי לעדכן כמות בנקודת יעד</td></tr>
+			</table>
+			</div>	
+		</td></tr>
+		<tr style='height:1%'><td>
+			<table width=100%>
+	<?
+	if ($mode=="basket"){$exists=$f;}
+	echo "<tr><td colspan=\"2\" align=\"center\" class=\"row_main\">
+		<input type=\"submit\" class=button style='background-image:url(".$imgPath."ok.gif)' style=width:100px ".((!$exists)?"disabled":"")." value=\"$lang[update_button]\">";
+	if ($mode=="basket")
+	{	
+		echo "&nbsp;<input type=\"button\" class=button style='background-image:url(".$imgPath."back.gif)' onclick=\"location='basket.php?action=show'\" style=width:100px value=\"$lang[back_button]\">";
+	}
+	echo "</td></tr>";
+				?>
+
+			</table>
+		</td></tr>
+		</form>
+	</table>
+	<?php
+} // end if $edit != ""
+?>
+
+
+<?php
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

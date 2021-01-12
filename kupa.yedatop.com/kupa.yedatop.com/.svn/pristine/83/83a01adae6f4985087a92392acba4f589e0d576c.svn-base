@@ -1,0 +1,371 @@
+<?
+	session_start();
+    ini_set("max_execution_time","3000");
+    @set_time_limit(3000); 
+	$simple=1;
+	 
+	$page_subtitle = "רשימת פריטים ";
+	$xlsfilename = "pritim";
+    $noexcelheader=true;
+	include("include/common.php");
+	include("include/business_functions.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+	if ( !(!IsPostBack() && $excelmode))
+	{
+		$saction="go";
+	}
+	
+    if (!IsPostBack())$includevat=true;  
+
+	$cats = $conn->Execute("select * from listingsCategories where user_ID = $userID and Status=1 order by binary CategoryName");
+	if ($cats === false){log_error($sql);}
+
+    $suppliers = $conn->Execute("select * from listingsSuppliers where Status=1 and isSupplier=1 and user_id = $userID order by binary SupplierName");
+	if ($suppliers === false){log_error($sql);}
+
+	?>
+	<style>
+	.z {color:gray}
+	.b {font-weight:bold}
+	th {background-color:silver}
+	</style>
+	<script>
+	function PrintReport(){
+		document.getElementById("Query").style.display = "none";
+		window.print();
+		document.getElementById("Query").style.display = "";
+	}
+	</script>
+	<body>
+	<table cellpadding=5 border=0 width=100%>
+	<tr>
+	<form name=F method=get action="<?=$PHP_SELF?>">
+	<input type=hidden name=usr value=<?=$usr?>>
+	<input type=hidden name=rmodule value=<?=$rmodule?>>
+	<input type=hidden name=excelmode value=<?=$excelmode?>>
+	
+	<td nowrap>
+	<?$reporttitle = "רשימת פריטים";?>
+	<?if ($usr){$reporttitle.="<br>".$username;}?>
+	<strong style='font-size:12pt'><?=$reporttitle?></strong>
+	</td><td width=99% style='border:inset 1'>
+	<select name=category>
+	<option value=""><?=$lang["all_cats"]?>
+    <?FillCategoriesList($category);?>
+	</select>
+	
+
+	<select name=supplier>                                 
+	<option value=""><?=$lang["all_suppliers"]?>
+	<?while(!$suppliers->EOF){?>
+		<option value="<?=$suppliers->fields["ID"]?>" <?=($supplier==$suppliers->fields["ID"])?"selected":""?>><?=$suppliers->fields["SupplierName"]?>
+		<?$suppliers->MoveNext();
+	}?>
+	</select>
+
+        <select name=status>
+            <option value="" <?=!$status?"selected":""?>>פעיל ובינוני
+            <option value="yes" <?=$status=="yes"?"selected":""?>>פעיל
+            <option value="no" <?=$status=="no"?"selected":""?>>לא פעיל
+            <option value="yek" <?=$status=="yek"?"selected":""?>>בינוני
+        </select>
+
+	<input type=submit value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top"  >
+	
+    <br>
+	<Input type=checkbox <?=($subcats||!IsPostBack())?"checked":""?> name=subcats><?=$lang["including_sub_cat"]?>	
+    <input type=checkbox value=1 name=includevat <?=($includevat)?"checked":""?> >מחיר מכירה ועלות כוללים מע"מ
+
+    
+	<?
+
+    if ($saction=="go" || $saction=="sendreport"){
+		require("sendreport.php");
+
+    }
+    ?>
+	<input type=hidden name=reportbody value="">
+	<input type=hidden name=sendmode value="">
+
+	</td>
+	</form>
+	</tr>
+	</table></table></table>
+	<?
+	flush();	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go")
+        {
+
+        $q="";
+        if ($category){
+                $q.= " and c.id in (".getCategoryIDs($category,$subcats).") ";
+        }
+
+        if ($supplier){
+                $q.=" and sap.ID=$supplier";
+        }
+
+        if ($status)
+	{
+		$q .= " and l.active = '$status' ";
+	}
+	else
+	{
+		$q .= " and l.active  in ('yes','yek') ";
+	}
+
+
+        $sortorder="binary CategoryName, binary title";
+        if ($sort){
+            switch ($sort){
+            	case "BarCode": $sortorder = "barcode+0"; break;
+    	        case "Name": $sortorder = "binary title";break;
+    	        case "Price": $sortorder = "price"; break;
+                case "Category": $sortorder = "CategoryName"; break;
+    	        case "Sapak": $sortorder = "sapak"; break;
+    	        case "Alut": $sortorder = "cost"; break;
+    	        case "MisparZar": $sortorder = "MisparZar"; break;
+    	        case "MisparSiduri": $sortorder = "MisparSiduri"; break;
+    	        case "MisparChalifi": $sortorder = "MisparChalifi"; break;
+    	        case "StockMin": $sortorder = "StockMin"; break;
+    	        case "StockMax": $sortorder = "StockMax"; break;
+    	        case "Mikum": $sortorder = "Mikum"; break;
+            }
+            $sortorder.=" ".(($desc)?"desc":"");
+        }
+
+        if ($includevat)
+        {
+            $costsql = "cost"; 
+            $pricesql = "saleprice"; 
+        }
+        else
+        {
+            $costsql = "cost/(1+".$config["VAT"]."/100)"; 
+            $pricesql = "saleprice/(1+".$config["VAT"]."/100)"; 
+        }
+        
+		$sql = "select 
+				l.id,
+                l.creation_date,
+				title,
+				c.CategoryName,
+                c.id as CategoryID,
+				$costsql as cost,
+				$pricesql as price,
+				quantity,
+				sapak,
+                sap.id as SupplierID,
+                sap.SupplierName,
+				barcode,
+				MisparZar,
+				MisparSiduri,
+				MisparChalifi, 
+				StockMin,
+				StockMax,
+                Mikum,
+                grams_rate, decimals
+			from
+				 listingsDB l		
+					inner join listingsCategories  c on	ProductGroup = c.ID
+					inner join listingsSuppliers  sap on Sapak = sap.ID,
+                 $TABLE_UNITS
+	 		where
+                $TABLE_UNITS.id = unit and
+				l.user_id = $userID 
+				$q
+			order by $sortorder";
+
+		$products = $conn->Execute($sql);
+		if ($products === false){log_error($sql);}
+		$numrows = $products->NumRows();
+		
+        echo "</table></table>
+        <table width=300  id=CALCSTATUS align=center >
+        <tr><td align=center id=CALCMSG>מתבצע חישוב...</td></tr>
+        <tr>
+            <td height=20 DIR=LTR bgcolor=white><div id=CNT style='text-align:center;color:white;background-color:blue;'></div></td>
+        </tr>
+        </table>
+        <script>
+        function upd(cnt)
+        {
+            percent = cnt/$numrows*100
+            document.all.CNT.innerText=percent.toFixed(0)+'%'
+            document.all.CNT.style.width=percent.toFixed(0)+'%'
+        }
+        
+        function calcend(){
+             document.all.CALCSTATUS.style.display='none';
+        }
+        function calcmsg(s){
+             document.all.CALCMSG.innerText=s;
+        }
+        </script> 
+        ";
+        flush();
+		
+	
+
+
+
+        $TAchuzRevachMemutza = 0;
+	    $TMahzor = 0; 
+	    $TRevachAgol = 0;
+	    $cnt=0;
+
+	    $url = "rep_pritim.php?".queryString("desc,sort")."&desc=".((!$desc)?1:0);
+
+        $worksheet->set_column('A:D', 15);
+	    $worksheet->set_column('E:O', 12);
+
+	    $headings = array('ברקוד','שם פריט','מחיר מכירה','מחלקה', 'ספק','עלות','מספר זר','מספר סידורי','מספר חליפי','כמות מינימלי','כמות מקסימלי','מיקום');
+	    $worksheet->write_row('A'.($rrow++), $headings, $heading);
+
+        echo "<script>try{calcmsg('הכנה לתצוגת דו\"ח - נא לחכות');}catch(e){}</script>\n";flush();
+
+		startHideOutput();
+	    echo "<div ><table id=REPORTTABLE dir=$dir  border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+	    echo "
+	    <tr valign=top>
+	    <th><a href='$url&sort=BarCode'>ברקוד</a></th>
+	    <th><a href='$url&sort=Name'>שם פריט</a></th>
+	    <th><a href='$url&sort=Price'>מחיר מכירה</a></th>
+        <th><a href='$url&sort=Category'>מחלקה</a></th>
+	    <th><a href='$url&sort=Sapak'>ספק</a></th>";
+		if (HasActionPermission("VIEWCOST"))
+		{
+		    echo "<th><a href='$url&sort=Alut'>עלות</a></th>";
+		}
+	    echo "<th><a href='$url&sort=MisparZar'>מספר זר</a></th>
+	    <th><a href='$url&sort=MisparSiduri'>מספר סידורי</a></th> 
+	    <th><a href='$url&sort=MisparChalifi'>מספר חליפי</a></th>
+	    <th><a href='$url&sort=StockMin'>כמות מינימלי</a></th>
+	    <th><a href='$url&sort=StockMax'>כמות מקסימלי</a></th>
+	    <th><a href='$url&sort=Mikum'>מיקום</a></th>
+	    </tr>
+	    ";
+	    
+	    endHideOutput();
+	    
+	    $totalMlaiAlut = 0;
+	    $totalMlaiMechira = 0;
+
+		while (!$products->EOF)
+        {
+			$stq="";
+			$row = array(
+				"ProductID" => $products->fields["id"],
+                "BarCode" => $products->fields["barcode"],
+                "Name" => $products->fields["title"],
+                "Price" => $products->fields["price"],
+				"Category" => $products->fields["CategoryName"],
+				"CategoryID" => $products->fields["CategoryID"],
+                "Sapak" => $products->fields["SupplierName"],
+                "SapakID" => $products->fields["SupplierID"],
+                "Alut" => $products->fields["cost"],
+				"MisparZar" => $products->fields["MisparZar"],
+				"MisparSiduri" => $products->fields["MisparSiduri"],
+				"MisparChalifi" => $products->fields["MisparChalifi"],
+				"StockMin" => $products->fields["StockMin"],
+				"StockMax" => $products->fields["StockMax"],
+                "Mikum" => $products->fields["Mikum"],
+				"GramsRate" => $products->fields["grams_rate"],
+				"Decimals" => $products->fields["decimals"]
+			);
+            
+            
+            if ($row["GramsRate"])
+            {
+                 $row["StockMin"]/=$row["GramsRate"];   
+                 $row["StockMax"]/=$row["GramsRate"];   
+            }
+                  
+            $cnt++;
+            if ($cnt % 50 == 0){
+                echo "<script>upd($cnt);</script>\n";flush();
+            }
+            
+              
+            startHideOutput();  
+		    echo "
+		    <tr valign=top>
+		    <td>".splitLongWords($row["BarCode"])."</td>
+		    <td><a href=\"javascript:wopen('edit_my_listings.php?simple=1&edit=".$row["ProductID"]."','edit')\">".splitLongWords($row["Name"])."</a></td>
+		    <td>".number_format($row["Price"],2)."</td>
+            <td>".splitLongWords($row["Category"])."</td>
+		    <td>".splitLongWords($row["Sapak"])."</td>";
+			if (HasActionPermission("VIEWCOST"))
+			{
+			    echo "<td>".number_format($row["Alut"],2)."</td>";
+			}
+		    echo "<td>".$row["MisparZar"]."</td>
+		    <td>".$row["MisparSiduri"]."</td>
+		    <td>".$row["MisparChalifi"]."</td>
+		    <td>".number_format($row["StockMin"],$row["Decimals"])."</td>
+		    <td>".number_format($row["StockMax"],$row["Decimals"])."</td>
+		    <td>".$row["Mikum"]."</td>
+            </tr>
+
+		    ";
+
+			endHideOutput();
+			
+			$b=$body;
+			$r=$bodyr;
+			$f=$numformat;
+			$worksheet->write("A".($rrow)," ".$row["BarCode"],$b);
+			$worksheet->write("B".($rrow),$row["Name"],$b);
+            $worksheet->write("C".($rrow),$row["Price"],$f);
+            $worksheet->write("D".($rrow),($row["CategoryID"])?$row["CategoryID"]:"",$b);
+			$worksheet->write("E".($rrow),($row["SapakID"])?$row["SapakID"]:"",$b);
+			if (HasActionPermission("VIEWCOST"))
+			{
+				$worksheet->write("F".($rrow),$row["Alut"],$f);
+			}
+			else
+			{
+				$worksheet->write("F".($rrow),"---",$f);
+			}
+			$worksheet->write("G".($rrow),$row["MisparZar"],$b);
+			$worksheet->write("H".($rrow),$row["MisparSiduri"],$b);
+			$worksheet->write("I".($rrow),$row["MisparChalifi"],$b);
+			$worksheet->write("J".($rrow),$row["StockMin"],$b);
+			$worksheet->write("K".($rrow),$row["StockMax"],$b);
+			$worksheet->write("L".($rrow),$row["Mikum"],$b);
+			$rrow++;
+            
+ 			$products->MoveNext();
+		}
+		startHideOutput();
+	    echo "
+	    </table></div>";
+	    endHideOutput();
+	}
+	
+	echo "<script>try{calcend();}catch(e){}</script>\n";flush();
+
+	$workbook->close();
+	copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+    unlink($fname);
+	
+	endHideOutput();
+	renderExcelOutput();
+	
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+	
+	
+
+
+
+?>

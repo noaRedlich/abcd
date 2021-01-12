@@ -1,0 +1,809 @@
+<?php
+global $isHebrew,$rightAlign,$mainAlign,$document,$docnum,$docfilename;
+global $klita,$isHebrew,$rightAlign,$mainAlign,$copynumber,$did,$document,$clientName,$userName,$docdate,$copy,$userinfo,$fontname,$docnum,$klita, $UserData,$GO_CONFIG;
+
+
+// load Smarty library
+require_once($DOCUMENT_ROOT.'/classes/smarty/smarty.php');
+require_once('functions.php');
+
+class HTMLDocumentWriter
+{
+	
+	var $docid;
+	var $document;
+	var $buffer;
+	var $userinfo;
+	var $docproducts;
+	var $docpayments;	
+	var $isCouponPayment;  
+	var $smarty;
+	var $isSmarty;
+	var $smartyTemplate;
+	var $itrars;
+	var $chequesrs;
+	var $documenttext;
+	
+	var $tags = array();
+	
+	function writeTag($str)
+	{
+		$this->write("<".$str."/>");
+	}
+	
+	function startTag($str)
+	{
+		$this->write("<".$str.">");
+		array_push($this->tags,$str);
+	}
+	
+	function endTag()
+	{
+		$str = array_pop($this->tags,$str);
+		$this->write("</".$str.">");
+	}
+	
+	function write($str)
+	{
+		$this->buffer.=$str."\n";
+	}
+	
+	function writeln($str,$align="")
+	{
+		$this->write("<div align='$align'>");
+		$this->write($str);
+		$this->write("</div>\n");
+	}
+	
+	function line()
+	{
+		$this->write("<hr noshade>\n");
+	}
+	
+	function pagebreak()
+	{
+		$this->write("<div class=break></div>\n");
+	}
+	
+	function HTMLDocumentWriter($docid)
+	{
+		global $officedbname,$langcode, $HTTP_GET_VARS,$userID,$TABLE_LISTINGSSTOCKS,$TABLE_DOCPAYMENTTYPES,$TABLE_DOCUMENT_TYPE,$GO_CONFIG,$TABLE_UNITS,$TABLE_DOCPAYMENTTYPES,$TABLE_CARDTYPES,$UserData;
+		
+		if ($this->isSmarty)
+		{
+			$this->smarty = new SmartyProxy;
+		}
+		
+		$this->docid = $docid;
+		$sql = "select 
+				d.*,s.supplierName as agent_name, dt.name as DocTypeName, st.StockName,st.phone as StockPhone,
+				d.exec_date as execdate, 0 as is_clearance, 0 as is_erech_date,
+				dt.exec_date as has_execdate, 
+				client_name, 
+				is_payment,is_product,  created,
+				sourcekupa.name as sourcekupaname,
+				targetkupa.name as targetkupaname,
+				tranzila_confirmation_code,
+				sourcestock.stockname as sourcestock,
+				targetstock.stockname as targetstock,
+				(case when client_id = 1 then client_address else (case when is_internal=1 then st.Address else c.PostAdress end) end) as PostAdress,
+				(case when client_id = 1 then client_phone else (case when is_internal=1 then st.Phone else c.Phone end) end) as Phone,
+				c.Fax, 
+				(case when client_id = 1 then client_email else c.Email end) as Email,
+				(case when client_id = 1 then client_person else (case when is_internal=1 then st.ContactPerson else p.Name end) end) as PersonName, 
+				client_businessnum as BusinessNum,
+				p.cellular as PersonPhone,
+				dt.is_internal, dtc.print_time, dtc.print_seconds, dt.print_paydate,dtc.print_template_id,
+				u.name as authorname,pt.name as payment_type,
+				st.Address as StockAddress, st.City as StockCity,
+				(case when dtc.PrintDocPricesIncudingVAT = 2 then st.PrintDocPricesIncudingVAT else dtc.PrintDocPricesIncudingVAT end) as PrintDocPricesIncudingVAT,
+				sw.suppliername as workername
+				from 
+				documents d
+				inner join $officedbname.users u on u.id = d.office_user_id 
+				left outer join listingsSuppliers sw on lower(sw.username) = lower(u.username) and sw.isWorker = 1
+				left outer join listingsSuppliers s on s.id = d.agent_id
+				left outer join persons p on p.id = d.person 
+				left outer join kupot targetkupa on targetkupa.id = d.targetkupa
+				left outer join kupot sourcekupa on sourcekupa.id = d.sourcekupa
+				left outer join $TABLE_LISTINGSSTOCKS sourcestock on sourcestock.id = d.source_stock_id
+				left outer join $TABLE_LISTINGSSTOCKS targetstock on targetstock.id = d.target_stock_id
+				left outer join $TABLE_LISTINGSSTOCKS st on st.id = d.stock_id
+				left outer join payment_type pt on pt.id = d.payment_type_id,
+				$TABLE_DOCUMENT_TYPE dt
+				left outer join document_type_counters dtc on dtc.doc_type_id = dt.id
+				, listingsSuppliers c
+				where
+				d.client_id = c.id and
+				dt.id = doc_type and d.id = '$docid'"; 
+		$this->document = $doc = DBQuery($sql);
+		 
+		$did = $doc->fields["doc_type"];
+		
+		
+		
+		$showvisible = ($did=="KNISALEIZUR")?"":" and d.visible=1";
+		$factory = ($did=="KNISALEIZUR")?"(case when d.visible=0 then 1 else 0 end)":"0";
+		$visible = ($did=="KNISALEIZUR")?"1":"d.visible";
+		
+		$sorder = ($shortmode==2)?"sourcedocproductid,sort_order":"sort_order";	
+		
+		if ($did=="GUARANTEE")
+		{
+			$sql = "select dp.listing_id,sum(dp.quantity) as quantity,l.title,l.barcode
+			from document_products dp, listingsDB l, $TABLE_UNITS u
+			where doc_id = ".$doc->fields["parent_id"]."
+			and unit = u.id
+			and grams_rate is null
+			and dp.listing_id = l.id
+			group by dp.listing_id";
+		}
+		else
+		{
+			if ($HTTP_GET_VARS["title2"])
+			{
+				$fname = "(case when ifnull(l.title2,'')='' then d.name else l.title2 end) as name";
+			}
+			else
+			{
+				$fname = "d.name";	
+			}
+			$sql = "select
+					$factory as isfactory, 1 as sorder,
+					d.id,d.doc_id,d.listing_id,d.sort_order,d.barcode,$fname,d.currency_price,d.currency_id,d.currency_rate,
+					d.quantity,d.price,d.discount,d.quantity_change,d.cost,d.masterindex,d.childquantity,d.sourcedocproductid,
+					d.factory_listing_id,$visible as visible,                    
+					ds.doc_id as sourceid,ordered,reserved,c.symbolbefore,
+					(case when u.id = 0 or u.id is null then '' else abbreviation end) as abbreviation, decimals,
+					grams_rate
+					from document_products d
+					left outer join document_products ds on ds.id = d.sourcedocproductid
+					left outer join listingsDB l on l.id = d.listing_id
+					left outer join $TABLE_UNITS u on u.id = l.unit
+					left outer join currencies c on c.id = d.currency_id and c.user_id = $userID
+					where d.doc_id = $docid $showvisible ";
+				if ($UserData->fields["OrderDocumentProductsByBarcode"])
+				{
+					$sql.=" order by sorder, d.barcode+0, binary d.barcode";
+				}
+				else
+				{
+					$sql.=" order by sorder, $sorder";
+				}
+		} 
+		
+		$this->docproducts = DBQuery($sql);
+		
+		if ($did == "HAFKADAHAAVARA")
+		{
+			$sql = "select dp.*,dpt.name as paymenttypename,k.name as kupaname,d.doc_number
+					from hafkada_payments hp, document_payments dp, $TABLE_DOCPAYMENTTYPES dpt, kupot k, documents d
+					where d.id = dp.doc_id and hp.payment_id = dp.id and k.id = dp.kupa_id and dpt.id = dp.payment_type and  hp.doc_id = $docid order by sort_order";
+		}
+		else
+		{
+			$sql = "select p.*, dt.name as TypeName, k.name as KupaName, cc.name as CardName
+				from document_payments p
+				left outer join kupot k on k.id = p.kupa_id
+				left outer join $TABLE_DOCPAYMENTTYPES dt on dt.id = p.payment_type
+				left outer join $TABLE_CARDTYPES cc on cc.id = p.cardtype_id
+				where doc_id = $docid order by sort_order";
+		}
+		$this->docpayments = DBQuery($sql);
+		
+		$sql = "select * from ".$GO_CONFIG->db_name.".users u where id = $userID";
+		$this->userinfo = DBQuery($sql);	
+		
+		
+		//get itra
+		if ($client = $doc->fields["client_id"])
+		{
+			$sql = "select sum(amount * (case when dt.balance='+' then 1 else -1 end)) as amount
+					from documents d, $TABLE_DOCUMENT_TYPE dt where
+					dt.id = d.doc_type and
+					dt.balance in ('+','-') and
+					d.client_id = $client";
+			$this->itrars = DBQuery($sql);
+			
+			
+			//get open cheques
+			$sqlCheques = "select sum(dp.amount) as amount from document_payments dp, documents d
+					where d.id = dp.doc_id and d.doc_type in ('KABALA','MASKABALA') and payment_type=0
+					and curdate() < date_add(checkdate,INTERVAL 4 DAY)
+					and d.client_id = $client
+					";
+			$this->chequesrs = DBQuery($sqlCheques);
+			
+			$sql = "select comment from document_type_counters where doc_type_id = '$did'";
+			$dcomment = DBQuery($sql);
+			$this->documenttext = $dcomment->fields["comment"];
+			
+			
+		}		
+		
+		if ($this->isSmarty)
+		{
+			$this->InitTemplateVars();
+		}
+		
+	}
+	
+	function InitTemplateVars()
+	{
+		global $GO_CONFIG,$userID,$username,$UserData,$lang,$did,$HTTP_GET_VARS,$TABLE_LISTINGSSTOCKS;
+		
+		$smarty = $this->smarty;
+		$doc = $this->document;
+		$products = $this->docproducts;
+		$payments = $this->docpayments;
+		$userinfo = $this->userinfo;
+		$did = $doc->fields["doc_type"];
+		
+		$vat = $doc->fields["vat"];
+		
+		$smarty->assign("LANGUAGE",$lang);
+		
+		if ($UserData->fields["LogoPicture"])
+		{
+			$tpath = $GO_CONFIG->file_storage_path.$username."/_MlaitekPro/".$UserData->fields["LogoPicture"];
+			$tpath = $GO_CONFIG->protocol.$GO_CONFIG->hostname."/modules/filesystem/download.php?path=".urlencode($tpath);
+			$smarty->assign("LOGO_URL",$tpath);
+		}
+		 
+		if ($document->fields["StockAddress"])
+		{
+			$address= $doc->fields["StockAddress"]. " ".$doc->fields["StockCity"];
+		}
+		else
+		{
+			$address= $userinfo->fields["work_address"]. " ".$userinfo->fields["work_city"]." ".$userinfo->fields["work_zip"];
+		}
+		$userinfo->fields["address"] = $address;
+		
+		
+		$phonefax = "".$lang["phone2"]." ".(($document->fields["StockPhone"])?$document->fields["StockPhone"]:$userinfo->fields["work_phone"]);
+		
+		if ($userinfo->fields["work_fax"])
+		{
+			$phonefax.=" ".$lang["fax"].". ".$userinfo->fields["work_fax"];
+		}
+		$userinfo->fields["phonefax"] = $phonefax;
+		
+		$snifimRS = DBQuery("select city,phone from ".$TABLE_LISTINGSSTOCKS." s where s.status=1 and s.user_id = $userID and IsSnif = 1 and ifnull(city,'') <> '' order by binary city");
+		$snifim = "";
+		while (!$snifimRS->EOF)
+		{
+			$snifim.=" | ".$snifimRS->fields["city"]." ".$snifimRS->fields["phone"];
+			$snifimRS->MoveNext();
+		}
+		
+		if ($snifim)
+		{
+			$userinfo->fields["branches"] = substr($snifim,3);
+		}
+		
+		$smarty->assign("COMPANY_INFO",$userinfo->fields);
+		
+		$doc->fields["copy_or_original"] = ($doc->fields["first_copy"])?$lang["original"]:$lang["copy"];
+		
+		
+		//print_r($products->fields);				
+		$productsArr = array();
+		$cnt=1;
+		$PRICEBEFORE = 0;
+		
+		if($did=="GUARANTEE")
+		{
+			while (!$products->EOF)
+			{
+				$listingid =$products->fields["listing_id"];
+				$quantity = round($products->fields["quantity"]);
+
+				$sql = "select serial , date_guarantee from document_serials where doc_id = ".$doc->fields["parent_id"]." and listing_id = $listingid order by id";
+				$serial = DBQuery($sql);
+
+				for ($i=0;$i<$quantity;$i++)
+				{
+					$serialnumber = ($serial->EOF)?"":$serial->fields["serial"];
+					$date = ($serial->EOF)?date("d/m/Y",mktime(0,0,0,date("m"),date("d"),date("Y")+1)):($serial->fields["date_guarantee"]==""||$serial->fields["date_guarantee"]=="0000-00-00"?"":DateFromSQL($serial->fields["date_guarantee"]));
+					
+					$productsArr[] = array(
+						"number"=>$cnt,
+						"barcode"=>$products->fields["barcode"],
+						"title"=>$products->fields["title"],
+						"serialnumber"=>$serialnumber,
+						"gurantee_date"=>$date
+					);
+					$serial->MoveNext();
+					$cnt++;
+				}
+
+				$products->MoveNext();
+			}
+		}
+		else
+		{
+			while (!$products->EOF)
+			{
+				$products->fields["number"] = $cnt++;
+				$products->fields["quantity"] = number_format($products->fields["quantity"],$products->fields["decimals"],",","");
+				
+				$price = $products->fields["currency_price"]-($products->fields["currency_price"]*$products->fields["discount"]/(100));
+				
+				if ($doc->fields["PrintDocPricesIncudingVAT"])
+				{
+					$total = $products->fields["totalprice"] = $products->fields["price"];
+					//$price = $price*(1+$vat/100);
+					$price = $total / $products->fields["quantity"];
+				}
+				else
+				{
+					$products->fields["totalprice"]=$products->fields["price"]/(1+$vat/100);
+				}
+				
+				if ($HTTP_GET_VARS["title2"])
+				{
+					$products->fields["name"] = "<span dir=ltr>".$products->fields["name"]."</span>";
+				}
+				
+				
+				if (!$products->fields["isfactory"])
+				{
+					$PRICEBEFORE+=$products->fields["totalprice"];
+				} 
+				
+				$products->fields["totalprice"] = number_format($products->fields["totalprice"],2);
+				$products->fields["price"] = number_format($price,2);
+
+				$productsArr[] = $products->fields;
+
+				$products->MoveNext();
+			}
+		}
+		
+		$paymentsArr = array();
+		$cnt=1;
+		while (!$payments->EOF)
+		{		
+			$payments->fields["number"] = $cnt++;
+			$payments->fields["amount"] = number_format($payments->fields["Amount"],2);
+			$payments->fields["checkdate"] = DateFromSQL($payments->fields["checkdate"]);
+			$paymentsArr[] = $payments->fields;
+			$payments->MoveNext();
+		}
+		 
+		$doc->fields["price_before_vat"] = formatCurrency($PRICEBEFORE);
+		$doc->fields["discount_percent"] = $doc->fields["discount"];
+		$doc->fields["discount"] = formatCurrency($PRICEBEFORE * $doc->fields["discount"]/100);
+		$doc->fields["vat"] = formatCurrency($doc->fields["amount"]*$vat/(100+$vat));
+		$doc->fields["vat_percent"]  = $vat;
+		
+		if ($doc->fields["PrintDocPricesIncudingVAT"])
+		{
+			$priceafter = $doc->fields["amount"];
+		}
+		else
+		{
+			$priceafter = $doc->fields["amount"] - $doc->fields["amount"]*$vat/(100+$vat);
+		}
+		$doc->fields["total_after_discount"] = formatCurrency($priceafter);
+		
+		if ($document->fields["PrintDocPricesIncudingVAT"])
+		{		
+			$doc->fields["total_amount"] = formatCurrency($priceafter-$doc->fields["amount"]*$vat/(100+$vat));
+		}
+		else
+		{
+			$doc->fields["total_amount"] = formatCurrency($doc->fields["amount"]);
+		}
+		
+		if ($doc->fields["doc_type"]=="KNIYA" && $doc->fields["stock_date"] && $doc->fields["stock_date"]!="0000-00-00")
+		{
+			$doc->fields["stock_date"] = dateFromSQL($document->fields["stock_date"],true);
+		}		
+		$doc->fields["comments"] = $doc->fields["comment1"];
+		
+		$doc->fields["print_balance"] = $doc->fields["client_id"] && $HTTP_GET_VARS["itra"];
+
+		$itrars = $this->itrars;
+		$chequesrs = $this->chequesrs;
+		$doc->fields["client_balance"] = number_format($itrars->fields["amount"],2);
+		$doc->fields["client_open_cheques"] = number_format($chequesrs->fields["amount"],2);
+		
+		if($document->fields["is_internal"])
+		{
+			$doc->fields["client_name"] = $userinfo->fields["client_name"];
+		}		
+		$doc->fields["client_address"] = $doc->fields["PostAdress"];
+		
+		if ($doc->fields["print_time"])
+		{
+			$sec = $doc->fields["print_seconds"]?":s":"";
+			$hour = " ".date("H:i$sec",$doc->fields["created"]);
+			$doc->fields["doc_date"] = dateFromSQL($doc->fields["doc_date"]).$hour;
+		}		
+		
+		$doc->fields["global_comment"] = nl2br($this->documenttext);
+		
+		$configArr = array();
+		$configArr["hide_prices"] = $HTTP_GET_VARS["hidePrice"];
+		$configArr["print_blank"] = $HTTP_GET_VARS["form"];
+		
+		
+		$smarty->assign("CONFIG",$configArr);
+		$smarty->assign("PRODUCTS",$productsArr);
+		$smarty->assign("PAYMENTS",$paymentsArr);
+		$smarty->assign("DOC_INFO",$doc->fields);
+	}
+	
+	function InitTemplate()
+	{
+	}
+	
+	function PrintHeader()
+	{
+	}
+	
+	function PrintFooter()
+	{
+	}
+	
+	function PrintProducts()
+	{
+	}
+	
+	function PrintPayments()
+	{
+	}
+	
+	function StyleSheet()
+	{
+	}
+	
+	function PrintDocument()
+	{
+		
+		global $UserData,$userID,$officedbname;
+		
+		$smarty = $this->smarty;
+		$doc = $this->document;
+		
+		if ($this->isSmarty)
+		{
+			$this->InitTemplate();
+			if ($UserData->fields["header_template_id"])
+			{
+				$smarty->display("db:".$UserData->fields["header_template_id"]);
+			}
+			if ($doc->fields["print_template_id"])
+			{
+				$smarty->display("db:".$doc->fields["print_template_id"]);
+			}
+			if ($UserData->fields["footer_template_id"])
+			{
+				$smarty->display("db:".$UserData->fields["footer_template_id"]);
+			}
+		}
+		else
+		{
+			$this->PrintHeader();
+			if ($doc->fields["is_product"])
+			{
+				$this->PrintProducts();
+			}
+			if ($doc->fields["is_payment"])
+			{
+				$this->PrintPayments();
+			}
+			$this->PrintFooter();			
+			echo $this->buffer;
+		}
+		
+		
+		if (PROVIDER_MODE)		
+		{
+			$sql = "update documents set first_copy = 0 where id = ".$this->docid;
+		}
+		else
+		{
+			//don't update MAKOR state if document will be shown for client in  PROVIDER_MODE
+			$sql = "update documents d set first_copy = 0 where id = ".$this->docid." and not exists 
+				(select id from listingsSuppliers where id = d.client_id and (username like 'vcx%' or username in 
+					(select username from $officedbname.users where provider_user = $userID)))";
+			$sql = "update documents set first_copy = 0 where id = ".$this->docid;
+		}		
+		
+		DBQuery($sql);
+	}	
+}
+
+class ThermalHTMLDocumentWriter extends HTMLDocumentWriter
+{
+	
+	function ThermalHTMLDocumentWriter($docid)
+	{
+		$this->isSmarty = false;
+		$this->HTMLDocumentWriter($docid);
+	}
+		
+	function StyleSheet()
+	{
+		return 
+		"
+				body,td,b{font-family:courier new;font-size:12px}
+				
+				.products-header {border-top:solid 1px #000000;border-bottom:solid 1px #000000;}
+				.products-total {border-top:solid 1px #000000;}
+				
+				.break{page-break-before:always;}
+		";
+	}
+	
+	function PrintHeader()
+	{
+		global $lang,$UserData,$GO_CONFIG,$username;
+		$doc = $this->document;
+		$userinfo = $this->userinfo;
+		
+		if ($UserData->fields["LogoPicture"])
+		{
+			$tpath = $GO_CONFIG->file_storage_path.$username."/_MlaitekPro/".$UserData->fields["LogoPicture"];
+			$this->writeln("<img height=40 src=".$GO_CONFIG->protocol.$GO_CONFIG->hostname."/modules/filesystem/download.php?path=".urlencode($tpath).">","center");
+		}
+		
+		$phonefax = "".$lang["phone2"]." ".(($document->fields["StockPhone"])?$document->fields["StockPhone"]:$userinfo->fields["work_phone"]);
+		
+		if ($userinfo->fields["work_fax"])
+		{
+			$phonefax.=" ".$lang["fax"].". ".$userinfo->fields["work_fax"];
+		}
+		
+		if ($document->fields["StockAddress"])
+		{
+			$address= $doc->fields["StockAddress"]. " ".$doc->fields["StockCity"];
+		}
+		else
+		{
+			$address= $userinfo->fields["work_address"]. " ".$userinfo->fields["work_city"]." ".$userinfo->fields["work_zip"];
+		}
+		
+		$mail = "".$lang["email"].": ".$userinfo->fields["email"];
+		
+		if ($userinfo->fields["homepage"]){
+			$web = "".$lang["site"].": ".$userinfo->fields["homepage"];
+		}
+		
+		
+		$this->writeln($userinfo->fields["company"],"center");
+		$this->writeln($address,"center");
+		$this->writeln($phonefax,"center");
+		$this->writeln($mail,"center");
+		$this->writeln($web,"center");
+		
+		if ($userinfo->fields["businessnum"])
+		{
+			$this->writeln($lang["mis_esek"]." ".$userinfo->fields["businessnum"],"center");
+		}	
+		$this->line();
+		
+		$copy =(($doc->fields["first_copy"])?$lang["original"]:$lang["copy"]);
+		$this->writeln("<b style='font-size:1.1em'>".$doc->fields["DocTypeName"]." ".$lang["num"]." ".$doc->fields["doc_number"]." ".$copy."</b>","center");
+		
+		$time = date("H:i",$doc->fields["created"]);
+		$this->writeln("<span dir=ltr>".datefromsql($doc->fields["doc_date"])." ".$time."</span>","center");
+		
+		//lichvod
+		$clientName = $doc->Fields("is_internal") ? $userinfo->fields["company"] : $doc->fields["client_name"];
+		$adr = trim($doc->Fields("PostAdress"));
+		
+		if ($clientName)$this->writeln($lang["topers"]." ".$clientName);
+		if ($adr)$this->writeln($adr);
+		if ($document->fields["Phone"])$this->writeln($lang["phone"].": ".$document->fields["Phone"]);
+		if ($document->fields["Fax"])$this->writeln($lang["fax"].": ".$document->fields["Fax"]);
+		if ($document->fields["BusinessNum"])$this->writeln($lang["mis_esek"]." ".$document->fields["BusinessNum"]);
+		
+		$this->writeln("<br>");
+		
+	}
+	
+	function PrintProducts()
+	{
+		global $lang, $rightAlign;
+		
+		$doc = $this->document;
+		
+		$this->write("<table width=100%>");
+		$docproducts = $this->docproducts;
+		$this->write("<tr>");
+		$this->write("<td width=1% nowrap class='products-header'>".$lang["item_code"]."</td>");
+		$this->write("<td class='products-header'>".$lang["desc"]."</td>");
+		$this->write("<td width=1% class='products-header'>".str_replace(" ","&nbsp;",str_pad($lang["topay"],"12"," ",STR_PAD_RIGHT))."</td>");
+		$this->write("</tr>");
+		$totalAmt = 0;
+		$docproducts->MoveFirst();
+		while (!$docproducts->EOF)
+		{
+			$q = "";
+			if ($docproducts->fields["quantity"]>1)
+			{
+				$q = " X".$docproducts->fields["quantity"];
+			}
+			
+			$price = $docproducts->fields["price"];
+			$pricewithsymbol = number_format($price,2);
+			
+			
+			$this->write("<tr valign=top>");
+			$this->write("<td>".$docproducts->fields["barcode"]."</td>");
+			$this->write("<td>".$docproducts->fields["name"].$q."</td>");
+			$this->write("<td>".$pricewithsymbol."</td>");
+			$this->write("</tr>");
+			$totalAmt+=$price;
+			$docproducts->MoveNext();
+		}
+		
+		$total = $doc->fields["amount"];
+		$totalbefore = $total / (1+($doc->fields["vat"]/100));
+		$vat = $total - $totalbefore;
+	
+		if ($doc->fields["discount"]){
+			$cacheDiscount = ($doc->fields["discount"]*$total)/(100-$doc->fields["discount"]);
+			$this->write("<tr><td colspan=2 align=left>"."הנחה"." ".number_format($doc->fields["discount"],2)."%:</td><td  class=products-total >".number_format($cacheDiscount,2)."</td></tr>");
+		}
+
+		$this->write("<tr><td colspan=2 align=left><b>".$lang["total_incl_vat"].":</td><td ><b>".number_format($total,2)."</td></tr>");
+		$this->write("<tr><td colspan=2 align=left>".$lang["vat1"]." ".$doc->fields["vat"]."%".":</td><td>".number_format($vat,2)."</td></tr>");
+		$this->write("<tr><td colspan=2 align=left>".$lang["total_before_vat"].":</td><td>".number_format($totalbefore,2)."</td></tr>");
+		
+		$this->write("</table>");
+		$this->writeln("<br>");
+	}
+	
+	function PrintPayments()
+	{
+		
+		global $lang,$PTYPE_ASHRAI,$PTYPE_CHEQUE,$PTYPE_SHOVAR;
+		
+		$doc = $this->document;
+		$docpayments = $this->docpayments;
+		$total = 0;
+		$this->write("<table width=100% border=0>");
+		$docpayments->MoveFirst();
+		while(!$docpayments->EOF)
+		{
+			$total += $docpayments->fields["Amount"];
+			
+			$this->write("<tr>");
+			$this->write("<td class='products-header'>".$lang["payment_details"]."</td>");
+			$this->write("<td width=1% class='products-header'>".str_replace(" ","&nbsp;",str_pad($lang[amount],"12"," ",STR_PAD_RIGHT))."</td>");
+			$this->write("</tr>");
+			
+			
+			$this->write("<tr valign=top>");
+			$paydata = "";
+			switch($docpayments->fields["payment_type"])
+			{
+				case $PTYPE_SHOVAR:
+					if ($docpayments->fields["checknumber"])
+					{
+						$paydata .= "<nobr>".$lang["num"]." ".($docpayments->fields["checknumber"])." </nobr>";
+					}
+					$this->isCouponPayment = true;
+					break;
+				case $PTYPE_CHEQUE:
+					if ($docpayments->fields["checkdate"] && $docpayments->fields["checkdate"]!="0000-00-00")
+					{
+						$paydata .= "<nobr>".$lang["pera_d"].":".datefromSQL($docpayments->fields["checkdate"])." </nobr>";
+					}
+					if ($docpayments->fields["checknumber"])
+					{
+						$paydata .= "<nobr>".$language["search_by_cheque"].":".($docpayments->fields["checknumber"])." </nobr>";
+					}						
+					if ($docpayments->fields["checkbank"])
+					{
+						$paydata .= "<nobr>".$lang[bank].":".($docpayments->fields["checkbank"])." </nobr>";
+					}
+					if ($docpayments->fields["checksnif"])
+					{
+						$paydata .= "<nobr>".$lang["branch"].":".($docpayments->fields["checksnif"])." </nobr>";
+					}
+					if ($docpayments->fields["checkaccount"])
+					{
+						$paydata .= "<nobr>".$lang["account1"].":".($docpayments->fields["checkaccount"])." </nobr>";
+					}					
+					break;				
+				case $PTYPE_ASHRAI:
+					if ($docpayments->fields["checkdate"] && $docpayments->fields["checkdate"]!="0000-00-00")
+					{
+						$paydata .= "<nobr>".$lang["pera_d"].":".datefromSQL($docpayments->fields["checkdate"])." </nobr>";
+					}
+					if ($docpayments->fields["CardName"])
+					{
+						$paydata .= "<nobr>".$lang["card_type"].":".($docpayments->fields["CardName"])." </nobr>";
+					}
+					if ($docpayments->fields["checkbank"])
+					{
+						$paydata .= "<nobr>".$lang["num_approval"].":".($docpayments->fields["checkbank"])." </nobr>";
+					}
+					if ($docpayments->fields["checksnif"])
+					{
+						$paydata .= "<nobr>".$lang["expiration1"].":".($docpayments->fields["checksnif"])." </nobr>";
+					}
+					if ($docpayments->fields["checkaccount"])
+					{
+						$paydata .= "<nobr>".$lang["card_number"].":".($docpayments->fields["checkaccount"])." </nobr>";
+					}					
+					break;
+			}
+			
+			$this->write("<td>".$docpayments->fields["TypeName"]." ".$paydata."</td>");
+			$this->write("<td>".number_format($docpayments->fields["Amount"],2)."</td>");
+			$this->write("</tr>");
+			
+			$docpayments->MoveNext();
+		}
+		if ($doc->fields["tchange"])
+		{
+			$this->write("<tr><td >".$lang["change"]."</td><td>".number_format($doc->fields["tchange"],2)."</td></tr>");
+		}
+		$this->write("<tr><td align=left>".$lang["total"].":</td><td class=products-total>".number_format($total,2)."</td></tr>");
+		
+		
+		$this->write("</table>");
+		$this->writeln("<br>");
+	}
+	
+	function PrintFooter()
+	{
+		global $lang, $rightAlign;
+		$doc = $this->document;	
+		if ($doc->fields["agent_name"])
+		{
+			$this->writeln($lang["admin_listings_editor_agent"].": ".$doc->fields["agent_name"]);
+		}
+		if ($doc->fields["workername"])
+		{
+			$this->writeln($lang["sold_by"].": ".$doc->fields["workername"]);
+		}		
+		$snifadr = ($doc->fields["StockName"]);
+		if ($doc->fields["StockPhone"])
+		{
+			$snifadr .= " ".($doc->fields["StockPhone"]);
+		} 	
+		if ($snifadr)
+		{
+			$this->writeln($lang["sold_in"].": ".$snifadr);
+		}
+		
+		//second page
+		
+		if ($doc->fields["tranzila_confirmation_code"] || $this->isCouponPayment)
+		{
+			$this->writeln("<br>");
+			$this->pagebreak();
+			$this->PrintHeader();
+		}
+		
+		$this->writeln(nl2br($doc->fields["comment1"]));
+		
+		if ($this->isCouponPayment)
+		{
+			$this->writeln("<br>");
+			$this->PrintPayments();
+		}
+		
+		if ($doc->fields["tranzila_confirmation_code"] || $this->isCouponPayment)
+		{
+			$this->writeln("<br>".$lang["client_sig"]." ____________________");
+		}
+		
+	}
+	
+}
+
+function reverse ($string)
+{
+	return $string;
+}
+
+?>

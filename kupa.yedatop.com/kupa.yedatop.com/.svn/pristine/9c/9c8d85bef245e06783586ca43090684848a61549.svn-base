@@ -1,0 +1,4 @@
+<?
+$USERID = 430;
+include("core.php");
+?>

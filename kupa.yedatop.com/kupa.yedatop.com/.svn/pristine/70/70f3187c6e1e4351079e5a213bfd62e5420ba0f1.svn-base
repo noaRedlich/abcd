@@ -1,0 +1,840 @@
+<?
+session_start();
+
+$simple=1;
+$page_subtitle = "מכירות לפי מוצרים ";
+$xlsfilename="MechirotLefiMutzar";
+
+include("include/common.php");
+include("include/business_functions.php");	
+
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+if (!IsPostBack())
+{
+    $includevat=1;
+}
+
+if ($_POST["posted"])
+{ 
+    $onlysold = $_POST["onlysold"];
+    $fromkupa = $_POST["fromkupa"];
+    $fromdocs = $_POST["fromdocs"];
+}
+else
+{                                                                 
+    $onlysold = $_GET["onlysold"];
+    $fromkupa = $_GET["fromkupa"];
+    $fromdocs = $_GET["fromdocs"];
+}
+
+if ($_GET["sDate"] && $saction != "sendreport")
+{
+    $saction="go";
+}
+
+if (!$sDate)
+{
+    $firstday = mktime(0,0,0,date("m"),1,date("Y"));
+    $sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+    $eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+}
+
+$asDate = explode("/",$sDate);
+$aeDate = explode("/",$eDate);
+
+$startdate = mktime(0,0,0,$asDate[1],$asDate[0],$asDate[2]);
+$enddate = mktime(23,59,59,$aeDate[1],$aeDate[0],$aeDate[2]);
+$startDay = date("Y/m/d",$startdate);
+$endDay = date("Y/m/d",$enddate);
+
+
+
+$stocks = GetStocks(true);
+
+$suppliers = $conn->Execute("select * from listingsSuppliers where Status=1 and isSupplier=1 and user_id = $userID order by binary SupplierName");
+if ($suppliers === false)
+{
+    log_error($sql);
+}    
+
+?>
+<style>
+    .z {color:gray}
+    .b {font-weight:bold}
+    th {background-color:silver}
+</style>
+<script>
+    function PrintReport(){
+        document.getElementById("Query").style.display = "none";
+        window.print();
+        document.getElementById("Query").style.display = "";
+    }
+
+    function showChn(ids,docids){
+        ids1 = ids.replace(/-1/g,"")
+        ids2 = docids.replace(/-1/g,"")
+        if (ids1!=""){
+            document.FF.ids.value = ids
+            document.FF.target="CHN";
+            openReport1("blank.htm","CHN")
+            document.FF.submit()
+        }
+        if (ids2!=""){
+            document.FF.action = "rep_documents.php";
+            document.FF.ids.value = ids2
+            document.FF.target="DOCS";
+            openReport1("blank.htm","DOCS")
+            document.FF.submit()
+        }
+    }
+    function openReport1(url,target){
+        var ss="";
+        s = window.open(url,target,'top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+        s.focus();
+    }
+    function mov(e){
+        if(e.className=="s"||e.className=="b ") e.style.backgroundColor='yellow';
+    }
+    function mou(e){
+        e.style.backgroundColor='';
+    }
+
+</script>
+<body>
+    <table cellpadding=5 border=0 width=100%>
+        <tr>
+        <form name=F method=post action="<?=$PHP_SELF?>">
+            <input type=hidden name=posted value=1>
+            <input type=hidden name=usr value=<?=$usr?>>
+            <input type=hidden name=rmodule value=<?=$rmodule?>>
+            <td nowrap>
+                <?$reporttitle = "מכירות <br> לפי מוצרים";?>
+                <?if ($usr)
+                {
+                    $reporttitle.="<br>".$username;
+                }?>
+                <strong style='font-size:12pt'><?=$reporttitle?></strong>
+            </td><td width=99% style='border:inset 1'>
+                <?=$lang["from"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+                <img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.sDate")
+                     '>
+                <?=$lang["to"]?> <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+                <img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.eDate")
+                     '>
+
+
+                <select name=category>
+                    <option value=""><?=$lang["all_cats"]?>
+                        <?FillCategoriesList($category);?>
+                </select>
+
+
+                <select name=stock>
+                    <?FillStockList($stocks,$stock)?>
+                </select>
+
+                <SELECT NAME="allitems">
+                    <option value=""> כל הפריטים
+                    <option value="1" <?=$allitems==1?"selected":""?>> פריטים שישנם במלאי
+                    <option value="2" <?=$allitems==2?"selected":""?>> פריטים שאינם במלאי
+                </SELECT>
+
+                <br>
+
+                <select name=supplier>
+                    <option value="">כל הספקים
+                        <?while(!$suppliers->EOF)
+                        {?>
+                    <option value="<?=$suppliers->fields["ID"]?>" <?=($supplier==$suppliers->fields["ID"])?"selected":""?>><?=$suppliers->fields["SupplierName"]?>
+                            <?$suppliers->MoveNext();
+                        }?>
+                </select>
+
+                <br>
+                ברקוד <input name=barcode size=8 value="<?=$barcode?>">
+
+
+                <select name=onlysold>
+                    <option value="1" <?=$onlysold==1||!IsPostBack()?"selected":""?> > רק פרטים שנמכרו
+                    <option value="2" <?=$onlysold==2?"selected":""?>> רק פרטים שלא נמכרו
+                    <option value="0" <?=$onlysold==="0"?"selected":""?> > כל הפריטים
+                </select>
+
+                נתוני קופה <input type=checkbox name=fromkupa value=1 <?=($fromkupa==1)?"checked":""?>>
+                נתוני חשבוניות נוספות<input type=checkbox name=fromdocs value=1 <?=($fromdocs==1)?"checked":""?>>
+                &nbsp;
+                <input type=radio name=treeMode value=0 <?=(!$treeMode)?"checked":""?>> פריטים רגילים
+                <input type=radio name=treeMode value=1 <?=($treeMode)?"checked":""?>> עצי מוצר
+                <br>
+                <?=$lang["including_sub_cat"]?><Input type=checkbox <?=($subcats||!IsPostBack())?"checked":""?> name=subcats>
+                &nbsp;
+                <?=$lang["show_prices"]?>
+                <select name=includevat>
+                    <option value="0"><?=$lang["before_vat"]?></option>
+                    <option value="1" <?=($includevat==1)?"selected":""?>><?=$lang["include_vat"]?></option>
+                    <option value="2" <?=($includevat==2)?"selected":""?>><?=$lang["show_both_vat"]?></option>
+                </select>
+                &nbsp;&nbsp;&nbsp;<?=$lang["show_mis_zar"]?>
+                <input type=checkbox name=showZar  <?=($showZar)?"checked":""?>>
+                <?/*
+ פתקי זיכוי
+ <select name="petekzikui">
+	<option value="" <?=!$petekzikui?"checked":""?>>הכול</option>
+	<option value=1 <?=$petekzikui==1?"checked":""?>>ללא פתקי זיכוי</option>
+	<option value=2 <?=$petekzikui==2?"checked":""?>>רק פתקי זיכוי</option>
+</select>
+                */?>
+
+            <input type=submit name=gosearch value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top;" >
+
+                <hr>
+                <?if ($saction=="go" || $saction=="sendreport")
+                {
+                    require("sendreport.php");
+                }?>
+                <input type=hidden name=saction value=go>
+                <input type=hidden name=reportbody value="">
+                <input type=hidden name=sendmode value="">
+            </td>
+        </form>
+    </tr>
+</table>
+<?	
+if ($saction=="sendreport")
+{
+    $rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+    sendReport($reporttitle,$rbody,$sendmode);
+    echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+    echo stripslashes($reportbody);
+}
+elseif ($saction=="go")
+{
+
+    $showBefore = $includevat==0||$includevat==2;
+    $showAfter = $includevat==1||$includevat==2;
+
+    if (!$sort || $gosearch)
+    {
+
+        $q="";
+        $q .= " and l.is_tree = ".(($treeMode)?"1":"0")." ";
+        if ($category)
+        {
+            $q.=" and c.id in (".getCategoryIDs($category,$subcats).")  ";
+        }
+        if ($supplier)
+        {
+            $q.=" and sapak = $supplier";
+        }
+        if($barcode)
+        {
+            $q.=" and barcode = '".addslashes($barcode)."'";
+        }
+
+        if ($onlysold==1)
+        {
+            $q.=" and (1=0   ";
+            if ($fromkupa)
+            {
+                $q.=  " or exists (select tc.id from transactioncomponents tc, transactions t
+						where listing_id = l.id and tc.trans_id = t.id and trandate between '$startDay' and '$endDay' and refundmode<>2)";
+            }
+            if ($fromdocs)
+            {
+                $q.= " or exists (select dp.id from document_products dp, documents d
+						where listing_id = l.id and dp.doc_id = d.id and doc_date between '$startDay' and '$endDay' ) ";
+            }
+            $q.=")";
+        }
+        elseif ($onlysold==2)
+        {
+            if ($fromkupa)
+            {
+                $q.=  " and not exists (select tc.id from transactioncomponents tc, transactions t
+						where listing_id = l.id and tc.trans_id = t.id and trandate between '$startDay' and '$endDay' and refundmode<>2)";
+            }
+            if ($fromdocs)
+            {
+                $q.= " and not exists (select dp.id from document_products dp, documents d
+						where listing_id = l.id and dp.doc_id = d.id and doc_date between '$startDay' and '$endDay' ) ";
+            }
+        }
+
+        
+
+        if ($showAfter)
+        {
+            $costsql = ",cost";
+            $pricesql = ",saleprice as price";
+            $vats = "";
+        }
+        if ($showBefore)
+        {
+            $costsqlbefore = ",cost/(1+".$config["VAT"]."/100) as costbefore";
+            $pricesqlbefore = ",saleprice/(1+".$config["VAT"]."/100) as pricebefore";
+            $vatsbefore = "/(1+".$config["VAT"]."/100)";
+        }
+
+        if ($allitems==1){
+            $q.=" and exists (select listingid from listingsStocksElements where listingid = l.id ".(($stock)?" and stockid = $stock":"")." and stockid in (select id from $TABLE_LISTINGSSTOCKS where user_id = $userID and status=1) group by listingid having sum(Quantity)>0 )";
+        }
+        if ($allitems==2){
+            $q.=" and not exists (select listingid from listingsStocksElements where listingid = l.id ".(($stock)?" and stockid = $stock":"")." and stockid in (select id from $TABLE_LISTINGSSTOCKS where user_id = $userID and status=1) group by listingid having sum(Quantity)>0 )";
+        }
+
+        $sql = "select
+				l.id,
+				title,
+				c.CategoryName,
+				active,
+				barcode,
+				misparzar,
+				grams_rate, abbreviation, decimals
+                $costsql
+                $pricesql
+                $costsqlbefore
+                $pricesqlbefore
+				from 
+				listingsDB l,		
+				listingsCategories c,
+                $TABLE_UNITS
+				where
+                $TABLE_UNITS.id = unit and
+				productGroup = c.ID and 
+				l.user_id = $userID 
+                                  $q
+				order by binary CategoryName, binary title";
+        $products = $conn->Execute($sql);
+        if ($products === false)
+        {
+            log_error($sql);
+        }
+
+        $report = array();
+
+        while (!$products->EOF)
+        {
+            $ids="";
+            $docids="";
+
+            $misparZar = $products->fields["misparzar"];
+            $Alut = $products->fields("cost");
+            $Alut = str_replace(",",".",$Alut);
+            if (!floatval($Alut))$Alut=0;
+            $AlutBefore = $products->fields["costbefore"];
+            $AlutBefore = str_replace(",",".",$AlutBefore);
+            if (!floatval($AlutBefore))$AlutBefore=0;
+            $prodid = $products->fields["id"];
+            $decimals = $products->fields["decimals"];
+            $grams_rate = $products->fields["grams_rate"];
+            if (!$grams_rate)$grams_rate=1;
+            if (!$cost) $cost=0;
+
+            $qq="";
+            $qd = "";
+            if ($stock)
+            {
+                $qq.=" and t.stock_id=$stock";
+                $qd.=" and d.stock_id=$stock";
+            }
+            $qq .= " and IsTree = ".(($treeMode)?"1":"0");
+
+            if ($fromkupa)
+            {
+
+                $compAmt = "(case
+							when AmountPercentDiscount <> 0 and (DiscountType=1 or SecondDiscFlag=1 or OtherDiscountFlag=1  or ClubDiscount=1)
+							then CompAmount - (CompAmount*AmountPercentDiscount/100)
+							when CompCashDiscount <> 0
+							then CompAmount - CompCashDiscount
+							when CompDiscount <> 0
+							then CompAmount - (CompAmount*CompDiscount/100)
+							else CompAmount end)";
+
+                $sql = "select ";
+                if ($showAfter)
+                {
+                    $sql.=" sum((case when WeigthFlag then WeightQty/$grams_rate else StockAmount end)* (case when isrefund = 1 or RefundMode=1 then -1 else 1 end) )    as StockAmount ,
+							round(sum(
+							($compAmt 
+							- (case 
+								when TranCashDiscount <> 0
+								then $compAmt * ((TranCashDiscount*100/TranAmount)/100)
+								when TranDiscount <> 0
+								then $compAmt * (TranDiscount/100)
+								else 0 
+							   end))
+							* (case when IsRefund=1  or RefundMode=1 or StockAmount <0 then -1 else 1 end)
+							) $vats,2) as Mahzor,
+							round(sum(
+							(($compAmt
+							- (case
+								when TranCashDiscount <> 0
+								then $compAmt * ((TranCashDiscount*100/TranAmount)/100)
+								when TranDiscount <> 0
+								then $compAmt * (TranDiscount/100)
+								else 0
+							   end) $vats
+							- ($Alut * abs(case when WeigthFlag then WeightQty/$grams_rate else StockAmount end))) * (case when IsRefund=1  or RefundMode=1 or StockAmount <0 then -1 else 1 end))
+							) ,2) as RevachAgol,";
+                }
+                if ($showBefore)
+                {
+                    $sql.=" sum((case when WeigthFlag then WeightQty/$grams_rate else StockAmount end)* (case when isrefund = 1 or RefundMode=1 then -1 else 1 end) )    as StockAmount ,
+							round(sum(
+							($compAmt
+							- (case
+								when TranCashDiscount <> 0
+								then $compAmt * ((TranCashDiscount*100/TranAmount)/100)
+								when TranDiscount <> 0
+								then $compAmt * (TranDiscount/100)
+								else 0
+							   end))
+							 * (case when isrefund = 1 or RefundMode=1 or StockAmount <0 then -1 else 1 end)
+							) $vatsbefore,2) as MahzorBefore,
+							round(sum(
+							(($compAmt
+							- (case
+								when TranCashDiscount <> 0
+								then $compAmt * ((TranCashDiscount*100/TranAmount)/100)
+								when TranDiscount <> 0
+								then $compAmt * (TranDiscount/100)
+								else 0
+							   end) $vatsbefore
+							- ($AlutBefore * abs(case when WeigthFlag then WeightQty/$grams_rate else StockAmount end))) * (case when isrefund =1 or RefundMode=1 or StockAmount <0 then -1 else 1 end))
+							) ,2) as RevachAgolBefore,";
+                }
+                $sql.=
+                        "group_concat(t.id) as ids from
+						transactioncomponents c, transactions t
+						where
+						t.ID = c.trans_id and
+						c.listing_id = $prodid and
+						refundmode<>2 and
+						trandate between '$startDay' and '$endDay'
+                        $qq
+                        ";
+
+
+                //echo("<!--SQL:". $sql ."-->");
+                $transData = $conn->Execute($sql);
+                if ($transData === false)
+                {
+                    log_error($sql);
+                }
+                $ids = $transData->fields["ids"];
+                //echo $ids."-";
+            }
+
+            //mismachim
+            if ($fromdocs)
+            {
+                $sql="select
+						sum((price*(100-d.discount)/100) * (case when doc_type='MASZIKUI' then -1 else 1 end)) as amount,
+						sum((price*(100-d.discount)/100) * (case when doc_type='MASZIKUI' then -1 else 1 end) $vatsbefore ) as amountBefore,
+						sum(quantity/$grams_rate * (case when doc_type='MASZIKUI' then -1 else 1 end)) as quantity,
+						sum(((price*(100-d.discount)/100) - ($Alut * quantity ))
+						* (case when doc_type='MASZIKUI' then -1 else 1 end) ) as RevachAgol,
+						sum(((price*(100-d.discount)/100)$vatsbefore - ($AlutBefore * quantity ))
+						* (case when doc_type='MASZIKUI' then -1 else 1 end) ) as RevachAgolBefore,
+						group_concat(d.id) as docids
+						from document_products dp, documents d where d.id = dp.doc_id
+						and listing_id = $prodid
+						and user_id = $userID
+						and doc_type in ('CHESHBONIT','CHESHBONITPINKAS','MASKABALA','MASZIKUI','MASKABALAPINKAS')
+						and doc_date between '$startDay' and '$endDay' $qd";
+
+                $docData = $conn->Execute($sql);
+                if ($docData === false)
+                {
+                    log_error($sql);
+                }
+                $docids = $docData->fields["docids"];
+            }
+
+            $MechirMetuchnan = ($products->fields["price"])?$products->fields["price"]:0;
+            $MechirMetuchnanBefore = ($products->fields["pricebefore"])?$products->fields["pricebefore"]:0;
+
+            $RevachAgol = 0;
+            $RevachAgolBefore = 0;
+            if ($fromkupa)
+            {
+                $RevachAgol+=$transData->fields["RevachAgol"];
+                $RevachAgolBefore+=$transData->fields["RevachAgolBefore"];
+            }
+            if ($fromdocs)
+            {
+                $doctotal = $docData->fields["RevachAgol"];
+                $doctotalBefore = $docData->fields["RevachAgolBefore"];
+                $RevachAgol+=$doctotal;
+                $RevachAgolBefore+=$doctotalBefore;
+            }
+
+
+            $KamutNimkeret=0;
+            if ($fromkupa)
+            {
+                $KamutNimkeret += $transData->fields["StockAmount"];
+            }
+            if ($fromdocs)
+            {
+                $KamutNimkeret += $docData->fields["quantity"];
+            }
+
+            $Mahzor=0;
+            $MahzorBefore=0;
+            if ($fromkupa)
+            {
+                $Mahzor += $transData->fields["Mahzor"];
+                $MahzorBefore += $transData->fields["MahzorBefore"];
+            }
+            if ($fromdocs)
+            {
+                $Mahzor  += $docData->fields["amount"];
+                $MahzorBefore += $docData->fields["amountBefore"];
+            }
+
+            $MechirMemutza = ($Mahzor) ? $Mahzor/$KamutNimkeret : 0;
+            if ($showAfter)
+            {
+                $AchuzRevachMemutza = $RevachAgol*100/$Mahzor;
+            }
+            else
+            {
+                $AchuzRevachMemutza = $RevachAgolBefore*100/$MahzorBefore;
+            }
+            $RevachMemutza = ($MechirMemutza)?($MechirMemutza - $Alut):0;
+            if ($Mahzor<0)
+            {
+                $RevachMemutza=$RevachMemutza*-1;
+                $MechirMemutza=$MechirMemutza*-1;
+                $AchuzRevachMemutza=$AchuzRevachMemutza*-1;
+            }
+            if ($products->fields["barcode"]=='0000000000000')
+            {
+                $RevachAgol=0;
+                $RevachAgolBefore=0;
+                $AchuzRevachMemutza=0;
+                $MechirMemutza=0;
+                $RevachMemutza=0;
+            }
+
+            if (($onlysold==1 && $Mahzor) || !$onlysold || ($onlysold==2 && !$Mahzor))
+            {
+                $report[] = array(
+                        "ProductID" => $prodid,
+                        "MisparZar" => $misparZar,
+                        "BarCode" => $products->fields["barcode"],
+                        "Category" => $products->fields["CategoryName"],
+                        "Name" => $products->fields["title"],
+                        "Alut" => $Alut,
+                        "AlutBefore" => $AlutBefore,
+                        "MechirMetuchnan" => $MechirMetuchnan,
+                        "MechirMetuchnanBefore" => $MechirMetuchnanBefore,
+                        "KamutNimkeret" => $KamutNimkeret,
+                        "Mahzor" => $Mahzor,
+                        "MahzorBefore" => $MahzorBefore,
+                        "RevachAgol" => $RevachAgol,
+                        "RevachAgolBefore" => $RevachAgolBefore,
+                        "AchuzRevachMemutza" => $AchuzRevachMemutza,
+                        "MechirMemutza" => $MechirMemutza,
+                        "RevachMemutza" => $RevachMemutza,
+                        "Decimals" => $products->fields["decimals"],
+                        "ids"=>$ids,
+                        "docids"=>$docids
+                );
+            }
+
+            $products->MoveNext();
+        }
+
+        $_SESSION["REPORT"] = $report;
+
+    }
+    else
+    {
+
+        //Sort Mode
+
+        $report = $_SESSION["REPORT"];
+        $report = aSortBySecondIndex($report,$sort,$desc);
+    }
+//Output
+
+    $TAchuzRevachMemutza = 0;
+    $TMahzor = 0;
+    $TKamutNimkeret = 0;
+    $TRevachAgol = 0;
+    $MaxDecimals=0;
+    $cnt=0;
+
+    $url = $_SELF."?saction=go&includevat=$includevat&showZar=$showZar&barcode=$barcode&posted=$posted&usr=$usr&rmodule=$rmodule&treeMode=$treeMode&stock=$stock&category=$category&supplier=$supplier&sDate=$sDate&eDate=$eDate&onlysold=$onlysold&fromkupa=$fromkupa&fromdocs=$fromdocs&desc=".(($desc=="0")?1:0);
+
+    $worksheet->set_column('A:B', 15);
+    $worksheet->set_column('C:J', 12);
+    $headings = array();
+    $headings[] = $lang["item_group"];
+    $headings[] = $lang["barcode"];
+    if ($showZar)$headings[] = $lang["num_zar"];
+    $headings[] = $lang["item"];
+    if ($showBefore)$headings[] = $lang["cost"]." ".$lang["before_vat"];
+    if ($showAfter)$headings[] = $lang["cost"];
+    if ($showBefore)$headings[] = $lang["pricelist_price"]." ".$lang["before_vat"];
+    if ($showAfter)$headings[] = $lang["pricelist_price"];
+    $headings[] = $lang["sold_qty"];
+    if ($showBefore)$headings[] = $lang["mahzor"]." ".$lang["before_vat"];
+    if ($showAfter)$headings[] = $lang["mahzor"];
+    if ($showBefore)$headings[] = $lang["prof_round"]." ".$lang["before_vat"];
+    if ($showAfter)$headings[] = $lang["prof_round"];
+    $headings[] = $lang["rev_percent_mahzor"];
+    $headings[] = $lang["average_saleprice"];
+    $headings[] = $lang["rev_avg_nis"];
+    $worksheet->write_row('A'.($rrow++), $headings, $heading);
+    ;
+
+    echo "<div ><table id=REPORTTABLE dir=$dir  border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+    echo "
+			<tr valign=top>
+			<th><a href='$url&sort=Category'>".$lang["item_group"]."</a></th>";
+    echo "<th><a href='$url&sort=BarCode'>".$lang["barcode"]."</a></th>";
+    if ($showZar)
+    {
+        echo "<th><a href='$url&sort=BarCode'>".$lang["num_zar"]."</a></th>";
+    }
+    echo "<th><a href='$url&sort=Name'>".$lang["item"]."</a></th>";
+    if (HasActionPermission("VIEWCOST"))
+    {
+        if ($showBefore)
+        {
+            echo "<th><a href='$url&sort=Alut'>".$lang["cost"]." ".$lang["before_vat"]."</a></th>";
+        }
+        if ($showAfter)
+        {
+            echo "<th><a href='$url&sort=Alut'>".$lang["cost"]."</a></th>";
+        }
+    }
+    if ($showBefore)
+    {
+        echo "<th><a href='$url&sort=MechirMetuchnan'>".$lang["sale_pricwe"]." ".$lang["before_vat"]."</a></th>";
+    }
+    if ($showAfter)
+    {
+        echo "<th><a href='$url&sort=MechirMetuchnan'>".$lang["sale_pricwe"]."</a></th>";
+    }
+    echo "<th><a href='$url&sort=KamutNimkeret'>".$lang["sold_qty"]."</a></th>";
+    if ($showBefore)echo "<th><a href='$url&sort=Mahzor'>".$lang["mahzor"]." ".$lang["before_vat"]."</a></th>";
+    if ($showAfter)echo "<th><a href='$url&sort=Mahzor'>".$lang["mahzor"]."</a></th>";
+    if (HasActionPermission("VIEWCOST"))
+    {
+        if ($showBefore)echo "<th><a href='$url&sort=RevachAgol'>".$lang["prof_round"]." ".$lang["before_vat"]."</a></th>";
+        if ($showAfter)echo "<th><a href='$url&sort=RevachAgol'>".$lang["prof_round"]."</a></th>";
+        echo "<th><a href='$url&sort=AchuzRevachMemutza'>".$lang["rev_percent_mahzor"]."</a></th>";
+    }
+    echo "<th><a href='$url&sort=MechirMemutza'>".$lang["average_saleprice"]."</a></th>";
+    if (HasActionPermission("VIEWCOST"))
+    {
+        echo "<th><a href='$url&sort=RevachMemutza'>".$lang["revach_avg_nis1"]."</a></th>";
+    }
+    echo "</tr>  ";
+
+    foreach ($report as $row)
+    {
+        $ids = $row["ids"];
+        $docids = $row["docids"];
+        echo "
+				<tr valign=top>
+				<td>".$row["Category"]."</td>
+				<td>".$row["BarCode"]."</td>";
+        if ($showZar)
+        {
+            echo "<td>".$row["MisparZar"]."</td>";
+        }
+        echo"<td><a href=\"javascript:wopen('edit_my_listings.php?edit=".$row["ProductID"]."','edit')\">".$row["Name"]."</a></td>";
+        if (HasActionPermission("VIEWCOST"))
+        {
+            if ($showBefore)
+            {
+                echo"<td><span dir=ltr>".number_format($row["AlutBefore"],2)."</td>";
+            }
+            if ($showAfter)
+            {
+                echo"<td><span dir=ltr>".number_format($row["Alut"],2)."</td>";
+            }
+        }
+        if ($showBefore)
+        {
+            echo"<td><span dir=ltr>".number_format($row["MechirMetuchnanBefore"],2)."</td>";
+        }
+        if ($showAfter)
+        {
+            echo"<td><span dir=ltr>".number_format($row["MechirMetuchnan"],2)."</td>";
+        }
+        //echo $docids."*";
+        echo "<td nowrap  class=s onmouseover='mov(this)' onmouseout='mou(this)' onclick='showChn(\"$ids\",\"$docids\")'><span dir=ltr>".number_format($row["KamutNimkeret"],$row["Decimals"])."</td>";
+        if ($showBefore)echo "<td nowrap><span dir=ltr>".number_format($row["MahzorBefore"],2)."</td>";
+        if ($showAfter)echo "<td nowrap><span dir=ltr>".number_format($row["Mahzor"],2)."</td>";
+        if (HasActionPermission("VIEWCOST"))
+        {
+            if ($showBefore)echo "<td nowrap><span dir=ltr>".number_format($row["RevachAgolBefore"],2)."</td>";
+            if ($showAfter)echo "<td nowrap><span dir=ltr>".number_format($row["RevachAgol"],2)."</td>";
+        }
+        if (HasActionPermission("VIEWCOST"))
+        {
+            echo "<td nowrap><span dir=ltr>".number_format($row["AchuzRevachMemutza"],2)."%</td>";
+        }
+        echo "<td nowrap><span dir=ltr>".number_format($row["MechirMemutza"],2)."</td>";
+        if (HasActionPermission("VIEWCOST"))
+        {
+            echo "<td nowrap><span dir=ltr>".number_format($row["RevachMemutza"],2)."</span></td>";
+        }
+        echo "</tr>";
+
+        $letter=0;
+        $b=$body;
+        $f=$numformat;
+        $worksheet->write(getLetter($letter++).$rrow,$row["Category"],$b);
+        $worksheet->write(getLetter($letter++).$rrow," ".$row["BarCode"],$bodyr);
+        if ($showZar)$worksheet->write(getLetter($letter++).$rrow," ".$row["MisparZar"],$bodyr);
+        $worksheet->write(getLetter($letter++).$rrow,$row["Name"],$b);
+        if (HasActionPermission("VIEWCOST"))
+        {
+            if ($showBefore)$worksheet->write(getLetter($letter++).$rrow,$row["AlutBefore"],$f);
+            if ($showAfter)$worksheet->write(getLetter($letter++).$rrow,$row["Alut"],$f);
+        }
+        else
+        {
+            if ($showBefore)$worksheet->write(getLetter($letter++).$rrow,"---",$f);
+            if ($showAfter)$worksheet->write(getLetter($letter++).$rrow,"---",$f);
+        }
+        if ($showBefore)$worksheet->write(getLetter($letter++).$rrow,$row["MechirMetuchnanBefore"],$f);
+        if ($showAfter)$worksheet->write(getLetter($letter++).$rrow,$row["MechirMetuchnan"],$f);
+        $sLetter = $letter-1;
+        $worksheet->write(getLetter($letter++).$rrow,$row["KamutNimkeret"],$b);
+        if ($showBefore)$worksheet->write(getLetter($letter++).$rrow,$row["MahzorBefore"],$f);
+        if ($showAfter)$worksheet->write(getLetter($letter++).$rrow,$row["Mahzor"],$f);
+        if (HasActionPermission("VIEWCOST"))
+        {
+            if ($showBefore)$worksheet->write(getLetter($letter++).$rrow,$row["RevachAgolBefore"],$f);
+            if ($showAfter)$worksheet->write(getLetter($letter++).$rrow,$row["RevachAgol"],$f);
+            $worksheet->write(getLetter($letter++).$rrow,$row["AchuzRevachMemutza"],$f);
+        }
+        else
+        {
+            if ($showBefore)$worksheet->write(getLetter($letter++).$rrow,"---",$f);
+            if ($showAfter)$worksheet->write(getLetter($letter++).$rrow,"---",$f);
+            $worksheet->write(getLetter($letter++).$rrow,"---",$f);
+        }
+        $worksheet->write(getLetter($letter++).$rrow,$row["MechirMemutza"],$f);
+        if (HasActionPermission("VIEWCOST"))
+        {
+            $worksheet->write(getLetter($letter++).$rrow,$row["RevachMemutza"],$f);
+        }
+        else
+        {
+            $worksheet->write(getLetter($letter++).$rrow,"---",$f);
+        }
+        $rrow++;
+
+        $TAchuzRevachMemutza += $row["AchuzRevachMemutza"];
+        $cnt += ($row["Mahzor"])?1:0;
+        $TMahzor += $row["Mahzor"];
+        $TMahzorBefore += $row["MahzorBefore"];
+        $TRevachAgol += $row["RevachAgol"];
+        $TRevachAgolBefore += $row["RevachAgolBefore"];
+        $TKamutNimkeret += $row["KamutNimkeret"];
+        if ($MaxDecimals<$row["Decimals"])$MaxDecimals=$row["Decimals"];
+
+    }
+
+    if ($showAfter)
+    {
+        $TAchuzRevachMemutza = $TRevachAgol*100/$TMahzor;
+    }
+    else
+    {
+        $TAchuzRevachMemutza = $TRevachAgolBefore*100/$TMahzorBefore;
+    }
+    echo "<tr>
+			<td><b>".$lang["total3"]."</b></td>
+			<td></td>";
+    if ($showZar)
+    {
+        echo "<td></td>";
+    }
+    if (HasActionPermission("VIEWCOST"))
+    {
+        if ($showBefore)echo "<td></td><td></td>";
+    }
+    if ($showAfter)echo "<td></td><td></td>";
+    if (HasActionPermission("VIEWCOST"))
+    {
+        echo "<td></td>";
+    }
+    echo "<td><strong dir=ltr>".number_format($TKamutNimkeret,$MaxDecimals)."</strong></td>";
+    if ($showBefore)echo "<td><strong dir=ltr>".number_format($TMahzorBefore,2)."</strong></td>";
+    if ($showAfter)echo "<td><strong dir=ltr>".number_format($TMahzor,2)."</strong></td>";
+    if (HasActionPermission("VIEWCOST"))
+    {
+        if ($showBefore)echo "<td><strong dir=ltr>".number_format($TRevachAgolBefore,2)."</strong></td>";
+        if ($showAfter)echo "<td><strong dir=ltr>".number_format($TRevachAgol,2)."</strong></td>";
+        echo "<td><span dir=ltr><strong>".number_format($TAchuzRevachMemutza,2)."%</strong></span></td>";
+        echo "<td></td>";
+    }
+    echo "<td></td>";
+    echo "</tr>";
+
+    echo "</table></div>";
+
+}
+
+$worksheet->write(getLetter($sLetter++).($rrow),$lang["total3"],$numformatb);
+$worksheet->write(getLetter($sLetter++).($rrow),$TKamutNimkeret,$numformatb);
+$worksheet->write(getLetter($sLetter++).($rrow),$TMahzor,$numformatb);
+if (HasActionPermission("VIEWCOST"))
+{
+    $worksheet->write(getLetter($sLetter++).($rrow),$TRevachAgol,$numformatb);
+    $worksheet->write(getLetter($sLetter++).($rrow),$TAchuzRevachMemutza/$cnt,$numformatb);
+}
+else
+{
+    $worksheet->write(getLetter($sLetter++).($rrow),"---",$numformatb);
+    $worksheet->write(getLetter($sLetter++).($rrow),"---",$numformatb);
+}
+
+$workbook->close();
+copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+unlink($fname);
+
+?>
+<form name=FF method=post target=CHN action="rep_cheshbonit.php">
+    <input type=hidden name=ids>
+    <input type=hidden name=simple value=1>
+    <input type=hidden name=usr value="<?=$usr?>"> 
+    <input type=hidden name=rmodule value="<?=$rmodule?>">
+</form>
+<?
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+
+function aSortBySecondIndex($multiArray, $secondIndex,$rew = false)
+{
+    while (list($firstIndex, ) = each($multiArray))
+        $indexMap[$firstIndex] = $multiArray[$firstIndex][$secondIndex];
+    if (!$rew)
+        asort($indexMap);
+    else
+        arsort($indexMap);
+    while (list($firstIndex, ) = each($indexMap))
+        if (is_numeric($firstIndex))
+            $sortedArray[] = $multiArray[$firstIndex];
+        else $sortedArray[$firstIndex] = $multiArray[$firstIndex];
+    return $sortedArray;
+
+
+}
+?>

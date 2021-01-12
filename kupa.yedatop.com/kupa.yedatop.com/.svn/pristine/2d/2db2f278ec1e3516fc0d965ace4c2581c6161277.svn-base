@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xml>
+  <main_table>profiledoctypes</main_table>
+	<name>הרשאות מסמכים</name>
+	<options>
+		<opt name="create_record" type="none"></opt>
+		<opt name="edit_record" type="always"></opt>
+		<opt name="view" type="none"></opt>
+	</options>
+	<edit>
+		<ecol name="profile_id" type="cross" cross="profile" cross_field="id" lookup_field="name">פרופיל</ecol>
+		<ecol name="doc_type" type="cross_child" master_cross="profile"
+			 master_cross_id="id" master_field="profile_id"
+			 cross="document_type" cross_field="id" lookup_field="name"
+			 list_name="edit_fields">סוג מסמך
+
+					<ecol name="r" type="check_yes_no">קריאה</ecol>
+					<ecol name="w" type="check_yes_no">עדכון</ecol>
+					<ecol name="c" type="check_yes_no">יצירה</ecol>
+		</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="profile_id"></opt>
+		<opt name="group" val="profile_id"></opt>
+	</sql_actions>
+</xml>

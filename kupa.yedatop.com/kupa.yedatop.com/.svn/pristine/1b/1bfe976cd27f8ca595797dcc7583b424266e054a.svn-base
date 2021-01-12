@@ -1,0 +1,32 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+require("../Group-Office.php");
+$GO_SECURITY->authenticate();
+require($GO_LANGUAGE->get_language_file('preferences'));
+
+$page_title = $menu_preferences;
+require($GO_THEME->theme_path."header.inc");
+
+
+
+
+$table_title = $menu_preferences;
+$table_docs[] = "preferences.inc";
+
+$table_width = "600";
+$table_height = "300";
+?>
+<table border="0" cellspacing="0" cellpadding="10" cellpadding="0">
+<tr>
+	<td>
+	<?php require($GO_CONFIG->control_path."html_table.inc"); ?>
+	</td>
+</tr>
+</table>
+<?php require($GO_THEME->theme_path."footer.inc"); ?>

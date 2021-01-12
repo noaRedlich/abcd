@@ -1,0 +1,102 @@
+<?php
+ 	$page_subtitle = "קביעת תאריכי תוקף";
+    $simple=1;
+	include("include/common.php");
+    include("include/business_functions.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	require($GO_THEME->theme_path."simple_header.inc");
+	include("$config[template_path]/admin_top.html");
+    
+    if ($doSave){
+        for ($i=0;$i<6;$i++)
+        {
+            if ($_POST["id".$i]){
+                $sql = "update discount_expirations set expdate = '".dateToSQL($_POST["date".$i])."' where id = ".$_POST["id".$i];
+            }
+            else{
+                $sql = "insert into discount_expirations (expdate, user_id, SortOrder) values ('".dateToSQL($_POST["date".$i])."',$userID,$i)";     
+            }
+            $rs = $conn->Execute($sql);
+	        if ($rs === false){log_error($sql);}
+        }
+        echo "<script>opener.document.F.submit();location='expirations.php?success=1'</script>";
+    }
+    
+    
+    $sql = "select * from discount_expirations where user_id = $userID order by SortOrder";
+    $dates = $conn->Execute($sql);
+	if ($dates === false){log_error($sql);}
+    
+    if ($showProducts){
+        $sql = "select l.Title, BarCode, l.ID from listingsDB l
+        where l.user_id = $userID and discount_expiration_id = $showProducts order by binary Title";
+        $products = $conn->Execute($sql);
+	    if ($products === false){log_error($sql);}
+    }
+    
+    
+?>
+
+<table width=100% cellpadding=0 height=420>
+<form name=F method=post>
+<input type=hidden name=showProducts value="<?=$showProducts?>">
+<tr>
+<td>
+    <div style='overflow:auto;width:100%;height:100%;border:inset 2;background-color:white'>
+    <table width=100% bordercolor=gray cellpadding=2  border=1 style='border-collapse:collapse'>
+        <?for($i=0;$i<6;$i++){?>
+        <tr <?=($showProducts==$dates->Fields("id")&&$dates->Fields("id"))?"style='background-color:lightgreen'":""?>>
+            <td>&nbsp;<?=$i+1?></td>
+            <td>
+                <input type=hidden name="id<?=$i?>" value="<?=$dates->Fields("id")?>">
+                <input size=10 name=date<?=$i?> value="<?=($dates->Fields("expdate")!=""&&$dates->Fields("expdate")!="0000-00-00")?dateFromSQL($dates->Fields("expdate")):""?>">
+                <img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.date<?=$i?>")'>
+            </td>
+            <td width=1%>
+                <input type=button <?=(!$dates->Fields("id"))?"disabled":""?> onclick='document.F.showProducts.value="<?=$dates->Fields("id")?>";document.F.submit();' style='border:outset 2' value='להציג פריטים שבמבצע עד תאריך זה'>
+            </td>
+        </tr>
+        <?
+        $dates->MoveNext();                                   
+        }?>
+    </table>
+    </div>
+</td>
+</tr>
+
+<tr>
+<td>
+    <div style='overflow:auto;width:100%;height:100%;border:inset 2;'>
+    <table width=100% bordercolor=gray cellpadding=2 border=1 style='border-collapse:collapse'>
+        <?if ($showProducts){?>
+            <tr>
+                <td class="tableHead2"><b>ברקוד</b></td>
+                <td class="tableHead2"><b>שם פריט</b></td>
+            </tr>
+            <?while (!$products->EOF){?>
+            <tr>
+                <td><?=$products->Fields("BarCode")?></td>
+                <td><a href='javascript:wopen("discount.php?simple=1&edit=<?=$products->Fields("ID")?>")'><?=$products->Fields("Title")?></a></td>
+            </tr>
+            <?$products->MoveNext();}?>
+        <?}?>
+    </table>
+    </div>
+</td>
+</tr>
+
+
+<tr style='height:1%'>
+<td align=center>
+        <input type="submit" value='אישור' name=doSave class=button style='background-image:url(<?=$imgPath?>ok.gif)'>
+        <input type="button" value='סגור' class=button style='background-image:url(<?=$imgPath?>back.gif)' onclick='window.close()'>
+</td>
+</tr>
+</form>
+</table>
+
+<?php
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

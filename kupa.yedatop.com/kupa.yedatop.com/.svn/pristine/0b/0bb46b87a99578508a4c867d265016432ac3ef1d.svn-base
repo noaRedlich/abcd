@@ -1,0 +1,26 @@
+<table border="0" cellspacing="0" cellpadding="10">
+<tr>
+	<td>
+	<h1><?php// echo $strWelcomeTo." ".$GO_CONFIG->title.", ".$ses_name; ?></h1>
+	<?php  echo $strUseMenu.$GO_CONFIG->title; ?><br><br>
+	</td>
+</tr>
+</table>
+<table border="0">
+<tr>
+	<?php
+		$GO_MODULES->get_modules();
+		while ($GO_MODULES->next_record())
+		{
+			if ($GO_SECURITY->has_permission($GO_SECURITY->user_id, $GO_MODULES->f('acl_read')))
+			{
+				$lang_var = isset($lang_modules[$GO_MODULES->f('id')]) ? $lang_modules[$GO_MODULES->f('id')] : $GO_MODULES->f('id');
+				echo '<td class="small" align="center" valign="top" width="80"><a href="'.$GO_CONFIG->host.$GO_MODULES->f('path').'"><img src="'.$GO_THEME->image_url.'buttons/'.$GO_MODULES->f('id').'.gif" border="0" width="32" height="32" /><br />'.$lang_var.'</a></td>';
+			}
+		}
+	?>
+	<td class="small" align="center" valign="top" width="80"><a href="<?php echo $GO_CONFIG->host; ?>contacts/"><img src="<?php echo $GO_THEME->image_url; ?>buttons/addressbook_big.gif" border="0" width="32" height="32" /><br /><?php echo $menu_contacts; ?></a></td>
+		<td class="small" align="center" valign="top" width="80"><a href="<?php echo $GO_CONFIG->host; ?>account/"><img src="<?php echo $GO_THEME->image_url; ?>buttons/account.gif" border="0" width="32" height="32" /><br /><?php echo $lang_modules['account'] ; ?></a></td>
+		<!--td class="small" align="center" valign="top" width="80"><a href="<?php echo $GO_CONFIG->host; ?>search/"><img src="<?php echo $GO_THEME->image_url; ?>buttons/search.gif" border="0" width="32" height="32" /><br /><?php echo $menu_search; ?></a></td-->
+</tr>
+</table>

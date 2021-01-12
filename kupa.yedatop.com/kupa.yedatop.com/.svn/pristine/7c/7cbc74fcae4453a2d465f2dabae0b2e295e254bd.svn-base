@@ -1,0 +1,211 @@
+<?php
+require "excelparser.php";
+$simple=1;
+$page_subtitle = "יבוא ויצוא";
+
+include("include/common.php");
+include("../stock/include/functions.php");
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+if ($action!="do"){
+echo
+"<pre dir=rtl>
+פורמט קובץ EXCEL:
+-------------------
+<b style=color:red>A:</b> מספר לקוח
+<b style=color:red>B:</b> שם פרטי
+C: שם משפחה
+D: תעודת זאות
+E: כתובת 
+F: טלפון בבית
+G: טלפון נייד
+H: תאריך לידה (dd/mm/yyyy)
+";
+
+exit;
+}
+print"<pre dir=rtl>";
+$excel_file = $_FILES['impfile'];
+if($excel_file)
+{
+	$excel_file = $excel_file['tmp_name'];
+}
+
+if($excel_file == '') die("<center><b style=color:red>יש לבחור קובץ");
+
+
+$fh = @fopen ($excel_file,'rb');
+if( !$fh ) die("<center><b style=color:red>יש לבחור קובץ");
+if( filesize($excel_file)==0 ) die("<center><b style=color:red>יש לבחור קובץ");
+
+$fc = fread( $fh, filesize($excel_file) );
+@fclose($fh);
+if( strlen($fc) < filesize($excel_file) )
+die("<pre dir=ltr>Cannot read file");
+
+$exc = new ExcelFileParser;
+if( $exc->ParseFromFile($excel_file)>0 ) die("This is not an Excel file or file stored in Excel < 5.0");
+//$res = $exc->ParseFromString($fc);
+switch ($res) {
+	case 0: break;
+	case 1: die("Can't open file");
+	case 2: die("File too small to be an Excel file");
+	case 3: die("Error reading file header");
+	case 4: die("Error reading file");
+	case 5: die("This is not an Excel file or file stored in Excel < 5.0");
+	case 6: die("File corrupted");
+	case 7: die("No Excel data found in file");
+	case 8: die("Unsupported file version");
+
+	default:
+		die("Unknown error");
+}
+
+if( count($exc->worksheet['name']) < 1 ) die("No worksheets in Excel file.");
+
+$codes = "";
+
+for ($worksheet=0;$worksheet<count($exc->worksheet['name']);$worksheet++){
+
+	if( $exc->worksheet['unicode'][$worksheet] )
+	{
+		$wname = uc2html($exc->worksheet['name'][$worksheet]);
+	}
+	else
+	{
+		$wname = $exc->worksheet['name'][$worksheet];
+	}
+
+	
+	print "<span style='color:blue' >גיליון: ". $wname."</span>\n";flush();
+	$ws = $exc->worksheet['data'][$worksheet];
+
+	if( is_array($ws) && 	 isset($ws['max_row']) &&    isset($ws['max_col']) )
+	{
+		if( $ws['max_col'] < 1 ) {
+			echo("Invalid format.<br>Number of columns is less then 2.");
+			continue;
+		}
+		if( $ws['max_row'] < 0 ){
+    		echo("Invalid format.<br>No rows defined in document.");
+			continue;
+		}
+		$data = $ws['cell'];
+		foreach( $data as $i => $row )
+		{
+			$clientnum = addslashes(trim(get( $exc, $row[0])));
+			$name = get( $exc, $row[1] );
+            $surname = get( $exc, $row[2] ); 
+            $businessnum = addslashes(get( $exc, $row[3] ));
+			$address = addslashes(get( $exc, $row[4] ));
+			$homephone = addslashes(trim(get( $exc, $row[5])));
+            $cellphone = addslashes(trim(get( $exc, $row[6])));
+            $date = addslashes(trim(get( $exc, $row[7])));
+
+            if ($surname)
+            {
+                $name.=" ".$surname;
+            }
+            
+			$name=preg_replace("/&#([0-9]+)/","&#\\1;",$name);
+			$address=preg_replace("/&#([0-9]+)/","&#\\1;",$address);
+
+            $name = ConvertFromUnicode($name,"he");
+            $address = ConvertFromUnicode($address,"he");
+            
+			$name = addslashes(trim($name));
+			$address = addslashes(trim($address));
+            
+            if ($date)
+            {
+                $date = DateToSQL($date);
+            }
+
+			if ($clientnum && $name)
+            {
+				$warn="";
+
+				$sql = "select id from creditors where user_id = $userID and creditornum = '".trim($clientnum)."'";
+				$rs=DBQuery($sql);
+				if ($rs->EOF)
+                {
+					$sql = "INSERT INTO creditors 
+                    (CreditorNum, CreditorName, TeudatZehut, Address, Birthday, CellPhone, HomePhone, user_id, status)
+                    values ('$clientnum','$name','$businessnum','$address','$date','$cellphone','$homephone','$userID',1)";
+					if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;}
+					$clientID = $conn->Insert_ID();
+
+					echo "לקוח חדש: ". $businessnum." ".$name." ".$warn."\n";flush();
+				}
+				else
+                {
+                    $sql = "UPDATE creditors set
+                    Status=1,
+                    CreditorName='$name',
+                    TeudatZehut='$businessnum',
+                    Address='$address',
+                    Birthday='$date',
+                    CellPhone='$cellphone',
+                    HomePhone='$homephone'
+                    where id = ".$rs->fields["id"];
+					$prl = $conn->Execute($sql); if ($prl === false){log_error($sql);}
+
+ 					echo "לקוח עודכן: ". $businessnum." ".$name." ".$warn."\n";flush();
+				}
+				
+			}
+			else
+            {
+				echo "<span style='color:red' dir=ltr>שורה שגויה: חוסר מספר  או שם לקוח</span>\n";
+			}
+		}
+	}
+}
+echo "<span style=color:green>סוף הקובץ</span>";
+
+?>
+
+
+<?
+	function uc2html($str) {
+		$ret = '';
+		for( $i=0; $i<strlen($str)/2; $i++ ) {
+			$charcode = ord($str[$i*2])+256*ord($str[$i*2+1]);
+			$ret .= '&#'.$charcode;
+		}
+		return $ret;
+	}
+
+	function get( $exc, $data )
+	{
+		switch( $data['type'] )
+		{
+			// string
+		case 0:
+			$ind = $data['data'];
+			if( $exc->sst[unicode][$ind] )
+				return uc2html($exc->sst['data'][$ind]);
+			else
+				return $exc->sst['data'][$ind];
+
+			// integer
+		case 1:
+			return (integer) $data['data'];
+
+			// float
+		case 2:
+			return (float) $data['data'];
+        
+		case 3:
+			return gmdate("m-d-Y",$exc->xls2tstamp($data[data]));
+
+		default:
+			return '';
+		}
+	}
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

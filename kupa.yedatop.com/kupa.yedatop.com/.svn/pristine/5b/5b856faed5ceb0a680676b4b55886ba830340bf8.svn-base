@@ -1,0 +1,265 @@
+<?php
+
+$noheader=1;
+session_start();
+ob_start();
+ini_set("max_execution_time",100000);
+require("include/common.php");
+ob_end_clean();
+
+$s = substr($GO_CONFIG->root_path,0,strlen($GO_CONFIG->root_path)-1);
+$scriptsdir = substr($s,0,strrpos($s,"/"))."/scripts";
+                           
+?>
+<?if ($action=="none"){exit();}?>
+<?if ($go || $goscript)
+{
+    $systemdb = $db_database;
+    echo "<body style='font-family:verdana;font-size:9pt'>";FlushLog();
+        
+    $db_user = "vcxadm";
+    $db_pass = "yXveKXRUjrM68Zbq";
+    
+ 	$conn->Connect($db_server, $db_user, $db_pass, $systemdb,true); 
+    $err = $conn->ErrorMsg();
+    if ($err)
+    {
+        echo "DB connection error: $err<br>";die();
+    }
+    
+    $errCount=0;
+    $q="1=1 ";
+    if ($runuser)
+    {
+        if ($runuser!="_all" && $runuser!="_system")
+        {
+            $q.=" and username = '$runuser'";
+        }
+        elseif ($runuser=="_system")
+        {
+            $q.=" and username = 'administrator'";
+        } 
+        //ifnull(sql_database,'')<>''
+        $users = DBQuery("select office_user_id,username,sql_database,sql_user, sql_password from $TABLE_USERDATA where  $q order by username");
+        while (!$users->EOF)
+        {
+			$err = "";
+            $db_database = $systemdb;
+            echo "<b style='color:green'>User: ".$users->Fields("username")."</b><br>";FlushLog();
+            if ($runuser!="_system"  && $useuserdb)
+            {
+                $conn = ADONewConnection($db_type); 
+                if ($users->fields["sql_database"])
+                {
+                    $db_database = $users->fields["sql_database"];
+                    echo "<b style='color:green'>Run on database ".$db_database."</b><br>";FlushLog();
+ 	                $conn->Connect($db_server, $users->fields["sql_user"], $users->fields["sql_password"], $users->fields["sql_database"],true); 
+                    $err = $conn->ErrorMsg();
+                }
+                else
+                {
+                    echo "<b style='color:green'>Run on database ".$db_database."</b><br>";FlushLog();
+ 	                $conn->Connect($db_server, $db_user, $db_pass, $db_database,true); 
+                    $err = $conn->ErrorMsg();
+                }
+            }
+            if ($err)
+            {
+                echo $err;
+                if ($stop)
+                {
+					FlushLog();
+					die();
+				}
+            }
+            else
+            {
+                if ($goscript)
+                {
+                    $fname=$scriptsdir."/".$filename;
+                    $f = fopen($fname,"rb");
+                    if ($f)
+                    {
+                        $SQL = fread($f,filesize($fname));
+                        fclose($f);
+                    }
+                }
+                
+				if ($triggerMode)
+				{
+					$SQLarr = array($SQL);
+					$conn->Execute("DELIMITER $$");
+				}
+				else{
+					$SQLarr = explode(";",$SQL); 
+				}
+                foreach($SQLarr as $sqlop)
+                {
+                    if (trim($sqlop))
+                    {
+                        $sqlop = str_replace('$userid',$users->Fields("office_user_id"),$sqlop);
+                        $sqlop = str_replace('$username',$users->Fields("username"),$sqlop);
+                        $sqlop = str_replace('$userdatabase',$db_database,$sqlop);
+                        $sqlop = str_replace('$random',rand(1000000,9999999),$sqlop);
+			            $sqlop = str_replace("$",";",$sqlop);
+                        $comments = preg_match_all("/\-\-(.*)\n/",$sqlop,$matches);
+                        foreach($matches[0] as $comment)
+                        {
+                            echo "<i style='color:orange'>$comment</i><br>";FlushLog();
+                            $sqlop = str_replace($comment,"",$sqlop);
+                        }
+                        $sqlop = stripslashes(trim($sqlop));
+						//echo "<pre>".	$sqlop;
+                        $rs = $conn->Execute($sqlop);
+                        if ($conn->ErrorMsg())
+                        {
+                            $errCount++;
+                            echo "<span title=\"".htmlentities($sqlop)."\" style=color:red>".$conn->ErrorMsg()."</span><br>";FlushLog();
+                            if ($stop)
+                            {
+                                FlushLog();
+                                exit();
+                            }
+                        }
+                        else
+                        {
+                            $CNT++;
+                            if (isset($rs->fields) && count($rs->fields)>1)
+                            {
+                               echo "<a style='cursor:hand' onclick='document.getElementById(\"res$CNT\").style.display=(document.getElementById(\"res$CNT\").style.display==\"none\")?\"\":\"none\"'><u><span title=\"".htmlentities($sqlop)."\">Rows affected: ".$conn->Affected_Rows()."</span></u></a><br>";
+                               echo "
+                                <table border=1 id=res$CNT style='display:none;border-collapse:collapse;font-size:8pt'><tr>";
+                              
+                                foreach ($rs->fields as $field=>$value) 
+                                {
+                                    if(!is_numeric($field))
+                                     echo "<td><b>".$field."</td>";
+                                }
+                                echo "</tr>";
+                                $c=0;
+                                while(!$rs->EOF && $c<100)
+                                {
+                                    echo "<tr valign=top>";
+                                    foreach ($rs->fields as $field=>$value) 
+                                    {
+                                        if(!is_numeric($field))
+                                         echo "<td>".$value."&nbsp;</td>";
+                                    }
+                                    echo "</tr>";
+                                    $c++;$rs->MoveNext();
+                                }
+                                echo "</table>";
+
+                            }
+                            else
+                            {
+                                echo "<span title=\"".htmlentities($sqlop)."\">Rows affected: ".$conn->Affected_Rows()."</span><br>";
+                            }
+                            FlushLog();
+                        }
+                    }
+                }
+            
+            }
+            $users->MoveNext();
+        }       
+    }    
+    echo "<b style='color:green'>Done. Errors: $errCount.</b>";FlushLog();
+    FlushLog();
+    exit();
+}?>
+<body bgcolor=buttonface style='font-family:arial;font-size:8pt'>
+<table height=100% width=100%>
+<form target=RESULT method=post name=F>
+<tr style='height:1%'>
+<TD>
+    <TABLE style='font-family:arial;font-size:9pt'>
+        <tr valign=top>
+            <td>SQL:</td>
+            <td style=width:100%><textarea NAME=SQL style='width:100%;height:100'></textarea></td>
+            <td valign=bottom><input onclick='if (!checkSQL()){return false;}' type=submit value=Go name=go></td>
+        </tr>
+        <tr>
+        <td>
+            Script:
+        </td>
+        <td>
+        <select name=filename>
+        <?$d = dir($scriptsdir);
+        echo "<option value=''>";
+        while ($entry = $d->read()) 
+        {
+            if (strpos(strtolower($entry),".sql"))
+            {
+                echo "<option value=$entry>".$entry;
+            }
+        }
+        ?>
+        </select>
+        <input type=submit name=goscript value=Go>
+        </td>
+        <td></td>
+        </tr>
+        <tr>
+            <td colspan=3>
+            For user 
+            <select name=runuser>
+                <option value=_system>System user
+                <option value=_all>All users
+                <option value="">------------------------
+                <?
+                $users = DBQuery("select username,sql_database,sql_user, sql_password from $TABLE_USERDATA order by username");
+                while (!$users->EOF)
+                {
+                    echo "<option value=".$users->Fields("username").">".$users->Fields("username");
+                    if ($users->Fields("sql_database"))
+                    {
+                        echo "(".$users->Fields("sql_database").")";
+                    }
+                    $users->MoveNext();
+                }
+                ?>
+            </select>
+            Run on user's database <input type=checkbox name=useuserdb value=1>
+            Stop on errors <input type=checkbox name=stop value=1>
+			Trigger mode <input type=checkbox name=triggerMode value=1>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Macros available: $userid, $username, $userdatabase, $random
+            </td>
+        </tr>
+    </TABLE>
+</TD>
+</tr>
+</form>
+<tr>
+    <td>
+        <iframe name=RESULT src='runscript.php?action=none' style='width:100%;height:100%'></iframe>
+    </td>
+</tr>
+</table>
+
+<script>
+function checkSQL()
+{
+    SQL = document.F.SQL.value;
+    if (SQL=="")
+    {
+        return false;
+    }
+    if (SQL.toUpperCase().indexOf("DELETE")>-1||SQL.toUpperCase().indexOf("TRUNCATE")>-1||SQL.toUpperCase().indexOf("DROP")>-1)
+    {
+        return confirm("Are you sure you want to "+SQL.toUpperCase().substring(0,50)+"...?");
+    }
+    else 
+    {
+        return true;
+    }
+}
+</script>
+
+<?
+function FlushLog()
+{
+    echo "<script>document.body.scrollTop=document.body.scrollHeight</script>";
+    flush();
+}
+?>

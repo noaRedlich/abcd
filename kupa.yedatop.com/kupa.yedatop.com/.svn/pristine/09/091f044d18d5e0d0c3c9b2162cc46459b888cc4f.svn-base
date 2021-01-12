@@ -1,0 +1,496 @@
+<?php
+$simple=1;
+global $action, $id, $lang, $conn, $config;
+ 
+$page_subtitle = "עסקה חדשה";
+
+
+include("include/common.php");
+include("include/business_functions.php");
+if(!loginCheck('User'))exit;
+
+
+include("$config[template_path]/admin_top.html");
+
+if ($do)
+{
+	
+	
+	if (!$journum || !$trannum || !$trandate || !$trantime || !$tranamount){
+		$error = "יש להזין כל השדות חובה";
+	}
+	elseif (!preg_match("/^\d\d\/\d\d\/\d\d\d\d$/",$trandate)){
+		$error = "יש להזין תאריך עסקה בפורמת DD/MM/YYYY";
+	}
+	elseif (!preg_match("/^\d\d:\d\d$/",$trantime)){
+		$error = "יש להזין זמן עסקה בפורמת HH:MM";
+	}
+	elseif ($trandiscount && $trancashdiscount){
+		$error = "יש להזין או הנחה בש\"ח או הנחה ב%";
+	}
+	elseif (!array_sum($price)){
+		$error = "יש להזין לפחות פריט אחד";
+	}
+	elseif(!array_sum($sum) && $RefundMode!=2 && $RefundMode!=1){
+		$error = "יש להזין לפחות תשלום אחד";
+	}
+	else
+	{
+		
+		$listingid = $_POST["listingid"];
+		
+		//create journal
+		$sql = "select ID from transactionpackages where stock_id = $stock and journalnum = '$journum'";
+		$journal = $conn->Execute($sql);
+		if ($journal === false){log_error($sql);}
+		if ($journal->EOF){
+			$jdate = split("/",$trandate);
+			$jdate = $jdate[2]."-".$jdate[1]."-".$jdate[0];
+			$sql = "INSERT INTO transactionpackages (stock_id, TerminalID, TransVersion, PluVersion, JournalNum, 
+					TransCount, JournalDate, JournalQuestion, DateTimeStamp) 
+					select  $stock, terminalid, 1, 1, $journum, 0, '$jdate', '0', UNIX_TIMESTAMP() from $TABLE_LISTINGSSTOCKS where id = $stock";
+			if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;die();}
+			//echo $sql;
+			$packageid = $conn->Insert_ID();
+		}
+		else{
+			$packageid = $journal->fields["ID"];
+		}
+		//echo $packageid;
+		
+		//create transaction
+		$compcount = count($productid);
+		$paymcount = count($paymid);
+		$tran = $conn->Execute("select ID from transactions where package_id = $packageid and trannum = $trannum");
+		$ptrandate = split("/",$trandate);
+		$ptrandate = $ptrandate[2]."-".$ptrandate[1]."-".$ptrandate[0];
+		if ($tran === false){log_error($sql);echo $sql;die();}
+		if ($tran->EOF)
+		{
+			$sql = "INSERT INTO transactions (package_id, TranNum, CompCount, PaymntCount,
+					TranDiscount, TranCashDiscount, TranAmount, tChange, TranDate, TranTime,
+					TranAnswer, IsRefund, user_id, stock_id,is_manual, vat, RefundMode)
+					VALUES ($packageid, '$trannum', '$compcount', '$paymcount', 
+					'$trandiscount', '$trancashdiscount', '$tranamount', '$change', '$ptrandate', '$trantime', 
+					'', '".(($RefundMode==3)?"1":"0")."', $userID, $stock,1,".$config["VAT"].",".(($RefundMode==1||$RefundMode==2)?$RefundMode:"0").")";
+			if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;die();}
+			$tranid = $conn->Insert_ID();
+			//echo $sql;
+			$sql = "update transactionpackages set transcount = transcount + 1 where id = $packageid";
+			if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;die();}
+			
+			//products
+			print_r($listingid);
+			for ($i=0;$i<$compcount;$i++)
+			{
+				$CodeFlag = ($productid[$i])?1:0;
+				if (!$listingid[$i] && $productid[$i])
+				{
+					$prodRS = DBQuery("select id from listingsDB where barcode = '".addslashes(trim($productid[$i]))."' and user_id = $userID");
+					$listingid[$i] = $prodRS->fields["id"];
+				}
+				if ($price[$i])
+				{
+					$sql = "
+							INSERT INTO transactioncomponents (trans_id, listing_id, CompAmount, CompCashDiscount, 
+							CompDiscount, CodeFlag, PluCode, StockAmount) 
+							VALUES ($tranid, '".$listingid[$i]."', '".$price[$i]*$quantity[$i]."', '".$compcashdiscount[$i]."', '".$compdiscount[$i]."', 
+							$CodeFlag, '".$productid[$i]."', '".$quantity[$i]."')
+							";
+					if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;die();}
+				}
+				if ($listingid[$i])
+				{
+					$delta = ($RefundMode==3||$RefundMode==1)?$quantity[$i]:(-1*$quantity[$i]);
+					UpdateQuantity($listingid[$i],$stock,$delta);
+				}                                                                                                                                                                          
+			}
+			
+			
+			//payments
+			for ($i=0;$i<$paymcount;$i++){
+				if (strpos($expdate[$i],"/")>0){
+					$aexpdate = explode("/",$expdate[$i]);
+					$expdate[$i] = str_pad($aexpdate[0],2,"0",STR_PAD_LEFT).str_pad($aexpdate[1],2,"0",STR_PAD_LEFT);
+				}
+				$sql = "
+						INSERT INTO transactionpayments (trans_id, PaymID, CashSum, ChequeSum, FullData,
+						ChequeNumber, PayDate, BankNo, BankDeptNo, BankCntNo, CouponSum, CouponNumber, 
+						FrnCurrSum, TCourse, CurrencyID, IsInShekels, CreditCardSum, FirstPayment, 
+						OtherPayment, CardNum, ExpDate, CreditTerms, CompanyNum, NumPayments, TranCode, 
+						TranType, AuthorizCode, Currency, AuthorizNo,HakafaSum,CustID,IsRefundVoucher) 
+						VALUES ";
+				switch ($paymid[$i])
+				{
+					case 1:
+						$sql.="($tranid, '".$paymid[$i]."', '".$sum[$i]."', 0, 0, 0, '', 0, 0, 0,
+								'', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+								0, 0, 0,0, 0, 0, 0, 0,0,0,0)
+								";
+						break;
+					case 2:
+						$FullData = ($paydate[$i] || $bankno[$i] || $bankdeptno[$i] || $bankcntno[$i])?1:0;
+						$pDate = split("/",$paydate[$i]);
+						$pDate = $pDate[2]."-".$pDate[1]."-".$pDate[0];
+						$sql.="($tranid, '".$paymid[$i]."', 0, '".$sum[$i]."', $FullData,
+								'".$chequenumber[$i]."', '$pDate', '".$bankno[$i]."', '".$bankdeptno[$i]."', '".$bankcntno[$i]."', 
+								0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+								0, 0, 0, 0, 0, 0, 0, 0,0,0,0)
+								";
+						break;
+					case 5:
+						$CardNum = substr(trim($cardnum[$i]),strlen(trim($cardnum[$i]))-4);
+						$sql.="($tranid, '".$paymid[$i]."', 0, 0,  '', 
+								0, 0, 0, 0,0, 0, 0, 
+								0, 0, 0, 0, '".$sum[$i]."', '".$firstpayment[$i]."', 
+								'".$otherpayment[$i]."','$CardNum', '".$expdate[$i]."', 
+								'".$creditterms[$i]."', '".$companynum[$i]."', '".$payments[$i]."',0, 
+								1, 0, 1, 0,0,0,0)
+								";
+						break;
+					case 3:
+					case 30:
+						$isvoucher = $paymid[$i]==30?"1":"0";
+						$sql.="($tranid, '3', 0, 0, 0, 0, '', 0, 0, 0,
+								'".$sum[$i]."', '".$coupon[$i]."', 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+								0, 0, 0,0, 0, 0, 0, 0,0,0,$isvoucher)
+								";
+						break;	
+					case 7:
+						$psql = "update transactions set custid = '".$custid[$i]."' where id = $tranid";
+						DBQuery($psql);
+						$sql.="($tranid, '".$paymid[$i]."', 0, 0, 0, 0, '', 0, 0, 0,
+								'', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+								0, 0, 0,0, 0, 0, 0, 0,'".$sum[$i]."','".$custid[$i]."',0)
+								";
+						break;					
+				}	
+				
+				DBQuery($sql);
+			}
+			//success
+			
+			echo "<script>location='add_trans.php?added=1".($usr?"&usr=$usr":"")."'</script>";die();
+			
+		}
+		else{
+			$error = "כבר קיימת עסקה עם מספר כזה";
+		}
+		
+	}
+}
+
+$stocks = $conn->Execute("select * from $TABLE_LISTINGSSTOCKS where Status=1 and user_id = $userID and terminalid <> '' order by sortorder, binary StockName");
+if ($stocks === false){log_error($sql);}
+if (!$trandate){
+	$trandate = date("d/m/Y");
+}
+
+	?>
+	
+<table width=100% height=100%>
+<form method=post name=F action="add_trans.php<?=$usr?"?usr=$usr":""?>">
+<input type=hidden name=addrow>
+<tr style='height:1%'><td align=center>
+<?	if ($usr){echo "משתמש: <strong>$username</strong>&nbsp;&nbsp;";}?>
+<?if ($error){?>
+<span style='color:white;background-color:red'><strong>&nbsp;<?=$error?>&nbsp;</strong></span>
+<?}elseif($added){?>
+<span style='color:white;background-color:green'><strong>&nbsp;העסקה נשמרה בהצלחה&nbsp;</strong></span>
+<?}?>
+&nbsp;</td></tr>
+<tr style='height:1%'><td>
+	<fieldset><LEGEND>פרטי העסקה</LEGEND>
+	<table>
+	<tr>
+	<td><font color=red><strong>*</strong></font>נקודה</td>
+	<td>
+		<select name=stock>
+	<?while(!$stocks->EOF){?>
+		<option value="<?=$stocks->fields["ID"]?>" <?=($stock==$stocks->fields["ID"])?"selected":""?>><?=$stocks->fields["StockName"]?>
+	<?$stocks->MoveNext();
+	}?>
+	</select>
+	</td>
+	<td><font color=red><strong>*</strong></font>מס' חבילה ממסוף </td>
+	<td><input name=journum size=4 value='<?=$journum?>'></td>
+	<td><font color=red><strong>*</strong></font>מס' עסקה</td>
+	<td><input name=trannum size=4 value='<?=$trannum?>'></td>
+	<td><font color=red><strong>*</strong></font>תאריך עסקה</td>
+	<td><input name=trandate size=6 maxlength=10 value='<?=$trandate?>'>
+	<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>/calendar.gif' onclick='ShowCalendar("F.trandate")'>
+	</td>
+	<td><font color=red><strong>*</strong></font>זמן עסקה</td>
+	<td><input name=trantime size=4 maxlength=5 value='<?=$trantime?>'></td>
+	</tr>
+	<tr>
+	<td>&nbsp;זיכוי</td>
+	<td>
+		<select name=RefundMode>
+			<option value=""></option>
+			<option value="3" <?=$RefundMode==3?"selected":""?>>עסקת זיכוי</option>
+			<option value="1" <?=$RefundMode==1?"selected":""?>>פתק זיכוי</option>
+			<option value="2" <?=$RefundMode==2?"selected":""?>>שובר החלפה</option>
+		</select>
+	</td>
+	<td><font color=red><strong>*</strong></font>סכום עסקה לפני הנחות</td>
+	<td><input name=tranamount size=4 value='<?if ($tranamount){echo number_format($tranamount,2,".","");}?>'></td>
+	<td>&nbsp;הנחה בש"ח</td>
+	<td><input name=trancashdiscount size=4 value='<?if ($trancashdiscount)echo number_format($trancashdiscount,2,".","")?>'></td>
+	<td>&nbsp;הנחה ב%</td>
+	<td><input name=trandiscount size=6 value='<?=$trandiscount?>'></td>
+	<td>&nbsp;עודף</td>
+	<td><input name=change size=4 value='<?if ($change)echo number_format($change,2,".","");?>'></td>
+	</tr> 
+	</table>
+	</fieldset>
+</td></tr>
+
+<tr style='height:1%'><td>
+<?
+if (!$numproducts)$numproducts=1;
+	?>
+	<fieldset><LEGEND>רשימת פרטים
+	<input type=button value='-' onclick='if(document.F.numproducts.value>1){document.F.numproducts.value--;document.F.submit()}'>
+	<input size=2 maxlength=2 name=numproducts value=<?=$numproducts?>>
+	<input type=button value='+' onclick='document.F.numproducts.value++;document.F.submit()'>
+	&nbsp;<input type=submit value='OK'>
+	&nbsp;</legend></LEGEND>
+	<div style='overflow-Y:scroll;overflow-X:auto;width:100%;height:150px;border:solid 1 gray'>	
+	<table width=100%  style='border-collapse:collapse' border=1>
+	<tr style='background-color:silver'>
+		<th>#</th>
+		<th>ברקוד</th>
+		<th width=100%>שם מוצר</th>
+		<th>מחיר</th>
+		<th>כמות</th>
+		<th>הנחה בש"ח</th>
+		<th>הנחה ב%</th>
+		<!--th>סה"כ</th-->
+	</tr>
+<?	
+$name = $_POST["name"];
+$total=0;
+for ($i=0;$i<$numproducts;$i++)
+{
+	if ($addrow-1==$i)
+	{
+		$value=$productid[$i];
+		$sql = "
+				select '$value' as products_id, l.id, l.title as products_name,
+				ifnull(se.saleprice,l.saleprice) as products_price 
+				from listingsDB l 
+				left outer join listingsStocksElements se on se.stockID=$stock and se.listingID = l.id
+				where BarCode = '$value' and user_id = $userID";
+		$product = $conn->Execute($sql);
+		if ($product === false){log_error($sql);}
+		$pname = $product->fields["products_name"];
+		$pprice = $product->fields["products_price"];
+		$pid = $product->fields["products_id"];
+		$plistingid = $product->fields["id"];
+	}
+	else{
+		$plistingid = $listingid[$i];
+		$pname = $name[$i];
+		$pprice = $price[$i];
+		$pid = $productid[$i];
+	}
+	if (!$quantity[$i])$quantity[$i]=1;
+	
+	?>
+	<tr <?=($pname)?"style='background-color:lightgreen'":""?>>
+		<td><input type=button onclick='AddProduct(<?=$i+1?>)' value='<?=$i+1?>'  style=width:30px></td>
+		<td><input type=hidden name='productnum[] value=<?=$i?>'>
+        <input type=hidden name=listingid[] value='<?=$plistingid?>'>
+        <input onkeypress='checkKey(<?=$i+1?>)' name=productid[] value="<?=$pid?>" size=8>
+        </td>
+		<td><input style='background-color:#efefef;border:solid 2 silver' name=name[] style='width:100%' readonly value="<?=$pname?>"></td>
+		<td><input style='text-align:right' name=price[] size=8 value="<?if($pprice)echo number_format($pprice,2,".","");?>"></td>
+		<td><input style='text-align:right' name=quantity[] size=8 value="<?=$quantity[$i]?>"></td>
+		<td><input style='text-align:right' name=compcashdiscount[] size=8 value="<?if($compcashdiscount[$i])echo number_format($compcashdiscount[$i],2,".","");?>"></td>
+		<td><input style='text-align:right' name=compdiscount[] size=8 value="<?if($compdiscount[$i])echo number_format($compdiscount[$i],2,".","");?>"></td>
+		<!--td class=main><input style='background-color:#efefef;border:solid 2 silver;text-align:right' readonly name=subtotal[] size=8 value="<?=number_format($quantity[$i]*$pprice,2,".","")?>"></td-->
+	</tr>
+	<?}?>
+	</table>
+	
+	</div>
+	</fieldset>
+
+</td></tr>
+
+<tr style='height:99%'><td>
+<?
+if (!$numpayments)$numpayments=1;
+	?>
+	<fieldset><LEGEND>פרוט תשלומים
+	<input type=button value='-' onclick='if(document.F.numpayments.value>1){document.F.numpayments.value--;document.F.submit()}'>
+	<input size=2 maxlength=2 name=numpayments value=<?=$numpayments?>>
+	<input type=button value='+' onclick='document.F.numpayments.value++;document.F.submit()'>
+	&nbsp;<input type=submit value='OK'>
+	&nbsp;</legend>
+	<div style='overflow-Y:scroll;overflow-X:auto;width:100%;height:150px;border:solid 1 gray'>	
+	<table width=100% style='border-collapse:collapse' border=1>
+	<tr style='background-color:silver'>
+	<th colspan=3>כללי\מזומן</th>
+	<th colspan=7>אשראי</th>
+	<th colspan=5>ש'ק</th>
+	<th colspan=1>הקפה</th>
+	<th colspan=1>שובר</th>
+	</tr>
+	<tr style='background-color:silver'>
+		<th>#</th>
+		<th>סוג תשלום</th>
+		<th>סכום</th>
+		<th>מס' כרטיס</th>
+		<th>תוקף</th>
+		<th>חברת אשראי</th>
+		<th>סוג עסקה</th>
+		<th>מס' תשלומים</th>
+		<th>תשלום ראשון</th>
+		<th>תשלום אחר</th>
+		<th>מס' שיק</th>
+		<th>תאריך שיק</th>
+		<th>בנק</th>
+		<th>סניף</th>
+		<th>חשבון</th>
+		<th>מס' לקוח</th>
+		<th>מס' שובר</th>
+	</tr>
+<?
+for ($i=0;$i<$numpayments;$i++){
+	if (!$paymid[$i])$paymid[$i]=1;
+	?>
+	<tr>
+		<td align=center><?=($i+1)?></td>
+		<td>
+		<select name=paymid[] style='width:100%' onchange=paym(this)>
+			<option value=1 <?=($paymid[$i]==1)?"selected":""?>>מזומן
+			<option value=2 <?=($paymid[$i]==2)?"selected":""?>>ש'ק
+			<option value=5 <?=($paymid[$i]==5)?"selected":""?>>אשראי
+			<option value=7 <?=($paymid[$i]==7)?"selected":""?>>הקפה
+			<option value=3 <?=($paymid[$i]==3)?"selected":""?>>שובר
+			<option value=30 <?=($paymid[$i]==30)?"selected":""?>>פתק זיכוי
+		</select>
+		</td>
+		<td  width=1%><input style='width:50px' name=sum[]  value="<?=$sum[$i]?>"></td>
+		<td><input style='width:100%' name=cardnum[] <?=($paymid[$i]!=5)?"readonly style='background-color:silver'":""?> value="<?=$cardnum[$i]?>"></td>
+		<td><input style='width:100%' name=expdate[] <?=($paymid[$i]!=5)?"readonly style='background-color:silver'":""?> value="<?=$expdate[$i]?>"></td>
+		<td>
+			<select name=companynum[] id=companynum<?=$i?> <?=($paymid[$i]!=5)?"readonly style='background-color:silver'":""?> style='width:100%'>
+			<option value="">
+            <option value=1 <?=($companynum[$i]==1)?"selected":""?>>ישרא'
+			<option value=2 <?=($companynum[$i]==2)?"selected":""?>>כאל
+			<option value=3 <?=($companynum[$i]==3)?"selected":""?>>דיינרס
+			<option value=4 <?=($companynum[$i]==4)?"selected":""?>>אמקס
+			<option value=5 <?=($companynum[$i]==5)?"selected":""?>>JCB
+			<option value=6 <?=($companynum[$i]==6)?"selected":""?>>לאומי
+			</select>
+		</td>
+		<td>
+			<select name=creditterms[] id=creditterms<?=$i?> <?=($paymid[$i]!=5)?"readonly style='background-color:silver'":""?> style='width:100%'>
+			<option value="">  
+            <option value=1 <?=($creditterms[$i]==1)?"selected":""?>>רגיל
+			<option value=2 <?=($creditterms[$i]==2)?"selected":""?>>קרדיט
+			<option value=3 <?=($creditterms[$i]==3)?"selected":""?>>מיידי
+			<option value=4 <?=($creditterms[$i]==4)?"selected":""?>>מועדון
+			<option value=6 <?=($creditterms[$i]==6)?"selected":""?>>מיוחד
+			<option value=8 <?=($creditterms[$i]==8)?"selected":""?>>תשלומים
+			<option value=9 <?=($creditterms[$i]==9)?"selected":""?>>מועדון&nbsp;תשלומים
+			</select>
+		</td>
+        <?if($paymid[$i]!=5){?>
+            <script>
+            document.all.companynum<?=$i?>.selectedIndex=0;
+            document.all.creditterms<?=$i?>.selectedIndex=0;   
+            </script>
+        <?}?>
+            
+		<td><input style='width:100%' <?=($paymid[$i]!=5)?"readonly style='background-color:silver'":""?> name=payments[] value="<?=$payments[$i]?>"></td>
+		<td><input style='width:100%' <?=($paymid[$i]!=5)?"readonly style='background-color:silver'":""?> name=firstpayment[] value="<?=$firstpayment[$i]?>"></td>
+		<td><input style='width:100%' <?=($paymid[$i]!=5)?"readonly style='background-color:silver'":""?> name=otherpayment[] value="<?=$otherpayment[$i]?>"></td>
+		<td><input style='width:100%' <?=($paymid[$i]!=2)?"readonly style='background-color:silver'":""?> name=chequenumber[] value="<?=$chequenumber[$i]?>"></td>
+		<td><input style='width:100%' <?=($paymid[$i]!=2)?"readonly style='background-color:silver'":""?> name=paydate[] value="<?=$paydate[$i]?>"></td>
+		<td><input style='width:100%' <?=($paymid[$i]!=2)?"readonly style='background-color:silver'":""?> name=bankno[] value="<?=$bankno[$i]?>"></td>
+		<td><input style='width:100%' <?=($paymid[$i]!=2)?"readonly style='background-color:silver'":""?> name=bankdeptno[] value="<?=$bankdeptno[$i]?>"></td>
+		<td><input style='width:100%' <?=($paymid[$i]!=2)?"readonly style='background-color:silver'":""?> name=bankcntno[] value="<?=$bankcntno[$i]?>"></td>
+		
+		<td><input style='width:100%' <?=($paymid[$i]!=7)?"readonly style='background-color:silver'":""?> name=custid[] value="<?=$custid[$i]?>"></td>
+		<td><input style='width:100%' <?=($paymid[$i]!=3&&$paymid[$i]!=30)?"readonly style='background-color:silver'":""?> name=coupon[] value="<?=$coupon[$i]?>"></td>
+		
+	</tr>
+	<?}?>
+	</table>
+	</div>
+	</fieldset>
+</td></tr>
+<script>
+
+function AddProduct(i)
+{
+    document.F.addrow.value = i;
+    document.F.submit();
+}
+
+function checkKey(i){
+    if (window.event.keyCode==13){
+        AddProduct(i);
+    }
+}
+
+function paym(el){
+	tr = el.parentElement.parentElement;
+	for (i=1;i<=16;i++){tr.cells[i].all(0).readOnly=false;tr.cells[i].all(0).style.backgroundColor="";}
+	switch (el.value+""){
+		case "1":
+			for (i=3;i<15;i++){tr.cells[i].all(0).readOnly=true;tr.cells[i].all(0).style.backgroundColor="silver";}
+			for (i=15;i<16;i++){tr.cells[i].all(0).readOnly=true;tr.cells[i].all(0).style.backgroundColor="silver";}
+			tr.cells[5].all(0).selectedIndex=0;
+            tr.cells[6].all(0).selectedIndex=0;
+            break;
+            
+		case "2":
+			for (i=3;i<10;i++){tr.cells[i].all(0).readOnly=true;tr.cells[i].all(0).style.backgroundColor="silver";}
+			for (i=15;i<=16;i++){tr.cells[i].all(0).readOnly=true;tr.cells[i].all(0).style.backgroundColor="silver";}
+			tr.cells[5].all(0).selectedIndex=0;
+            tr.cells[6].all(0).selectedIndex=0;
+            break;
+		
+        case "5":
+			for (i=10;i<15;i++){tr.cells[i].all(0).readOnly=true;tr.cells[i].all(0).style.backgroundColor="silver";}
+			for (i=15;i<=16;i++){tr.cells[i].all(0).readOnly=true;tr.cells[i].all(0).style.backgroundColor="silver";}
+			tr.cells[5].all(0).selectedIndex=1;
+            tr.cells[6].all(0).selectedIndex=1;
+            break;
+
+        case "7":
+			for (i=3;i<15;i++){tr.cells[i].all(0).readOnly=true;tr.cells[i].all(0).style.backgroundColor="silver";}
+			for (i=16;i<=16;i++){tr.cells[i].all(0).readOnly=true;tr.cells[i].all(0).style.backgroundColor="silver";}
+			tr.cells[5].all(0).selectedIndex=0;
+            tr.cells[6].all(0).selectedIndex=0;
+            break;
+
+        case "3":
+        case "30":
+			for (i=3;i<16;i++){tr.cells[i].all(0).readOnly=true;tr.cells[i].all(0).style.backgroundColor="silver";}
+			tr.cells[5].all(0).selectedIndex=0;
+            tr.cells[6].all(0).selectedIndex=0;
+            break;
+			
+
+	}
+}
+</script>
+<tr style='height:1%'>
+<td>
+<input type=submit name=do value='אישור'>
+</td>
+</tr>
+</form>
+</table>
+
+		
+<?php
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

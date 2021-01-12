@@ -1,0 +1,240 @@
+<?php
+$direction = 'rtl';
+$charset = 'Windows-1255';
+
+$lang_modules['scheduler'] = "scheduler";
+$lang_modules['filesystem'] = 'files';
+$lang_modules['email'] = 'e-mail';
+$lang_modules['projects'] = 'projects';
+
+//main language menu file register login and other non logged in pages
+//common
+$cmdLogin = "כניסה";
+$cmdSave = "שמור";
+$cmdBack = "חזרה";
+$cmdCancel = "ביטול";
+$cmdClose = "סגור";
+$cmdOk = "אישור";
+$cmdDelete = "מחק";
+$cmdNext = "קדימה";
+$cmdPrevious = "אחורה";
+$cmdContinue = "המשך";
+$cmdUpdate = "לסנכרן";
+$cmdApply = "ליישם";
+$cmdYes = "כן";
+$cmdNo = "לא";
+$cmdAdd = 'הסף';
+$cmdEdit = 'שינוי';
+$cmdInvertSelection = 'invert selection';
+
+$strEdit = "Edit";
+$strThis = 'this';
+$strItems = 'items';
+
+$strName = "Name";
+$strUser = "User";
+$strUsername = "Username";
+$strPassword = "Password";
+$strAuthcode = "Authorization code";
+$strCountry = "Country";
+$strState = "State";
+$strCity = "City";
+$strZip = "ZIP/Postal code";
+$strAddress = "Street address";
+$strEmail = "E-mail";
+$strPhone = "Phone";
+$strWorkphone = "Phone work";
+$strCellular = "Cellular";
+$strCompany = "Company";
+$strDepartment = "Department";
+$strFunction = "Function";
+$strQuestion = "Secret question";
+$strAnswer = "Answer";
+$strFax = "Fax";
+$strWorkFax = "Fax work";
+$strHomepage = "Homepage";
+$strWorkAddress = "Address Work";
+$strWorkZip = "Zipcode work";
+$strWorkCountry = "Country work";
+$strWorkState = "State work";
+$strWorkCity = "City work";
+$strPhoto = "Photo";
+$strComments = "Comments";
+
+$strProperties = 'properties';
+
+$strDeleteItem = "Delete";
+
+$strDate = "Date";
+
+$strSaveSuccess = "Data saved successfully";
+$strSaveError = "An error occured while saving data. Please try again.";
+$strDataError = "An error occured while reading data. Please try reloading this page.";
+$strDeleteError = "Could not delete data.";
+$strAclError = "Access Control error";
+$strDateError = "You entered an invalid date";
+
+
+
+$strAccessDenied = "Access denied";
+$AccessDenied_text = "You are not allowed to view this section of the site or to perform this action.<br />Another user has restricted access to the information you requested.";
+
+$invalid_chars = "The following characters are not allowed";
+
+$strGroups = "Groups";
+$strOwner = "Owner";
+
+$strDeletePrefix = "Are you sure you want to delete ";
+$strDeleteSuffix = "?";
+
+//menu
+$menu_logout = "logout";
+$menu_applications = "applications";
+$menu_help = "help";
+$menu_about = "about";
+$menu_documentation = "documentation";
+$menu_configuration = "configuration";
+$menu_groups = "user&nbsp;groups";
+$menu_accounts = "your&nbsp;account";
+$menu_preferences = "preferences";
+$menu_bookmarks = "bookmarks";
+$menu_bookmarks_manage = "modify&nbsp;bookmarks";
+$menu_add_bookmark = "add&nbsp;bookmark";
+$menu_add_current = "add&nbsp;current&nbsp;page";
+$menu_contacts = "addressbook";
+$menu_invite = "invite&nbsp;users";
+$menu_search = "search";
+$menu_search_discussions = "discussions";
+$menu_search_files = "files&nbsp;and&nbsp;folders";
+$menu_search_web = "the&nbsp;web";
+$menu_scheduler = "scheduler";
+$menu_filetypes = "filetypes";
+$menu_discussions = "discussion&nbsp;board";
+
+$menu_users = "users";
+$menu_start = "start&nbsp;page";
+$menu_reboot = "reboot&nbsp;server";
+$menu_halt = "shutdown&nbsp;server";
+$menu_reboot_text = "WARNING! All Group-Office services will be temporarely unavailable. Are you sure you want to do continue?";
+$menu_halt_text = "WARNING! All Group-Office services will be terminated. Are you sure you want to do continue?";
+$menu_new = "new";
+$menu_message = "message";
+$menu_contact = "contact";
+$menu_event = "event";
+$menu_bookmark = "bookmark";
+$menu_topics = "topics";
+$menu_support = "support";
+$menu_projects = "projects";
+$menu_sysinfo = "system information";
+$menu_admin = 'administrator';
+$menu_modules = 'modules';
+$menu_manual = 'manual';
+
+//class validate
+$error_required = "You didn't specify the required field below.";
+$error_match_auth = "The authorisation codes didn't match.";
+$error_match_pass = "The passwords didn't match.";
+$error_min_length = "Minimum characters of the field below:";
+$error_max_length = "Maximum characters of the field below:";
+$error_email = "The E-mail address you specified was invalid.";
+$error_email_exists = "The E-mail address you entered already exists.";
+$error_username_exists = "Sorry, the username you entered already exists. Please choose another one.";
+$errors_in_form = "There were errors in the form. Correct them and try again.";
+$error_missing_field = "You didn't fill in all the required fields.";
+
+//acl control
+$acl_control_auth_groups = "Authorized groups";
+$acl_control_auth_users = "Authorized users";
+$acl_control_no_contacts = "You don't have any member contacts to select.<br /> Use the Addressbook to add members to your contacts.";
+
+$strShowProfile = "View Profile";
+$strShowGroup = "View group members";
+$strProcessingTime = "The processing of this page took ";
+$strLoggedInAs = "Logged in as ";
+$strAt = " at ";
+$strEmailTo = "Send an E-mail message to: ";
+$strProtectedUser = "Protected User";
+
+$http_not_found = "Document not found";
+$http_not_found_text = "The requested document was not found. Maybe you mistyped the URL.";
+$http_error = "Internal Server Error";
+$http_bad_request = "Bad request";
+$strAddContact = "Add to contacts";
+
+$strReadRights = "Read permissions";
+$strWriteRights = "Write permissions";
+$strPermissions = 'permissions';
+
+$editor_bold = "Bold";
+$editor_italic = "Italic";
+$editor_underline = "Underline";
+$editor_left = "Left";
+$editor_right = "Right";
+$editor_center = "Center";
+$editor_ord_list = "Ordered List";
+$editor_bul_list = "Bulleted List";
+$editor_txt_color = "Text Color";
+$editor_back_color = "Background Color";
+$editor_hyperlink = "Hyperlink";
+$editor_image = "Image";
+$editor_rule = "Horizontal Rule";
+
+$editor_very_small = "Very small";
+$editor_small = "Small";
+$editor_medium = "Medium";
+$editor_large = "Large";
+$editor_larger = "Larger";
+$editor_very_large = "Very large";
+
+$editor_strikethrough = "Strike Through";
+$editor_outdent = "Outdent";
+$editor_indent = "Indent";
+
+$editor_superscript = "Superscript";
+$editor_subscript = "Subscript";
+$editor_undo = "Undo";
+$editor_redo = "Redo";
+$editor_copy = "Copy";
+$editor_paste = "Paste";
+$editor_cut = "Cut";
+
+$editor_font = "Font";
+$editor_size = "Size";
+$editor_heading = "Heading";
+$editor_select = "Select";
+
+$editor_mode = "Toggle editor mode";
+
+$days[0]="Su";
+$days[1]="Mo";
+$days[2]="Tu";
+$days[3]="We";
+$days[4]="Th";
+$days[5]="Fr";
+$days[6]="Sa";
+
+$months[0]="January";
+$months[1]="February";
+$months[2]="March";
+$months[3]="April";
+$months[4]="May";
+$months[5]="June";
+$months[6]="July";
+$months[7]="August";
+$months[8]="September";
+$months[9]="October";
+$months[10]="November";
+$months[11]="December";
+
+$full_days[0] = "Sunday";
+$full_days[1] = "Monday";
+$full_days[2] = "Tuesday";
+$full_days[3] = "Wednesday";
+$full_days[4] = "Thursday";
+$full_days[5]= "Friday";
+$full_days[6] = "Saturday";
+
+$register = "הרשמת משתמש חדש";
+
+
+?>

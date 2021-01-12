@@ -1,0 +1,129 @@
+<?php
+
+define ("BALANCE_ZHUT","-");
+define ("BALANCE_CHOVA","+");
+
+if ($testclient)
+{
+
+    require("common.php");
+    require("business_functions.php");
+    require("document.php");
+
+    include("$config[template_path]/admin_top.html");
+    echo Client::GetHakafaBalance($testclient);
+}
+
+class Client
+{
+
+    static function GetBalance($clientID, $type, $isHakafaOnly, &$docids)
+    {
+        global $STATUS_DRAFT,$TABLE_DOCUMENT_STATUS,$TABLE_DOCUMENT_TYPE;
+        $q = "";
+
+        if ($type)
+        {
+            $q.=" and dt.balance = '$type' ";
+        }
+        else
+        {
+            $q.=" and dt.balance in ( '+','-') ";
+        }
+
+        if ($isHakafaOnly)
+        {
+            $q.=" and ifnull(d.raw_data,'') <> ''";
+        }
+
+        $sql = "select
+				group_concat(d.id) as docids,
+				round(sum(round(amount,2) * (case when dt.balance='+' then 1 else -1 end)),2) as amount
+				from documents d, $TABLE_DOCUMENT_TYPE dt, $TABLE_DOCUMENT_STATUS ds
+				where
+				d.client_id = $clientID and
+				dt.id = d.doc_type and
+				ds.id = d.doc_status and
+				ds.countbalance = 1 and
+				d.doc_status not in (".$STATUS_DRAFT.") $q";
+        $rs = DBQuery($sql);
+
+        $docids = $rs->fields["docids"];
+        return $rs->fields["amount"];
+    }
+
+    static function GetHakafaBalance($clientID)
+    {
+        global $UserData,$userID,$testclient;
+
+        $qnewSupport = "";
+        if ($UserData->fields["EnableNewKupaInCredit"])
+        {
+            $qnewSupport = " or (p.paymid=7 and p.custid = c.CreditorNum) or (t.custid = c.CreditorNum and t.IsDebtPayment=1) ";
+        }
+
+        $sql = "select clientnum from listingsSuppliers where id = $clientID";
+        $rs = DBQuery($sql);
+        $clientNum = $rs->Fields("clientnum");
+
+        if ($testclient)echo "$clientnum=".$clientNum."<br>";
+
+        if ($clientNum)
+        {
+            $sql = "    select 1 as client, 3 as sortorder, c.id, c.clientNum as CreditorNum, c.SupplierName as CreditorName,
+                        c.Phone as HomePhone, c.CellPhone,c.Address,
+			round(sum((case when paymid=7 then hakafasum 
+			when paymid = 1 then CashSum
+			when paymid = 2 then ChequeSum
+			when paymid = 5 or paymid = 8 then creditcardsum 
+			else CouponSum end)*(case when isrefund=0 and IsDebtPayment=0 then 1 else 0 end)),2) as Hov,
+			round(sum((case when paymid=7 then hakafasum 
+			when paymid = 1 then CashSum
+			when paymid = 2 then ChequeSum
+			when paymid = 5 or paymid = 8 then creditcardsum			
+			else CouponSum end)*(case when isrefund=1 or IsDebtPayment=1 then 1 else 0 end)),2) as Zikui
+			from listingsSuppliers c,transactionpayments p,transactions t where
+			((c.CreditorNum = p.CouponNumber and paymid=3) $qnewSupport) and
+			p.trans_id = t.id and t.user_id = $userID 
+			and c.user_id = $userID 
+			and c.CreditorNum = $clientNum";
+
+            $recordSet = DBQuery($sql);
+            $hov=$recordSet->fields["Hov"];
+            $zikui=$recordSet->fields["Zikui"];
+
+            if ($testclient)echo "Hov=".$hov."<br>";
+            if ($testclient)echo "Zikui=".$zikui."<br>";
+
+
+            $sql="select
+            round(sum(amount * (case when hov=0 then 1 else 0 end) ),2) as zikui,
+            round(sum(amount * (case when hov=1 then 1 else 0 end) ),2) as hov
+            from creditorpayments c
+            where creditor_id = (select id from listingsSuppliers where ClientNum = $clientNum) and status=1";
+            $zik = DBQuery($sql);
+
+            $hov1=$zik->fields["hov"];
+            $zikui1=$zik->fields["zikui"];
+
+            if ($testclient)echo "Hov1=".$hov1."<br>";
+            if ($testclient)echo "Zikui1=".$zikui1."<br>";
+
+
+            $hov=$hov+$hov1;
+            $zikui=$zikui+$zikui1;
+
+            $total=$hov-$zikui;
+
+            return $total;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+
+
+}
+
+?>

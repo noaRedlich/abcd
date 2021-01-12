@@ -1,0 +1,3163 @@
+<?php                                                                                                                                                            
+$PTYPE_CHEQUE = 0;
+$PTYPE_MEZUMAN = 1;
+$PTYPE_ASHRAI = 2;
+$PTYPE_HAAVARA = 3;
+$PTYPE_ORAATKEVA = 4;
+
+$simple=($rmodule==2)?0:1;
+
+
+if ($ajaxagent)
+{
+	include_once("../../classes/agent.php");
+	$agent->init();  
+}
+
+if ($did=="HAFKADAHAAVARA") 
+{ 
+	header("location:hafkada.php?docid=$docid");
+} 
+ 
+global $action, $id, $lang, $conn, $config;
+$rowIndexToRecalc = array();                         
+
+$page_subtitle = ($docid)?"פרטי מסמך":"מסמך חדש";
+
+require("include/common.php");   
+require("include/business_functions.php");  
+require("include/document.php");         
+require("include/product.php");                        
+if(!loginCheck('User'))exit;
+
+if (!$ajaxagent)
+{
+	include_once("../../classes/agent.php");
+	$agent->init();
+}
+
+include("$config[template_path]/admin_top.html");
+echo "<script src='/javascript/common.js'></script>";
+
+if ($_GET["clientName"]){
+	$clientName = utf8RawUrlDecode($_GET["clientName"]);
+}
+
+$vatRS = DBQuery("select vat, concat(vat,'%') as title from $TABLE_VAT where (status=1 or vat = ".$config["VAT"].") union select 0,'פטור' from duals where id=1 order by vat ");
+
+
+$sql = "select dt.*, 
+		(case when ifnull(dtc.movestock,'0')='1' then '-' else dt.move_stock end) as dmove_stock
+		from $TABLE_DOCUMENT_TYPE dt
+		left outer join document_type_counters  dtc
+		on dt.id = doc_type_id 
+		where dt.id = '$did'";
+		
+$dtype = DBQuery($sql);
+$ispayment = $dtype->fields["is_payment"];
+$isproduct = $dtype->fields["is_product"];
+$usePricelist = $dtype->fields["use_pricelist"];
+$showProfit = $dtype->fields["show_profit"];
+$isinternal = $dtype->fields["is_internal"];
+$init_statuses = $dtype->fields["init_statuses"];
+$print_paydate = $dtype->fields["print_paydate"];   
+$allow_draft_print = $dtype->fields["allow_draft_print"];   
+$isexecdate = $dtype->fields["exec_date"];   
+$metric = $dtype->fields["metric"];
+$docgroup = $dtype->fields["docgroup"];
+$isserials = $dtype->fields["is_serials"];
+$movestock = $dtype->fields["dmove_stock"];
+$mayinheritfrom = $dtype->fields["may_inherit_from"];
+$moveordered = $dtype->fields["move_ordered"];
+$movereserved = $dtype->fields["move_reserved"];
+$dvat = ($_POST["dvat"])?$_POST["dvat"]:$config["VAT"];
+if ($vatfree)$dvat=0;
+
+
+$stocks = GetStocks(false);
+
+$sql = "select id, name, bank, snif, account from kupot where Status=1 and user_id = $userID order by sortorder, binary name";
+$kupot = DBQuery($sql);
+
+$sql = "select id, name from $TABLE_CARDTYPES where Status=1 order by sortorder, binary name";
+$cardtypes = DBQuery($sql);
+
+
+$sql = "select id, name from $TABLE_DOCPAYMENTTYPES order by id";
+$TABLE_DOCPAYMENTTYPES = $conn->Execute($sql);
+if ($TABLE_DOCPAYMENTTYPES === false){log_error($sql);}
+
+if ($do || $doserials || $doprint || $doclosechn || $doupdate)
+{ 
+	if ((!$client || $client<=1) && !trim($clientName) && !$isinternal){
+		$error = "יש לבחור או להזין לקוח/ספק";
+	}
+	elseif (!preg_match("/^\d\d\/\d\d\/\d\d\d\d$/",$docdate)){
+		$error = "יש להזין תאריך מסמך בפורמט DD/MM/YYYY";
+	}
+	elseif ($stock_date && !preg_match("/^\d\d\/\d\d\/\d\d\d\d$/",$stock_date)){
+		$error = "יש להזין תאריך כניסה למלאי בפורמט DD/MM/YYYY";
+	}
+	elseif ($exec_date && !preg_match("/^\d\d\/\d\d\/\d\d\d\d$/",$exec_date)){
+		$error = "יש להזין תאריך ביצוע בפורמט DD/MM/YYYY";
+	}
+	elseif ($exec_hour && !preg_match("/^\d\d\:\d\d$/",$exec_hour)){
+		$error = "יש להזין שעת ביצוע  בפורמט HH:MM";
+	}
+	elseif ($clientMail && !isValidEmail($clientMail))
+	{
+		$error = "דואר אלקטרוני של הלקוח אינו תקין";
+	}
+	elseif ($isproduct && !implode("",$productname)){
+		$error = "יש להזין לפחות פריט אחד";
+		$tabmode="PRODUCTS";
+	}
+	elseif ($ispayment && (!array_sum($sumdoc)||array_sum($sumdoc)==0)){
+		$error = "יש להזין לפחות תשלום אחד";
+		$tabmode="PAYMENTS";
+	}
+	elseif ($ispayment && $isproduct && $total != $totalpayment){
+		$error = "סה\"כ תשלומים וסה\"כ פריטים חייבים להיות זהים";
+		$tabmode="PAYMENTS";
+	}
+	elseif ($did == "YETZIAMIIZUR" && ($paritname = ValidateYetziaItzur()))
+	{
+		$error = "פריט $paritname בשורה $outline אינו עץ מוצר";
+		$tabmode="PRODUCTS";
+	}      
+	/*
+	elseif ($paritname = ValidateNegativeQuantityOrAmount())
+	{
+	    $error = "כמות או מחיר של פריט  $paritname בשורה $outline לא יכול להיות פחות מ-0";
+	    $tabmode="PRODUCTS";
+			}
+			*/
+	elseif ($did == "KNISALEIZUR" && ($paritname = ValidateKnisaItzur()))
+	{
+		$error = "פריט $paritname בשורה $outline אינו פריט שיצאה מיצור";
+		$tabmode="PRODUCTS";
+	} 
+	else
+	{
+		
+		$isadded=false;
+		$execdate = DateToSQL($exec_date) . " " . $exec_hour;
+		$stockdate = ($stock_date)?("'".dateToSQL($stock_date)."'"):"null";
+		if ($_POST["docid"] && !$duplicate)
+		{
+			//update document
+			$documentid = $docid = $_POST["docid"];
+			
+			//get previous document status
+			$sql = "select doc_status from documents where id = $documentid";
+			$exdoc = $conn->Execute($sql);if ($exdoc === false){log_error($sql);}
+			$prevdocstatus = $exdoc->fields["doc_status"];
+			$fullcomment = $comment1;
+			if ($statusreason)
+			{
+				$siba = "\nסיבת ביטול: ".$statusreason;
+				$fullcomment.=$siba;
+			}
+			$sql = "update documents set doc_status = '".$docstatus."'";
+			if (!$readonly)
+			{ 
+				$clid = (!$client && !$isinternal)?1:$client;
+				if ($clid==1)
+				{
+					$clname = $clientName;
+					$clbusiness = $clientBusiness;   
+				}
+				else
+				{ 
+					if ($clid)
+					{
+						$clData = DBQuery("select SupplierName, BusinessNum from listingsSuppliers where id = '$clid'");
+						$clname = addslashes($clData->fields["SupplierName"]);
+						$clbusiness = addslashes($clData->fields["BusinessNum"]);
+					}
+				}
+				
+				$claddr = ($clid==1)?$clientAddress:""; 
+				$clphone = ($clid==1)?$clientPhone:""; 
+				$clperson = ($clid==1)?$personName:""; 
+				$clmail = ($clid==1)?$clientMail:""; 
+				
+				
+				$sql.="
+						,doc_date = '".DateToSQL($docdate)."',
+						modified = unix_timestamp(),
+						comment = '".dbsafe($comment)."',
+						client_id = '".dbsafe($clid)."',
+						client_name = '".dbsafe(trim($clname))."',
+						client_address = '".dbsafe(trim($claddr))."',  
+						client_phone = '".dbsafe(trim($clphone))."',
+						client_email = '".dbsafe(trim($clmail))."',  
+						client_businessnum = '".dbsafe(trim($clbusiness))."', 
+						client_person = '".dbsafe(trim($clperson))."',  
+						amount = '".(($total)?$total:$totalpayment)."',
+						discount = '".$discount."',
+						vat = '".$dvat."',
+						agent_id = '".$agentid."',
+						payment_type_id = '".$dpaymenttype."',
+						person = '".$person."',
+						comment1 = '".dbsafe($fullcomment)."',
+						stock_id = '".dbsafe($stock)."',
+						exec_date = '".$execdate."',
+						stock_date = $stockdate,
+						payment_date = ".(($paymentdate)?("'".DateToSQL($paymentdate)."'"):"null")." ";
+			}
+			else
+			{
+				$sql.=",comment1 = concat(comment1,'".dbsafe($siba)."') ";
+			}
+			$sql.=" where id = $documentid ";
+			$newdoc = DBQuery($sql);
+			$addednum="";
+			$added=1;
+		}
+		else
+		{
+			//create/duplicate document
+			$prevdocstatus = "";
+			//recheck document number
+			$sql = "select doc_number from documents where user_id = $userID and doc_type='$did' and doc_number = $docnum";
+			$docnumrs = $conn->Execute($sql);
+			if ($docnumrs === false){log_error($sql);}
+			if (!$docnumrs->EOF){
+				//such document number already found, get new number
+				$sql = "select doc_number from documents where user_id = $userID and doc_type='$did' order by doc_number desc limit 1";
+				$docnumrs = $conn->Execute($sql);
+				if ($docnumrs === false){log_error($sql);}
+				if (!$docnumrs->EOF){
+					$docnum = ($docnumrs->fields["doc_number"])+1;
+				}
+			}
+			$docid = "";
+			$isadded=true;
+			
+			$clid = (!$client && !$isinternal)?1:$client; 
+			if ($clid==1)
+			{
+				$clname = $clientName;
+				$clbusiness = $clientBusiness;   
+			}
+			else
+			{
+				$clData = DBQuery("select SupplierName, BusinessNum from listingsSuppliers where id = $clid");
+				$clname = addslashes($clData->fields["SupplierName"]);
+				$clbusiness = addslashes($clData->fields["BusinessNum"]);
+			}
+			
+			$claddr = ($clid==1)?$clientAddress:""; 
+			$clphone = ($clid==1)?$clientPhone:""; 
+			$clmail = ($clid==1)?$clientMail:""; 
+			$clperson = ($clid==1)?$personName:"";
+			
+			$sql = "insert into documents
+					(vat, doc_type, doc_status, doc_date, client_id, created,doc_number, user_id, comment, amount, discount,
+					agent_id,payment_type_id, payment_date,comment1, person, stock_id,office_user_id,
+					client_name,client_address,client_phone,client_email,client_businessnum,client_person,exec_date,stock_date)
+					values ('".$dvat."','$did','$docstatus','".DateToSQL($docdate)."','$clid',unix_timestamp(),$docnum,$userID,'".dbsafe($comment)."','".(($total)?$total:$totalpayment)."','$discount',
+					'$agentid','$dpaymenttype',".(($paymentdate)?("'".DateToSQL($paymentdate)."'"):"null").",'".dbsafe($comment1)."','$person','$stock',$officeUserID,
+					'".dbsafe(trim($clname))."','".dbsafe(trim($claddr))."','".dbsafe(trim($clphone))."','".dbsafe(trim($clmail))."','".dbsafe(trim($clbusiness))."','".dbsafe(trim($clperson))."','$execdate',$stockdate)";
+			$newdoc = DBQuery($sql);
+			$documentid = $conn->Insert_ID();
+			
+			if (!$doserials && !$doprint && !$doclosechn){
+				$addednum=$docnum;
+				$added=$documentid;
+			}
+			else{
+				$docid=$documentid;
+			}
+			
+			//update parent documents
+			if ($klita)
+			{
+				$klitaids = explode(",",$klita);
+				foreach($klitaids as $klitaid)
+				{                                  
+					//closing parent document
+					$sql = "select doc_type from documents where id  = $klitaid";
+					$closeddoc = $conn->Execute($sql);if ($closeddoc === false){log_error($sql);}
+					if ($klitaMode=="CloseCheshbon" || isParentShouldBeClosed($closeddoc->fields["doc_type"],$mayinheritfrom)){
+						$sql = "update documents set doc_status = 2, closed_by = $documentid where id = $klitaid";
+						$res = $conn->Execute($sql);if ($res === false){log_error($sql);}
+					}
+					$sql = "select * from $TABLE_DOCUMENT_TYPE where id = '".$closeddoc->fields["doc_type"]."'";
+					$doctype = $conn->Execute($sql);if ($doctype === false){log_error($sql);}
+					//restore reserved
+					if ($doctype->fields["move_reserved"])
+					{
+						$sign = ($doctype->fields["move_reserved"]=="+")?"-":"+";
+						$sql = "update listingsDB l set reserved = reserved $sign
+								(select sum(quantity) from document_products where listing_id =l.id and doc_id = $klitaid)
+								where id in (select listing_id from document_products where doc_id = $klitaid)";
+						$res = $conn->Execute($sql);if ($res === false){log_error($sql);}
+						//if reserved < 0, set reserved to 0
+						$sql = "update listingsDB l set reserved = 0
+								where reserved < 0 and id in (select listing_id from document_products where doc_id = $klitaid)";
+						$res = $conn->Execute($sql);if ($res === false){log_error($sql);}
+					}
+					//restore ordered
+					if ($doctype->fields["move_ordered"])
+					{
+						$sign = ($doctype->fields["move_ordered"]=="+")?"-":"+";
+						$sql = "update listingsDB l set ordered = ordered $sign
+								(select quantity from document_products where listing_id =l.id and doc_id = $klitaid)
+								where id in (select listing_id from document_products where doc_id = $klitaid)";
+						$res = $conn->Execute($sql);if ($res === false){log_error($sql);}
+						//if ordered < 0, set ordered to 0
+						$sql = "update listingsDB l set ordered = 0
+								where ordered < 0 and id in (select listing_id from document_products where doc_id = $klitaid)";
+						$res = $conn->Execute($sql);if ($res === false){log_error($sql);}
+					}
+				}
+			}
+		}
+		
+		if ($isproduct)
+		{
+			
+			if (!$readonly)
+			{
+				//create or re-create products
+				$sql = "delete from document_products where doc_id = $documentid";
+				$deleted = $conn->Execute($sql);if ($deleted === false){log_error($sql);}
+			}
+			$i=0;
+			
+			foreach ($productname as $product_name)
+			{
+				if (!$listingid[$i] && !$product_name && !$productid[$i]  && !floatval($sum[$i]))
+				{
+					continue;
+				} 
+				
+				if (!$listingid[$i])
+				{
+					//try to find product anyway....
+					$sql = "select id,title from listingsDB where barcode = '".dbsafe($productid[$i])."' and user_id = $userID";    
+					$foundproduct = DBQuery($sql);
+					if (!$foundproduct->EOF)
+					{
+						$listingid[$i] = $foundproduct->fields["id"];
+						//$product_name = $foundproduct->fields["title"];
+					}
+				}
+				
+				//create new products
+				if ($createNotExistingProducts && 
+						(
+							($isnewproduct[$i] || !$listingid[$i])
+							&& ($productname[$i] && $productid[$i] &&  (floatval($price[$i])>0 || floatval($sumbefore[$i])>0)))
+					)	
+				{
+					
+					if (floatval($price[$i])>0)
+					{
+						$productprice = $price[$i];
+					}
+					else
+					{
+						$rateRS = DBQuery("select course from currencies where id = ".$currency[$i]);
+						$currencyRate = $rateRS->fields["course"]?$rateRS->fields["course"]:1;
+						$productprice = $sumbefore[$i]/$quantity[$i]/$currencyRate;
+					}
+										
+					$newprice = $productprice*(1+($dvat/100));   
+					$nprod = new Product($productname[$i],$productid[$i],$newprice);
+					if ($movestock=="+")
+					{
+						$nprod->cost = $newprice;
+					}
+					$nprod->Create(false);
+					$listingid[$i] = $nprod->id;
+					if ($doupdate)
+					{
+						DBQuery("update document_products set listing_id = ".$listingid[$i]." where id = ".$docproductid[$i]);
+					}
+				}
+				
+				if (!$readonly)
+				{
+					
+					if ($grams_rate[$i])
+					{
+						$quantity[$i]*=$grams_rate[$i];
+					}
+					
+					$mi = ($masterindex[$i]!="")?$masterindex[$i]:"null";
+					$spid = ($sourceid[$i]!="")?$sourceid[$i]:"null";
+					$sql = "insert into document_products
+							(doc_id, listing_id, sort_order, barcode, name, currency_price, currency_id, currency_rate, quantity, price, discount,cost,masterindex,childquantity,sourcedocproductid)
+							values($documentid,'".$listingid[$i]."',$i,'".dbsafe($productid[$i])."','".dbsafe($product_name)."',
+							'".$price[$i]."','".$currency[$i]."','".$rate[$i]."','".$quantity[$i]."','".$sum[$i]."','".$pdiscount[$i]."','".$alut[$i]."',".$mi.",'".$childquantity[$i]."',$spid)";
+					$newproduct = $conn->Execute($sql);if ($newproduct === false){log_error($sql);}
+					
+				}
+				
+				$i++;
+			}
+		}
+		
+		//move quantities if status is changed to active from non-active
+		if ($isproduct && $docstatus == $STATUS_ACTIVE && $prevdocstatus != $STATUS_ACTIVE)
+		{
+			
+			//if document has parent (all parents may be only the same type), then use MoveStock
+			//flag from MAY_INHERIT_FROM map, else (document has no parents) use MoveStock field
+			if ($klita)
+			{
+				$klitaids = explode(",",$klita);
+				$klitaid = $klitaids[0];
+				$sql = "select doc_type from documents where id  = $klitaid";
+				$closeddoc = $conn->Execute($sql);if ($closeddoc === false){log_error($sql);}
+				$movestock = GetMoveStock($closeddoc->fields["doc_type"],$mayinheritfrom);
+			}
+			$i=0;    
+			foreach ($productname as $product_name)
+			{
+				if ($movestock=="+" && ($stock||$workmode=="B") && $listingid[$i])
+				{
+					//purchase
+					//get purchase group
+					$sql = "select max(group_id) as group_id from purchases where supplier_id = '$client'";
+					$groupRS = $conn->Execute($sql);if ($groupRS === false){log_error($sql);}
+					$groupid = $groupRS->fields["group_id"]+1;
+					$purdate = ($stock_date)?$stock_date:$docdate; 
+					purchaseProduct($listingid[$i],$quantity[$i],$client,$stock,$price[$i],$pdiscount[$i],$workmode,$purdate,1,$docnum,$groupid,$documentid);
+				} 
+				elseif($movestock=="-" && ($stock||$workmode=="B") && $listingid[$i])
+				{
+					//sell
+					sellProduct($listingid[$i],$quantity[$i],$client,$stock,$workmode,DateToSQL($docdate),$price[$i]);
+				}
+				
+				//move ordered quantity
+				if ($moveordered && $listingid[$i])
+				{
+					$sql = "update listingsDB set ordered = ordered $moveordered ".$quantity[$i]." where id = ".$listingid[$i];
+					$newproduct = $conn->Execute($sql);if ($newproduct === false){die($sql);}
+				}
+				//move reserved quantity
+				if ($movereserved && $listingid[$i])
+				{
+					$sql = "update listingsDB set reserved = reserved $movereserved ".$quantity[$i]." where id = ".$listingid[$i];
+					$newproduct = $conn->Execute($sql);if ($newproduct === false){die($sql);}
+				}
+				
+				//treate yezia mi izur
+				if ($listingid[$i] && ($did == "YETZIAMIIZUR"))
+				{
+					if ($masterindex[$i].""!="")
+					{
+						//move stock of children product from factory
+						UpdateQuantity($listingid[$i],$factory,-1*$quantity[$i]);
+					}
+					else
+					{
+						//create tree product and add stock of tree product in the point   
+						$sql = "select sum(ifnull(lse.saleprice,l.SalePrice)*t.quantity*(100-t.discount)/100) as total,
+								sum(Cost*t.quantity) as cost  
+								from listings_tree t,
+								listingsDB l
+								left outer join listingsStocksElements lse on lse.listingid = t.listing_id and lse.stockid = $stock
+								where l.id = t.listing_id and  master_id = $listingid[$i]";
+						
+						$treepriceRS = DBQuery($sql);
+						
+						$testRS = DBQuery("select l.id from listingsDB l,listingsDB tl where l.tree_origin_id = tl.id and tl.id = $listingid[$i] and tl.treeupdated < l.lastinserted ");
+						
+						if ($testRS->EOF)
+						{
+							$createdproduct = new Product($product_name,$productid[$i],$treepriceRS->fields["total"]);
+							$createdproduct->cost = $treepriceRS->fields["cost"];
+							$createdproduct->description = "תעודת יציאה מיצור מס' ".$docnum;  
+							$createdproduct->treeorigin = $listingid[$i];  
+							$createdproduct->factorydocid = $documentid; 
+							$createdproduct->Create();
+							$createdproductid = $createdproduct->id;                                                                    
+						}
+						else
+						{
+							$createdproductid = $testRS->Fields("id");
+						}
+						DBQuery("update document_products set factory_listing_id = $createdproductid where doc_id = $documentid and listing_id = $listingid[$i]");
+						UpdateQuantity($createdproductid,$stock, $quantity[$i]);  
+					}
+				}
+				
+				//treate knisa le izur
+				if ($listingid[$i] && ($did == "KNISALEIZUR"))
+				{
+					$components = DBQuery("select listing_id,quantity from listings_tree where master_id = 
+								(select listing_id from document_products where factory_listing_id = $listingid[$i] order by id desc limit 1)");
+					while (!$components->EOF)
+					{
+						//return component to stock
+						UpdateQuantity($components->fields["listing_id"],$factory,$components->fields["quantity"]*$quantity[$i]);
+						
+						//create fictive document_product records to handle doch parit
+						$doc = new ExistingDocument($documentid);
+						$doc->AddItem($components->fields["listing_id"],$components->fields["quantity"]*$quantity[$i],"","","","",false);
+						
+						$components->MoveNext();
+					}
+					//decrease factory product stock
+					UpdateQuantity($listingid[$i],$stock,-1*$quantity[$i]);                            
+				}
+				
+				
+				$i++;
+			}
+			
+			if ($did == "KNISALEIZUR"||$did == "YETZIAMIIZUR")
+			{
+				DBQuery("update documents set doc_status = $STATUS_CLOSED where id = $documentid");
+			}
+		}
+		elseif($docid && $docstatus == $STATUS_CANCELLED && $prevdocstatus != $STATUS_CANCELLED)
+		{
+			//create cancellation document
+			$sql = "select name, cancel_type_id from $TABLE_DOCUMENT_TYPE where id = '$did'";
+			$edtype = $conn->Execute($sql);if ($edtype === false){die($sql);}
+			$sql = "select * from documents where id = $docid";
+			$eddoc = $conn->Execute($sql);if ($eddoc === false){die($sql);}
+			if ($edtype->Fields("cancel_type_id"))
+			{
+				$cancelDoc = new Document($edtype->Fields("cancel_type_id"),$eddoc->Fields("stock_id"),$eddoc->Fields("client_id"));
+				$cancelDoc->inheritFrom = $docid;
+				//update stock to rollback original document
+				$cancelDoc->UpdateStock = true;
+				$cancelDoc->comment = "ביטול ".$edtype->Fields("name")." מס' ".$docnum.".\n".$statusreason;
+				$cancelDoc->Create($STATUS_ACTIVE);
+			}
+			else
+			{
+				//don't create cancellation document, just rollback reserved and ordered products.
+				$cancelDoc = new ExistingDocument($docid);
+				$cancelDoc->RollbackReservedAndOrderedProducts();
+			}
+			
+		}
+		
+		
+		if ($ispayment && !$readonly)
+		{
+			//create or re-create payments
+			$sql = "delete from document_payments where doc_id = $documentid";
+			$deleted = $conn->Execute($sql);if ($deleted === false){log_error($sql);}
+			$paymcount = count($paymid);
+			for ($i=0;$i<$paymcount;$i++)
+			{
+				$accountn = $bankcntno[$i];
+				if ($paymid[$i]==$PTYPE_ASHRAI && strlen($accountn)>4)
+				{
+					$accountn = substr($accountn,strlen($accountn)-4);
+				}
+				$sql = "INSERT INTO document_payments
+						(sort_order, doc_id, hov, Amount,
+						checknumber, checkdate, checkbank, checksnif,
+						checkaccount, payment_type, kupa_id, cardtype_id)
+						values
+						($i,$documentid, 0, '".$sumdoc[$i]."',
+						'".$chequenumber[$i]."', '".dateToSQL($paydate[$i])."', '".$bankno[$i]."', '".$bankdeptno[$i]."',
+						'".$accountn."', ".$paymid[$i].",'".$kupano[$i]."','".$cardtype[$i]."')";
+				if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;die();}
+			}
+		}
+		//success
+		//echo "<script>location='add_document.php?docid=&did=$did&added=$added&addednum=$addednum&usr=$usr&ser=".(($doserials)?"1":"")."&cls=".(($doclosechn)?"1":"")."&prn=".(($doprint)?"1":"")."';</script>";die();
+		echo "<script>location='add_document.php?rmodule=$rmodule&docid=$documentid&did=$did&added=1&usr=$usr&ser=".(($doserials)?"1":"")."&cls=".(($doclosechn)?"1":"")."&prn=".(($doprint)?"1":"")."';</script>";die();
+	}
+}
+
+//***********************************************************************************
+
+$readonly = false;
+
+
+//laafoh mismah le...
+if ($createddoc)
+{
+	$sql = "select d.*,
+			(case when client_id = 1 then client_name else supplierName end) as client_name, 
+			editable_after_creating, is_payment
+			from documents d,$TABLE_DOCUMENT_TYPE dt, listingsSuppliers c 
+			where
+			d.client_id = c.id and
+			dt.id = doc_type and d.id = $klita";
+	$document = $conn->Execute($sql);if ($document === false){log_error($sql);}
+	$discount = $document->fields["discount"];
+	$docamount = $document->fields["amount"]; 
+	$comment = $document->fields["comment"]; 
+	$agentid = $document->fields["agent_id"];
+	$dpaymenttype = $document->fields["payment_type_id"];
+	$docstatus = $STATUS_OPEN;
+	$statusChangeable = 1;
+	$comment1 = $document->fields["comment1"];
+	$person = $document->fields["person"];
+	$stock = ($did=="PROFORMA")?$document->fields["target_stock_id"]:$document->fields["stock_id"];
+	$dvat = $document->fields["vat"];
+	if ($stock)
+	{
+		checkStockVAT();
+	}        
+	
+	if ($client>1) 
+	{
+		$clientName = $document->fields["clientname"];
+	}
+	else
+	{
+		$clientName = $document->fields["client_name"];  
+		$clientAddress = $document->fields["client_address"];    
+		$clientBusiness = $document->fields["client_businessnum"];
+		$clientPhone = $document->fields["client_phone"]; 
+		$clientMail =  $document->fields["client_email"];  
+		$personName = $document->fields["client_person"];    
+	}
+	
+	
+	if ($did=="PROFORMA" && $stock)
+	{
+		checkStockVAT();
+		//haavara to vat-free point 
+		if ($createddoc && !$dvat)
+		{
+			$docamount/=(1+$config["VAT"]/100);
+			
+		}
+	}
+	$calcDate=1;
+	if ($document->fields["payment_date"])
+	{
+		$paymentdate = DateFromSQL($document->fields["payment_date"]);
+	}
+	else{
+		$paymentdate = "";
+	}
+	
+}
+
+if ($_GET["docid"])
+{
+	
+	//get existing document
+	$existing=true;
+	$docid =$_GET["docid"];
+	$sql = "select d.*,supplierName as clientname, editable_after_creating, is_payment, 
+			is_product, is_internal, metric, docgroup, init_statuses, print_paydate, allow_draft_print, show_profit, use_pricelist,
+			sourcestock.stockname as sourcestock,
+			targetstock.stockname as targetstock,
+			ds.changeable, ds.printable , 
+			ifnull(dsc.changeto,ds.changeto) as changeto,                                     
+			u.name as authorname
+			from documents d
+			left outer join $TABLE_LISTINGSSTOCKS sourcestock on sourcestock.id = d.source_stock_id
+			left outer join $TABLE_LISTINGSSTOCKS targetstock on targetstock.id = d.target_stock_id
+			left outer join $TABLE_DOC_STATUS_CHANGE dsc on dsc.doc_type_id = d.doc_type and dsc.doc_status = d.doc_status
+			,$TABLE_DOCUMENT_TYPE dt, listingsSuppliers c, $TABLE_DOCUMENT_STATUS ds,
+			$officedbname.users u
+			where 
+			u.id = d.office_user_id and
+			d.client_id = c.id and
+			ds.id = d.doc_status and 
+			dt.id = d.doc_type and d.id = $docid"; 
+	//echo "<!--SQL:".$sql."-->";
+	$document = $conn->Execute($sql);if ($document === false){log_error($sql);}
+	
+	$did = $document->fields["doc_type"];
+	$docnum = $document->fields["doc_number"];
+	$docdate = ($duplicate)?date("d/m/Y"):DateFromSQL($document->fields["doc_date"]);
+	$comment = $document->fields["comment"];
+	$stock = $document->fields["stock_id"];
+	$authorname = $document->fields["authorname"];
+	$sourcestock =  $document->fields["sourcestock"];
+	$targetstock =  $document->fields["targetstock"];
+	$client = $document->fields["client_id"];
+	$discount = $document->fields["discount"];
+	$docamount = $document->fields["amount"];
+	$closedby = $document->fields["closed_by"];
+	$isprintable = $document->fields["printable"];
+	$availStatuses =  $document->fields["changeto"];
+	$docstatus =    $document->fields["doc_status"];
+	$statusChangeable = $document->fields["changeable"];  
+	$readonly = !$duplicate && (!$statusChangeable || !HasDocumentPermission($did,"W"));
+	$ispayment = $document->fields["is_payment"];
+	$usePricelist = $document->fields["use_pricelist"];
+	$showProfit = $document->fields["show_profit"];
+	$isinternal = $document->fields["is_internal"];
+	$init_statuses = $document->fields["init_statuses"];
+	$print_paydate = $document->fields["print_paydate"]; 
+	$allow_draft_print = $document->fields["allow_draft_print"];   
+	$isexecdate = $document->fields["isexecdate"];   
+	$metric = $document->fields["metric"];
+	$docgroup = $document->fields["docgroup"];
+	$isproduct = $document->fields["is_product"];
+	$agentid = $document->fields["agent_id"];
+	$dpaymenttype = $document->fields["payment_type_id"];
+	$comment1 = $document->fields["comment1"];
+	$exec_date = DateFromSQL($document->fields["exec_date"],true);
+	$stock_date = DateFromSQL($document->fields["stock_date"],true);
+	$exec_hour = GetTime($document->fields["exec_date"]);
+	$clientName = $document->fields["client_name"];  
+	$clientBusiness = $document->fields["client_businessnum"];
+	if ($client==1)
+	{
+		$clientAddress = $document->fields["client_address"];    
+		$clientPhone = $document->fields["client_phone"];    
+		$clientMail =  $document->fields["client_email"]; 
+		$personName = $document->fields["client_person"];    
+	}
+	$person = $document->fields["person"];
+	$dvat = $document->fields["vat"];
+	if ($dvat==0)$vatfree=true;
+	if ($document->fields["payment_date"]){
+		$paymentdate = DateFromSQL($document->fields["payment_date"]);
+	}
+	else{
+		$paymentdate = "";
+	}
+	
+	$sql = "select dt.*, 
+		(case when ifnull(dtc.movestock,'0')='1' then '-' else dt.move_stock end) as dmove_stock
+		from $TABLE_DOCUMENT_TYPE dt
+		left outer join document_type_counters  dtc
+		on dt.id = doc_type_id 
+		where dt.id = '$did'";
+	$dtype = DBQuery($sql);
+	if ($dtype === false){log_error($sql);}
+	$ispayment = $dtype->fields["is_payment"];
+	$usePricelist = $dtype->fields["use_pricelist"];
+	$isinternal = $dtype->fields["is_internal"];
+	$init_statuses = $dtype->fields["init_statuses"];
+	$print_paydate = $dtype->fields["print_paydate"]; 
+	$allow_draft_print = $dtype->fields["allow_draft_print"];   
+	$isexecdate = $dtype->fields["exec_date"];   
+	$metric = $dtype->fields["dmetric"];
+	$metric = $dtype->fields["metric"];
+	$docgroup = $dtype->fields["docgroup"];
+	$isproduct = $dtype->fields["is_product"];
+	$showProfit = $dtype->fields["show_profit"];
+	$isserials = $dtype->fields["is_serials"];
+	$movestock = $dtype->fields["dmove_stock"];
+	$moveordered = $dtype->fields["move_ordered"];
+	$movereserved = $dtype->fields["move_reserved"];
+	$mayinheritfrom = $dtype->fields["may_inherit_from"];
+	
+	$showvisible = ($did=="KNISALEIZUR")?"":" and visible=1";
+	$factory = ($did=="KNISALEIZUR")?"(case when visible=0 then 1 else 0 end)":"0";
+	$visible = ($did=="KNISALEIZUR")?"1":"d.visible";
+	
+	if ($isproduct) 
+	{
+		//get existing products
+		$sql = "select $factory as isfactory, 1 as sorder, 
+				d.id,d.doc_id,d.listing_id,d.sort_order,d.barcode,d.name,d.currency_price,d.currency_id,d.currency_rate,
+				d.quantity,d.price,d.discount,d.quantity_change,d.cost,d.masterindex,d.childquantity,d.sourcedocproductid,
+				d.factory_listing_id,$visible as visible,
+				d.sourcedocproductid as sourceid, ordered,reserved,abbreviation,grams_rate from document_products d
+				left outer join listingsDB l on l.id = d.listing_id
+				left outer join $TABLE_UNITS u on u.id = unit
+				where doc_id = $docid $showvisible ";
+		if ($did=="YETZIAMIIZUR")
+		{
+			$sql.=" union all
+					select 1 as isfactory, 2 as sorder, 
+					d2.id,d2.doc_id,d2.listing_id,d2.sort_order,l2.barcode,l2.title as name,
+					l2.cost/(1+".$config["VAT"]."/100) as currency_price,
+					d2.currency_id,
+					d2.currency_rate,d2.quantity,
+					l2.cost*d2.quantity as price,
+					d2.discount,d2.quantity_change,d2.cost,d2.masterindex,d2.childquantity,
+					d2.sourcedocproductid,d2.factory_listing_id,d2.visible,
+					d2.sourcedocproductid as sourceid, ordered,reserved,abbreviation,grams_rate from document_products d2
+					inner join listingsDB l2 on l2.id = d2.factory_listing_id
+					inner join $TABLE_UNITS u2 on u2.id = l2.unit
+					where doc_id = $docid and factory_listing_id > 0
+					";
+		}
+		
+		$sql.=" order by sorder, sort_order";
+		//echo $sql;
+		$docproducts = $conn->Execute($sql);if ($docproducts === false){log_error($sql);}
+		$numproducts = $docproducts->RecordCount();
+	}
+	if ($ispayment)
+	{
+		//get existing payments
+		$sql = "select * from document_payments where doc_id = $docid order by sort_order";
+		$docpayments = $conn->Execute($sql);if ($docpayments === false){log_error($sql);}
+		$numpayments = $docpayments->RecordCount();
+	}
+	
+	//get originals
+	$sql = "select GROUP_CONCAT(id) as klita from documents where closed_by = $docid";
+	$klita = $conn->Execute($sql);if ($klita === false){log_error($sql);}
+	$klita = $klita->fields["klita"];
+}
+else if ($_GET["klita"])
+	{
+		if(!strpos($klita,","))
+		{
+			//get comment in case of single document
+			$commRS = DBQuery("select comment1,comment,stock_id,target_stock_id from documents where id in ($klita)");
+			if (!$comment1 && $commRS->Fields("comment1"))
+			{
+				$comment1 = $commRS->Fields("comment1");
+			}
+			if (!$comment && $commRS->Fields("comment"))
+			{
+				$comment = $commRS->Fields("comment");
+			}
+			$stock = ($did=="PROFORMA")?$commRS->fields["target_stock_id"]:$commRS->fields["stock_id"];
+			if ($stock)
+			{
+				checkStockVAT();
+			}
+		} 
+		if ($isproduct)
+		{
+			$sql = "select d.*,d.id as sourceid,ordered,reserved,abbreviation,grams_rate, doc.doc_type from
+					document_products d
+					inner join documents doc on d.doc_id = doc.id
+					left outer join listingsDB l on l.id = d.listing_id
+					left outer join $TABLE_UNITS u on u.id = unit
+					where doc_id in ($klita) order by doc_id, sort_order";
+			$docproducts = $conn->Execute($sql);if ($docproducts === false){log_error($sql);}
+			$numproducts = $docproducts->RecordCount();
+			//get client from parent doc (if klient is occasional)
+			if ($client==1 && !$clientName)
+			{
+				$klitaarr = explode(",",$klita);
+				$klitafirstid =   $klitaarr[0];
+				$klitadocrs = DBQuery("select * from documents where id = $klitafirstid");
+				$clientName = $klitadocrs->fields["client_name"];  
+				$clientAddress = $klitadocrs->fields["client_address"];    
+				if ($klitadocrs->fields["client_id"]==1)
+				{
+					$clientAddress = $klitadocrs->fields["client_address"];    
+					$clientPhone = $klitadocrs->fields["client_phone"];    
+					$clientMail =  $document->fields["client_email"]; 
+					$personName = $klitadocrs->fields["client_person"];  
+				}
+			}
+		}
+		if ($ispayment)
+		{
+			$klitaamountRS = DBQuery("select sum(amount) as amount from documents where id in ($klita)"); 
+			$docamount = $klitaamountRS->Fields("amount");
+		}
+		
+	}
+	else if ($_POST["productids"])
+		{
+			if ($metric == "SalePrice")
+			{
+				if ($stock)
+				{
+					$stk=" left outer join listingsStocksElements lse on lse.listingid = l.id and lse.stockid = $stock";
+					$stkselect = "concat(ifnull(ifnull(lse.saleprice,l.saleprice),0)/".(1+$dvat/100).",'')  as currency_price ";
+				}
+				else
+				{
+					$stkselect = "concat(ifnull(l.$metric,0)/".(1+$dvat/100).",'')  as currency_price ";
+				}
+			}
+			else
+			{
+				$stkselect = "concat(ifnull(l.$metric,0)/".(1+$dvat/100).",'')  as currency_price ";
+			}
+			$productidsarr = explode(",",$productids);
+			$cnt=0;
+			$orderstr = "case l.id ";
+			foreach ($productidsarr as $productid)
+			{
+				$orderstr.=" when $productid then ".($cnt++);
+			}
+			$orderstr.=" end"; 
+			
+			$sql = "select l.title as name,l.id as listing_id,
+					barcode,cost/(1+($config[VAT]/100)) as cost,
+					1 as quantity,abbreviation,
+					Currency as currency_id,
+					grams_rate,
+					$stkselect
+					from listingsDB l $stk,  $TABLE_UNITS u
+					where
+					u.id = unit and
+					l.id in ($productids) order by $orderstr";
+			
+			echo "<!--SQL:$sql-->";                                  
+			$docproducts = $conn->Execute($sql);if ($docproducts === false){log_error($sql);}
+			$numproducts = $docproducts->RecordCount();
+		}
+
+
+$sql = "select * from currencies where user_id=$userID order by SortOrder,binary code";
+$curr = $conn->Execute($sql);
+if ($curr === false){log_error($sql);}
+
+//set doc number
+if (!$docnum || $duplicate)
+{
+	$notset=false;
+	$sql = "select doc_number from documents where user_id = $userID and doc_type='$did' order by doc_number desc limit 1";
+	$docnum = $conn->Execute($sql);
+	if ($docnum === false){log_error($sql);}
+	if (!$docnum->EOF)
+	{
+		$docnum = ($docnum->fields["doc_number"])+1;
+	}
+	else
+	{
+		$sql="select id,counter from document_type_counters where user_id = $userID and doc_type_id='$did' ";
+		$start = $conn->Execute($sql);
+		if ($start === false){log_error($sql);}
+		$docnum = ($start->fields["counter"]);
+		if (!$docnum){
+			$docnum=1;
+			$notset=true;
+			$counterid=$start->fields["id"];
+		}
+	}
+	//set default document status as OPEN
+	$docstatus = $STATUS_OPEN;
+	$statusChangeable = 1;
+}
+
+if (!$docdate)
+{
+	$docdate = date("d/m/Y");
+}
+if (!$stock_date)
+{
+	if ($existing)
+	{
+		$stock_date  = $docdate;
+	}
+	else
+	{
+		$stock_date = date("d/m/Y");
+	}
+}
+
+if ($client > 1)
+{
+	$sql = "select s.*,p.name as PaymentTypeName, 
+			(case when s.pricelist_id ='' or s.pricelist_id is null then cg.pricelist_id else s.pricelist_id end) as PriceListID ,
+			(case when p1.name ='' or p1.name is null then p2.name else p1.name end) as PriceListName 
+			from listingsSuppliers s
+			left outer join payment_type p on p.id = s.PaymentTypeId
+			left outer join pricelists p1 on s.pricelist_id = p1.id 
+			left outer join clientgroups cg on s.groupid = cg.id 
+			left outer join pricelists p2 on cg.pricelist_id = p2.id 
+			where s.id = $client";
+	$clientrs = DBQuery($sql);
+	
+	$pricelistId = $clientrs->Fields("PriceListID");
+	$OpenChequesLimit = $clientrs->fields["OpenCheques"];
+	$sql = "select sum(amount * (case when dt.balance='+' then 1 else -1 end)) as itra 
+			from documents d, $TABLE_DOCUMENT_TYPE dt, $TABLE_DOCUMENT_STATUS ds where
+			dt.id = d.doc_type and
+			ds.id = d.doc_status and 
+			d.doc_status not in (".$STATUS_DRAFT.") and
+			ds.countbalance = 1 and
+			($officeUserID=$userID or stock_id is null or stock_id = 0 or stock_id in (select stock_id from $TABLE_USERSTOCKS where userid = $officeUserID and r=1)) and
+			dt.balance in ('+','-') and
+			d.client_id = $client";
+	$itrars = DBQuery($sql);
+	
+	if (!$clientName)
+	{
+		$clientName = $clientrs->fields["SupplierName"];
+	}
+	
+	$sqlCheques = "select sum(dp.amount) as amount 
+			from document_payments dp, documents d,$TABLE_DOCUMENT_STATUS ds 
+			where d.id = dp.doc_id and d.doc_type in ('KABALA','MASKABALA') and payment_type=0
+			and ds.id = d.doc_status 
+			and doc_status not in ($STATUS_CANCELLED,$STATUS_DRAFT)   
+			and ds.countbalance = 1 
+			and curdate() < date_add(checkdate,INTERVAL 4 DAY)
+			and d.client_id = $client
+			";
+	$chequesrs = DBQuery($sqlCheques);
+	
+	if ($did == "KABALA")
+	{
+		$Bank = $clientrs->fields["Bank"];
+		$Snif = $clientrs->fields["Snif"];
+		$Account = $clientrs->fields["Account"];
+	}
+	
+}
+
+
+
+if ($existing)
+{
+	$sql = "select dt.* from $TABLE_DOCUMENT_TYPE dt
+			left outer join document_type_counters dtc on dt.id = doc_type_id and user_id = $userID
+			where (dtc.status is null or dtc.status = 1)
+			and may_inherit_from like '%$did%'  
+			and (is_product = 1 
+			or (doc_type_id='KABALA' and '$did'='KRIYATSHERUT')
+			or (doc_type_id='KABALA' and '$did'='CHESHBONIT')
+			or (doc_type_id='TASHLUM' and '$did'='KNIYA') 
+			) order by sortorder";
+	$possibleChilds = $conn->Execute($sql);
+	if ($possibleChilds === false){log_error($sql);}
+}
+
+
+if ($readonly) $readonly="readonly";
+
+if ($ispayment&&!$isproduct){$tabmode="PAYMENTS";}
+if (!$ispayment&&$isproduct){$tabmode="PRODUCTS";}
+
+if ($stock)
+{
+	checkStockVAT();
+}
+	?>
+
+<table width=100% height=100% border=0 bgcolor=#E0DFE3> 
+<form method=post name=F action="add_document.php?did=<?=$did?>&usr=<?=$usr?>" onsubmit='return ValidateForm()' refreshable="1">
+<input type=hidden name=docid value="<?=$docid?>">
+<input type=hidden name=doupdate value="">
+<input type=hidden name=createNotExistingProducts value="<?=$createNotExistingProducts?>">
+<input type=hidden name=rmodule value="<?=$rmodule?>">
+<input type=hidden name=masterid value="">
+<input type=hidden name=masterquantity value="">
+<input type=hidden name=childsadded value="">
+<input type=hidden name=docamount value="<?=$docamount?>">
+<input type=hidden name=addrow value=''>
+<input type=hidden name=scrollDown value=''>
+<input type=hidden name=recalcvat value="<?=$recalcvat?>">
+<input type=hidden name=tabmode value="<?=$tabmode?>">
+<input type=hidden name=statusreason value="<?=$statusreason?>">
+<input type=hidden name=statusChangeable value="<?=$statusChangeable?>">
+<input type=hidden name=isprintable value="<?=$isprintable?>">
+<input type=hidden name=readonly value="<?=$readonly?>">
+
+<tr style='height:1%'>
+<td>
+    <table cellpadding=0 cellspacing=0 height=25 width=100%>
+    <td width=1% nowrap><b style='color:darkblue;font-size:14pt'><?=$dtype->fields["name"];?></b>&nbsp;</td>
+    <td width=99%>
+    <fieldset>
+        <table>
+            <tr>
+                <td nowrap>מספר<?if (!$existing){?> (זמני)<?}?>:
+                <input name=docnum size=4 style='border:solid 1 gray;font-weight:bold;text-align:center;background-color:buttonface' value='<?=$docnum?>' readonly></td>
+                <TD nowrap>תאריך: <input readonly name=docdate style='border:solid 1 gray;font-weight:bold;text-align:center;background-color:buttonface'  size=8 maxlength=10 value='<?=$docdate?>'></TD>
+                <?if ($did=="KNIYA"){?>
+				<td nowrap> 
+					<b>כניסה למלאי: </b>
+				    <input <?=$readonly?> name=stock_date size=6 maxlength=10 value='<?=$stock_date?>'>
+					<?if (!$readonly){?>
+					<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.stock_date")'>
+					<?}?>
+				</td>
+                <?}?>
+                <td width=99%>אסמכתא: <input size='12' <?=$readonly?> name=comment value="<?=$comment?>"></td>
+                    <?if ($workmode=="A" && $did!=HAAVARATPRITIM && $did!=HAFKADAHAAVARA){?>
+                    <?if ($did == "YETZIAMIIZUR" || $did == "KNISALEIZUR") {?>
+                        <TD nowrap>
+                        נקודת יצור:
+                        </TD>
+                        <td nowrap style='border:solid 2 GREEN'>
+		<?$factories = GetFactories();
+		if (!$factory)$factory=$factories->Fields("ID");
+                                ?>
+                    	        <select  name=factory  <?if ($readonly){echo "disabled";}?>>
+                    	        <?FillStockList($factories,$factory)?>
+                                </select>
+                        </td>
+
+                    <?}?>
+                    <TD nowrap>
+                    נקודת מכירה:
+                    </TD>
+                    <td nowrap style='border:solid 2 GREEN'>
+                        <?if($did == "PROFORMA"){?>
+                    	    <select disabled>
+                    	    <?FillStockList($stocks,$stock);?>
+                            </select>
+                            <input type=hidden name=stock value="<?=$stock?>">
+                        <?}else{?>
+                    	    <select  name=stock onchange='document.F.submit();' <?if ($readonly){echo "disabled";}?>>
+                    	    <?FillStockList($stocks,$stock);?>
+                            </select>
+                        <?}?>
+                    	
+                    <?}?>
+                </td>
+            </tr>
+        </table>
+    </fieldset>
+    </td>
+    <td nowrap width=1% align=center >      
+    <?	if ($usr){echo "משתמש: <strong>$username</strong>&nbsp;&nbsp;";}?>
+    <div style='position:absolute;left:expression((document.body.clientWidth-this.clientWidth)/2);top:0;filter:progid:DXImageTransform.Microsoft.Alpha(opacity=70)'>
+    <?if ($error){?>
+    &nbsp;&nbsp;<span style='height:20;color:white;background-color:red'><strong>&nbsp;<?=$error?>&nbsp;</strong></span>
+    <?}elseif($added){?>
+        &nbsp;&nbsp;<span style='height:22;color:white;background-color:green'><strong>&nbsp;המסמך  נשמר בהצלחה&nbsp;</strong>    </span><br>
+        <script>document.body.onload=reloadParent;</script>
+        <?if ($addednum){ ?>
+            &nbsp;&nbsp;<input type=button value='חזרה למסמך #<?=$addednum?>' onclick='goto(<?=$added?>)'>
+        <?}?>
+    <?}?>
+    <?if ($duplicate && !$error){?>
+        &nbsp;&nbsp;<span style='height:20;color:white;background-color:blue'><strong>&nbsp;יש ללחוץ שמור 
+        לשמירת מסמך משוכפל&nbsp;</strong>    </span>
+    <?}?>
+    <?if ($createddoc && !$error){?>
+        &nbsp;&nbsp;<span style='height:20;color:white;background-color:blue'><strong>&nbsp;יש ללחוץ שמור לשמירת
+        מסמך חדש&nbsp;</strong>    </span>
+    <?}?>
+    </div>
+    <?if ($closedby){?>
+    &nbsp;&nbsp;<input type=button onclick='goto(<?=$closedby?>,true)' value='למסמך סוגר' class=button style='width:90;background-image:url(<?=$imgPath?>arrow_fwd.gif)'>&nbsp;
+    <?}?>
+    &nbsp;</td>
+    </tr>
+    </table>
+<tr>
+<?if (!$isinternal){?>
+<!------------------- CLIENT --------------------->
+<tr style='height:1%'><td>
+	<table width=100% cellpadding=0 cellspacing=0><tr valign=top>
+	<td width=1% nowrap>
+	<fieldset ><LEGEND>פרטי לקוח / ספק</LEGEND>
+		<table height=30 border=0>
+		<tr> 
+    		<td Nowrap>לקוח / ספק: <font color=red><strong>*</strong></font></td>
+    		<td nowrap width=1% nowrap>
+    		<input  type=hidden name=client value="<?=$client?>">
+            <?if ($client>1){?>
+            <input readonly tabindex=-1 name=clientName style='background-color:buttonface;width:200;<?if ($client){?>cursor:hand<?}?>' value="<?=str_replace('"','&quot;',$clientName)?>" onclick="if (this.value!='')wopen1('cppro/main.php?service=suppliers&bd_event=&bd_event=edit_record&record_id=<?=$client?>','tools')">
+            <?}else{?>
+            <input type=text <?=$readonly?"readonly style=color:gray":""?> name=clientName maxlength=60 style='width:200;' value="<?=str_replace('"','&quot;',stripslashes($clientName))?>" >
+            <?}?>
+            <?if (!$readonly){?>
+            <input type=button class=button style='background-image:url(<?=$imgPath?>find.gif)' tabindex=-1 onclick="showClient()" title='חיפוש לקוחות. יש להחזיק לחצן SHIFT לחיפוש ברירת מחדל'>
+            <?if ($client>1){?>
+            <input type=button class=button style='width:18;background-image:url(<?=$imgPath?>del.gif)' tabindex=-1 onclick="clearClient()" title="לנקות לקוח נבחר">
+            <?}?>
+	<?}
+	
+	$msg="מגבלת שיקים פתוחים ללקוח: ".number_format($OpenChequesLimit,2);
+	if ($OpenChequesLimit && $chequesrs->fields["amount"]>$OpenChequesLimit){
+		$stl=";color:white;background-color:red";
+	}
+	else{
+		$stl=";color:black;background-color:buttonface";
+	}
+            ?>
+    		</td>
+            
+            <td>
+            <?if ($client>1){?>  
+                יתרה:
+                <input readonly tabindex=-1 style='background-color:buttonface;text-align:center;font-weight:bold;color:<?=($itrars->fields["itra"]<0)?"red":"green"?>' name=itra size=6 dir=ltr value="<?=number_format(abs($itrars->fields["itra"]),2)?>">
+                שיקים פתוחים:
+                <input readonly tabindex=-1 title="<?=$msg?>" style='<?=$stl?>;cursor:default;text-align:center;font-weight:bold' name=cheques size=6 value="<?=number_format($chequesrs->fields["amount"],2)?>">
+                אובליגו:
+                <input readonly tabindex=-1 style='background-color:buttonface;text-align:center;font-weight:bold' name=obligo size=6 value="<?=number_format($clientrs->fields["Obligo"],2)?>">
+                <?if ($usePricelist){?>
+                מחירון: <input readonly tabindex=-1 style='background-color:buttonface' size=12 name=pricelist value="<?=$clientrs->fields["PriceListName"]?>">
+                <?}?>
+            <?}else{?>
+                מספר עסק / ת.ז.: <input type=text <?=$readonly?"readonly style=color:gray":""?> maxlength=100 name=clientBusiness size=12 value="<?=str_replace('"','&quot;',$clientBusiness)?>" >
+            <?}?> 
+            </td>
+		</tr>
+        <tr>
+            <td nowrap>איש קשר:</td>
+            <td width=99% colspan=10>
+              <?if ($client>1){?>
+              <select name=person style='width:248' <?=$readonly?"disabled":""?>>
+                        <option value="">
+		<?
+		$sql = "select p.id, p.name, t.name as tafkid from persons p
+				left outer join tafkid t on t.id = p.tafkid_id
+				where supplier_id = '$client' and p.status=1 order by binary p.name";
+		$persons = $conn->Execute($sql);
+		if ($persons === false){log_error($sql);}
+		while(!$persons->EOF){
+			$tafkid = ($persons->fields["tafkid"])?(" (".$persons->fields["tafkid"].")"):""
+                            ?>
+                    		<option value="<?=$persons->fields["id"]?>" <?=($person==$persons->fields["id"])?"selected":""?>><?=$persons->fields["name"]?> <?=$tafkid?>
+			<?$persons->MoveNext();
+                    	}?>
+             </select>
+            כתובת:  <input readonly tabindex=-1 style='background-color:buttonface' size=20 name=address value="<?= htmlspecialchars(str_replace("\n"," ",$clientrs->fields["Address"]))?>">
+            טלפון:  <input readonly tabindex=-1 style='background-color:buttonface' size=12 name=phone value="<?=$clientrs->fields["Phone"]?>">
+            תנאי   תשלום: <input readonly tabindex=-1 style='background-color:buttonface' size=12 name=tnaitashlum value="<?=$clientrs->fields["PaymentTypeName"]?>">
+
+             <?}else{?>
+             <input type=text <?=$readonly?"readonly style=color:gray":""?> maxlength=60 name=personName style='width:200;' value="<?=str_replace('"','&quot;',stripslashes($personName))?>" >
+             כתובת: <input type=text <?=$readonly?"readonly style=color:gray":""?> maxlength=100 name=clientAddress size=25 value="<?=str_replace('"','&quot;',stripslashes($clientAddress))?>" >
+             טלפון: <input type=text <?=$readonly?"readonly style=color:gray":""?> maxlength=30 name=clientPhone size=12 value="<?=str_replace('"','&quot;',stripslashes($clientPhone))?>" >
+             דואר אלקטרוני: <input dir=ltr type=text <?=$readonly?"readonly style=color:gray":""?> maxlength=30 name=clientMail size=18 value="<?=str_replace('"','&quot;',stripslashes($clientMail))?>" >
+             <?}?>
+               </td>
+        </tr>
+		</table>
+	</fieldset>
+    </td>
+ 	</tr>
+    </table>
+</td></tr>
+<!------------------END CLIENT------------------------->
+<?}elseif ($did=="HAAVARATPRITIM"){?>
+    <tr>
+        <td>
+            <table>
+                <TR>
+                    <TD>נקודת מקור:</TD>
+                    <td><b><?=$sourcestock?></b></td>
+                    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                    <TD>נקודת יעד:</TD>
+                    <td><b><?=$targetstock?></b></td>
+                </TR>
+            </table>
+        </td>
+    </tr>
+ <?}?>
+<tr>
+    <td>
+    <table width=100%><tr valign=top>
+    <td width=1%>הערות: </td>
+    <td width=99%>
+        <textarea style='width:100%' rows=2 name=comment1 <?=$readonly?>><?=stripslashes($comment1)?></textarea>
+    </td>
+    <?if (($isproduct && !$UserData->fields["vatfree"] && $did!="SFIRATMLAI" && $did!="YETZIAMIIZUR"  && $did!="KNISALEIZUR")||$isexecdate){?>
+    <td nowrap width=1% nowrap>
+    		מע"מ: 
+		<select name=dvat onchange='recalcVat()'  <?=($stockVatFree||$readonly)?"disabled":""?>>
+			<?while (!$vatRS->EOF){?>
+			<option value='<?=$vatRS->fields["vat"]?>' <?=$dvat==$vatRS->fields["vat"]?"selected":""?>><?=$vatRS->fields["title"]?>
+			<?$vatRS->MoveNext();}?>
+		</select>
+ 
+        <!--input type=checkbox onclick='recalcVat()' name=vatfree  <?=($vatfree?$vatfree:(!$dvat))?"checked":""?> <?=($stockVatFree||$readonly)?"disabled":""?>>עסקה פטורה ממע"מ-->
+        
+        <?if ($isexecdate){?>
+        <br>
+            תאריך ביצוע: 
+            <input <?=$readonly?> name=exec_date size=6 maxlength=10 value='<?=$exec_date?>'>
+            <?if (!$readonly){?>
+            <img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.exec_date")'>
+            <?}?>
+            שעת ביצוא
+            <input <?=$readonly?> name=exec_hour size=2 maxlength=5 value='<?=$exec_hour?>'>
+        <?}?>
+    </td>
+    <?}?>
+    </tr></table>
+</tr>
+
+<tr style='height:1%'><td colspan=2>
+
+
+<?
+if (!$numproducts)$numproducts=1;
+if (!$numpayments)$numpayments=1;
+	?>
+<?
+// {{{ region Products table
+
+if ($isproduct)
+{
+	if ($rowtodelete!="")
+	{
+		$sarr=explode(",",$rowtodelete);
+		$sarr = array_reverse($sarr);
+		foreach($sarr as $rowtodelete)
+		{
+			$numproducts=$numproducts-1;
+			$productnum = array_delete($productnum,$rowtodelete);
+			$productid = array_delete($productid,$rowtodelete);
+			$listingid = array_delete($listingid,$rowtodelete);
+			$sourcedocid = array_delete($sourcedocid,$rowtodelete);
+			$productname = array_delete($productname,$rowtodelete);
+			$onstock = array_delete($onstock,$rowtodelete);
+			$price = array_delete($price,$rowtodelete);
+			$ordered = array_delete($ordered,$rowtodelete);
+			$reserved = array_delete($reserved,$rowtodelete);
+			$quantity = array_delete($quantity,$rowtodelete);
+			$currency = array_delete($currency,$rowtodelete);
+			$pdiscount = array_delete($pdiscount,$rowtodelete);
+			$sum = array_delete($sum,$rowtodelete);
+			$sourceid  = array_delete($sourceid,$rowtodelete);  
+			$alut = array_delete($alut,$rowtodelete);
+		}
+		if ($numproducts<=0)$numproducts=1;
+	}
+	//****************************** PRODUCTS **************************
+	
+?>
+	<fieldset id=LEG_PRODUCTS style='display:<?=($tabmode=="PRODUCTS"||!$tabmode)?"":"none"?>'>
+    <LEGEND >
+    <?if ($ispayment){?>
+    <input type=button value='פריטים' style='border:solid 2 inset; width:60;color:green;font-weight:bold' >
+    <input type=button value='תשלומים'  style='cursor:hand; border:solid 2 outset; width:60' onclick='switchdoc("PAYMENTS")'>
+    <?}else{?>
+    פריטים
+    <?}?>
+    <a href="javascript:addProductsToBasket()"><img border="0" src="<?=$imgPath?>shoppingbasket_add.png" align=absmiddle alt="<?=$lang["add_items_to_basket"]?>"></a>
+	<?if($docgroup=="PURCHASE" && $existing){?>
+	<a href="javascript:addProductsToMadbekot()"><img border="0" src="<?=$imgPath?>product2.png" align=absmiddle alt="<?=$lang["produce_madbekot"]?>"></a>
+	<?}?>     
+	<?if ($existing){
+		$testex = DBQuery("select * from document_products where currency_price > 0 and (listing_id is null or listing_id = 0) and doc_id = ".$docid);	
+		if (!$testex->EOF)
+		{
+		?>
+		<a href="javascript:addProductsToDB()"><img border="0" src="<?=$imgPath?>package_add.png" align=absmiddle alt="להוסיף פריטים שלא קיימים במאגר"></a>
+		<?}
+    }?>
+    
+    <?if (!$readonly){?>
+	<input type=button value='-' onclick='if(document.F.numproducts.value>1){document.F.numproducts.value--;document.F.submit()}'>
+    <?}?>
+    <input size=2 maxlength=2 <?if ($readonly){?>style='display:none'<?}?> name=numproducts value=<?=$numproducts?> <?=$readonly?>>
+    <?if (!$readonly){?>
+	<input type=button value='+' onclick='document.F.numproducts.value++;document.F.scrollDown.value = document.getElementById("PRODUCTSDIV").scrollHeight;document.F.submit()'>
+	&nbsp;<input type=submit value='OK'>
+    <?}?>
+            <?if ($existing && !$duplicate && !$isinternal){?>
+                <?if (HasDocumentPermission($did,"C")){?>
+                <input type=button value='שכפול מסמך' onclick='duplicateDoc()'>
+                <?}?>
+                <?if ($klita){?>
+                   <input type=button value='מקורות' onclick='showKlita(1)'>
+                <?}?>                            
+                <?if (!$possibleChilds->EOF && $docstatus != $STATUS_CLOSED){?>
+                <input type=button value='להמיר ל...' onclick='createChildDoc()'>
+                <?}?>
+	<?}
+	elseif($existing && !$duplicate)
+	{
+                if (!$possibleChilds->EOF && $docstatus != $STATUS_CLOSED){?>
+                <input type=button value='להמיר ל...' onclick='createChildDoc()'>
+                <?}?>
+                <?if ($klita){?>
+                   <input type=button value='מקורות' onclick='showKlita(1)'>
+		<?}
+	}
+	else
+            {?>
+				<?if ($mayinheritfrom && !$createddoc && !$duplicate){?>
+				<input type=button value='קליטה ממסמך אחר' style='width:110' onclick='showKlita(0)'>
+		<?}
+            }?>
+            <?if (!$readonly){ ?>
+				<input type=button value='להוסיף פריטים' style='width:90' onclick='addProducts()'>
+            <?}?>
+            
+
+    <span style='border:solid 1 gray;height:22    ;padding:1 2;font-size:11px
+    <?=(HasActionPermission("VIEWCOST")&&$showProfit&&(!$tabmode||$tabmode=="PRODUCTS"))?"":";display:none"?>'
+    >
+        עלות: <span id=ALUT class=calcres></span>&nbsp;
+        רווח: <span id=REVACH dir=ltr class=calcres></span>&nbsp;
+        רווחה מלמעלה: <span id=REVACHTOP dir=ltr class=calcres></span>&nbsp;
+        רווחה מלמטה: <span id=REVACHBOTTOM dir=ltr class=calcres></span>
+    </span>        
+    </legend>
+    <?$divheight = ($isinternal)?220:150;?>
+	<div id=PRODUCTSDIV style='overflow-Y:scroll;overflow-X:auto;width:100%;height:<?=$divheight?>px;border:solid 1 gray;'>
+	<table id=PRODUCTSTABLE width=100%  style='border-collapse:collapse' border=1>
+	<tr style='background-color:silver'>
+		<th>#</th>
+		<th width=1%>ברקוד</th>
+		<th width=100%>שם מוצר <input id=productname type=hidden><input id=alut type=hidden></th>
+        <?if ($did!="SFIRATSOFYOM"){?>
+        <th width=1%>במלאי</th>
+        <th width=1%>מוזמן</th>
+        <th width=1%>שמור</th>
+        <th width=1%>לשימוש</th>
+        <?}?>
+        <th width=1%>כמות <input id=quantity type=hidden></th>
+		<th width=1%>מחיר  לפני מע"מ<input id=price type=hidden></th>
+		<th width=1%>מט"ח <input id=currency type=hidden><input id=rate type=hidden></th>
+        <th width=1%>הנחה % <input id=pdiscount type=hidden></th>
+        <th width=1%>סה"כ לפני מע"מ<input id=sumbefore type=hidden></th>
+        <th width=1%>מע"מ<input id=pvat type=hidden></th>
+		<th width=1%>סה"כ בש"ח <input id=sum type=hidden></th>
+        <?if (!$readonly){?>
+        <th width=1%>&nbsp;</td>
+        <?}?>
+		<!--th>סה"כ</th-->
+	</tr>
+	<?
+	$total=0; 
+	$totalqty=0;
+	for ($i=0;$i<$numproducts;$i++)
+	{
+		$sourcedocid="";
+		$pdocproductid = "";
+		if ($docproducts)
+		{
+			$psourceid = $docproducts->fields["sourceid"]; 
+			$pname = $docproducts->fields["name"];
+			$pdocproductid = $docproducts->fields["id"];
+			$plistingid = $docproducts->fields["listing_id"]; 
+			$pisfactory = $docproducts->fields["isfactory"];
+			if ($_POST["productids"])
+			{
+				if ($pricelistId && $usePricelist && $plistingid)
+				{
+					$pprice = GetPriceByPricelist($plistingid,$pricelistId);
+					$pprice = $pprice/(1+$config["VAT"]/100);
+				}
+				else
+				{
+					$pprice = $docproducts->fields["currency_price"];
+				}            
+				
+			}
+			else
+			{  
+				$pprice = $docproducts->fields["currency_price"]; 
+			}
+			
+			$pid = $docproducts->fields["barcode"];
+			$quantity[$i] = $docproducts->fields["quantity"];
+			$pcurrency = $docproducts->fields["currency_id"];
+			$pordered = $docproducts->fields["ordered"];
+			$preserved = $docproducts->fields["reserved"];
+			$palut = $docproducts->fields["cost"];
+			$rate[$i] = $docproducts->fields["currency_rate"];
+			$pgramsrate = $docproducts->fields["grams_rate"];
+			$sum[$i]=number_format($docproducts->fields["price"],2,".","");
+			$masterindex[$i]=$docproducts->fields["masterindex"];
+			$childquantity[$i]=$docproducts->fields["childquantity"];
+			if($did=="PROFORMA"&&$createddoc&&!$dvat)
+			{
+				//haavara to vat-free point 
+				$sum[$i]= round($sum[$i]/(1+$config["VAT"]/100),2);
+			}
+			$sourcedocid = $docproducts->fields["doc_id"];
+			$pdiscount[$i]=$docproducts->fields["discount"];
+			if ($klitaMode=="CloseCheshbon"&&$docproducts->fields["doc_type"]=="KNISALEMLAI")
+			{
+				$sum[$i]=$sum[$i]*-1;
+			}
+			if ($pgramsrate)
+			{
+				$quantity[$i]=$quantity[$i]/$pgramsrate; 
+				$pordered=$pordered/$pgramsrate; 
+				$preserved=$preserved/$pgramsrate; 
+			}
+			
+			
+			$docproducts->MoveNext();
+		}
+		else
+		{
+			if ($i==$addrow-1 || ($childsadded && $i>=$addrow && $i<=$addrow+$childsadded-1))
+			{ 
+				$rowIndexToRecalc[] = $i;
+				$value=$productid[$i];
+				
+				if (($childsadded && $i>=$addrow && $i<=$addrow+$childsadded-1))
+				{
+					$sql = "select barcode,t.discount,t.quantity from listings_tree t, listingsDB l
+							where master_id = $masterid and l.id = t.listing_id 
+							order by sortorder,t.id limit ".($i-$addrow).",1";
+					$trRS=DBQuery($sql);
+					$value=$trRS->Fields("barcode");
+					$pdiscount[$i]=($did == "YETZIAMIIZUR" || $did == "KNISALEIZUR")?0:$trRS->Fields("discount");
+					$quantity[$i]=$trRS->Fields("quantity")*$masterquantity;
+					$childquantity[$i]=$trRS->Fields("quantity");
+					$masterindex[$i]=$addrow-1;
+				}
+				
+				if ($metric == "SalePrice")
+				{
+					if ($stock)
+					{
+						$stk=" left outer join listingsStocksElements lse on lse.listingid = l.id and lse.stockid = $stock";
+						$stkselect = "ifnull(lse.saleprice,l.saleprice) as products_price ";
+					}
+					else
+					{
+						$stkselect = "$metric as products_price ";
+					}
+				}
+				elseif ($metric)
+				{
+					$stkselect = "$metric as products_price ";
+				}
+				else
+				{
+					$stkselect = "SalePrice as products_price ";
+				}
+				
+				$sql = "
+						select '$value' as products_id, l.id, cost,l.title as products_name, l.is_tree,
+						$stkselect,
+						reserved,ordered, abbreviation,grams_rate
+						from listingsDB l $stk,$TABLE_UNITS u
+						where
+						barcode = '$value' and
+						u.id = unit and
+						l.user_id = $userID
+						";
+				$product = DBQuery($sql);
+				$pid = $value; 
+				if (!$product->EOF)
+				{
+					$pname =$product->fields["products_name"];
+				}
+				else
+				{
+					$pname = ($productname[$i])?$productname[$i]:("פריט ".$value);
+				}
+				$plistingid = $product->fields["id"]; 
+				$palut = $product->fields["cost"];    
+				$treeadded = (!$masterid && $product->fields["is_tree"])?$plistingid:"";
+				if ($pricelistId && $usePricelist && $plistingid)
+				{
+					$fprice = GetPriceByPricelist($plistingid,$pricelistId);
+				}
+				else
+				{
+					$fprice = $product->fields["products_price"];
+				}     
+				
+				/*
+				if ($did == "YETZIAMIIZUR" || $did == "KNISALEIZUR")
+				{
+				    if ($treeadded)
+				    {
+				        //don't add subproduycts of the tree if we are in YETZIAMIIZUR or KNISALEIZUR
+				        $treeadded = false;
+				        //calculate price of product tree
+				        $sql = "select sum(ifnull(lse.saleprice,l.SalePrice)*t.quantity*(100-t.discount)/100) as total,
+				        sum(Cost*t.quantity) as cost  
+				        from listings_tree t,
+				        listingsDB l
+				        left outer join listingsStocksElements lse on lse.listingid = t.listing_id and lse.stockid = $stock
+				        where l.id = t.listing_id and  master_id = $plistingid";
+				        $addedtreeRS = DBQuery($sql);
+				        $fprice = $addedtreeRS->Fields("total");
+				        $palut = $addedtreeRS->Fields("cost");
+				    }
+				}
+				*/
+				
+				$pprice = $fprice/(1+($config["VAT"]/100)); 
+				$psourceid="";
+				$preserved = $product->fields["reserved"];
+				$pordered = $product->fields["ordered"];
+				$pgramsrate = $product->fields["grams_rate"];
+				$pcurrency = $product->fields["currency"];
+				
+				$palut = $palut/(1+($config["VAT"]/100));
+				
+				if ($treeadded)
+				{
+					$sql = DBQuery("select count(*) as cnt from listings_tree where master_id = $treeadded");
+					$childproductcount = $sql->Fields("cnt");
+				}
+				
+				if ($pgramsrate)
+				{
+					$preserved = $preserved/$pgramsrate;
+					$pordered = $pordered/$pgramsrate;
+				}
+			}
+			else
+			{
+				$plistingid = $listingid[$i];
+				$preserved = $reserved[$i];
+				$pordered = $ordered[$i];
+				$pname = $productname[$i];
+				$pprice = $price[$i];
+				$pcurrency = $currency[$i];
+				$pid = $productid[$i]; 
+				$pgramsrate = $grams_rate[$i];
+				$palut = $alut[$i];
+				$psourceid = $sourceid[$i];
+				$pisfactory = $isfactory[$i];
+			}
+		}
+		
+		
+		
+		$ponstock = "";
+		if ($plistingid){
+			if ($workmode=="A"){   
+				$st = ($did == "YETZIAMIIZUR")?$factory:$stock;
+				$q = ($stock)?" and stockid = $st ":"";
+				$sql = "select sum(quantity) as quantity from listingsStocksElements where listingid = $plistingid ".$q;
+				$quantproduct = $conn->Execute($sql);
+				if ($quantproduct === false){log_error($sql);}
+				$ponstock=$quantproduct->fields["quantity"];
+				if ($pgramsrate){
+					$ponstock=$ponstock/$pgramsrate;
+				}
+			}
+			else{
+				$sql = "select quantity from listingsDB where id = $plistingid ";
+				$quantproduct = $conn->Execute($sql);
+				if ($quantproduct === false){log_error($sql);}
+				$ponstock=$quantproduct->fields["quantity"];
+				if ($pgramsrate){
+					$ponstock=$ponstock/$pgramsrate;
+				}
+			}
+		}
+		
+		if (!$quantity[$i])$quantity[$i]=1;
+		
+		if (!$pisfactory)
+		{
+			$beforediscount+=$sum[$i]/(1+$dvat/100);  
+		}
+		
+		$origreadonly = $readonly;
+		if ($masterindex[$i].""!=""){$readonly="  readonly style='color:gray' ";}
+		
+		$rowcolor = "";
+		$isnewproduct="";
+		if ($pisfactory)
+		{
+			$rowcolor="orange";
+		}
+		elseif ($productid[$i] && !$plistingid && !$docproductid[$i])
+		{
+			$testRS = DBQuery("select id,title from listingsDB where trim(barcode)='".addslashes($productid[$i])."'");
+			if ($testRS->EOF)
+			{
+				$rowcolor = "#ff6666";
+				$isnewproduct = 1; 
+				$title =  $lang["item"]." ".$productid[$i];
+			}
+			else
+			{
+				$plistingid = $testRS->fields["id"];
+				$rowcolor="lightgreen";
+				$title = $testRS->fields["title"];
+			}
+			if (!$pname)$pname=$productname[$i]= $title;
+		}
+		elseif ($plistingid) 
+		{
+			$rowcolor="lightgreen";
+		}  
+		 
+		$totalqty += $quantity[$i];
+	?>
+	<tr id=TR<?=$i?> style='background-color:<?=$rowcolor?>' masterindex='<?=$masterindex[$i]?>'>
+		<td align=center nowrap>
+            <?if (!$readonly){?>
+              <input type=button onclick=addproduct(<?=$i+1?>) value='<?=$i+1?>' style=width:20px>
+            <?}else{?>
+                <input disabled type=button value='<?=$i+1?>' style=width:28px>
+            <?}?>
+        </td>
+		<td nowrap> 
+            <input type=hidden name='masterindex[]' id=masterindex_<?=$i?> value='<?=$masterindex[$i]?>'>
+            <input type=hidden name='childquantity[]' id=childquantity_<?=$i?> value='<?=$childquantity[$i]?>'>
+            <input type=hidden name='productnum[]' value='<?=$i?>'>
+            <input type=hidden name='docproductid[]' value='<?=($docproductid[$i])?$docproductid[$i]:$pdocproductid?>'>
+            <input type=hidden name='isfactory[]' value='<?=$pisfactory?>'>
+            <input type=hidden name='alut[]' id="alut_<?=$i?>" value="<?=$palut?>">
+            <input type=hidden name='sourceid[]' id="sourceid_<?=$i?>" value="<?=$psourceid?>">
+            <input type=hidden name=listingid[] id=listingid<?=$i+1?> value='<?=$plistingid?>'>
+            <input type=hidden name=isnewproduct[] id=isnewproduct<?=$i+1?> value='<?=$isnewproduct?>'>
+            <input <?=$readonly?> id=barcode<?=$i+1?> name=productid[] value="<?=safeHTML($pid)?>" size=10 onkeypress="checkKey(<?=$i+1?>)">
+            <input type=hidden name=sourcedocid[] value="<?=$sourcedocid?>" size=8>
+            <input type=hidden name=grams_rate[] value="<?=$pgramsrate?>" size=8>
+        </td>
+		<td nowrap>
+            <table cellpadding=0 cellspacing=0 width=100%><tr>
+            <td width=99%><input <?=$readonly?> <?if (!$readonly){?>onkeypress='if (event.keyCode==13)selectProduct(<?=$i+1?>)'<?}?> style='<?if ($plistingid && HasActionPermission("VIEWLISTING")){?>cursor:hand<?}?>' <?if ($plistingid && HasActionPermission("VIEWLISTING")){?>onclick='wopen("edit_my_listings.php?pro=1&edit=<?=$plistingid?>")'<?}?> id=productname name=productname[] <?if ($addrow-1==$i && !$plistingid){?>isfocus=1<?}?> style='width:100%' value="<?=safeHTML(stripslashes($pname))?>"></td>
+            <?if (!$readonly){?>
+            <td><input type=button value='...' onclick='selectProduct(<?=$i+1?>)' title='חיפוש פריט'></td>
+            <?}?>
+            <?if (!$isinternal){?>
+            <td><input type=button value='H' onclick='productHistory(<?=$i+1?>)' <?=$plistingid?"":"disabled"?> title='הסטורית מסמכים לפי פריט'></td>
+            <?}?>
+            </tr></table
+        </td>
+        <?if ($did!="SFIRATSOFYOM"){?>
+        <td><input  dir=ltr style='width:30;border:solid 1 gray;background-color:buttonface;text-align:right' readonly tabindex=-1 name=onstock[] value="<?=$ponstock?>" title="<?=$ponstock?>"></td>
+        <td><input  dir=ltr style='width:30;border:solid 1 gray;background-color:buttonface;text-align:right' readonly tabindex=-1 name=ordered[] value="<?=$pordered?>" title="<?=$pordered?>"></td>
+        <td><input  dir=ltr style='width:30;border:solid 1 gray;background-color:buttonface;text-align:right' readonly tabindex=-1 name=reserved[] value="<?=$preserved?>"  title="<?=$preserved?>"></td>
+        <td><input  dir=ltr style='width:35;border:solid 1 gray;background-color:buttonface;text-align:right' readonly tabindex=-1 value="<?=$ponstock+$pordered-$preserved?>" title="<?=$ponstock+$pordered-$preserved?>"></td>
+		<?}?>
+        <td><input <?=$readonly?> style='width:40;text-align:right;' dir=ltr <?if ($addrow-1==$i && $plistingid){?>isfocus=1<?}?> id=quantity_<?=$i?> name=quantity[] onkeyup='RecalcQtys(<?=$i?>);RecalcProducts()' onchange='RecalcQtys(<?=$i?>);RecalcProducts()' size=8 value="<?=$quantity[$i]?>"></td>
+        <td><input <?=$readonly?> style='width:50;text-align:right' dir=ltr  id=price_<?=$i?> name=price[] onkeyup='RecalcProducts()' onchange='RecalcProducts()' size=8 value="<?if($pprice)echo number_format($pprice,2,".","");?>"></td>
+		<td>
+		<select <?=$readonly?"disabled":""?> name=currency[] id=currency_<?=$i?> value="<?=$currency[$i]?>"  onchange='RecalcProducts()'>
+		<?
+		$curr->MoveFirst();
+		while(!$curr->EOF){?>
+			<option
+                course="<?=($currency[$i]==$curr->fields["id"]&&$rate[$i])?$rate[$i]:$curr->fields["course"]?>"
+                value="<?=$curr->fields["id"]?>" <?=($pcurrency==$curr->fields["id"]||(!$pcurrency && $curr->fields["is_default"]))?"selected":""?>><?=$curr->fields["code"]?>
+			<?$curr->MoveNext();
+		}?>
+		</select>
+        <input type=hidden name='rate[]' value='<?=$rate[$i]?>' id=rate_<?=$i?>>
+		</td>
+   		<td><input dir=ltr  <?=$readonly?> style='text-align:right' id=pdiscount_<?=$i?> name=pdiscount[] onkeyup='RecalcProducts()' onchange='RecalcProducts()' size=3 value="<?=$pdiscount[$i]?>"></td>
+        <td><input dir=ltr <?=$readonly?> style='text-align:right' id=sumbefore_<?=$i?> name=sumbefore[] onkeyup='RecalcProducts()' onchange='RecalcProducts()'  size=6 value="<?=$sumbefore[$i]?>"></td>
+        <td><input dir=ltr <?=$readonly?> style='text-align:right' id=pvat_<?=$i?> name=pvat[] size=4 readonly tabindex=-1 value="<?=$pvat[$i]?>"></td>
+    	<td><input dir=ltr  <?=$readonly?> style='text-align:right' id=sum_<?=$i?> name=sum[] size=6 onkeyup='RecalcProducts()' value="<?=$sum[$i]?>"></td>
+        <?if (!$readonly){?>
+        <td align=center nowrap width=22>
+              <?if($i>0 || $numproducts>1){?>
+               <img src=<?=$imgPath?>del.gif style='cursor:hand;' alt='מחק פריט' onclick='delrow(<?=$i?>)'>
+              <?}?>
+        </td>
+        <?}?>
+	</tr>
+    <?$readonly= $origreadonly;}?>
+	</table>
+	</div>
+	</fieldset>
+	<?
+	
+}
+
+if ($treeadded)
+{
+	echo "<script>
+			addchilds=true;
+			for(i=0;i<parseInt(document.F.numproducts.value);i++)
+			{
+			if (document.getElementById('TR'+i).masterindex=='".($addrow-1)."'){
+			//already exists
+			addchilds = false;
+			}
+			}
+			if (addchilds)
+			{
+			document.F.masterid.value=$treeadded;
+			document.F.masterquantity.value=".$quantity[$addrow-1]."
+			document.F.childsadded.value=$childproductcount;
+			document.F.addrow.value=$addrow;
+			document.F.numproducts.value=parseInt(document.F.numproducts.value)+parseInt($childproductcount);
+			document.F.submit();
+			}
+			</script>";
+}
+
+// }}}
+
+if ($ispayment)
+{
+	
+	// {{{ Payments
+//****************************** PAYMENTS **************************?>
+
+<fieldset  id=LEG_PAYMENTS style='display:<?=($tabmode=="PAYMENTS")?"":"none"?>'>
+	<input type=hidden name=copy>
+<LEGEND >
+	<?if ($isproduct){?>
+    <input type=button value='פריטים' style='cursor:hand; border:solid 2 outset; width:60' onclick='switchdoc("PRODUCTS")'>
+    <input type=button value='תשלומים' style='border:solid 2 inset; width:60;color:green;font-weight:bold' >
+    <?}else{?>
+פרוט תשלומים
+	<?}?>
+	<?if (!$readonly){ ?>
+	<input type=button value='-' onclick='if(document.F.numpayments.value>1){document.F.numpayments.value--;document.F.submit()}'>
+	<input size=2 maxlength=2 name=numpayments value=<?=$numpayments?>>
+	<input type=button value='+' onclick='document.F.numpayments.value++;document.F.submit()'>
+	&nbsp;
+	<input type=submit value='OK'>
+	<input type=button value='העתק' onclick='document.F.copy.value=1;document.F.numpayments.value++;document.F.submit()'>
+	<input type=button value='חולל תשלומים' onclick='generate()'>
+	&nbsp;
+	<?}?>
+
+    <?if ($klita){?>
+       <input type=button value='מקורות' onclick='showKlita(1)'>
+    <?}?>  
+	&nbsp;</legend>
+	
+    <input type=hidden name=totalsum>
+    <input type=hidden name=date>
+    <input type=hidden name=cheque>
+    <input type=hidden name=bank>
+    <input type=hidden name=kupa>
+    <input type=hidden name=card>
+    <input type=hidden name=snif>
+    <input type=hidden name=acc>
+    <input type=hidden name=sum1>
+	<div  style='overflow-Y:scroll;overflow-X:auto;width:100%;height:150px;border:solid 1 gray;'>
+	<script>
+	function selectType(i,cardonly)
+	{
+		
+		v = document.getElementById("paymid"+i).value;
+		document.getElementById("cardtype"+i).style.visibility = (v==<?=$PTYPE_ASHRAI?>)?"visible":"hidden";
+		if (cardonly)return;
+		document.getElementById("bankno"+i).readOnly = false;
+		document.getElementById("bankdeptno"+i).readOnly = false;
+		document.getElementById("bankcntno"+i).readOnly = false;
+		document.getElementById("chequeno"+i).readOnly = false;
+		document.getElementById("paydate"+i).readOnly = false;
+		document.getElementById("cln"+i).disabled = false;
+
+		if (v == <?=$PTYPE_MEZUMAN?>)
+		{
+			bank = snif = account = cheque = '';
+			document.getElementById("bankno"+i).value=bank;   
+			document.getElementById("bankdeptno"+i).value=snif;
+			document.getElementById("bankcntno"+i).value=account;
+			document.getElementById("chequeno"+i).value=cheque;
+			document.getElementById("paydate"+i).value = "<?=$docdate?>";
+			document.getElementById("bankno"+i).readOnly= true;
+			document.getElementById("bankdeptno"+i).readOnly=true;
+			document.getElementById("bankcntno"+i).readOnly=true;
+			document.getElementById("chequeno"+i).readOnly=true;
+			document.getElementById("paydate"+i).readOnly=true;
+			document.getElementById("cln"+i).disabled =true;
+		} 
+		else if (v == <?=$PTYPE_HAAVARA?>)
+		{
+			document.getElementById("paydate"+i).value = "<?=$docdate?>";
+			document.getElementById("paydate"+i).readOnly=true;
+			document.getElementById("cln"+i).disabled =true;
+		}
+		else
+		{
+			<?if ($did=="KABALA"){?>
+			bank = "<?=$Bank?>";
+			snif = "<?=$Snif?>";
+			account = "<?=$Account?>"; 
+			if(document.getElementById("bankno"+i).value=="")document.getElementById("bankno"+i).value=bank;
+			if(document.getElementById("bankdeptno"+i).value=="")document.getElementById("bankdeptno"+i).value=snif;
+			if(document.getElementById("bankcntno"+i).value=="")document.getElementById("bankcntno"+i).value=account;
+			<?}?>
+		} 
+		if (document.getElementById("paydate"+i).value==""){
+			document.getElementById("paydate"+i).value="<?=$docdate?>";
+		}
+	}	
+	</script>
+	<table width=100% style='border-collapse:collapse' border=1>
+	<tr style='background-color:silver'>
+		<th>#</th>
+		<th  width=1%>סוג תשלום</th>
+        <th width=25%>קופה</th>
+		<th><input type=hidden id=sumdoc>סכום</th>
+		<th>תאריך פרעון</th>
+		<th width=1%>סוג כרטיס</th>
+		<th>מס' שיק / שובר</th>
+		<th>מס' בנק / אישור</th> 
+		<th>מס' סניף / תוקף</th>
+		<th>מס' חשבון / כרטיס</th>
+	</tr>
+	<?
+	for ($i=0;$i<$numpayments;$i++)
+	{
+		
+		if ($docpayments && !$docpayments->EOF)
+		{
+			$paymentid = $docpayments->fields["id"];
+			$paymid[$i] = $docpayments->fields["payment_type"];
+			$paydate[$i] = ($docpayments->fields["checkdate"]&&$docpayments->fields["checkdate"]!="0000-00-00")?DateFromSQL($docpayments->fields["checkdate"]):"";
+			$sumdoc[$i]=$docpayments->fields["Amount"];
+			$chequenumber[$i] =$docpayments->fields["checknumber"];
+			$bankno[$i] =$docpayments->fields["checkbank"];
+			$bankdeptno[$i] =$docpayments->fields["checksnif"];
+			$kupano[$i] =$docpayments->fields["kupa_id"]; 
+			$cardtype[$i] =$docpayments->fields["cardtype_id"]; 
+			$bankcntno[$i] =$docpayments->fields["checkaccount"];
+			
+			if ($readonly)
+			{
+				//find original kupa
+				$sql = "select sourcekupa from documents d where doc_type='HAFKADAHAAVARA' and exists
+						(select id from hafkada_payments where payment_id = $paymentid and doc_id = d.id)
+						order by id limit 1
+						";
+				$origKupaRS = DBQuery($sql);
+				if (!$origKupaRS->EOF)
+				{
+					$kupano[$i] = $origKupaRS->Fields("sourcekupa");
+				}
+			}
+			
+			$docpayments->MoveNext();
+		}
+		else
+		{
+			
+			if ($copy==2){
+				//generate payments
+				if(!$cheque)$cheque=1;
+				if(!$date)$date=date("d/m/Y");
+				if($sum1!=0){
+					$sumdoc[$i]=($i==0)?$sum1:(($totalsum-$sum1)/($numpayments-1));
+				}
+				else{
+					$sumdoc[$i]=$totalsum/$numpayments;
+				}
+				$time=mktime(0,0,0,substr($date,3,2),substr($date,0,2),substr($date,6,4));
+				$paydate[$i]=date("d/m/Y",strtotime("+".($i)." month",$time));
+				$chequenumber[$i]=$cheque+$i;
+				$bankno[$i]=$bank;
+				$kupano[$i]=$kupa;
+				$cardtype[$i]=$card;
+				$bankdeptno[$i]=$snif;
+				$bankcntno[$i]=$acc;
+				$paymid[$i]=0;
+			}
+			else
+			{
+				if ($i==$numpayments-1){
+					if (!$paymid[$i]&&$paymid[$i-1])$paymid[$i]=$paymid[$i-1];
+				}
+				elseif (!$paymid[$i]){
+					$paymid[$i]=0;
+				}
+				//copy previous row
+				if ($copy==1&&$i==$numpayments-1){
+					$bankno[$i]=$bankno[$i-1];
+					$bankdeptno[$i]=$bankdeptno[$i-1];
+					$kupano[$i]=$kupano[$i-1];
+					$cardtype[$i]=$cardtype[$i-1];
+					$bankcntno[$i]=$bankcntno[$i-1];
+					$sumdoc[$i]=$sumdoc[$i-1];
+					if ($paymid[$i-1]=="0"){
+						if ($chequenumber[$i-1]){
+							$chequenumber[$i]=$chequenumber[$i-1]+1;
+						}
+						if ($paydate[$i-1]){
+							$time=mktime(0,0,0,substr($paydate[$i-1],3,2),substr($paydate[$i-1],0,2),substr($paydate[$i-1],6,4));
+							$paydate[$i]=date("d/m/Y",strtotime("+1 month",$time));
+						}
+					}
+				}
+				
+			}
+		}
+		
+		if($_GET["klita"] && $docamount && $ispayment && !$isproduct)
+		{ 
+			$sumdoc[0]=$docamount;
+		}
+	?>
+	<tr>
+		<td align=center><?=($i+1)?></td>
+		<td>
+		<select <?=$readonly?"disabled":""?> name=paymid[] id=paymid<?=$i?> onchange='selectType(<?=$i?>,false)'>
+		<?
+		$TABLE_DOCPAYMENTTYPES->MoveFirst();
+		while(!$TABLE_DOCPAYMENTTYPES->EOF){
+            ?>
+			    <option value="<?=$TABLE_DOCPAYMENTTYPES->fields["id"]?>" <?=($paymid[$i]==$TABLE_DOCPAYMENTTYPES->fields["id"])?"selected":""?>><?=$TABLE_DOCPAYMENTTYPES->fields["name"]?>
+       		<?$TABLE_DOCPAYMENTTYPES->MoveNext();}?>
+		</select>
+		</td>
+        <td>
+        	<select  <?=$readonly?"disabled":""?> style='width:100%' name=kupano[] onchange="selectKupa(<?=$i?>)">
+            <option value="">
+		<?
+		$kupot->MoveFirst();
+            while(!$kupot->EOF){?>
+        		<option value="<?=$kupot->fields["id"]?>" <?=($kupano[$i]==$kupot->fields["id"])?"selected":""?> bank="<?=$kupot->fields["bank"]?>" snif="<?=$kupot->fields["snif"]?>" account="<?=$kupot->fields["account"]?>" ><?=$kupot->fields["name"]?>
+			<?$kupot->MoveNext();
+        	}?>
+        	</select>
+        </td>
+		<td width=1% ><input <?=$readonly?"readonly style=color:gray":""?> style='width:80px' id=sumdoc onkeyup=RecalcPayments() onchange=RecalcPayments() name=sumdoc[]  value="<?=number_format($sumdoc[$i],2,".","")?>"></td>
+		<td width=1% nowrap>
+		<input <?=$readonly?"readonly style=color:gray":""?> style='width:80px' name=paydate[] id=paydate<?=$i?> value="<?=$paydate[$i]?>" >
+		<img <?=$readonly?"disabled":""?> align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' id=cln<?=$i?> 
+            onclick='ShowCalendar1("all.paydate<?=$i?>");'>
+		</td>
+		<td>
+        	<select  <?=$readonly?"disabled":""?> name=cardtype[] id=cardtype<?=$i?> >
+		<?
+		$cardtypes->MoveFirst();
+            while(!$cardtypes->EOF){?>
+        		<option value="<?=$cardtypes->fields["id"]?>" <?=($cardtype[$i]==$cardtypes->fields["id"])?"selected":""?> ><?=$cardtypes->fields["name"]?>
+			<?$cardtypes->MoveNext();
+        	}?>
+        	</select>
+		</td>
+        
+		<?
+		$bnk = $snf = $cno = "";
+		if ($paymid[$i]==$PTYPE_CHEQUE||$paymid[$i]==$PTYPE_HAAVARA||$paymid[$i]==$PTYPE_ORAATKEVA)
+		{
+			$bnk = $Bank;
+			$snf = $Snif;
+			$cno = $Account;
+		}
+        ?>
+		<td><input <?=$readonly?"readonly style=color:gray":""?>  style='width:100%' id=chequeno<?=$i?> name=chequenumber[] value="<?=$chequenumber[$i]?>"></td>
+		<td><input <?=$readonly?"readonly style=color:gray":""?>  style='width:100%' id=bankno<?=$i?> name=bankno[] value="<?=($bankno[$i])?$bankno[$i]:$bnk?>"></td>
+		<td><input <?=$readonly?"readonly style=color:gray":""?>  style='width:100%' id=bankdeptno<?=$i?> name=bankdeptno[] value="<?=($bankdeptno[$i])?$bankdeptno[$i]:$snf?>"></td>
+		<td><input <?=$readonly?"readonly style=color:gray":""?>  style='width:100%' id=bankcntno<?=$i?> name=bankcntno[] value="<?=($bankcntno[$i])?$bankcntno[$i]:$cno?>"></td>
+	</tr>
+	<script>
+	selectType(<?=$i?>);
+	</script>
+	<?}?>
+	</table>
+	</div>
+	</fieldset>
+
+	<?
+	
+	//}}}
+	
+	//******************** END OF PAYMENTS ********************************
+}
+
+   ?>
+
+	</div>
+	<table width=100% cellpadding=0 cellspacing=0>
+	<tr>
+		<td width=99% style='padding-left:10px' valign=bottom height=100>
+			<table width=100% border=0>
+			<?if ($isproduct && $UserData->fields["ShowDocTotalQuantity"]){?>			
+			<tr>
+				<td align=left nowrap ><strong>סה"כ פריטים: </strong><input dir=ltr readonly disabled size=8 style=';text-align:right' id=totalqty name=totalqty></td>
+				<td style=padding-left:17></td>
+			</tr>
+			<?}?>
+			<tr><td>
+            <?if ((!$isinternal && $print_paydate) || $isexecdate){?>
+            <fieldset>
+                <legend>פרטים נוספים</legend>
+                    <table width=100% Border=0>
+                        <tr>
+                            <td align=left>סוכן:</td>
+                            <td colspan=3>
+                                <select name=agentid <?=$readonly?"disabled":""?>>
+                                <option value="">
+								<?
+								$sql = "select ID, SupplierName from listingsSuppliers where user_id = $userID and isAgent=1 and status=1 order by binary SupplierName";
+								$agents = $conn->Execute($sql);
+								if ($agents === false){log_error($sql);}
+															while(!$agents->EOF){?>
+                            									<option value="<?=$agents->fields["ID"]?>" <?=($agentid==$agents->fields["ID"])?"selected":""?>><?=$agents->fields["SupplierName"]?>
+								<?$agents->MoveNext();
+                            	}?>
+                            	</select>
+                            </td>
+                            <?if ($print_paydate!="AGENT_ONLY"){?>
+                            <td NOWRAP align=left>תנאי תשלום:</td>
+                            <td>
+		<?
+		$sql = "select * from payment_type where Status=1 and user_id = $userID order by sortOrder, name";
+		$ptypes = $conn->Execute($sql);
+		if ($ptypes === false){log_error($sql);}
+                                ?>
+                                <select <?=$readonly?"disabled":""?> name=dpaymenttype id=dpaymenttype onchange="document.F.calcDate.value=1;document.F.submit()">
+                                <option value="">
+                            	<?while(!$ptypes->EOF){?>
+                            		<option value="<?=$ptypes->fields["id"]?>" <?=($dpaymenttype==$ptypes->fields["id"])?"selected":""?> numdays="<?=$ptypes->fields["numdays"]?>" shotef="<?=$ptypes->fields["shotef"]?>" ><?=$ptypes->fields["name"]?>
+			<?$ptypes->MoveNext();
+                            	}?>
+                            	</select>
+                            </td>
+                            <?$s = ($print_paydate=="PAY_UNTIL")?"לתשלום עד":"מסמך בתוקף עד"; ?>
+                            <td NOWRAP><?=$s?>:</td>
+                            <td NOWRAP>
+		<?if ($calcDate){
+			if ($dpaymenttype){
+				$sql = "select * from payment_type where id = $dpaymenttype";
+				$ptypes = $conn->Execute($sql);
+				if ($ptypes === false){log_error($sql);}
+				if ($ptypes->fields["shotef"]){
+					$pdate = strtotime("+1 month");
+					$pdate = mktime(0,0,0,date("m",$pdate),1,date("Y",$pdate));
+					$pdate = strtotime("+".($ptypes->fields["numdays"]-1)." days",$pdate);
+				}
+				else{
+					$pdate = strtotime("+".$ptypes->fields["numdays"]." days");
+				}
+				$paymentdate = date("d/m/Y",$pdate);
+			}
+			else{
+				$paymentdate = "";
+			}
+                                }?>
+                                <input <?=$readonly?> name=paymentdate size=6 maxlength=10 value='<?=$paymentdate?>'>
+                                <?if (!$readonly){?>
+                                <img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.paymentdate")'>
+                                <?}?>
+                            </td>
+                            <?}?>
+                            <td width=99%>
+                        </tr>
+                    </table>
+            </fieldset>
+            <?}?>
+            </td></tr>
+            <tr><td>
+<?
+if ((!$existing || $duplicate) && $init_statuses)
+{
+	$qstatus = " where id in (".$init_statuses.")";
+}
+elseif ($existing)
+{
+	if (!$availStatuses)
+	{
+		$availStatuses=-1;
+	}
+	$qstatus = " where id in ('".$docstatus."',".$availStatuses.")";
+}
+$sql = "select * from $TABLE_DOCUMENT_STATUS $qstatus order by sortorder";
+$dstatusrs = $conn->Execute($sql);
+if ($dstatusrs === false){log_error($sql);}
+            ?>
+					<table border=0 width=100%>
+					<tr >
+					<td>
+					<?if (!$readonly || $dstatusrs->NumRows()>1){?>
+							<input type=submit name=do value='שמור' onclick='savedoc=1' class=button style='background-image:url(<?=$imgPath?>ok.gif)'>
+                    <?}?>        
+					<?if (!$readonly){?>
+							<?if ($isserials){?>
+							<input type=submit name=doserials onclick='savedoc=1' value='שמור והכנס קודים סידוריים'  class=button style='width:180;background-image:url(<?=$imgPath?>barcode.gif)'>
+							<?}?>
+							<?if (!$docid && !$duplicate){?>
+							<input type=submit name=doprint onclick='savedoc=1' id=DOPRINT value='שמור והדפס' class=button style='background-image:url(<?=$imgPath?>printer.gif)'>
+							<?}?>
+					<?}?>
+
+					<?if(false && $isserials && $docid){?>
+					<input type=button  value='קודים סידוריים' onclick='showCodes()'  class=button style='background-alignment:left bottom;background-image:url(<?=$imgPath?>barcode.gif)'>
+					<?}?>
+ 
+					<?if ($docid && ($isprintable || $allow_draft_print) && !$duplicate){?>
+					<input type=button  value='הדפס' onclick='printDocument()'  class=button style='background-image:url(<?=$imgPath?>printer.gif)'>
+					<?}?>
+					
+<?if($did=="KABALA"||$did=="TASHLUM"){
+	$title=($did=="KABALA")?"חשבוניות":"קניות";	
+					?>
+					<?if ($docid){?>
+					<input type=button  value='סגירת <?=$title?>' onclick='closeCheshonit()'  class=button style='background-image:url(<?=$imgPath?>note_edit.png)'>
+					<?}else{?>
+					<input type=submit name=doclosechn  value='שמור וסגור <?=$title?>'  class=button style='background-image:url(<?=$imgPath?>note_edit.png)'>
+					<?}}?>
+                    
+                    <?if (!$rmodule){?>
+					<input type=button onclick='window.close()' value='סגור'  class=button style='background-image:url(<?=$imgPath?>back.gif)'>
+					<?}?>
+                    </td>
+                    
+                    <td  width=1% nowrap>
+                    סטטוס: 
+                        <select  name=docstatus id=docstatus <?if (!$existing){?>onchange="chPrintStatus();"<?}?>>
+                        <?while(!$dstatusrs->EOF){?>
+                            <option isprintable="<?=($dstatusrs->fields["printable"]||$allow_draft_print)?1:0?>" value="<?=$dstatusrs->fields["id"]?>" <?=($docstatus==$dstatusrs->fields["id"])?"selected":""?>  ><?=$dstatusrs->fields["name"]?>
+                            
+	<?$dstatusrs->MoveNext();
+                        }?>
+                        </select>
+                    </td>
+                <?if($existing){?>
+                    <td width=1% nowrap>
+                        <span style=color:green>נוצר ע"י:
+                        <b><?=$authorname?></b>
+                        </span>
+                    </td>
+                <?}?>
+                                    
+					</tr>
+					</table>
+            
+            </td></tr></table>
+
+        </td>
+
+		<td valign=top>
+<?if ($isproduct){?>
+			<table  id=DIV_PRODUCTS cellpadding=0 cellspacing=0 style='display:<?=($tabmode=="PRODUCTS"||!$tabmode)?"":"none"?>'>
+			<tr>
+				<td align=left nowrap><strong>סה"כ לפני הנחה: </strong><input disabled size=8 style=';text-align:right' dir=ltr id=beforediscount value="<?=number_format($beforediscount,2,".","")?>" name=beforediscount></td>
+				<td style=padding-left:17></td>
+			</tr>
+			<tr>
+				<td align=left nowrap><strong>הנחה: </strong><input <?=($readonly||$isinternal)?"disabled":""?> size=6 onkeyup='RecalcProducts()' style=';text-align:right' dir=ltr onchange='RecalcProducts()' id=discount value="<?=number_format($discount,4,".","")?>" name=discount>%</td>
+				<td style=padding-left:17></td>
+			</tr>
+			<tr>
+				<td align=left nowrap ><strong>סה"כ לפני מע"מ: </strong><input dir=ltr <?=$readonly?"disabled":""?> size=8 onkeyup='RecalcProducts()' onchange='RecalcProducts()' readonly tabindex=-1 style='color:gray;text-align:right' id=totalbefore name=totalbefore></td>
+				<td style=padding-left:17></td>
+			</tr>
+			<tr>
+				<td align=left nowrap ><strong>מע"מ: </strong><input dir=ltr <?=$readonly?"disabled":""?> size=8 style='color:gray;text-align:right' readonly tabindex=-1  id=vat name=vat></td>
+				<td style=padding-left:17></td>
+			</tr>
+			<tr>
+				<td align=left nowrap ><strong>סה"כ: </strong><input dir=ltr <?=$isinternal?"readonly":""?> <?=$readonly?"disabled":""?> size=8 onkeyup='RecalcProducts()' style=';text-align:right' onchange='RecalcProducts()' id=total name=total></td>
+				<td style=padding-left:17></td>
+			</tr>
+			</table> 
+<?}
+if ($ispayment)
+{?>
+			<table id=DIV_PAYMENTS style='display:<?=($tabmode=="PAYMENTS")?"":"none"?>'>
+			<tr>
+				<td align=left nowrap ><strong>סה"כ: </strong><input  <?=$readonly?"disabled":""?>  readonly size=8  id=totalpayment name=totalpayment></td>
+				<td style=padding-left:17></td>
+			</tr>
+            <?if ($isproduct){?>
+			<tr>
+				<td align=left nowrap ><strong>סכום חשבונית: </strong><input  disabled size=8  id=total1 name=total1></td>
+				<td style=padding-left:17></td>
+			</tr>
+            <?}?>
+			</table>
+<?}?>
+	</td>
+	</tr>
+	</table>
+
+
+</td></tr>
+
+
+
+
+<input type=hidden name=klita value='<?=$klita?>'>
+<input type=hidden name=klitaMode value='<?=$klitaMode?>'>
+<input type=hidden name=productids value=''>
+<input type=hidden name=duplicate value='<?=$duplicate?>'>
+<input type=hidden name=rowtodelete value=''>
+<input type=hidden name=calcDate>
+<input type=hidden name=focusAsmachta>
+</form>
+<script>
+var pName='';
+function selectProduct(i){
+    pName = event.srcElement.parentElement.parentElement.cells[0].all(0).value;
+    s=showModalDialog('product_select.php?<?=($did == "YETZIAMIIZUR")?"istree=1":""?>&rmodule=<?=$rmodule?>&client=<?=$client?>&cname='+escape(pName),'','dialogWidth:600px;dialogHeight:500px;status:no;help:no');
+    if (typeof(s)!="undefined" && s!=""){
+        s = s.split("~")
+        document.getElementById("barcode"+i).value=s[0];
+        addproduct(i);
+    } 
+}
+
+function productHistory(i){
+    pID = document.getElementById("listingid"+i).value;
+    if (pID==""||typeof(pID)=="undefined"){
+        alert("יש להגדיר פריט שנימצא במלאי");
+        return;
+    }
+    if (document.F.client!=null){
+        v = document.F.client.value
+    }
+    else{
+     v = "";
+    }
+    s=showModalDialog('producthistory.php?rmodule=<?=$rmodule?>&did=<?=$did?>&client='+v+'&pid='+pID,'','dialogWidth:650px;dialogHeight:410px;status:no;help:no');
+}
+
+function checkKey(i){
+    if (window.event.keyCode==13){
+        addproduct(i);
+    }
+}
+
+function addproduct(i){
+    document.F.addrow.value = i;
+    if (i==document.F.numproducts.value){
+        document.F.numproducts.value++;
+        document.F.scrollDown.value = document.getElementById('PRODUCTSDIV').scrollHeight;
+    }
+    else{
+        document.F.scrollDown.value = document.getElementById('PRODUCTSDIV').scrollTop
+    }
+    document.F.submit();
+}
+
+function closeCheshonit(){
+    if (document.F.client.value==""){
+        alert("יש להגדיר לקוח לפני הקליטה");
+        return;
+    } 
+    var url = "close_chn.php?simple=1&client="+document.F.client.value+"&closingdid=<?=$did?>&closingdocid=<?=$docid?>";
+    var s = wopen(url,"sgira",500,400,true,"no");
+}
+
+function delrow(i){
+    var s;
+    document.F.rowtodelete.value = i;
+    for (s=0;s<document.all("productname").length-1;s++){ 
+       if (document.all("masterIndex_"+s).value+""!=""&&document.all("masterIndex_"+s).value==i)
+       {
+            document.F.rowtodelete.value+=","+s;
+       } 
+    }
+    document.F.scrollDown.value = document.getElementById('PRODUCTSDIV').scrollTop;
+    document.F.submit()                                              
+}
+
+function showKlita(readonly){
+    if (document.F.personName==null && document.F.client!=null && document.F.client.value==""){
+        alert("יש להגדיר לקוח לפני הקליטה");
+        return;
+    }
+    var url = "doc_select.php?did=<?=$did?>&readonly="+readonly+"&selected="+document.F.klita.value+"&simple=1"
+    if (document.F.client!=null)
+    {                   
+        url+="&client="+((document.F.client.value=='')?1:document.F.client.value);
+        if (document.F.clientBusiness!=null)
+        {
+            url+="&businessnum="+document.F.clientBusiness.value
+        }
+    }
+    url=url+"&rnd="+Math.random();
+    var s = wopen(url,"klita",500,400,true,"no");
+}
+
+function addProducts(){
+	if (confirm("פעולה זו תנקה כל הפריטים במסמך ותוסיף פריטים חדשים שתבחר. להמשיך?")){
+		s=showModalDialog('product_select.php?rmodule=<?=$rmodule?>&client=<?=$client?>&multiple=1','','dialogWidth:600px;dialogHeight:500px;status:no;help:no');
+		if (typeof(s)!="undefined" && s!=""){
+			document.F.productids.value=s;    
+			document.F.submit();
+		}
+	}
+}
+
+function clearClient()
+{
+    document.F.client.value="1";
+    document.F.clientName.value="";
+    document.F.submit();
+}
+
+function showClient(readonly)
+{
+    var url = "client_select.php?simple=1&clients=1&noCommon=1"
+    if (window.event!=null && window.event.shiftKey)
+    {
+		url+="&selectdefault=1";
+    }
+    url=url+"&rnd="+Math.random();
+    var s = wopen(url,"client",600,400,true,"no");
+}
+
+function startClient(s,name,discount,payment,agent){
+    document.F.client.value=s;
+    document.F.clientName.value=name;
+    <?if ($isproduct){?>
+    document.F.discount.value=discount;
+    if(document.F.dpaymenttype!=null)document.F.dpaymenttype.value = payment;
+    if(document.F.dpaymenttype!=null)document.F.agentid.value = agent;
+    document.F.focusAsmachta.value = '1';
+    document.F.calcDate.value=1;
+    <?}?>
+    document.F.submit();
+}
+
+function startKlita(s,mode){
+    document.F.klita.value=s;
+    document.F.klitaMode.value=mode;
+    document.F.action="add_document.php?klita="+document.F.klita.value+"&did=<?=$did?>&usr=<?=$usr?>";
+    document.F.submit();
+}
+
+
+var oPopup = window.createPopup();
+
+
+function duplicateDoc(){
+     document.F.duplicate.value=1;
+     document.F.action="add_document.php?docid=<?=$docid?>&usr=<?=$usr?>";
+     document.F.submit();
+}
+
+function showCodes(){
+    url='codes.php?docid=<?=$docid?>'
+    var s = wopen(url,"serials",650,400,true);
+}
+
+function switchdoc(mode){
+	if (mode=="PRODUCTS"){
+		document.getElementById("LEG_PRODUCTS").style.display="";
+		document.getElementById("LEG_PAYMENTS").style.display="none";
+		document.getElementById("DIV_PRODUCTS").style.display="";
+		document.getElementById("DIV_PAYMENTS").style.display="none";
+	}
+	else{
+		document.getElementById("LEG_PRODUCTS").style.display="none";
+		document.getElementById("LEG_PAYMENTS").style.display="";
+		document.getElementById("DIV_PRODUCTS").style.display="none";
+		document.getElementById("DIV_PAYMENTS").style.display="";
+	}
+	document.F.tabmode.value=mode;
+}
+
+<?if ($isproduct){?>
+//recalc quantities of child products
+function RecalcQtys(masterrowindex)
+{
+    for(i=0;i<parseInt(document.F.numproducts.value);i++)
+    {
+        masterQty = event.srcElement;
+        rowEl = document.getElementById('TR'+i)
+        if (rowEl.masterindex+''==masterrowindex+'')
+        {
+            document.getElementById("quantity_"+i).value=document.getElementById("childquantity_"+i).value*masterQty.value;
+            RecalcProducts(i,'price',true);
+        }
+    }
+}
+
+function addProductsToDB()
+{
+	if (confirm("<?=$lang["add_products_db_confirm"]?>"))
+	{
+		document.F.doupdate.value = "1";
+		document.F.createNotExistingProducts.value = "1";
+		document.F.submit();
+	}
+}
+function addProductsToMadbekot()
+{
+	wopen("madbekot.php?docid=<?=$docid?>&stock=<?=$stock?>","",650,400,true);
+}
+function addProductsToBasket()
+{
+	var ids = "";
+	var i;
+	numprods = parseInt(document.F.numproducts.value);
+	for (i=1;i<=numprods;i++)
+	{
+		if (document.all("listingid"+i).value!="")
+		{
+			ids+=","+document.all("listingid"+i).value;
+		}	
+	}
+	if (ids!="")
+	{
+		ids = ids.substr(1);
+		clear = showBox()
+		if (clear!=2)
+		{
+			if(clear == 6)
+			{
+				clear = 1;
+			}
+			else
+			{
+				clear = 0;
+			}
+
+			s = agent.call('doc_services.php','AddProductsToBasket','',ids)
+			if (s=="OK")
+			{
+				alert("<?=$lang["producs_basket_added"]?>");
+			}
+			else
+			{
+				alert("<?=$lang["products_basket_problem"]?>");
+			}
+		}
+	}
+	else
+	{
+		alert("<?=$lang["no_add_products"]?>");
+	}
+}
+
+function RecalcProducts(rowIndex,source,forceRowIndex,calcTotal){
+	var total,s,vat,discount,alut;
+    var i = -1; 
+    if(typeof(calcTotal)=="undefined")calcTotal=true;
+    if (forceRowIndex)
+    {
+        i = rowIndex
+    }
+    else
+    {
+        try{
+            asource = window.event.srcElement.id.split("_");
+            if (typeof(rowIndex)=="undefined"&&typeof(source)=="undefined"){
+                source = asource[0];
+            }
+            i = asource[1];
+            if (typeof(i)=="undefined")i=-1;
+        }
+        catch(e){
+            if (typeof(rowIndex)=="undefined"&&typeof(source)=="undefined"){
+                source="price"
+            }
+            i = rowIndex;
+        }
+    }
+	total=0;discount=document.all("discount").value;alut=0;
+	if(discount=="")discount=0;
+    if (i!=-1){
+        if (source=='sumbefore'){
+            sumbefore=parseFloat(document.all("sumbefore_"+i).value==""?0:document.all("sumbefore_"+i).value);
+            s = sumbefore+((sumbefore*<?=$dvat?>)/100);
+
+            //calculate discout
+            rate = document.all("currency_"+i).options[document.all("currency_"+i).selectedIndex].course;
+            price = (document.all("price_"+i).value=="")?0:parseFloat(document.all("price_"+i).value);
+            if (price!=0&&rate!=0&&document.all("quantity_"+i).value!=""&&document.all("quantity_"+i).value!=0){
+               disc = 100-(sumbefore/(price*rate*document.all("quantity_"+i).value)*100);
+               document.all("pdiscount_"+i).value = disc.toFixed(2);
+            }
+            else{
+               document.all("pdiscount_"+i).value = "";
+            }
+        }
+        else if (source=='sum'){
+            s = document.all("sum_"+i).value;
+            document.all("pdiscount_"+i).value="";
+
+            //calculate discout
+            v = s*<?=$dvat;?>/(100+<?=$dvat;?>);
+            sumbefore = (s-v).toFixed(2);
+            rate = document.all("currency_"+i).options[document.all("currency_"+i).selectedIndex].course;
+            price = (document.all("price_"+i).value=="")?0:parseFloat(document.all("price_"+i).value);
+            if (price!=0&&rate!=0&&document.all("quantity_"+i).value!=""&&document.all("quantity_"+i).value!=0){
+         	    disc = 100-(sumbefore/(price*rate*document.all("quantity_"+i).value)*100);
+                document.all("pdiscount_"+i).value = disc.toFixed(2);
+            }
+            else{
+                document.all("pdiscount_"+i).value = "";
+            }
+        }
+        else
+        {
+            document.all("rate_"+i).value = document.all("currency_"+i).options[document.all("currency_"+i).selectedIndex].course;
+            price = (document.all("price_"+i).value=="")?0:parseFloat(document.all("price_"+i).value);
+            priceaftervat = price + ((price*<?=$dvat?>)/100);
+         	s = (priceaftervat * document.all("rate_"+i).value) * document.all("quantity_"+i).value;
+            if (document.all("pdiscount_"+i).value!=""){
+                    pdisc=document.all("pdiscount_"+i).value;
+    	            s = s-((s*pdisc)/100);
+            }
+        }
+        if (source!="sum"){
+            document.all("sum_"+i).value = parseFloat(s).toFixed(2);
+        }
+        v = s*<?=$dvat;?>/(100+<?=$dvat;?>);
+        document.all("pvat_"+i).value = v.toFixed(2);
+        if(source!="sumbefore"){
+           document.all("sumbefore_"+i).value = (s-v).toFixed(2);
+        }
+    }
+
+    if(!calcTotal)
+    {
+        return;        
+    }
+  
+    //total calculation
+    beforediscount=0;
+    var totalqty=0;
+	for (i=0;i<document.all("productname").length-1;i++){
+		if(document.all("sum_"+i).parentElement.tagName=="TD"){
+            s = document.all("sum_"+i).value;
+            q=document.all("quantity_"+i).value;
+            if (s!=""){
+                total+=parseFloat(s);
+				totalqty+= (isNaN(parseFloat(q)))?0:parseFloat(q);
+            }
+            s=document.all("alut_"+i).value;
+            if (document.all("sumbefore_"+i).value!="")
+            {
+                beforediscount+=parseFloat(document.all("sumbefore_"+i).value);   
+            }
+            if (s!=""&&q!=""){
+                alut+=parseFloat(s)*parseFloat(q);
+            }
+		}
+	}
+	if (document.all("totalqty")!=null)document.all("totalqty").value=totalqty.toFixed(0);
+    document.getElementById("beforediscount").value = beforediscount.toFixed(2);
+    document.getElementById("ALUT").innerHTML=alut.toFixed(2);
+    
+    if (source=="total")
+	{
+		var st=total;
+		total = parseFloat(document.all("total").value);
+        if (st ==0){
+            discount=0
+        }
+        else{
+		    discount = (st-total)*100/st;
+        }
+		vat=total-total/1.<?=$dvat*10;?>;
+	}
+	else if (source=="discount")
+	{
+		var st=total;
+		discount =document.all("discount").value;
+		total = total-((total*discount)/100);
+		vat=total-total/1.<?=$dvat*10;?>;
+	}
+	else
+	{
+		total = total-((total*discount)/100);
+		vat=total-total/1.<?=$dvat*10;?>;
+	}
+	
+    if (source!="total"){
+	    document.all("total").value=parseFloat(total).toFixed(2);
+    }
+	document.all("vat").value=parseFloat(vat).toFixed(2);
+    if (source!="discount"){
+	    document.all("discount").value=parseFloat(discount).toFixed(4);
+    }
+    tbefore = parseFloat(total-vat).toFixed(2)
+    document.all("totalbefore").value=tbefore;
+    document.all("REVACH").innerHTML = (tbefore-alut).toFixed(2);
+    if (alut!=0)
+    {
+        document.all("REVACHTOP").innerHTML = ((tbefore-alut)/tbefore*100).toFixed(2)+"%";
+        document.all("REVACHBOTTOM").innerHTML = ((tbefore/alut)*100-100).toFixed(2)+"%";
+    }
+    else
+    {
+        document.all("REVACHTOP").innerHTML = document.all("REVACHBOTTOM").innerHTML = "אין";
+    }
+    document.all("REVACHTOP").style.color = document.all("REVACH").style.color = document.all("REVACHBOTTOM").style.color = (tbefore>alut||alut=="")?"green":"red";
+    <?if ($ispayment){?>
+    document.all("total1").value=parseFloat(total).toFixed(2);
+    <?}?>
+}
+
+<?}
+if ($ispayment)
+{?>
+
+
+
+function selectKupa(i)
+{
+    <?if ($did=="TASHLUM"){?>
+    v = window.event.srcElement;
+    document.getElementById("bankno"+i).value=v.options[v.selectedIndex].bank;
+    document.getElementById("bankdeptno"+i).value=v.options[v.selectedIndex].snif;
+    document.getElementById("bankcntno"+i).value=v.options[v.selectedIndex].account;
+    <?}?>
+}
+
+function RecalcPayments(){
+    var total = 0;
+	for (i=0;i<document.all("sumdoc").length;i++){
+		if(document.all("sumdoc")[i].parentElement.tagName=="TD"){
+            total += document.all("sumdoc")[i].value * 1;
+        }
+    }
+	document.all("totalpayment").value=parseFloat(total).toFixed(2);
+}
+
+function generate(){
+	if (confirm("הפעולה הזו  ימחק פרוט תשלומים הקיים ויחולל תשלומים  מחדש. להמשיך?")){
+		s = showModalDialog("generatepayment.php","","center:yes;dialogWidth:400px;dialogHeight:340px;status:no");
+		if (typeof(s)!="undefined"){
+			arr=s.split("|");
+			document.F.copy.value=2;
+			document.F.totalsum.value=arr[0];
+			document.F.numpayments.value=arr[1];
+			document.F.date.value=arr[2];
+			document.F.cheque.value=arr[3];
+			document.F.bank.value=arr[4];
+			document.F.snif.value=arr[5];
+			document.F.acc.value=arr[6];
+			document.F.sum1.value=arr[7];
+			document.F.kupa.value=arr[8];
+			document.F.submit();
+		}
+	}
+}
+
+
+
+function paym(el){
+	tr = el.parentElement.parentElement;
+	switch (el.value+""){
+		case "0":
+			num="";
+			ch="";
+			break;
+		case "1"://mezuman
+			num="999999";
+			ch=1;
+			break;
+		case "2"://ashrai
+			num="888888";
+			ch=1;
+			break;
+		case "3":case "4"://bank
+			num="777777";
+			ch=1;
+			break;
+	}
+	tr.cells[4].all(0).value=ch;
+	tr.cells[5].all(0).value=num;
+	tr.cells[6].all(0).value=num;
+	tr.cells[7].all(0).value=num;
+}
+
+<?}?>
+
+function goto(s,newWindow){
+	var url = "add_document.php?docid="+s;
+	if (newWindow==true)
+	{
+	    s = window.open(url,'DCN','top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=520,width='+(screen.availWidth-100)+',resizable=no,scrollbars=yes,status=no');
+	    s.focus();
+	}
+	else
+	{
+		location=url;
+    }
+}
+
+
+<?if ($isproduct)
+{
+	
+	if (count($rowIndexToRecalc))
+	{
+		foreach ($rowIndexToRecalc as $row)
+		{
+            if ($row!=-1){?>
+	        RecalcProducts(<?=$row?>);
+				<?
+			}
+		}
+	}
+	else
+	{
+		for ($i=0;$i<$numproducts;$i++)
+        {?>
+            <?if ($_POST["productids"]){?>
+	            RecalcProducts(<?=$i?>);
+            <?}else{?>
+	            RecalcProducts(<?=$i?>,"<?=$recalcvat?"sumbefore":"sum"?>",false<?=($_GET["docid"] || $_GET["createddoc"])?",false":""?>);
+            <?}?>
+		<?}
+	}
+	
+	/*
+	if ($_POST["total"])
+	{ 
+			?>
+	document.all.total.value = "<?=$_POST["total"]?>";
+	RecalcProducts(-1,"total");
+			<?
+		}
+		*/
+}?>
+<?
+
+if ($_GET["docid"] || $_GET["createddoc"])
+{?>
+
+	<?if ($isproduct) 
+	{
+		$documid = ($_GET["createddoc"])?$klita:$docid;
+		$alutrs = DBQuery("select sum(cost*quantity) as cost from document_products where doc_id = '$documid' and visible=1"); 
+		$docalut = $alutrs->Fields("cost");  
+        ?>
+        document.all("total").value=parseFloat(<?=$docamount?>).toFixed(2);
+        if (document.all("totalqty")!=null)document.all("totalqty").value=parseFloat(<?=$totalqty?>).toFixed(0);
+        document.all("vat").value=parseFloat(<?=$docamount-$docamount/(1+$dvat/100)?>).toFixed(2);
+        tbefore=parseFloat(<?=$docamount/(1+$dvat/100)?>);
+        document.all("totalbefore").value=tbefore.toFixed(2);  
+        alut=parseFloat('<?=$docalut?>');
+        document.getElementById("ALUT").innerHTML=parseFloat(alut).toFixed(2); 
+        document.getElementById("REVACH").innerHTML=(tbefore-alut).toFixed(2);
+        if (alut!=0)
+        {
+            document.all("REVACHTOP").innerHTML = ((tbefore-alut)/tbefore*100).toFixed(2)+"%";
+            document.all("REVACHBOTTOM").innerHTML = ((tbefore/alut)*100-100).toFixed(2)+"%";
+        }
+        else
+        {
+            document.all("REVACHTOP").innerHTML = document.all("REVACHBOTTOM").innerHTML = "אין";
+        }
+        document.all("REVACHTOP").style.color = document.all("REVACH").style.color = document.all("REVACHBOTTOM").style.color = (tbefore>alut||alut=="")?"green":"red";
+       
+        <?}?>
+        <?if ($ispayment && $isproduct){?>
+        document.all("total1").value=parseFloat(<?=$docamount?>).toFixed(2);
+        <?}?>
+<?}?>
+<?
+
+if ($ispayment){?>
+ RecalcPayments();
+<?}?>
+
+
+<?if (!$client && !$isinternal){?>
+if (document.F.client.value=="" && document.F.clientName.value=="" ){
+    //showClient();
+}
+<?}?>
+
+<?if ($isproduct){?>
+var fset=false;
+for(i=0;i<document.all("productname").length;i++){
+    if (document.all("productname")[i].isfocus==1){
+        document.all("productname")[i].focus();
+        fset=true;
+        break;
+    }
+}
+if (!fset){
+    for(i=0;i<document.all("productname").length-1;i++){
+        if (document.all("quantity_"+i).isfocus==1){
+            document.all("quantity_"+i).focus();
+            tr = document.all("quantity_"+i).createTextRange();
+            tr.expand();
+            tr.select();
+            break;
+        }
+    }
+}
+<?}?>
+
+<?if ($ser){?>
+showCodes();
+<?}?>
+
+<?if ($docid){?>
+function printDocument(){
+    return showModalDialog("printdoc.php?docid=<?=$docid?>","","dialogWidth:300px;dialogHeight:250px;center:yes;resizable:no;status:no;help:no");
+}
+<?}?>
+
+
+
+
+<?if ($focusAsmachta){?>
+document.F.comment.focus();
+<?}?>
+
+
+
+</script>
+
+</table>
+
+<?if ($existing){?>
+<Div id=NEWDOCPOPUP style='display:none'>
+	<table width=100% border=1 cellpadding=2 cellspacing=1 dir=rtl>
+	<?
+	$popupHeight=2;
+	$addedChild=false;
+	$i=0;
+	while (!$possibleChilds->EOF){
+		if ($possibleChilds->fields["name"]){
+			if (HasDocumentPermission($possibleChilds->fields["id"],"C")){
+                $addedChild=true;?>
+		 	<tr><td height=20
+				onmouseover='this.bgColor="darkblue";this.style.color="white"'
+				onmouseout='this.bgColor="";this.style.color="black"'
+				align=center style='border:outset 1;cursor:hand;color:black;font-family:arial;font-size:9pt;font-weight:bold'
+				onclick="parent.location='add_document.php?did=<?=$possibleChilds->fields["id"]?>&createddoc=1<?if (!$isinternal){?>&clientName='+escape(parent.document.F.clientName.value)+'<?}?>&client=<?=$client?>&klita=<?=$docid?>'"><?=$possibleChilds->fields["name"]?></td></tr>
+				<?
+			}
+			$popupHeight+=22;
+		}
+		else
+		{
+			$possibleChilds->MoveNext();
+			$nextname = $possibleChilds->fields["name"];
+			$possibleChilds->Move($i);
+			if ($nextname){
+            ?>
+            <tr><td bgcolor=blue style='padding:0' height=0><img src='<?=$imgPath?>none.gif' width=1></td></tr>
+				<?
+			}
+			$popupHeight+=4;
+		}
+		$possibleChilds->MoveNext();
+		$i++;
+	}
+     if (!$addedChild){?>
+     <tr><td align=center height=20 style='border:outset 1;cursor:hand;color:red;font-family:arial;font-size:9pt;font-weight:bold'>אין הרשאות</td></tr>
+     <?}?>
+	</table>
+</Div>
+<script>
+function createChildDoc(){
+	var oPopBody = oPopup.document.body;
+    oPopBody.style.backgroundColor = "buttonface";
+    oPopBody.style.border = "solid gray 1px";
+    oPopBody.innerHTML = document.getElementById("NEWDOCPOPUP").innerHTML;
+    oPopup.show(window.event.clientX-100, window.event.clientY+10, 180, <?=$popupHeight+2?>, document.body);
+}
+
+
+</script>
+
+
+
+<?}?>
+
+<?if ($prn){?>
+<script>
+document.body.onload=printDocument;
+</script>
+<?}?>
+ 
+<?if ($cls){?>
+<script>
+document.body.onload=closeCheshonit;
+</script>
+<?}?>
+
+<script>
+//<!--
+
+function BeforeUnload(){
+    var s = "documentprintstatus.php?action=get&docid=<?=$docid?>"
+   	xmlhttp = new ActiveXObject("Microsoft.XMLHTTP")
+	xmlhttp.open("GET",s,false)
+	xmlhttp.send()
+	s = xmlhttp.ResponseText;
+    if (s==1){
+        if (confirm("המקור לא הודפס! יש ללחוץ OK כדי להדפיס מקןר או Cancel לסגירת המסמך בלי הדפסת מקור.")){
+            if (printDocument()!=1){
+                //return "המקור לא הודפס!";
+            }
+        }
+    }
+}
+
+function Unload(){
+    var s = "documentprintstatus.php?action=set&docid=<?=$docid?>"
+   	xmlhttp = new ActiveXObject("Microsoft.XMLHTTP")
+	xmlhttp.open("GET",s,false)
+	xmlhttp.send()
+	s = xmlhttp.ResponseText;
+}
+
+<?if ($docid && $isprintable){?>
+document.body.onunload = Unload;
+document.body.onbeforeunload = BeforeUnload;
+<?}?>
+
+function recalcVat()
+{
+    document.F.recalcvat.value = 1;
+    document.F.submit();
+}
+
+
+function chPrintStatus()
+{
+    if (document.getElementById("DOPRINT")!=null)
+    {
+        document.getElementById("DOPRINT").disabled = document.F.docstatus.options[document.F.docstatus.selectedIndex].isprintable=="0";
+    }
+}
+<?if (!$existing){?>
+chPrintStatus();
+<?}?>
+
+var savedoc=0;
+
+
+function ValidateForm()
+{
+<?if ($existing){?>
+    if (savedoc==1 && document.F.docstatus.value == <?=$STATUS_CANCELLED?>)
+    {
+        res = window.showModalDialog("confirmcancel.php?docid=<?=$docid?>",window,"dialogWidth:500px;dialogHeight:250px;status:no");
+        if (res!=1)
+        {
+            return false;
+        }
+    }
+<?}?>
+
+
+var s = "";
+if (document.F.addrow.value=='')
+{
+	if (document.all.PRODUCTSTABLE!=null && document.F.createNotExistingProducts.value!="1")
+	{
+		NumProducts = document.F.numproducts.value;
+		for(i=1;i<=NumProducts;i++)
+		{
+			if (document.getElementById("isnewproduct"+i)!=null && document.getElementById("isnewproduct"+i).value=="1")
+			{
+				s+="<tr><td>"+document.getElementById("barcode"+i).value+"</td><td>"+document.all.productname[i].value+"</td></tr>";
+			}
+		}
+		if (s!="")
+		{
+			s = s.substr(0,1000);
+			ret=showModalDialog('confirm_creation.php?prods='+escape(s)+"&rk="+Math.random(),'','dialogWidth:440px;dialogHeight:250px;status:no;help:no;center:yes'); 
+			if (typeof(ret)!="undefined")
+			{
+				document.F.createNotExistingProducts.value = ret;
+			}
+			else
+			{
+				return false;
+			}
+		}
+	}
+} 
+if(document.F.dvat!=null)document.F.dvat.disabled=false;
+return true; 
+
+}
+
+
+//-->
+</script>  
+ 
+<script language="VBscript">
+function showBox()
+	ans = msgbox("לנקות סל לפני הוספת פריטים"+chr(13),35,"הוספת פריטים לסל")
+	showBox = ans
+end function
+</script>
+ 
+<?if ($scrollDown){?>
+<script>
+function scrollDown(){
+document.getElementById('PRODUCTSDIV').scrollTop=<?=$scrollDown?>;
+}
+document.body.onload=scrollDown;
+</script>
+<?}?>
+
+<?php
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+function array_delete($array, $index) {
+	for($i=0;$i<count($array);$i++)
+	{
+		if($i>=$index && $i!=count($array)-1) {
+			$array[$i]=$array[$i+1];
+		}
+	}
+	unset($array[count($array)-1]);
+	return $array;
+}
+
+function isParentShouldBeClosed($doctype,$mayinheritfrom)
+{
+	$elems = explode(",",$mayinheritfrom);
+	foreach($elems as $TABLE_DOCUMENT_TYPE){
+		$elem = explode("|",$TABLE_DOCUMENT_TYPE);
+		if ($elem[0]==$doctype){
+			return $elem[1]=="1";
+		}
+	}
+	return false;
+}
+
+function GetMoveStock($doctype,$mayinheritfrom)
+{
+	$elems = explode(",",$mayinheritfrom);
+	foreach($elems as $TABLE_DOCUMENT_TYPE){
+		$elem = explode("|",$TABLE_DOCUMENT_TYPE);
+		if ($elem[0]==$doctype){
+			return $elem[2];
+		}
+	}
+	return "";
+}
+
+function checkStockVAT()
+{
+	global $stock,$conn,$dvat,$vatfree,$stockVatFree,$TABLE_LISTINGSSTOCKS,$did;
+	$sql = "select * from $TABLE_LISTINGSSTOCKS where id = $stock";
+	$currentStockRS = $conn->Execute($sql);
+	if ($currentStockRS === false){log_error($sql);}
+	//when purchase is performed to Eylat, it does not mean that document is vat-free.
+	if ($currentStockRS->fields["VatFree"] && $did != "KNIYA" && $did != "ECHZERLESAPAK" && $did != "ETZIAMIIZUR" && $did != "KNISALEIZUR")
+	{
+		$dvat = 0;
+		$vatfree=true;
+		$stockVatFree=true;                    
+	}
+	else{
+		$vatfree =false;
+		$stockVatFree=false;
+	}
+}
+
+
+function ValidateYetziaItzur()
+{
+	global $productname,$listingid,$masterindex,$outline;
+	$i=0;
+	foreach ($productname as $product_name)
+	{
+		if ($masterindex[$i].""=="" && $listingid[$i] && $product_name)
+		{   
+			$test = DBQuery("select is_tree from listingsDB where id = ".$listingid[$i]);
+			if (!$test->fields["is_tree"])
+			{        
+				$outline=$i+1;
+				return $product_name; 
+			}
+		}
+		$i++;
+	}
+}
+
+function ValidateNegativeQuantityOrAmount()
+{
+	global $productname,$quantity,$price,$outline;
+	$i=0;
+	foreach ($productname as $product_name)
+	{
+		if ($quantity[$i]<0 || $price[$i]<0)
+		{
+			$outline=$i+1;
+			return $product_name; 
+		}
+		$i++;
+	}
+}
+
+
+function ValidateKnisaItzur()
+{
+	global $productname,$listingid,$masterindex,$outline;
+	$i=0;
+	foreach ($productname as $product_name)
+	{
+		if ($masterindex[$i].""=="" && $listingid[$i] && $product_name)
+		{   
+			$test = DBQuery("select count(*) as cnt from document_products  where factory_listing_id = ".$listingid[$i]);
+			if (!$test->fields["cnt"])
+			{        
+				$outline=$i+1;
+				return $product_name; 
+			}
+		}
+		$i++;
+	}
+}
+
+?>

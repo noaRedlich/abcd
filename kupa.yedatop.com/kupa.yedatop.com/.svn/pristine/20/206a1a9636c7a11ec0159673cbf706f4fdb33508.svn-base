@@ -1,0 +1,1203 @@
+<?
+	//	Vision routines are used in this module
+	include "services/BD3VisionRoutines.service";
+
+  	function BD3SQLSelectQuery($sServiceTable = "", $sOrderBlock = "", $sWhereBlock = "")
+	{
+		//	BD3SQLSELECTQUERY function automatic selects query by values
+		//	defined in the module
+		global $sServiceMainTable, $sSQLActions,$userID, $userName,$cid;
+
+		if($sOrderBlock == "" && $sSQLActions != "")
+		{
+		 	if($sSQLActions[ order ] != "")
+			{
+			 	$sOrderBlock = $sSQLActions[ order ];
+
+				if($sSQLActions[ order_type ] != "")
+				{
+				 	$sOrderBlock .= " ".$sSQLActions[ order_type ];
+				}
+			}
+		}
+
+		$sWhereBlockStr = "";
+
+		if($sWhereBlock != "")
+		{
+			$sWhereBlockStr = "WHERE";
+
+		 	for($i = 0; $i < sizeof($sWhereBlock); $i++)
+			{
+				$sWhereBlockStr .= " ".$sWhereBlock[$i];
+
+			}
+		}
+
+		if($sServiceTable == "")
+		{
+		 	$sServiceTable = $sServiceMainTable;
+		}
+
+		if($sOrderBlock != "")
+		{
+		 	$sOrderBlock = "ORDER BY ".$sOrderBlock;
+		}
+		 
+		if (!strpos($sServiceTable,"userdata")){
+			$userStr = strpos(" ".$sWhereBlockStr,"WHERE")?" AND user_ID = $userID":" WHERE user_ID = $userID";
+		}
+		else{
+			$userStr = strpos(" ".$sWhereBlockStr,"WHERE")?" AND UserName = '$userName'":" WHERE UserName = '$userName'";
+		}
+		return @q("SELECT * FROM $sServiceTable $sWhereBlockStr $userStr $sOrderBlock");
+		
+	}
+
+
+	function BD3ViewRoutine($rSQLResult)
+	{
+		//	BD3VIEWROUTINE is the main function that makes all routines
+		//	to preview all blocks for the module
+
+	 	global $sViewColoumns, $sServiceLegalName, $sOptions, $sServiceMainTable,$userID,$cid;
+
+		if(!sizeof($sViewColoumns) || e($rSQLResult))
+		{
+			if($sOptions[create_record] != none)
+			{
+				if($sOptions[create_record] != always)
+				{
+			 		echo "<u>שרות:</u> $sServiceLegalName<br><br>".
+				     	 "<b>אין רשומות.</b><br>\n".
+						 "יש ללחוץ <a href=main.php?bd_event=create_record><u>כאן</u></a>".
+						 ", כדי להוסיף רשומה.";
+				}
+				else
+				{
+				 	echo "אין רשומות. ".
+						 "";
+				}
+			}
+
+			return;
+		}
+
+
+		//	Building view, using Vision service
+		BD3VisionObjects("TABLE|HEAD_ROW");
+
+		//	Building table header
+		$sTmpColoumns = $sViewColoumns;
+
+		while(list($k, $v) = each($sTmpColoumns))
+		{
+			if((is_array($v)?$v[name]:$k) == bd_counter)
+			{
+			 	echo "<td width=50 align=center class=larger>";
+			}
+			else
+			{
+				echo "<td class=larger>&nbsp;";
+			}
+			echo is_array($v) ? $v[ln] : $v;
+
+		 	BD3VisionObject("/COL");
+		}
+
+		//	Checking record controls
+		$nRecordControls = 1;
+
+		if($sOptions[ edit_record ] == none && $sOptions[ delete_record ] == none && $sOptions[ bd_controls ] == "")
+		{
+		 	$nRecordControls = 0;
+		}
+
+		if($nRecordControls)
+		{
+		 	echo "<td align=center class=larger>&nbsp;פעולות";
+	 		BD3VisionObjects("/COL|/ROW");
+		}
+
+
+		$bd_counter = 0;
+
+		while($fDataArray = f($rSQLResult))
+		{
+		 	echo "<tr bgcolor=".( $bd_counter % 2 ? "#F0F0F0" : "#E8E8E8" )." height=20>\n";
+
+			$bd_counter++;
+			$sTmpColoumns = $sViewColoumns;
+
+			while(list($k, $v) = each($sTmpColoumns))
+			{
+				BD3VisionObject("COL");
+				echo "&nbsp;";
+
+			 	switch($k)
+				{
+				 	case "bd_counter":
+						echo $bd_counter.".";
+						break;
+					default:
+						if(is_array($v))
+						{
+							switch( $v[ type ] )
+							{
+							 	case yes_no:
+									echo !$fDataArray[$k] ? "No" : "Yes";
+									break;
+							 	case date:
+									echo dateFromSQL($fDataArray[$k]);
+									break;
+								case password:
+									echo "&lt;password&gt;";
+									break;
+
+								case enum:
+									$sTmpOptions = $v[enum];
+
+									while(list($kk, $vv) = each($sTmpOptions))
+									{
+									 	if($kk == $fDataArray[$k])
+										{
+										 	echo $vv;
+										}
+									}
+									break;
+							}
+						}
+						else
+						{
+							if($k == pswd)
+							{
+								echo "&lt;password&gt;";
+							}
+							else
+							{
+								echo $fDataArray[$k];
+							}
+						}
+				}
+				BD3VisionObject("/COL");
+			}
+
+			if($nRecordControls)
+			{
+				echo "<td align=center>";
+			}
+
+			//		Edit control
+			if($sOptions[ edit_record ] != none)
+			{
+				 if (!$fDataArray[id]){
+			 		$fDataArray[id]=$fDataArray[ID];
+				}
+				global $cid;
+				echo "&nbsp;<font color=0>[ <a href=main.php?cid=$cid&bd_event=edit_record&record_id=$fDataArray[id]>".
+					 "<font color=0>עדכון</a> ]\n";
+			}
+
+			//		Delete control
+			if($sOptions[ delete_record ] != none)
+			{
+				$sPromtStr = "";
+
+				if($sOptions[ delete_record ] == promt)
+				{
+					if($sOptions[ delete_record_promt ] == "")
+					{
+					 	$sPromtStr = "Do you really want to delete this record?";
+					}
+					else
+					{
+						$sPromtStr = $sOptions[ delete_record_promt ];
+					}
+
+					$sPromtStr = " OnClick=\"return window.confirm('$sPromtStr');\"";
+				}
+
+				echo "&nbsp;<font color=0>[ <a href=main.php?bd_event=delete_record&record_id=$fDataArray[id]$sPromtStr>".
+					 "<font color=0>מחק</a> ]\n";
+			}
+
+			//	Custom controls
+			if( ($sOptions[ bd_controls ] != ""))
+			{
+				$sTmpControls = $sOptions[ bd_controls ];
+
+				while(list($kk, $vv) = each($sTmpControls))
+				{
+				 	echo "&nbsp;<font color=0>[ <a href=".($vv[ type ] == service ? "main.php?service=$vv[href]&" : "$vv[link_to]?").
+						 ( ($vv[ param ] != "" && $vv[param_name] != "") ? "$vv[param_name]=".$fDataArray[ $vv[param] ] : "" ).">".
+						 "<font color=0>$vv[ln]</a> ]\n";
+				}
+			}
+
+			if($nRecordControls)
+			{
+				BD3VisionObject("/COL");
+			}
+
+			BD3VisionObject("/ROW");
+		}
+
+		BD3VisionObject("/TABLE");
+		if (!strpos($sServiceMainTable,"userdata")){
+			if ($cid){$ccid=" and creditor_id = $cid";}
+			echo "<table width=100%><td class=larger><br>רשומות: $bd_counter מתוך ".(nr(q("select id from $sServiceMainTable where user_ID = $userID $ccid")))."</td></table>";
+		}
+	}
+
+	function BD3HandleEvents()
+	{
+	 	global $bd_event, $bd_event_type, $sOptions, $fModulePermissions;
+
+		//	Checking depencies
+		//
+		//	For example, if modules developer turned action "delete_record" off
+		//	We cannot execute this event. Just changing its global value and
+		//	returning default.
+
+
+		if($sOptions[ edit_record ] == none && $bd_event == edit_record)
+		{
+		 	$bd_event = "";
+		}
+
+		if($sOptions[ delete_record ] == none && $bd_event == delete_record)
+		{
+		 	$bd_event = "";
+		}
+
+		switch($bd_event)
+		{
+		 	case create_record:
+				if(!BD3CheckPermissions(w))
+					break;
+
+				BD3Event_OnCreate();
+				$bd_event_type = modal;
+				break;
+
+			case search:
+				if(!BD3CheckPermissions(r))
+					break;
+
+				BD3Event_OnSearch();
+				$bd_event_type = modal;
+				break;
+
+			case link_to:
+				if(!BD3CheckPermissions(a))
+					break;
+
+				BD3Event_OnLinkTo();
+				$bd_event_type = modal;
+				break;
+
+			case search_data:
+				if(!BD3CheckPermissions(r))
+					break;
+
+				BD3Event_OnProcessSearching();
+				$bd_event_type = modal;
+				break;
+
+			case new_record:
+				if(!BD3CheckPermissions(w))
+					break;
+
+				if(BD3Event_CheckInputDataSream(insert))
+				{
+					BD3Event_OnNewRecord();
+					echo "<script>opener.location=opener.location.href.replace('#','')</script>";
+				}
+				break;
+
+			case edit_record:
+				if(!BD3CheckPermissions(w))
+					break;
+
+				BD3Event_OnEdit();
+				$bd_event_type = $sOptions[edit_record] != "always" ? modal : "";
+				break;
+
+			case update_record:
+				if(!BD3CheckPermissions(w))
+					break;
+
+				if(BD3Event_CheckInputDataSream(update))
+				{
+					BD3Event_OnUpdateRecord();
+					echo "<script>opener.location=opener.location.href.replace('#','')</script>";
+				}
+				break;
+
+			case delete_record:
+				if(!BD3CheckPermissions(d))
+					break;
+
+				BD3Event_OnDeleteRecord();
+				break;
+
+			default:
+				return "view";
+		}
+
+		return $bd_event_type == modal ? "" : view;
+	}
+
+	function BD3View()
+	{
+		global $sOptions, $rmodule,$bd_event, $bd_event_type;
+
+		BD3SetupPermissionsOnControls();
+		if(BD3HandleEvents() == view && $sOptions[view] != none)
+		{
+		 	$sOptions[view] = always;
+		}
+
+		if($sOptions[control_panel] != "unvisible")
+		{
+		 	BD3VisionControlPanel();
+		}
+
+		if($bd_event_type != modal)
+		{
+
+			if($sOptions[create_record] == always && $bd_event != create_record && $sOptions[search] == always && $bd_event != "search")
+			{
+
+				echo "<table cellspacing=2 cellpadding=2>";
+				BD3VisionObject("ROW");
+				echo "<td valign=top>";
+				BD3Event_OnCreate();
+
+				echo "</td>";
+				echo "<td valign=top>";
+
+				BD3Event_OnSearch();
+
+				echo "</td>";
+
+				BD3VisionObjects("/ROW|/TABLE");
+			}
+			else
+			{
+				if($sOptions[create_record] == always && $bd_event != create_record)
+				{
+					BD3Event_OnCreate();
+				}
+
+				if($sOptions[search] == always && $bd_event != search)
+				{
+					BD3Event_OnSearch();
+				}
+			}
+
+			if($sOptions[edit_record] == always && $bd_event != edit_record)
+			{
+			 	BD3Event_OnEdit();
+			}
+
+			if($sOptions[view] == always)
+			{	
+				if (!$rmodule){
+			 		BD3ViewRoutine(BD3SQLSelectQuery());
+				}
+				else{
+					echo"<script>window.close()</script>";
+				}
+			}
+		}
+	}
+
+	function BD3Event_OnCreate()
+	{
+	 	global $sEditColoumns, $rmodule,$sServiceLegalName, $sEditType;
+		global $record_id, $sServiceMainTable, $sOptions, $userID, $userName;
+
+		echo "<table border=0 cellspacing=0 cellpadding=1 bgcolor=999999><td>\n".
+			 "<table border=0 cellspacing=4 cellpadding=4 bgcolor=EFEFEF><td align=right class=larger>";
+
+		if($sEditType == update)
+		{
+	 		echo "עדכון רשומה:<br>";
+
+			if($sOptions[ type ] != master_detail)
+			{
+				$fRecord = f(q("SELECT * FROM $sServiceMainTable WHERE id='$record_id'"));
+			}
+			else
+			{
+				$sGlobalStr = "global \$$sOptions[master_field];";
+				eval($sGlobalStr);
+				$sGlobalStr = "\$sTmp = \$$sOptions[master_field];";
+				eval($sGlobalStr);
+
+				$sTmpCol = $sEditColoumns;
+				$sMasterItem = "";
+
+				while(list($k, $v) = each($sTmpCol))
+				{
+					if($v[ type ] == cross && $sOptions[ master_field ] == $v[ name ])
+					{
+						$sMasterItem = $v;
+						break;
+					}
+				}
+
+				//	Cheking if the record in the master table exists
+				//	If no.. then continue
+
+//				$rMaster = q("SELECT $sMasterItem[cross_field] FROM $sMasterItem[cross] WHERE $sMasterItem[cross_field]='$sTmp'");
+				$userStr = " AND user_ID = $userID";
+				$fRecord = f(q("SELECT * FROM $sServiceMainTable WHERE $sMasterItem[name]='$sTmp' $userStr "));
+
+				if($fRecord == "" && $sTmp == "")
+				{
+					//	My be master field is not selected, but data exists
+					if($sMasterItem != "")
+					{	
+						$userStr = " WHERE user_ID = $userID";
+						$fMaster = f(q("SELECT id FROM $sMasterItem[cross] $userStr ORDER BY $sMasterItem[lookup_field] LIMIT 1"));
+
+						if($fMaster[ id ] != "")
+						{
+							$userStr = " AND user_ID = $userID";
+							$fRecord = f(q("SELECT * FROM $sServiceMainTable WHERE $sOptions[master_field]='$fMaster[id]' $userStr "));
+						}
+					}
+
+				}
+			}
+		}
+		else
+		{
+	 		echo "רשומה חדשה<br>";
+		}
+
+		echo "<br>";
+
+		//	Drawing form
+		$sTmpColoumns = $sEditColoumns;
+
+		BD3VisionObject("CTABLE");
+		echo '
+		<script language="JavaScript" src="include/calendar/Calendar1-901.js"></script>
+		<LINK REL="stylesheet" TYPE="text/css" HREF="include/calendar/Calendar.css">
+		<script>
+		function ShowCalendar(id)
+		{
+			show_calendar(id,null,null,"DD/MM/YYYY","POPUP","InlineX="+(event.screenX-window.screenLeft)+";Title=Date;Width=135;Height=200;InlineY="+(event.screenY-window.screenTop+10)+";Fix=No;WeekStart=0;Weekends=56;AllowWeekends=Yes;ShortNames=Yes");
+		}
+		</script>';
+		global $cid;
+		echo "<form action='main.php?cid=$cid&bd_event=".($sEditType == update ? "update_record&record_id=$record_id" : new_record)."' method=post name=inf onsubmit='try{document.all.cid.disabled=false;}catch(e){}'>\n";
+
+		//	Common fields fetching ... not for X modules
+
+		while(list($k, $v) = each($sTmpColoumns))
+		{
+			if($v[type] != password && $v[type] != cross_child && $v[type] != link && $v[type] != special_link)
+			{
+				BD3VisionObjects("ROW|COLC");
+				echo "$v[ln]:";
+				BD3VisionObjects("/COL|COLC");
+			}
+
+			switch($v[type])
+			{
+			 	case yes_no:
+					echo "<select name=$v[name]>\n".
+					     "<option value=0".( $sEditType == update ? ($fRecord[$v[name]] == 0?" selected":"") : "").">No\n".
+					     "<option value=1".( $sEditType == update ? ($fRecord[$v[name]] == 1?" selected":"") : " selected").">Yes\n".
+					     "</select>";
+					break;
+
+				case enum:
+					echo "<select name=$v[name]>\n";
+
+					$sTmpOptions = $v[enum];
+
+					while(list($kk, $vv) = each($sTmpOptions))
+					{
+					 	echo "<option value='$kk'".($fRecord[$v[name]] == $kk ? " selected" : "").">$vv\n";
+					}
+
+					echo "</select>\n";
+					break;
+
+				case link:
+					echo "<tr><td colspan=2 height=20 align=center>\n".
+						 "[ <a href=$v[source]>$v[ln]</a> ]".
+						 "<td></tr>\n";
+					break;
+
+				case special_link:
+					$sSource = "";
+
+					if($v[ param ] == log_user)
+					{
+						$sSource = "main.php?bd_event=link_to&source=";
+						if(!is_array($sMasterItem))
+						{
+							break;
+						}
+
+						$fSource = f(q("SELECT $sMasterItem[lookup_field] FROM $sMasterItem[cross] WHERE $sMasterItem[cross_field]='".$fRecord[$sMasterItem[name]]."'"));
+						$sSource .= $fSource[$sMasterItem[lookup_field]];
+						$sSource .= "&action=user_log";
+					}
+
+					echo "<tr><td colspan=2 height=20 align=center>\n".
+						 "[ <a href=$sSource>$v[ln]</a> ]".
+						 "<td></tr>\n";
+					break;
+
+				case password:
+					if($sEditType == update)
+					{
+						BD3VisionObjects("ROW|COLC");
+						echo "New ".strtolower($v[ln]).":";
+						BD3VisionObjects("/COL|COLC");
+						echo "<input type=password size=25 name='new_$v[name]'>\n";
+						BD3VisionObjects("/COL|/ROW|ROW|COLC");
+						echo "Confirmation:";
+						BD3VisionObjects("/COL|COLC");
+						echo "<input type=password size=25 name='cnew_$v[name]'>\n";
+						BD3VisionObjects("/COL|/ROW");
+					}
+					else
+					{
+						BD3VisionObjects("ROW|COLC");
+						echo "$v[ln]:";
+						BD3VisionObjects("/COL|COLC");
+						echo "<input type=password size=25 name=$v[name]>\n";
+						BD3VisionObjects("/COL|/ROW|ROW|COLC");
+						echo "Confirmation:";
+						BD3VisionObjects("/COL|COLC");
+						echo "<input type=password size=25 name=c_$v[name]>\n";
+						BD3VisionObjects("/COL|/ROW");
+					}
+					break;
+
+				case string:
+					echo "<input type=text size=25 name=$v[name]".($sEditType == update ? " value='".$fRecord[$v[name]]."'" : "").">\n";
+					break;
+
+				case date:
+                    global $imgPath;
+					$datevalue = dateFromSQL($fRecord[$v[name]]);
+					if ($datevalue=="00/00/0000"||$datevalue=="//")$datevalue="";
+					echo "<input type=text size=25 name=$v[name]".($sEditType == update ? " value='".$datevalue."'" : "").">\n";
+					echo "<img align=absmiddle style='cursor:hand' src='".$imgPath."calendar.gif' onclick='ShowCalendar(\"inf.$v[name]\")'>";
+					break;
+
+				case text:
+					echo "<textarea rows=5 name=$v[name]>".($sEditType == update ? $fRecord[$v[name]] : "")."</textarea>\n";
+					break;
+
+				case cross:
+					$sCrossValues = $v;
+					global $cid;
+
+					echo "<input type=hidden name=bd_xstream value=1>\n";
+					echo "<select id=cid ".(($cid)?"disabled":"")." name='$sCrossValues[name]' onChange=\"window.location.href='main.php?".($bd_event != "" ? "bd_event=$bd_event&" : "")."uid='+document.inf.".$sCrossValues[name].".value;\">\n";
+
+					$rCrossRecords = q("SELECT * FROM $sCrossValues[cross] WHERE user_id=$userID ORDER BY $sCrossValues[lookup_field]");
+
+					eval("global \$$sCrossValues[name];");
+					eval("\$sSelectedItem=\$$sCrossValues[name];");
+
+					$bd_flag = 0;
+
+					while($fCrossRecord = f($rCrossRecords))
+					{
+						if(!$bd_flag && $sSelectedItem == "")
+						{
+							eval("global \$$sCrossValues[name];");
+							eval("\$$sCrossValues[name]=".($fCrossRecord[ $sCrossValues[ cross_field ] ]).";");
+							eval("\$sSelectedItem=\$$sCrossValues[name];");
+						}
+
+						$bd_flag = 1;
+
+					 	echo "<option value='".($fCrossRecord[ $sCrossValues[ cross_field ] ])."'".((($cid&&$fCrossRecord[ $sCrossValues[ cross_field ] ]==$cid)||($sSelectedItem == $fCrossRecord[ $sCrossValues[ cross_field ] ])) ? " selected" : "").">".($fCrossRecord[ $sCrossValues[ lookup_field ] ])."\n";
+					}
+
+					echo "</select>\n";
+					break;
+
+				case cross_child:
+					$sCross = $v;
+
+					BD3VisionObjects("/COL|/ROW|ROW");
+					echo "<td colspan=2>\n".
+					     "<table border=0 cellspacing=1 cellpadding=1 width=100%>".
+					     "<tr bgcolor=C0C0C0 height=23><td class=larger>&nbsp;$sCross[ln]</td>";
+
+					$sTmpValues = $sCross[ edit_fields ];
+
+					while(list($kk, $vv) = each($sTmpValues))
+					{
+					 	echo "<td align=center width=100 class=larger>&nbsp;$vv[ln]&nbsp;</td>";
+					}
+
+					$rCrossResults = q("SELECT * FROM $sCross[cross] ORDER BY $sCross[lookup_field]");
+					$bd_counter = 0;
+
+					while($fCrossResult = f($rCrossResults))
+					{
+						$bd_counter++;
+						$cl = $bd_counter % 2 ? "EFEFEF" : "E8E8E8";
+						echo "<tr height=20 bgcolor=$cl>\n".
+						     "<td nowrap>&nbsp;".($fCrossResult[ $sCross[ lookup_field ] ])."&nbsp;</td>\n";
+
+						$sTmpValues = $sCross[ edit_fields ];
+
+						while(list($kk, $vv) = each($sTmpValues))
+						{
+						 	echo "<td align=center>\n";
+
+							eval("\$sMasterCrossValue=\$$sCross[master_field];");
+
+							$fMainCrossResult = f(q("SELECT * FROM $sServiceMainTable WHERE $sCross[name]='".($fCrossResult[ $sCross[ cross_field ] ])."' and $sCross[master_field]='$sMasterCrossValue'"));
+
+							switch($vv[ type ])
+							{
+							 	case check_yes_no:
+
+									echo "&nbsp;<input type=checkbox value='1' name='$vv[name]_".$fCrossResult[$sCross[cross_field]]."'".( ($fMainCrossResult[ $vv[ name ] ] == "" || $fMainCrossResult[ $vv[ name ] ] == 1) ? " checked" : "").">&nbsp;\n";
+
+									break;
+							}
+
+							echo "</td>\n";
+						}
+
+						echo "</tr>\n";
+					}
+
+					echo "</tr>\n";
+					echo "</table>\n";
+
+
+					BD3VisionObjects("/COL|/ROW");
+
+					break;
+			}
+
+			if($v[type] != password && $v[type] != cross_child && $v[type] != link && $v[type] != special_link)
+			{
+				BD3VisionObjects("/COL|/ROW");
+			}
+		}
+
+		BD3VisionObjects("ROW|COL|/COL|COLC");
+
+		echo "<input type=hidden name=rmodule value='".$rmodule."'><input type=submit value=' אישור '>\n";
+
+		BD3VisionObjects("/COL|ROW");
+
+		echo "</form>";
+		BD3VisionObject("/TABLE");
+
+		echo    "</td></table></td></table>".
+				"<br>\n";
+	}
+
+	function BD3Event_OnNewRecord()
+	{
+		global $sEditColoumns, $sServiceMainTable,$userID;
+
+		//	Now making all input variables .. as global! ;)
+
+		$sTmpColoumns = $sEditColoumns;
+		$sGlobalStr = "global ";
+
+		while(list($k, $v) = each($sTmpColoumns))
+		{
+		 	$sGlobalStr .= "\$".$v[name].",";
+		}
+
+		$sGlobalStr[ strlen($sGlobalStr) - 1 ] = ";";
+
+		eval($sGlobalStr);
+
+		$sSQLInsertColoumns = "";
+		$sSQLInsertValues = "";
+
+		$sTmpColoumns = $sEditColoumns;
+
+		while(list($k, $v) = each($sTmpColoumns))
+		{
+			$sSQLInsertColoumns .= $v[name].",";
+
+			if($v[type] == password)
+			{
+				eval("\$$v[name]=sysCrypt(\$$v[name]);");
+			}
+			if($v[type] == date)
+			{
+				eval("\$$v[name]=dateToSQL(\$$v[name]);");
+			}
+			eval("\$sSQLInsertValues .= \"'\$$v[name]',\";");
+		}
+
+		$sSQLInsertColoumns .= "user_ID)";
+		$sSQLInsertValues.= "'$userID')";
+		$sSQLInsertStr = "INSERT INTO $sServiceMainTable($sSQLInsertColoumns VALUES($sSQLInsertValues";
+
+		q($sSQLInsertStr);
+		
+
+		$fRec = f(q("SELECT LAST_INSERT_ID() AS id FROM $sServiceMainTable"));
+		sysLogUserEvent(on_create, "(table $sServiceMainTable, id: $fRec[id])");
+	}
+
+	function BD3Event_OnDeleteRecord()
+	{
+		global $record_id, $sServiceMainTable;
+
+		sysLogUserEvent(on_delete, "(table $sServiceMainTable, id: $record_id)");
+		q("DELETE FROM $sServiceMainTable WHERE id='$record_id'");
+	}
+
+	function BD3Event_OnSearch()
+	{
+		global $sSQLActions, $sViewColoumns,$cid;
+
+		echo "<table border=0 cellspacing=0 cellpadding=1 bgcolor=999999><td>\n".
+			 "<table border=0 cellspacing=4 cellpadding=4 bgcolor=EFEFEF><td align=right class=larger>".
+			 "חיפוש רשומות:<br><br>";
+
+		BD3VisionObject("CTABLE");
+		echo "<form action='main.php?cid=$cid&bd_event=search_data' method=post>";
+		BD3VisionObject("ROW");
+		echo "<td class=larger>לחפש ב:</td><td align=right>";
+		echo "<select name=search_key>\n";
+
+		$sFields = array();
+
+		if(ereg_replace(",","",$sSQLActions[ search_by ]) == $sSQLActions[ search_by ])
+		{
+		 	$sFields[ $sSQLActions[ search_by ] ] = is_array($sViewColoumns[ $sSQLActions[ search_by ] ]) ? $sViewColoumns[ $sSQLActions[ search_by ] ][ ln ] : $sViewColoumns[ $sSQLActions[ search_by ] ];
+		}
+		else
+		{
+			$sTmp = ereg_replace(" ","", $sSQLActions[ search_by ]);
+		 	$sTmpFields = split(",", $sTmp);
+
+			while(list($k, $v) = each($sTmpFields))
+			{
+				$sFields[$v] = is_array($sViewColoumns[ $v ]) ? $sViewColoumns[ $v ][ ln ] : $sViewColoumns[ $v ];
+			}
+		}
+
+		while(list($k, $v) = each($sFields))
+		{
+			echo "<option value=$k>$v\n";
+		}
+
+		echo "</select>\n";
+
+		BD3VisionObjects("/COL|/ROW|ROW");
+
+		echo "<td class=larger>";
+		echo "מילה לחיפוש:</td><td align=right><input type=text size=25 name=search_keys>";
+
+		BD3VisionObjects("/COL|/ROW");
+
+		echo "<td align=right colspan=2>";
+		echo "<input type=submit value='חפש'>&nbsp;";
+
+		BD3VisionObjects("/COL|/ROW");
+		echo "</form>";
+		BD3VisionObject("/TABLE");
+
+		echo    "</td></table></td></table>".
+				"<br>\n";
+	}
+
+	function BD3Event_OnEdit()
+	{
+		global $sEditType,$rmodule, $sServiceMainTable, $record_id;
+
+		$sEditType = update;
+		BD3Event_OnCreate();
+
+		$sWhereBlock[] = "id='$record_id'";
+		if(!$rmodule){
+		BD3ViewRoutine(BD3SQLSelectQuery($sServiceMainTable, "", $sWhereBlock));
+		}
+
+		$sEditType = "";
+	}
+
+	function BD3Event_OnUpdateRecord()
+	{
+		global $sServiceMainTable, $record_id, $sEditColoumns, $bd_xstream, $sOptions;
+
+		$sTmpColoumns = $sEditColoumns;
+		$sGlobalStr = "global ";
+
+		while(list($k, $v) = each($sTmpColoumns))
+		{
+			if($v[ type ] != link && $v[ type ] != special_link)
+			{
+
+		 		$sGlobalStr .= "\$".$v[name].",";
+			 	if($v[ type ] == cross_child)
+				{
+			 		$rCrossResults = q("SELECT * FROM $v[cross]");
+	       			while($fCrossResult = f($rCrossResults))
+					{
+					 	$sTmpValues = $v[ edit_fields ];
+						while(list($kk, $vv) = each($sTmpValues))
+						{
+						 	$sGlobalStr .= "\$".$vv[ name ]."_".$fCrossResult[ $v[ cross_field ] ].",";
+						}	//	WHILE 2
+					}		//	WHILE 1
+				}			//	IF
+			}				// 	IF
+		}
+
+
+		$sGlobalStr[ strlen($sGlobalStr) - 1 ] = ";";
+
+		eval($sGlobalStr);
+		$sTmpColoumns = $sEditColoumns;
+
+		while(list($k, $v) = each($sTmpColoumns))
+		{
+			if($v[type] == password)
+			{
+			 	eval("global \$new_$v[name];");
+				eval("\$$v[name]=sysCrypt(\$new_$v[name]);");
+				eval("if(\$new_$v[name] == \"\"){\$$v[name]=$record_id;\$v[name]=\"record_id\";}");
+			}
+			
+			if($v[type] == date)
+			{
+			 	eval("global \$new_$v[name];");
+				eval("\$$v[name]=dateToSQL(\$$v[name]);");
+			}
+
+			if($v[type] == cross_child)
+			{
+
+			 	$rCrossResults = q("SELECT * FROM $v[cross]");
+
+       			while($fCrossResult = f($rCrossResults))
+				{
+				 	$sTmpValues = $v[ edit_fields ];
+
+					$sUpdate = "";
+					$sValues = "";
+					$sItems = "";
+
+					eval("\$sCrossResult = f(q(\"SELECT ID FROM $sServiceMainTable WHERE $v[name]='".( $fCrossResult[ $v[ cross_field ] ] )."' AND $v[master_field]='\$$v[master_field]'\"));");
+
+					while(list($kk, $vv) = each($sTmpValues))
+					{
+						eval("\$sCurrVal=\$".$vv[name]."_".$fCrossResult[$v[cross_field]].";");
+
+						eval("\$sCross1=\$vv[name];");
+						eval("\$sCross2=".($vv[type]==check_yes_no?"(int)":"")."\$sCurrVal;");
+
+						if($sCrossResult[id] == "")
+						{
+							$sItems .= "$sCross1,";
+							$sValues .= "'$sCross2',";
+
+						}
+						else
+						{
+							$sItems .= "$sCross1='$sCross2',";
+						}
+
+					}
+
+					if($sCrossResult[ id ] == "")
+					{
+						$sItems[ strlen($sItems) - 1 ] = ")";
+						$sValues[ strlen($sValues) - 1 ] = ")";
+					 	$sUpdate = "INSERT INTO $sServiceMainTable($v[master_field],$v[name],$sItems VALUES('\$$v[master_field]','".( $fCrossResult[ $v[cross_field] ] )."',$sValues";
+					}
+					else
+					{
+						$sItems[ strlen($sItems) - 1 ] = " ";
+						$sUpdate = "UPDATE $sServiceMainTable SET $sItems WHERE $v[master_field]='\$$v[master_field]' AND $v[name]='".( $fCrossResult[ $v[cross_field] ] )."'";
+					}
+					eval("q(\"$sUpdate\");");
+					
+	
+				}
+			}
+			else
+			{
+
+				if($sOptions[ type ] == master_detail)
+				{
+					//	SQL query for single item
+					$sTmp = "\$rTmp = q(\"SELECT $v[name] FROM $sServiceMainTable WHERE $sOptions[master_field]='\$$sOptions[master_field]'\");";
+					eval($sTmp);
+
+					if(e($rTmp))
+					{
+						$sUpdateStr = "q(\"INSERT INTO $sServiceMainTable ($v[name]) VALUES(\$$v[name])\");";
+					}
+					else
+					{
+						$sUpdateStr = "q(\"UPDATE $sServiceMainTable SET $v[name]='\$$v[name]' WHERE $sOptions[master_field]='\$$sOptions[master_field]'\");";
+					}
+					eval($sUpdateStr);
+				}
+				else
+				{
+					$sUpdateStr = "q(\"UPDATE $sServiceMainTable SET $v[name]='\$$v[name]' WHERE id='$record_id'\");";
+					//echo($sUpdateStr." $Day<hr>");
+					eval($sUpdateStr);
+				}
+			}
+
+		}
+
+		//	Log on edit user event
+		if($record_id == "")
+		{
+			$fRec = f(q("SELECT LAST_INSERT_ID() AS id FROM $sServiceMainTable"));
+			$record_id = $fRec[id];
+		}
+
+		sysLogUserEvent(on_edit, "(table $sServiceMainTable, id: $record_id)");
+	}
+
+	function BD3Event_OnProcessSearching()
+	{
+	  	global $sServiceMainTable, $search_keys, $search_key, $sEditColoumns;
+
+		$sKeys = "";
+		$sTmpColoumns = $sEditColoumns;
+		$nFound = 0;
+		$sItem = "";
+
+		while(list($k, $v) = each($sTmpColoumns))
+		{
+			if($v[ name ] == $search_key)
+			{
+			 	$nFound = 1;
+				$sItem = $v;
+				break;
+			}
+		}
+
+		if(!$nFound)
+		{
+		 	return;
+		}
+
+		switch($sItem[ type ])
+		{
+		 	case yes_no:
+				$sKeys = strtoupper($search_keys);
+
+				if($sKeys == "1" || $sKeys == "ְִ" || $sKeys == "YES")
+				{
+				 	$sKeys = 1;
+				}
+				else
+				{
+				 	$sKeys = 0;
+				}
+
+				break;
+
+			case string:case date:
+
+				$sKeys = array();
+
+				$sTmpStr = ereg_replace("\+", " ", $search_keys);
+				$sTmpStr = ereg_replace("\|", " ", $search_keys);
+
+				$sKeys = split(" ", $sTmpStr);
+
+				break;
+		}
+
+		$sWhereBlock = "";
+
+		if(is_array($sKeys))
+		{
+			for($i = 0; $i < sizeof($sKeys) ; $i++)
+			{
+			 	$sWhereBlock[ $i ] = "$sItem[name] like '%".$sKeys[$i]."%' ";
+
+				if($i != sizeof($sKeys) - 1)
+				{
+				 	$sWhereBlock[ $i ] .= "or ";
+				}
+			}
+		}
+		else
+		{
+		 	$sWhereBlock[] = "$sItem[name]='$sKeys'";
+		}
+		sysLogUserEvent(on_search, "(table $sServiceMainTable, keywords: $sItem[ln]='$search_keys')");
+		BD3ViewRoutine(BD3SQLSelectQuery($sServiceMainTable, "", $sWhereBlock));
+	}
+
+	function BD3Event_CheckInputDataSream($sEditType)
+	{
+		global $sEditColoumns, $bd_event, $HTTP_POST_VARS;
+
+		$sTmpColoumns = $sEditColoumns;
+
+		while(list($k, $v) = each($sTmpColoumns))
+		{
+			if($v[type] == password)
+			{
+			 	//	checking password confirmation
+				//	password must not be empty.
+
+				$sSecondPStr = ( $sEditType == update ) ? "cnew_".$v[name] : "c_".$v[name];
+				$sFirstPStr = ( $sEditType == update ) ? "new_".$v[name] : $v[name];
+
+				$sGlobalStr = "global \$$sFirstPStr, \$$sSecondPStr;";
+
+				eval($sGlobalStr);
+
+				$sFirstName = $sFirstPStr;
+				$sSecondName = $sSecondPStr;
+
+				eval("\$sFirstPStr=\$$sFirstPStr;");
+				eval("\$sSecondPStr=\$$sSecondPStr;");
+
+				if($sFirstPStr != $sSecondPStr || ($sEditType == insert && ($sFirstPStr == "" || $sSecondPStr == "")))
+				{
+					$bd_event = $sEditType == update ? edit_record : create_record;
+
+					echo "<span class=big><font color=FFCC00>Error</font>:".$v[ln]." and its confirmation must be edinty!</span><br><br>";
+					BD3HandleEvents();
+
+					return 0;
+				}
+			}
+		}
+
+	 	return 1;
+	}
+
+	function BD3CheckPermissions($sAction)
+	{
+		//	r - Read
+		//	w - Create, Edit
+		//	d - Delete
+		//	a - Additional
+
+		if($sAction != r && $sAction != w && $sAction != d && $sAction != a)
+		{
+			return 0;
+		}
+
+		if($sAction == a)
+		{
+			$sAction = adds;
+		}
+
+		global $fModulePermissions;
+		return (int)$fModulePermissions[ $sAction ];
+
+	}  //  BD3CheckPermissions
+
+	function BD3SetupPermissionsOnControls()
+	{
+		global $fModulePermissions, $sOptions;
+
+		//	Read permission
+		if(!$fModulePermissions[ r ])
+		{
+			$sOptions[ search ] = none;
+			$sOptions[ main_view ] = none;
+			$sOptions[ view ] = none;
+			$sOptions[ control_panel ] = unvisible;
+		}
+
+		//	Write permission
+		if(!$fModulePermissions[ w ])
+		{
+			$sOptions[ edit_record ] = none;
+			$sOptions[ create_record ] = none;
+		}
+
+		//	Delete permission
+		if(!$fModulePermissions[ d ])
+		{
+			$sOptions[ delete_record ] = none;
+			$sOptions[ delete_record_promt ] = none;
+		}
+
+		//	On Additional controls permission
+		if(!$fModulePermissions[ adds ])
+		{
+			$sOptions[ bd_controls ] = "";
+		}
+
+	}  //  BD3SetupPermissionsOnControls
+
+	function BD3Event_OnLinkTo()
+	{
+		global $source, $action, $lparam;
+
+		$sSource = "";
+		switch($action)
+		{
+			case user_log:
+				$sSource = sysGetLogFilenameForUser($source);
+				break;
+		}
+
+		if($lparam == delete)
+		{
+			@unlink($sSource);
+		}
+
+
+		echo "<table border=0 cellspacing=0 cellpadding=1 bgcolor=999999 width=100%><td>\n";
+		BD3VisionObjects("RTABLE|ROW|SCOL|LTABLE|ROW|COL");
+		echo "<pre>\n";
+
+		$pHandle = @fopen($sSource, "rt");
+		if(!$pHandle)
+		{
+			echo $lparam == delete ? "Requiest file was deleted!" : "Request file is not found!";
+		}
+		else
+		{
+			$sContent = fread($pHandle, filesize($sSource));
+			$sContent = ereg_replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", $sContent);
+
+			echo $sContent;
+
+			fclose($pHandle);
+		}
+
+		echo "</pre>\n";
+		BD3VisionObjects("/COL|/ROW|/TABLE|/COL|/ROW|/TABLE");
+		echo "</td></table><br>\n";
+
+	}  //  BD3Event_OnLinkTo
+
+
+		// dd/mm/yyyy -> YYYY-MM-DD
+	function dateToSQL($date){
+		return substr($date,6,4) ."-".substr($date,3,2)."-".substr($date,0,2);
+	}
+
+	// YYYY-MM-DD -> dd/mm/yyyy
+	function dateFromSQL($date){
+		return substr($date,8,2) ."/".substr($date,5,2)."/".substr($date,0,4);
+	}
+?>

@@ -1,0 +1,5 @@
+<?
+session_start();
+$rmodule=1;
+include("../stock/reports.php");
+?>

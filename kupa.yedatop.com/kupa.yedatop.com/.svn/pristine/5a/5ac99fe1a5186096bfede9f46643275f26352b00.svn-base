@@ -1,0 +1,421 @@
+<?
+	session_start();
+    ini_set("max_execution_time","3000");
+    @set_time_limit(3000); 
+	$simple=1;
+	$page_subtitle = "ספירת מלאי סוף יום";
+	//$xlsfilename = "stock";
+	include("include/common.php");
+    include("include/business_functions.php");
+    
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+	if (($_GET["sDate"] || $sort) && $saction != "sendreport"){
+		$saction="go";
+	}
+
+    if (!IsPostBack())$includevat=true; 
+
+	if (!$_POST["sDate"])
+    {
+		$sDate = date("d/m/Y");
+	}
+
+    $reptime = mktime(23,59,59,substr($sDate,3,2),substr($sDate,0,2),substr($sDate,6,4));
+    $olddate = false;
+    
+    if($reptime<time())
+    {
+        $sql = "select max(day) as day from stocksnapshot";
+        $snap = $conn->Execute($sql);
+        if ($snap === false){log_error($sql);}
+        $dateStart = $snap->Fields("day");
+        $olddate = true;
+    }
+
+	if (!$sDate){
+		$sDate = date("d/m/Y",$initialTime);
+		$eDate = date("d/m/Y");
+	}
+
+	$cats = $conn->Execute("select * from listingsCategories where user_ID = $userID and Status=1 order by binary CategoryName");
+	if ($cats === false){log_error($sql);}
+    
+	$stocks = GetStocks(false);     
+    
+    if (!$stock)$stock=$stocks->fields["ID"];                    
+
+	?>
+	<style>
+	.z {color:gray}
+	.b {font-weight:bold}
+	th {background-color:silver}
+	</style>
+	<script>
+	function PrintReport(){
+		document.getElementById("Query").style.display = "none";
+		window.print();
+		document.getElementById("Query").style.display = "";
+	}
+	</script>
+	<body>
+	<table cellpadding=5 border=0 width=100%>
+	<tr>
+	<form name=F method=post action="<?=$PHP_SELF?>">
+	<input type=hidden name=usr value=<?=$usr?>>
+	<input type=hidden name=rmodule value=<?=$rmodule?>>
+	
+	<td nowrap>
+	<?$reporttitle = $lang["report_stock"];?>
+	<?if ($usr){$reporttitle.="<br>".$username;}?>
+	<strong style='font-size:12pt'><?=$page_subtitle?></strong>
+	</td><td width=99% style='border:inset 1'>
+	
+    <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+    <img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.sDate")'>
+    
+	<select name=category>
+	<option value=""><?=$lang["all_cats"]?>
+    <?FillCategoriesList($category);?>       
+	</select>
+	
+	<select name=stock>
+	<?FillStockList($stocks,$stock);?>
+	</select>
+	
+
+    <SELECT NAME="onlydiff">
+        <option value=""> כל הפריטים
+        <option value="1" <?=$onlydiff==1?"selected":""?>> רק פריטים שיש הפרש
+        <option value="2" <?=$onlydiff==2?"selected":""?>> רק פריטים שיש הפרש או אין ספירה
+    </SELECT>
+
+
+	<input type=submit value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top"  >
+	
+         <br>
+	<Input type=checkbox <?=($subcats||!IsPostBack())?"checked":""?> name=subcats><?=$lang["including_sub_cat"]?>
+		
+     <input type=checkbox value=1 name=includevat <?=($includevat)?"checked":""?> >מחיר מכירה ועלות כוללים מע"מ
+
+    
+	<?if ($saction=="go" || $saction=="sendreport" || $sort){
+		require("sendreport.php");
+	}?>
+	<input type=hidden name=saction value=go>
+	<input type=hidden name=reportbody value="">
+	<input type=hidden name=sendmode value="">
+
+	</td>
+	</form>
+	</tr>
+	</table>
+	<?	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go")
+    {
+		$q="";
+		if ($category){
+			$q.= " and c.id in (".getCategoryIDs($category,$subcats).") ";
+		}
+       switch ($sort)
+        {
+            case "Category": $order = "binary CategoryName"; break;
+            case "BarCode": $order = "BarCode+0, BarCode"; break;          
+            case "Name": $order = "binary title"; break;          
+            case "Price": $order = "saleprice"; break;          
+            default: $order = "binary CategoryName, binary title ";break;
+        }
+        
+        if ($includevat)
+        {
+            $costsql = "cost"; 
+            $pricesql = "saleprice"; 
+        }
+        else
+        {
+            $costsql = "cost/(1+".$config["VAT"]."/100)"; 
+            $pricesql = "saleprice/(1+".$config["VAT"]."/100)"; 
+        }
+        
+		$sql = "select 
+				l.id,
+                l.creation_date,
+				title,
+				c.CategoryName,
+				$costsql as cost,
+				$pricesql as price,
+				quantity,
+				barcode,
+				MisparZar,
+				MisparSiduri,
+				MisparChalifi,
+				StockMin,
+				StockMax,
+                u.abbreviation, u.grams_rate, u.decimals, u.id as unit_id
+			from
+				 listingsDB l		
+				 inner join listingsCategories  c on	ProductGroup = c.ID,
+                 $TABLE_UNITS u
+	 		where
+                u.id = Unit and
+				l.user_id = $userID and 
+				l.active  in ('yes','yek') 
+				$q
+			order by $order";
+		
+		//echo "<!--SQL: ".$sql." -->";
+
+		$products = $recordSet = $conn->Execute($sql);
+		if ($products === false){log_error($sql);}
+        $numrows = $products->NumRows();
+
+        echo "</table></table>
+        <table width=300  id=CALCSTATUS align=center >
+        <tr><td align=center id=CALCMSG>מתבצע חישוב...</td></tr>
+        <tr>
+            <td height=20 DIR=LTR bgcolor=white><div id=CNT style='text-align:center;color:white;background-color:blue;'></div></td>
+        </tr>
+        </table>
+        <script>
+        function upd(cnt){
+            percent = cnt/$numrows*100
+            document.all.CNT.innerText=percent.toFixed(0)+'%'
+            document.all.CNT.style.width=percent.toFixed(0)+'%'
+        }
+        function calcend(){
+             document.all.CALCSTATUS.style.display='none';
+        }
+        function calcmsg(s){
+             document.all.CALCMSG.innerText=s;
+        }
+        </script>
+        ";
+        flush();
+        
+
+        
+        $TAchuzRevachMemutza = 0;
+	    $TMahzor = 0; 
+	    $TRevachAgol = 0;
+	    $cnt=0;
+
+	    $url = "rep_stocktaking.php?includevat=$includevat&sDate=$sDate&category=$category&stock=$stock&onlydiff=$onlydiff";
+	    //$worksheet->set_column('A:D', 15);
+	    //$worksheet->set_column('E:O', 12);
+	    
+	    $headings = array('מחלקה','ברקוד','פריט','ספק','תאריך יצירה','עלות','מחיר מכירה','כמות במלאי','כמות מינימלי','כמות מקסימלי','מספר זר','מספר סידורי','מספר חליפי','סה"כ עלות','סה"כ מחירה');
+	    //$worksheet->write_row('A'.($rrow++), $headings, $heading);
+	    
+
+        echo "<script>try{calcmsg('הכנה לתצוגת דו\"ח - נא לחכות');}catch(e){}</script>\n";flush();
+	    echo "<div ><table id=REPORTTABLE dir=$dir  border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+	    echo "
+	    <tr valign=top>
+	    <th><a href='$url&sort=Category'>מחלקה</a></th>
+	    <th><a href='$url&sort=BarCode'>ברקוד</a></th>
+	    <th><a href='$url&sort=Name'>פריט</a></th>
+	    <th><a href='$url&sort=Price'>מחיר מכירה</a></th>
+	    <th>כמות במלאי</a></th>
+	    <th>כמות לפי ספירה</a></th>
+        <th>הפרש</a></th>
+	    </tr>
+	    ";
+	    
+	    $totalMlaiAlut = 0;
+	    $totalMlaiMechira = 0;
+		    
+		while (!$products->EOF)
+        { 
+			$Alut = $products->fields("cost");
+			if (!$Alut)$Alut=0;
+			$prodid = $products->fields("id");
+			if (!$cost) $cost=0;
+			$Price	= $products->fields["price"];
+
+            if ($stock)
+            {
+                $qs = "and stock_id = $stock";
+            }
+            $sql = "select sum(quantity) as quantity from document_products where listing_id = $prodid and doc_id in 
+            (select id from documents where doc_date = '".DateToSQL($sDate)."' and doc_type='SFIRATSOFYOM' $qs)";
+            $sfira = $recordSet = $conn->Execute($sql);
+		    if ($sfira === false){log_error($sql);}
+            
+            
+			$stq="";
+            if ($olddate)
+            {
+                $quantarr = GetMovements($prodid, $stock, $dateStart, DateToSQL($sDate)." 23:59:59","",$products->Fields("grams_rate"));
+                $quantity = $quantarr["EndQuantity"];           
+            }
+            else
+            {
+                $include = true;
+			    if ($workmode=="A")
+                {
+				    if ($stock)
+                    {
+					    $sql = "select Quantity, SalePrice from listingsStocksElements 
+					    where ListingID = $prodid and stockID = $stock ";
+				    }
+				    else
+                    {
+					    $sql = "select sum(Quantity) as Quantity from listingsStocksElements
+					    where ListingID = $prodid ";
+				    }
+	    
+
+				    $p = $conn->Execute($sql);
+				    if ($p === false){log_error($sql);}
+				    $quantity = $p->fields["Quantity"];
+				    if ($stock && $p->fields["SalePrice"]!="")
+                    {
+					    $Price	= $p->fields["SalePrice"];
+				    }
+
+			    }
+			    else
+                {
+				    $quantity = $products->fields("quantity");
+			    }
+            }
+                           
+            $sQuantity = $sfira->Fields("quantity");
+            if ($products->fields("grams_rate"))
+			{
+                $quantity/=$products->Fields("grams_rate");
+                if($sQuantity)
+                {
+                    $sQuantity/=$products->Fields("grams_rate");
+                }
+            }
+
+            $cnt++;
+            if ($cnt % 30 == 0){
+                echo "<script>upd($cnt);</script>\n";flush();
+            }
+            $include = !$onlydiff
+             || ($onlydiff==2 && ($quantity!=$sQuantity || !$sQuantity))
+             || ($onlydiff==1 && ($sQuantity && $quantity!=$sQuantity));
+            
+			if ($include)
+            {
+                
+				$row = array(
+					"ProductID" => $prodid,
+					"Category" => $products->fields["CategoryName"],
+					"Name" => $products->fields["title"],
+					"Alut" => $Alut,
+					"Price" => $Price,
+					"Sapak" => $products->fields["sapak"],
+					"BarCode" => $products->fields["barcode"],
+					"MisparZar" => $products->fields["MisparZar"],
+					"MisparSiduri" => $products->fields["MisparSiduri"],
+					"MisparChalifi" => $products->fields["MisparChalifi"],
+					"StockMin" => $products->fields["StockMin"],
+					"StockMax" => $products->fields["StockMax"],
+					"CreationDate" => $products->fields["creation_date"],
+                    "Decimals" => $products->fields["decimals"],
+                    "Unit" => $products->fields["abbreviation"],
+                    "UnitID" => $products->fields["unit_id"],
+					"Quantity" => $quantity,
+                    "SfiraQuantity" => $sQuantity,
+                    "Diff" => $quantity-$sQuantity
+					
+				);
+                
+                if ($row["SfiraQuantity"]=="")
+                {
+                    $rowcolor="blue";
+                }
+                elseif ($row["Quantity"]!=$row["SfiraQuantity"])
+                {
+                    $rowcolor="red";
+                }
+                else
+                {
+                    $rowcolor="black";
+                }
+		        echo "
+		        <tr valign=top style='color:$rowcolor'>
+		        <td>".splitLongWords($row["Category"])."</td>
+		        <td>".splitLongWords($row["BarCode"])."</td>
+		        <td><a>".splitLongWords($row["Name"])."</td>
+		        <td>".number_format($row["Price"],2)."</td>
+		        <td nowrap><span dir=ltr>".number_format($row["Quantity"],$row["Decimals"])." ".(($row["UnitID"])?$row["Unit"]:"")."</span></td>
+		        <td nowrap><span dir=ltr>".(($row["SfiraQuantity"]=="")?"":(number_format($row["SfiraQuantity"],$row["Decimals"])." ".(($row["UnitID"])?$row["Unit"]:"")))."</span></td>
+		        <td nowrap><span dir=ltr>".(($row["SfiraQuantity"]=="")?"":number_format($row["Diff"],$row["Decimals"]))."</span></td>
+		        </tr>
+	        
+		        ";	
+
+                /*
+			    $b=($row["Quantity"])?$body:$bodyred;
+			    $r=($row["Quantity"])?$bodyr:$bodyredr;
+			    $f=($row["Quantity"])?$numformat:$numformatred;
+			    $worksheet->write("A".($rrow),$row["Category"],$b);
+			    $worksheet->write("B".($rrow)," ".$row["BarCode"],$r);
+			    $worksheet->write("C".($rrow),$row["Name"],$b);
+			    $worksheet->write("D".($rrow),$row["Sapak"],$b);
+			    $worksheet->write("E".($rrow),DateFromSQL($row["CreationDate"]),$b);
+			    $worksheet->write("F".($rrow),$row["Alut"],$f);
+			    $worksheet->write("G".($rrow),$row["Price"],$f);
+			    $worksheet->write("H".($rrow),$row["Quantity"],$b);
+			    $worksheet->write("I".($rrow),$row["StockMin"],$f);
+			    $worksheet->write("J".($rrow),$row["StockMax"],$f);
+			    $worksheet->write("K".($rrow),$row["MisparZar"],$r);
+			    $worksheet->write("L".($rrow),$row["MisparSiduri"],$r);
+			    $worksheet->write("M".($rrow),$row["MisparChalifi"],$r);
+			    $worksheet->write("N".($rrow),$row["Alut"]*$row["Quantity"],$f);
+			    $worksheet->write("O".($rrow),$row["Price"]*$row["Quantity"],$f);
+                */
+			    $rrow++;
+   			}
+		
+ 		    $products->MoveNext();
+		}
+        
+
+                	
+	echo "</table></div>";
+	}
+    echo "<script>try{calcend();}catch(e){}</script>\n";flush();
+
+    /*
+	$worksheet->write("M".($rrow),"סה\"כ",$numformatb);
+	$worksheet->write("N".($rrow),$totalMlaiAlut,$numformatb);
+	$worksheet->write("O".($rrow),$totalMlaiMechira,$numformatb);
+	
+	$workbook->close();
+    
+	copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+    unlink($fname);
+	*/
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+	
+	
+	function aSortBySecondIndex($multiArray, $secondIndex,$rew = false) {
+		while (list($firstIndex, ) = each($multiArray))
+		$indexMap[$firstIndex] = $multiArray[$firstIndex][$secondIndex];
+		if (!$rew)
+			asort($indexMap);
+		else 	
+			arsort($indexMap);
+		while (list($firstIndex, ) = each($indexMap))
+		if (is_numeric($firstIndex))
+		$sortedArray[] = $multiArray[$firstIndex];
+		else $sortedArray[$firstIndex] = $multiArray[$firstIndex];
+	return $sortedArray;
+
+
+}
+?>

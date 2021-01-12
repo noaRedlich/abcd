@@ -1,0 +1,192 @@
+<?
+
+global $REPORT_PERMISSIONS; 
+global $DOCUMENT_PERMISSIONS; 
+global $ACTION_PERMISSIONS; 
+
+function InitPermissions($officeUserID)  
+{
+    InitReportPermissions($officeUserID);   
+    InitDocumentPermissions($officeUserID);
+    InitActionPermissions($officeUserID);  
+}
+
+function InitReportPermissions($officeUserID){
+   global $conn,$REPORT_PERMISSIONS,$TABLE_REPORTS,$TABLE_USERPROFILE; 
+   if (!$_SESSION["REPORT_PERMISSIONS"]){
+       $sql = "select id from $TABLE_REPORTS where id in 
+       (select report_id from profilereports where r=1 and profile_id in 
+        (select profile_id from $TABLE_USERPROFILE where r=1 and userid = $officeUserID))";
+
+       $reports=$conn->Execute($sql);
+       if ($reports === false){log_error($sql);} 
+       $REPORT_PERMISSIONS = array();
+       
+       while (!$reports->EOF){
+            $REPORT_PERMISSIONS[] = $reports->fields["id"];
+            $reports->MoveNext();
+       }
+       $_SESSION["REPORT_PERMISSIONS"] = $REPORT_PERMISSIONS;
+   }
+   else   
+   {   
+       $REPORT_PERMISSIONS = $_SESSION["REPORT_PERMISSIONS"];  
+   }
+}
+
+function InitActionPermissions($officeUserID){
+   global $conn,$ACTION_PERMISSIONS,$TABLE_USERPROFILE; 
+   if (!$_SESSION["ACTION_PERMISSIONS"]){
+       $sql = "select id from actions where id in 
+       (select action_id from profileactions where r=1 and profile_id in 
+        (select profile_id from $TABLE_USERPROFILE where r=1 and userid = $officeUserID))";
+       
+       $actions=$conn->Execute($sql);
+       if ($actions === false){log_error($sql);} 
+       $ACTION_PERMISSIONS = array();          
+       
+       while (!$actions->EOF){
+            $ACTION_PERMISSIONS[] = $actions->fields["id"];
+            $actions->MoveNext();
+       }
+       $_SESSION["ACTION_PERMISSIONS"] = $ACTION_PERMISSIONS;
+   }
+   else   
+   {   
+       $ACTION_PERMISSIONS = $_SESSION["ACTION_PERMISSIONS"];
+   }
+
+}
+
+function InitDocumentPermissions($officeUserID){
+   global $conn,$DOCUMENT_PERMISSIONS,$TABLE_DOCUMENT_TYPE,$TABLE_USERPROFILE,$TABLE_PROFILEDOCTYPES;                               
+   if (!$_SESSION["DOCUMENT_PERMISSIONS"]){
+       $sql = "select dt.id,
+        sum(r) as r,
+        sum(w) as w,
+        sum(c) as c from $TABLE_DOCUMENT_TYPE dt left outer join $TABLE_PROFILEDOCTYPES pdt
+        on pdt.doc_type = dt.id
+        where profile_id in
+        (select profile_id from $TABLE_USERPROFILE where r=1 and userid = $officeUserID)
+        group by dt.id";
+       
+       $doctypes=$conn->Execute($sql);
+       if ($doctypes === false){log_error($sql);} 
+       $DOCUMENT_PERMISSIONS = array();          
+       
+       while (!$doctypes->EOF){
+            $DOCUMENT_PERMISSIONS[$doctypes->fields["id"]] = "";
+            if ($doctypes->fields["r"]>0){
+                $DOCUMENT_PERMISSIONS[$doctypes->fields["id"]].="R";
+            }
+            if ($doctypes->fields["w"]>0){
+                $DOCUMENT_PERMISSIONS[$doctypes->fields["id"]].="W";
+            }
+            if ($doctypes->fields["c"]>0){
+                $DOCUMENT_PERMISSIONS[$doctypes->fields["id"]].="C";
+            }
+            $doctypes->MoveNext();
+       }
+       $_SESSION["DOCUMENT_PERMISSIONS"] = $DOCUMENT_PERMISSIONS;
+   }
+   else   
+   {   
+       $DOCUMENT_PERMISSIONS = $_SESSION["DOCUMENT_PERMISSIONS"];  
+   }
+   //print_r($DOCUMENT_PERMISSIONS);
+}
+
+function HasReportPermission($reportid){          
+    global $REPORT_PERMISSIONS;
+    return in_array($reportid,$REPORT_PERMISSIONS);
+}
+
+function HasActionPermission($actionid){
+    global $ACTION_PERMISSIONS;
+    return in_array($actionid,$ACTION_PERMISSIONS);
+}
+
+function HasDocumentPermission($doctypeid,$accesstype){
+    global $DOCUMENT_PERMISSIONS;
+    if (!$accesstype)$accesstype="R";
+    return strpos(" ".$DOCUMENT_PERMISSIONS[$doctypeid],$accesstype);
+} 
+
+function GetStocks($includeEmpty, $additionalCondidtion="", &$showAllPoints, $showFactory=false){
+    global $conn, $officeUserID, $userID, $stock,$lang,$TABLE_USERSTOCKS,$TABLE_LISTINGSSTOCKS;
+    
+    if ($officeUserID==$userID){
+        $showAllPoints = true;
+    }
+    else{
+	    $sql = "select count(*) as cnt from $TABLE_USERSTOCKS where userid = $officeUserID and r=0 or r is null";
+        $rsa = $conn->Execute($sql);
+        if ($rsa === false){log_error($sql);} 
+        $showAllPoints = $rsa->fields["cnt"]==0;
+    }
+    
+    $sql = "";
+    if ($showAllPoints && $includeEmpty){
+       $sql = "select '' as ID , '".$lang['all_points']."' as StockName,'' as TerminalID, null as initBalance, null as initBalanceDate, null as initBalanceUser, -1 as SortOrder union all ";
+    }
+
+    if (!$showFactory)
+    {
+        $cond = " and IsFactory = 0 ";
+    }
+
+    if ($additionalCondidtion)
+    {
+        $cond .= "and $additionalCondidtion";
+    }
+    
+	$sql .= "select ID,StockName,TerminalID,
+	 initBalance, 
+	initBalanceOfficeUserId  as initBalanceUser, 
+	initBalanceTimestamp as initBalanceDate,
+	SortOrder from $TABLE_LISTINGSSTOCKS s where user_ID = $userID and Status=1 $cond
+    and (id in (select stock_id from $TABLE_USERSTOCKS where userid = $officeUserID and r=1) or $officeUserID=$userID)
+    order by SortOrder, binary StockName";
+    
+    //echo $sql;
+    
+	$rs = $conn->Execute($sql);
+    if ($rs === false){log_error($sql);} 
+    
+    if (!$stock && !$showAllPoints){
+         $stock = ($rs->fields["ID"])?$rs->fields["ID"]:-1;
+    }
+    
+    return $rs;
+}
+
+function GetFactories(){
+    global $conn, $officeUserID, $userID, $stock,$lang,$TABLE_USERSTOCKS,$TABLE_LISTINGSSTOCKS;
+    
+ 
+	$sql = "select ID,StockName,TerminalID,SortOrder from $TABLE_LISTINGSSTOCKS s where user_ID = $userID and Status=1 and isFactory = 1
+    and (id in (select stock_id from $TABLE_USERSTOCKS where userid = '$officeUserID' and r=1) or '$officeUserID'='$userID')
+    order by SortOrder, binary StockName";
+     
+    //echo $sql;
+    
+	$rs = $conn->Execute($sql);
+    if ($rs === false){log_error($sql);} 
+    
+    if (!$stock && !$showAllPoints){
+         $stock = ($rs->fields["ID"])?$rs->fields["ID"]:-1;
+    }
+    
+    return $rs;
+}
+  
+function FillStockList($rs,$selectedvalue){
+    global $conn;
+	$rs->MoveFirst();
+   	while (!$rs->EOF){
+		echo "<option ".(($rs->fields[ID]==$selectedvalue)?"selected":"")." initBalanceDate='".date("d/m/Y H:i",$rs->fields[initBalanceDate])."', initBalance='".$rs->fields[initBalance]."' initBalanceUser='".$rs->fields[initBalanceUser]."' value=".$rs->fields[ID].">".$rs->fields[StockName]." ";
+		$rs->MoveNext();
+	}
+}  
+  
+?>

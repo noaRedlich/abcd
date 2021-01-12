@@ -1,0 +1,7 @@
+<?php
+	$officedbname = "vcx00";	
+	$db_host = "localhost";
+	$db_user = "vcx";
+	$db_pass = "v4c3x2";
+	$db_name = "vcx_weberp";
+?>

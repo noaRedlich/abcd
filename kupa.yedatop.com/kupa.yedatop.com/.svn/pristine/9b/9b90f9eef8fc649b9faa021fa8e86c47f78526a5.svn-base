@@ -1,0 +1,281 @@
+<?php
+
+$simple = 1;
+include("include/common.php");
+if (!loginCheck('User'))
+    exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+$sql = "select
+			d.*,s.supplierName as agent_name, dt.name as DocTypeName, st.StockName,st.phone as StockPhone,
+			d.exec_date as execdate, 
+			dt.exec_date as has_execdate,
+			client_name,
+			is_payment, is_product, created,
+			sourcekupa.name as sourcekupaname,
+			targetkupa.name as targetkupaname,
+			sourcestock.stockname as sourcestock,
+			targetstock.stockname as targetstock,
+			(case when d.client_id = 1 then client_address else (case when is_internal=1 then ifnull(targetstock.Address,st.Address) else c.PostAdress end) end) as PostAdress,
+			(case when d.client_id = 1 then client_phone else (case when is_internal=1 then ifnull(targetstock.Phone,st.Phone) else c.Phone end) end) as Phone,
+			c.Fax,
+			(case when d.client_id = 1 then client_email else c.Email end) as Email,
+			(case when d.client_id = 1 then client_person else (case when is_internal=1 then ifnull(targetstock.ContactPerson,st.ContactPerson) else p.Name end) end) as PersonName,
+			client_businessnum as BusinessNum,
+                        cl.SpecialNum,
+			p.cellular as PersonPhone,
+			dt.is_internal, dtc.print_time, dtc.print_seconds, dt.print_paydate,dtc.print_date,dtc.show_misparzar,
+			u.name as authorname,pt.name as payment_type,
+			st.Address as StockAddress, st.City as StockCity,
+			(case when dtc.PrintDocPricesIncudingVAT = 2 then st.PrintDocPricesIncudingVAT else dtc.PrintDocPricesIncudingVAT end) as PrintDocPricesIncudingVAT,
+                        dtc.show_total_qty, dtc.print_pricelist, prl.name as pricelist,
+                        st.stockName as stockName
+			from
+			documents d
+			inner join $officedbname.users u on u.id = d.office_user_id
+			left outer join listingsSuppliers s on s.id = d.agent_id
+			left outer join listingsSuppliers cl on cl.id = d.client_id
+			left outer join persons p on p.id = d.person
+                        left outer join pricelists prl on prl.id = d.doc_pricelist_id
+			left outer join kupot targetkupa on targetkupa.id = d.targetkupa
+			left outer join kupot sourcekupa on sourcekupa.id = d.sourcekupa
+			left outer join $TABLE_LISTINGSSTOCKS sourcestock on sourcestock.id = d.source_stock_id
+			left outer join $TABLE_LISTINGSSTOCKS targetstock on targetstock.id = d.target_stock_id
+			left outer join $TABLE_LISTINGSSTOCKS st on st.id = d.stock_id
+			left outer join payment_type pt on pt.id = d.payment_type_id,
+                        $TABLE_DOCUMENT_TYPE dt
+			left outer join document_type_counters dtc on dtc.doc_type_id = dt.id
+			, listingsSuppliers c
+			where
+			d.client_id = c.id and
+			dt.id = doc_type and d.id = '$docid'";
+
+$document = DBQuery($sql);
+
+
+
+$did = $document->fields["doc_type"];
+$docnum = $document->fields["doc_number"];
+$doctypename = $document->fields["DocTypeName"];
+$docdate = DateFromSQL($document->fields["doc_date"]);
+$comment = $document->fields["comment"];
+$client = $document->fields["client_id"];
+$sourcekupa = $document->fields["sourcekupa"];
+$stockname = $document->fields["stockName"];
+$targetkupa = $document->fields["targetkupa"];
+$sourcestock = $document->fields["sourcestock"];
+$targetstock = $document->fields["targetstock"];
+$discount = $document->fields["discount"];
+$ispayment = $document->fields["is_payment"];
+$isproduct = $document->fields["is_product"];
+$isguarantee = $document->fields["is_guarantee"];
+$agent = $document->fields["agent_id"];
+$dpaymenttype = $document->fields["payment_type_id"];
+$comment1 = $document->fields["comment1"];
+$clientName = $document->fields["client_name"];
+$person = $document->fields["person"];
+$vat = $document->fields["vat"];
+if ($document->fields["payment_date"]) {
+    $paymentdate = DateFromSQL($document->fields["payment_date"]);
+} else {
+    $paymentdate = "";
+}
+
+$sql = "select dt.name as name,dt.* from $TABLE_DOCUMENT_TYPE dt where id = '$did'";
+$dtype = DBQuery($sql);
+
+$ispayment = $dtype->fields["is_payment"];
+$isproduct = $dtype->fields["is_product"];
+$isguarantee = $dtype->fields["is_guarantee"];
+$isserials = $dtype->fields["is_serials"];
+$movestock = $dtype->fields["move_stock"];
+$moveordered = $dtype->fields["move_ordered"];
+$movereserved = $dtype->fields["move_reserved"];
+$mayinheritfrom = $dtype->fields["may_inherit_from"];
+
+if ($isproduct) {
+
+    $showvisible = ($did == "KNISALEIZUR") ? "" : " and d.visible=1";
+    $factory = ($did == "KNISALEIZUR") ? "(case when d.visible=0 then 1 else 0 end)" : "0";
+    $visible = ($did == "KNISALEIZUR") ? "1" : "d.visible";
+
+    $sorder = ($shortmode == 2) ? "sourcedocproductid,sort_order" : "sort_order";
+    //get existing products
+    $sql = "select
+                    $factory as isfactory, 1 as sorder,
+						d.id,d.doc_id,d.listing_id,d.sort_order,d.barcode,d.name,d.currency_price,d.currency_id,d.currency_rate,
+						d.quantity,d.price,d.discount,d.quantity_change,d.cost,d.masterindex,d.childquantity,d.sourcedocproductid,
+						d.factory_listing_id,$visible as visible,l.misparzar,
+						ds.doc_id as sourceid,ordered,reserved,c.symbolbefore,c.code as currencycode,
+						(case when u.id = 0 or u.id is null then '' else abbreviation end) as abbreviation, decimals,
+						grams_rate, lp.id as pricelist_exception
+						from document_products d
+                                                inner join documents doc on d.doc_id = doc.id
+						left outer join document_products ds on ds.id = d.sourcedocproductid
+						left outer join listingsDB l on l.id = d.listing_id
+                                                left outer join listingsPrice lp on lp.listing_id = l.id and lp.pricelist_id = doc.doc_pricelist_id and lp.mode <> 0
+						left outer join $TABLE_UNITS u on u.id = l.unit
+						left outer join currencies c on c.id = d.currency_id and c.user_id = $userID
+						where d.doc_id = $docid $showvisible ";
+
+    if ($did == "YETZIAMIIZUR") {
+        $sql.=" union all
+							select 1 as isfactory, 2 as sorder,
+							d2.id,d2.doc_id,d2.listing_id,d2.sort_order,l2.barcode,l2.title as name,
+							l2.cost/(1+" . $config["VAT"] . "/100) as currency_price,
+							d2.currency_id,
+							d2.currency_rate,d2.quantity,
+							l2.cost*d2.quantity as price,
+							d2.discount,d2.quantity_change,d2.cost,d2.masterindex,d2.childquantity,
+							d2.sourcedocproductid,d2.factory_listing_id,d2.visible,l2.misparzar,
+							d2.sourcedocproductid as sourceid, ordered,reserved, c.symbolbefore,
+							(case when u2.id = 0 or u2.id is null then '' else abbreviation end) as abbreviation, u2.decimals,
+							grams_rate
+							from document_products d2
+							inner join listingsDB l2 on l2.id = d2.factory_listing_id
+							inner join $TABLE_UNITS u2 on u2.id = l2.unit
+							left outer join currencies c on c.id = d2.currency_id and c.user_id = $userID
+							where doc_id = $docid and factory_listing_id > 0
+                        ";
+    }
+    if ($UserData->fields["OrderDocumentProductsByBarcode"]) {
+        $sql.=" order by sorder, d.barcode+0, binary d.barcode";
+    } else {
+        $sql.=" order by sorder, $sorder";
+    }
+    $docproducts = DBQuery($sql);
+}
+
+if ($ispayment || $did == "MASZIKUI" || $did == "MASZIKUIPINKAS") {
+    //get existing payments
+    $sql = "select p.*, dt.name as TypeName, k.name as KupaName, ct.name as CardName from document_payments p
+						left outer join kupot k on k.id = p.kupa_id
+						left outer join $TABLE_DOCPAYMENTTYPES dt on dt.id = p.payment_type
+						left outer join $TABLE_CARDTYPES ct on ct.id = p.cardtype_id
+						where doc_id = $docid order by sort_order";
+    $docpayments = DBQuery($sql);
+    $numpayments = $docpayments->RecordCount();
+}
+
+$fname = tempnam("../../tmp", $xlsfilename . ".xls");
+$workbook = new writeexcel_workbook($fname);
+$workbook->set_tempdir('../../tmp');
+$worksheet = $workbook->addworksheet("General");
+$header = $workbook->addformat(array(
+            bold => 1,
+            color => 'blue',
+            font => "Arial Hebrew",
+            size => 18,
+            align => 'left',
+        ));
+$heading = $workbook->addformat(array(
+            bold => 1,
+            color => 'blue',
+            font => "Arial Hebrew",
+            valign => 'top',
+            align => 'center',
+            border => 1
+        ));
+$body = $workbook->addformat(array(
+            bold => 0,
+            font => "Arial Hebrew",
+            valign => 'top',
+            border => 1,
+            num_format => '#######################0',
+        ));
+$bodyred = $workbook->addformat(array(
+            bold => 0,
+            font => "Arial Hebrew",
+            valign => 'top',
+            color => "red",
+            border => 1,
+            num_format => '#######################0',
+        ));
+$numformat = $workbook->addformat(array(
+            num_format => '0.00',
+            bold => 0,
+            font => "Arial Hebrew",
+            valign => 'top',
+            border => 1
+        ));
+$numformatb = $workbook->addformat(array(
+            num_format => '0.00',
+            bold => 1,
+            font => "Arial Hebrew",
+            valign => 'top',
+            border => 1
+        ));
+$numformatred = $workbook->addformat(array(
+            num_format => '############0.00',
+            bold => 0,
+            color => "red",
+            font => "Arial Hebrew",
+            valign => 'top',
+            border => 1
+        ));
+$heading->set_text_wrap();
+$body->set_text_wrap();
+$worksheet->hide_gridlines(2);
+
+$worksheet->set_column('A:B', 15);
+$rrow = 1;
+$worksheet->write_row('A' . ($rrow++), array($lang["doc_type"], $doctypename), $body);
+$worksheet->write_row('A' . ($rrow++), array($lang["doc_number"], $docnum), $body);
+$worksheet->write_row('A' . ($rrow++), array($lang["document_date"], $docdate), $body);
+$worksheet->write_row('A' . ($rrow++), array($lang["erech_date"], dateFromSQL($document->fields["erech_date"], true)), $body);
+$worksheet->write_row('A' . ($rrow++), array($lang["stock"], $stockname), $body);
+$worksheet->write_row('A' . ($rrow++), array($lang["proof"], $comment), $body);
+$worksheet->write_row('A' . ($rrow++), array($lang["client_supplier"], $clientName), $body);
+$worksheet->write_row('A' . ($rrow++), array($lang["business_num"], $document->fields["client_businessnum"]), $body);
+$worksheet->write_row('A' . ($rrow++), array($lang["address"], $document->fields["client_address"]), $body);
+$worksheet->write_row('A' . ($rrow++), array($lang["vat"], $document->fields["vat"]), $numformat);
+$worksheet->write_row('A' . ($rrow++), array($lang["discount"], $document->fields["discount"]), $numformat);
+$worksheet->write_row('A' . ($rrow++), array($lang["amount"], $document->fields["amount"]), $numformat);
+
+if ($isproduct) {
+    $worksheet1 = $workbook->addworksheet("Products");
+    $rrow = 1;
+    $worksheet1->set_column('A:B', 15);
+    $worksheet1->set_column('C:C', 40);
+    $worksheet1->set_column('D:O', 8);
+    $worksheet1->write_row('A' . ($rrow++), array($lang["barcode"], $lang["num_zar"], $lang["item_name"], $lang["quantity"], $lang["price_before"], $lang["currency"], $lang["discount"], $lang["total_before"], $lang["vat"], $lang["total"]), $heading);
+    while (!$docproducts->EOF) {
+        $f = $docproducts->fields;
+        $quantity = $f["quantity"];
+        if ($f["grams_rate"])
+            $quantity = $quantity / $f["grams_rate"];
+        $worksheet1->write_row('A' . ($rrow), array($f["barcode"], $f["misparzar"], $f["name"]), $body);
+        $worksheet1->write_row('D' . ($rrow++), array($quantity, $f["currency_price"], $f["currencycode"], $f["discount"], $f["currency_price"] * $quantity, $f["price"] - ($f["price"] / (1 + $document->fields["vat"] / 100)), $f["price"]), $numformat);
+        $docproducts->MoveNext();
+    }
+}
+
+if ($ispayment || $did == "MASZIKUI" || $did == "MASZIKUIPINKAS") {
+
+    $worksheet2 = $workbook->addworksheet("Payments");
+    $rrow = 1;
+    $worksheet2->set_column('A:O', 20);
+    $worksheet2->write_row('A' . ($rrow++), array($lang["paymnet_type"], $lang["kupa"], $lang["amount"], $lang["pay_date"], $lang["card_type"], $lang["cheque_number"], $lang["bank_ishur_number"], $lang["branch_tokef"], $lang["account_card"]), $heading);
+    while (!$docpayments->EOF) {
+        $f = $docpayments->fields;
+        $worksheet2->write_row('A' . ($rrow), array($f["TypeName"], $f["KupaName"]), $body);
+        $worksheet2->write('C' . ($rrow), $f["Amount"], $numformat);
+        $worksheet2->write_row('D' . ($rrow++), array(DateFromSQL($f["checkdate"], true), $f["CardName"], $f["checknumber"], $f["checkbank"], $f["checksnif"], $f["checkaccount"]), $body);
+        $docpayments->MoveNext();
+    }
+}
+
+$workbook->close();
+$fnamedest = "../../tmp/" . $did . "_" . $docid . "_" . $userID . ".xls";
+copy($fname, $fnamedest);
+
+echo "<p><br></p><center><a dir=rtl href='$fnamedest?rnd=".  rand(0, 999999)."'><b><u>".$lang["click_to_excel"]."</a><br><br>";
+echo "<input type=button onclick='window.close()' value='".$lang["close_button"]."'  class=button style='background-image:url(".$imgPath."back.gif)'></center>";
+
+unlink($fname);
+
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

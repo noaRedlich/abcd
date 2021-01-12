@@ -1,0 +1,167 @@
+<?php
+    $simple=1;
+	$page_subtitle = "מאפיינים";
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+    $enabled = HasActionPermission("EDITLISTING");
+	
+		$sql_edit = make_db_safe($edit);
+		// first, grab the listings's main info
+		$sql = "SELECT l.ID, title, notes, is_tree, last_modified, 
+        featured, active, expiration, 
+        SalePrice,
+        Unit,
+        ProductGroup,
+        u.abbreviation as unit_abbreviation,
+        u.grams_rate, u.decimals
+		FROM listingsDB l
+        inner join $TABLE_UNITS u on u.id = unit
+		WHERE l.ID = $sql_edit AND l.user_ID = '$userID'";
+		$ADODB_FETCH_MODE = ADODB_FETCH_ASSOC;
+		$recordSet = $conn->Execute($sql);
+		if ($recordSet === false)
+		{
+			log_error($sql);
+		}
+
+
+		$num_records = $recordSet->RecordCount();
+		if ($num_records == 0)
+		{
+			die("$lang[priv_failure]");
+		}
+
+		while (!$recordSet->EOF)
+		{
+			// collect up the main DB's various fields
+			$listing_ID = make_db_unsafe ($recordSet->fields[ID]);
+			$edit_title = make_db_unsafe ($recordSet->fields[title]);
+            $is_tree = make_db_unsafe ($recordSet->fields[is_tree]);
+			$SalePrice = make_db_unsafe ($recordSet->fields[SalePrice]);
+            $UnitName = make_db_unsafe( $recordSet->Fields("unit_abbreviation"));
+            $UnitGramRate = make_db_unsafe( $recordSet->Fields("grams_rate"));
+            $Decimals = make_db_unsafe( $recordSet->Fields("decimals"));
+            $ProductGroup =   make_db_unsafe( $recordSet->Fields("ProductGroup"));
+			$recordSet->MoveNext();
+		} // end while
+	
+    
+    $atsql = "select a.id, a.name, a.type,la.value,la.id as laid,
+        group_concat(av.name  order by av.sortorder separator '|') as vals,
+        group_concat(av.id order by av.sortorder separator '|' ) as valids
+        from attributes a 
+        left outer join listing_attributes la on la.attribute_id = a.id and listing_id = $edit
+        left outer join attribute_values av on av.attribute_id = a.id and av.status = 1
+        where a.user_id = $userID and a.status=1 
+        and (category_id = 0 or category_id  = '$ProductGroup')
+        group by a.id, la.value order by a.sortorder,av.sortorder";
+    
+    if($dosave)
+    {
+        $attrs = DBQuery($atsql);
+        while (!$attrs->EOF)
+        {
+            if ($laid=$attrs->Fields("laid"))
+            {
+                $sql = "update listing_attributes set value = '".addslashes($_POST["ATTR_".$attrs->Fields("id")])."' where id = $laid";
+            }
+            else
+            {
+                $sql = "insert into listing_attributes (attribute_id, listing_id, value) values (".$attrs->Fields("id").",$edit,'".addslashes($_POST["ATTR_".$attrs->Fields("id")])."')";
+            }
+            DBQuery($sql);
+            $attrs->MoveNext();
+        }   
+    }
+    
+
+
+    $attrs = DBQuery($atsql);
+
+?>
+	<form name="F" action="<?php echo "$PHP_SELF";?>" method="post">
+    <input type=hidden name=edit value="<?=$edit?>">                
+    <input type=hidden name=edit_title value="<?=$edit_title?>">    
+
+		<table width=100% height=465 cellpadding=0 cellspacing=0 >
+		<TR style='height:1%'><TD align=center>
+		<?include("productmenu.php")?>
+		</td></td>
+		<TR><TD align=center >    
+        <div style='overflow:auto;border:inset 1;width:100%;height:100%'>
+        <br>
+        
+        <?if ($dosave){?>
+            <span style='color:green;font-weight:bold'>המאפיינים נשמרו בהצלחה</span>
+            <br><br>
+        <?}else{?>
+          <br><br>
+        <?}?>
+        
+        <table width=90% cellpadding=3>
+        <?if ($attrs->EOF){
+            $noattrs=true;?>
+            <tr><td align=center>
+            <b>
+            לא הוגדרו מאפיינים לפריטים במחלקה זו
+            <?if (HasActionPermission("PREFERENCES")){?>
+            <br>
+            <br>
+            <input type="button" value='להגדיר מאפיינים' class=button style='background-image:url(<?=$imgPath?>ok.gif)' onclick='opener.wopen1("cp/main.php?service=attributes")'>
+
+            <?}?>
+            </td></tr>
+        <?}?>
+        
+        <?while(!$attrs->EOF){?>
+            <tr>
+                <td width=1% nowrap><?=$attrs->Fields("name")?>:</td>
+                <td width=99%>
+                    <?switch($attrs->Fields("type"))
+                    {
+                        case "STRING":?>
+                            <input <?=(!$enabled)?"disabled":""?> maxlength=200 style='width:100%' type=text name="ATTR_<?=$attrs->Fields("id")?>" value="<?=str_replace('"','&quot;',$attrs->Fields("value"))?>">
+                        <?
+                        break;
+                        case "VLIST":?>
+                            <select <?=(!$enabled)?"disabled":""?>  style='width:100%' name="ATTR_<?=$attrs->Fields("id")?>" >
+                            <option value=>
+                                <?$vals = explode("|",$attrs->Fields("vals"));
+                                $valids = explode("|",$attrs->Fields("valids"));      
+                                $c=0;
+                                foreach($vals as $val)
+                                {
+                                 ?><option value="<?=$valids[$c]?>" <?=($valids[$c]==$attrs->Fields("value"))?"selected":""?>><?=$val?>   
+                                <?$c++;}
+                                ?>
+                            </select>
+                        <?
+                        break;
+                    }
+                    ?>
+                </td>
+            </tr>
+            
+        <?$attrs->MoveNext();}?>
+        </table>
+        </div>
+
+        
+        </td>
+        </tr>
+        <?if (!$noattrs){?>
+        <tr style='height:1%;padding-top:5px'>  
+        <td align=center><input name=dosave type=submit <?=(!$enabled)?"disabled":""?> class=button style='background-image:url("<?=$imgPath?>ok.gif")' value="עדכן"></td>
+        </tr>
+        <?}?>
+        </table>
+
+        </form>
+
+<?php
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

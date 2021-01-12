@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>userdata</main_table>
+	<name>הגדרות משתמשים</name>
+	<options>
+		<opt name="create_record" type="none"></opt>
+		<opt name="edit_record" type="always"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="view" type="none"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="UserName" >שם משתמש</vcol>
+		<vcol name="UpdateMode">אופן עדקון</vcol>
+		<vcol name="WorkMode">אופן עבודה</vcol>
+		<vcol name="IsracardMode">מסלול ישראקארד</vcol>
+	</view>
+	<edit>
+		<ecol name="UserName" type="string" >שם משתמש</ecol>
+		<ecol name="WorkMode" type="enum">אופן עבודה 
+			<enum val="A">A - קופה</enum>
+			<enum val="B">B - מרקז (אופן עדקון = NONE)</enum>
+		</ecol>
+		<ecol name="UpdateQtyFromPludata" type="enum">לעדכן מלאי מ-PLUDATA (אופן עבודה A)
+			<enum val="1">כן</enum>
+			<enum val="0">לא (עדכון מלאי דרך TRANS)</enum>
+		</ecol>
+		<ecol name="UpdateMode" type="enum">אופן עדקון מלאי מקופה
+			<enum val="A">ALL</enum>
+			<enum val="U">UPDATE</enum>
+			<enum val="N">NONE</enum>
+      <enum val="A0K">ALL + Ack</enum>
+      <enum val="U0K">UPDATE + Ack</enum>
+      <enum val="N0K">NONE + Ack</enum>
+      <enum val="AD">ALL + OtherPlu + ExpDate</enum>
+			<enum val="UD">UPDATE + OtherPlu + ExpDate</enum>
+			<enum val="ND">NONE + OtherPlu + ExpDate</enum>
+      <enum val="ADK">ALL + OtherPlu + ExpDate + Ack</enum>
+      <enum val="UDK">UPDATE + OtherPlu + ExpDate + Ack</enum>
+      <enum val="NDK">NONE + OtherPlu + ExpDate + Ack</enum>      
+		</ecol>
+		<ecol name="DontSendUpdatesToKupa" type="enum"> לשלוח קבצי PLU לקופה
+			<enum val="0">כן</enum>
+			<enum val="1">לא</enum>
+		</ecol>    
+		<ecol name="AllowProceedTrans" type="enum">לאפשר קליטה חוזרת של קבצי TRANS
+			<enum val="0">לא</enum>
+			<enum val="1">כן חד פעמי</enum>
+			<enum val="2">כן באופן קבוע</enum>
+		</ecol>
+    <ecol name="ForceAllCodes" type="enum">לשלוח כל הפרטים לקופה (חד פעמי)
+			<enum val="0">לא</enum>
+			<enum val="1">כן חד פעמי</enum>
+			<enum val="2">כן באופן קבוע</enum>
+		</ecol>
+    <ecol name="SendPludelWithAllCodes" type="enum">
+      לשלוח PLUDEL במצב עדכון קופה מלא
+      <enum val="0">לא</enum>
+      <enum val="1">כן</enum>
+    </ecol>
+    <ecol name="SendXML" type="yes_no">לשלוח XML עסקעאות למשתמש</ecol>
+    <ecol name="SendMoveIn" type="enum">
+      לשלוח MOVEIN למשתמש
+      <enum val="0">לא לשלוח</enum>
+      <enum val="1">לשלוח MOVEIN</enum>
+      <enum val="2">לשלוח MOVEIN מרוקז</enum>
+    </ecol>
+    <ecol name="SendKupaIn" type="yes_no">לשלוח KUPAIN למשתמש</ecol>
+    <ecol name="IsracardMode" type="enum">מסלול ישראכרט
+			<enum val="2">שני זיכוים</enum>
+	 		<enum val="4">ארבעה זיכוים</enum>
+		</ecol>
+		<ecol name="IsraKreditMode" type="enum">קרדיט ישראכרט
+			<enum val="R">יומי</enum>
+			<enum val="M">לפי מסלול</enum>
+		</ecol>
+		<ecol name="IsraKreditDays" type="string">מספר ימים לקרדיט יומי של ישראכרט</ecol>
+		
+		<ecol name="email" type="string">E-mail</ecol>
+    <ecol name="importmail" type="string">דוא''ל לקבצי חשבשבת</ecol>
+    <ecol name="faxmail" type="string">Fax mail</ecol>
+    <ecol name="sms" type="string">SMS number</ecol>
+		<ecol name="comments" type="string">הערות</ecol>
+
+
+		<ecol name="AmlaVisaRagil" type="string">עמלה VISA רגיל</ecol>
+		<ecol name="AmlaVisaPayments" type="string">עמלה VISA תשלומים</ecol>
+		<ecol name="AmlaDinersRagil" type="string">עמלה Diners רגיל</ecol>
+		<ecol name="AmlaDinersPayments" type="string">עמלה Diners תשלומים</ecol>
+		<ecol name="AmlaVisaDinersMinimum" type="string">עמלה Diners/Visa מינימום</ecol>
+
+		<ecol name="AmlaIsraRagil" type="string">עמלה ישראכרט רגיל</ecol>
+		<ecol name="AmlaIsraPayments" type="string">עמלה ישראכרט תשלומים</ecol>
+		<ecol name="AmlaIsraMinimum" type="string">עמלה ישראכרט מינימום</ecol>
+		<ecol name="AmlaMasterRagil" type="string">עמלה MasterCard רגיל</ecol>
+		<ecol name="AmlaMasterPayments" type="string">עמלה MasterCard תשלומים</ecol>
+		<ecol name="AmlaMasterTayarRagil" type="string">עמלה MasterCardTourist רגיל</ecol>
+		<ecol name="AmlaMasterTayarPayments" type="string">עמלה MasterCardTourist תשלומים</ecol>
+		<ecol name="AmlaDirectRagil" type="string">עמלה Direct רגיל</ecol>
+		<ecol name="AmlaDirectPayments" type="string">עמלה Direct תשלומים</ecol>
+		<ecol name="AmlaAMEXRagil" type="string">עמלה AMEX רגיל</ecol>
+		<ecol name="AmlaAMEXPayments" type="string">עמלה AMEX תשלומים</ecol>
+		<ecol name="AmlaAMEXTayarRagil" type="string">עמלה AMEXTourist רגיל</ecol>
+		<ecol name="AmlaAMEXTayarPayments" type="string">עמלה AMEXTourist תשלומים</ecol>
+
+		<ecol name="CodeMechirot" type="string">מפתח חשבון מכירות</ecol>
+		<ecol name="CodeVAT" type="string">מפתח חשבון מע''מ</ecol>
+		<ecol name="CodeIsra" type="string">מפתח חשבון ישקאכרט</ecol>
+		<ecol name="CodeVisa" type="string">מפתח חשבון ויזה</ecol>
+		<ecol name="CodeAMEX" type="string">מפתח חשבון AMEX</ecol>
+		<ecol name="CodeDiners" type="string">מפתח חשבון דיינרס</ecol>
+		<ecol name="CodeMastercard" type="string">מפתח חשבון מסטרכארט</ecol>
+		<ecol name="CodeEurocard" type="string">מפתח חשבון ירוכארט</ecol>
+		<ecol name="CodeCheque" type="string">מפתח חשבון שיקים</ecol>
+		<ecol name="CodeCash" type="string">מפתח חשבון מזומן</ecol>
+
+		<ecol name="ExportEnabled" type="enum">יבוא ויצוא חשבשבת
+			<enum val="0">לא</enum>
+			<enum val="1">כן</enum>
+		</ecol>
+		<ecol name="ManualTransEnabled" type="enum">הזנת עסקה ידנית 
+			<enum val="0">לא</enum>
+			<enum val="1">כן</enum>
+		</ecol>
+		<ecol name="MlaitekProEnabled" type="enum">מלאיטק פרו
+			<enum val="0">לא</enum>
+			<enum val="1">כן</enum> 
+		</ecol>
+		<ecol name="SfiratMlaiEnabled" type="enum">ספירת מלאי דרך מסוף
+			<enum val="0">לא</enum>
+			<enum val="1">כן</enum>
+		</ecol>
+    <ecol name="RecalcCostOnPurchase" type="enum">
+      חישוב עלות פריט בזמן קנייה
+      <enum val="0">לא לעדכן עלות פריט בזמן קנייה</enum>
+      <enum val="1">לחשב עלות ממוצע</enum>
+      <enum val="2">להשתמש בעלות קניה אחרונה</enum>
+    </ecol>
+		<ecol name="vatfree" type="enum">פטור ממע''מ 
+			<enum val="0">לא</enum>
+			<enum val="1">כן</enum>
+		</ecol>
+		<ecol name="IsSampleUser" type="yes_no">משתמש לדוגמה</ecol>
+    </edit>
+	<sql_actions>
+		<opt name="order" val="UserName"></opt>
+		<opt name="search_by" type="UserName"></opt>
+		<opt name="post_edit_action" val="update listingsStocks set ForceAllCodes = $ForceAllCodes where status=1 and runscript=1 and terminalid &lt;&gt; '' and terminalid is not null and user_id = (select office_user_id from userdata where id = $record_id)"></opt>
+	</sql_actions>
+</xml>

@@ -1,0 +1,27 @@
+<?php
+
+
+function amt($schum)
+{
+	global $nohalim;
+	if ($nohalim)
+	{	
+		return number_format($schum*100,0,"","");
+	}
+	else
+	{
+		return number_format($schum,2,".","");
+	}
+	
+}
+
+function decodeHash($str)
+{
+	global $nohalim;
+	$noreverse = true;//$nohalim; 
+	$key = decodeToDOSHeb($str,"",$noreverse);
+	if ($key!=intval($key).""){$key=strrev($key);};
+	return $key;
+}
+
+?>

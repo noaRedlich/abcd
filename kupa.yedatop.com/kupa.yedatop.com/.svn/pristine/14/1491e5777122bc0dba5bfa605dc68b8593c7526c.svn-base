@@ -1,0 +1,6 @@
+
+<link rel="stylesheet" href="../style.css" type="text/css">
+<span class=big>Configuration file may be damaged</span> <br>
+<br>
+There was an error while trying to properties file for plug-in named "<? echo $current_plugin ?>". Properties file may be damaged.<br>
+For more information about this error, please contact our <a href="mailto:<? echo $admin_mail."?subject=BD3: Error from [".$REMOTE_ADDR."]:  Plug-in configuration file is damaged - $current_plugin" ?>">system administrator</a>.

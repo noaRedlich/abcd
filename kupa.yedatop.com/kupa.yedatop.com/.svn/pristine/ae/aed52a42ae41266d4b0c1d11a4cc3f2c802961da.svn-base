@@ -1,0 +1,108 @@
+<?
+     if ($action == send && trim($messagebody)!="")
+     {
+	 ini_set('max_execution_time',3000);
+    $date_month = date(m);
+    $date_year = date(Y);
+    $date_day = date(d);
+    $time_hour = date(H);
+    $time_min = date(i);
+	$mail_template_dir = "../".substr($mail_template_dir,0,strlen($mail_template_dir)-1)."_$language/";
+    // Date
+    $Date = "$date_day/$date_month/$date_year - $time_hour:$time_min";
+  	$headers = "From: $admin_mail\n"; // From address
+    $headers .= "Reply-To: $admin_mail\n"; // Reply-to address
+    $headers .= "Organization: PLUSEX\n"; // Organisation
+ 	$headers .= "Content-Type: text/plain; charset=iso-8859-1\n"; // Type
+		/*if ($status == 1)
+         {
+            $rUsers = q("SELECT m.email FROM dt_members as m, dt_profile as p where notification =1 and language='$mlang' and p.member_id != m.id");
+         }
+         else 
+		 */
+		 if ($status == 2)
+         {
+            $rUsers = q("SELECT m.email FROM dt_members as m where notification =1 and language='$mlang' ");
+         }
+         else
+         {
+            $rUsers = q("SELECT m.email FROM dt_members as m, dt_profile as p where notification =1 and  language='$mlang' and p.member_id=m.id");
+         }
+		 $cnt=0;
+         while($fUsers = f($rUsers))
+         {
+		 		$email = $fUsers[email];
+				mailSend($email, "newsletter");
+				$cnt++;
+         }
+         ?>
+         <table><tr><td class=small>
+		 	Your message has been sent! <?=$cnt?> members have been mailed.
+		 
+		 	<p>
+			<input type=button value=Back onclick='history.back()'>
+		 </td></td></table>
+         <? exit;
+      }
+?>
+<form action="main.php?service=newsletter.php&action=send" method=POST>
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+  <tr>
+    <td>
+<table width="100%" border="0" cellspacing="2" cellpadding="2">
+  <tr>
+    <td class="big">Newsletter</td>
+  </tr>
+  <tr>
+    <td class="small"><font color="red">PLEASE BE PATIENT WHEN MAILING MANY MEMBERS.</font></td>
+  </tr>
+  <tr>
+    <td>
+      <table width="480" border="0" cellspacing="1" cellpadding="0" bgcolor="#CCCCCC">
+        <tr>
+          <td>
+            <table width="100%" border="0" cellspacing="2" cellpadding="2" bgcolor="#FFFFFF">
+              <tr>
+                <td colspan="2" class="small"><b>SEND MAIL TO MEMBERS</b></td>
+              </tr>
+              <tr>
+                <td width="50%">Member type:</td>
+                <td width="50%">
+                  <select name="status">
+                    <option value="" selected>Members with a profile</option>
+                    <option value="2">All Members</option>					
+                  </select>
+				  Member language:
+				  <select name="mlang">
+				  <option value="eng">English</option>
+				  <option value="heb">Hebrew</option>
+				  <option value="rus">Russian</option>
+				  </select>
+                </td>
+              </tr>
+              <!--tr>
+                <td width="50%">Message title:</td>
+                <td width="50%">
+                  <input type=text name="messagetitle" size=30>
+                </td>
+              </tr-->
+              <tr>
+                <td width="50%">Message body:</td>
+                <td width="50%">
+                  <textarea cols=45 rows=10 name="messagebody"></textarea>
+                </td>
+              </tr>
+              <tr>
+                <td colspan=2 align=right><input type=submit value="Send Mail"></td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+
+</table>		</td>
+  </tr>
+</table></form>

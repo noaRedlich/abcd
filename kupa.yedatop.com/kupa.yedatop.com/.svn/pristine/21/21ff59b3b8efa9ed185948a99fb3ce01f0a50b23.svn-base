@@ -1,0 +1,91 @@
+<?
+$sql = "select u.ID, d.id as userdataid, d.UserName from userdata d
+	inner join ".$GO_CONFIG->db_name.".users u on u.username = d.username order by d.UserName";
+$users = q($sql);
+
+if (!$action && !$date){
+	$date = date("d/m/Y",strtotime("-1 day"));
+}
+?>
+<table dir=ltr width=100% bgcolor=buttonface method=post cellspacing=0 cellpadding=3>
+<form method=post>
+<tr>
+<td nowrap bgcolor=white><strong style=font-size:12pt>FTP log&nbsp;</strong></td>
+<td nowrap>Terminal ID <input size=10 name=term  value='<?=$term?>'></td>
+<td nowrap>Date (dd/mm/yyyy) <input size=10 name=date value='<?=$date?>'></td>
+<td nowrap>User <select name=username><option value="">
+<?
+if(!e($users))
+{
+	while($fUser = f($users))
+	{
+		echo "<option id=".$fUser["userdataid"]." value=".$fUser["UserName"].(($fUser["UserName"]==$username)?" selected":"").">".$fUser["UserName"];
+	}
+}
+echo "<select>";
+?>
+</td>
+<td width=99%><input type=submit name=action value='Search'></td>
+</tr>
+</form>
+</table>
+<br>
+<?
+	//include "temp_include.inc.php";
+	$j="";
+	$q = "where 1=1";
+	if ($term){
+		$q.=" and terminal_number = '$term' ";
+	}
+	if ($date){
+		$date = explode("/",$date);
+		$sqldate = $date[2]."-".$date[1]."-".$date[0];
+		$q.=" and session like '% $sqldate' ";
+	}
+	if ($username){
+		$j="inner join listingsStocks s on s.TerminalID = f.terminal_number inner join ".$GO_CONFIG->db_name.".users u on u.id = s.user_id inner join userdata d on d.username = u.username ";
+		$q.=" and d.username = '$username'";
+	}
+	$query = "select uu.UserName, f.* from ftplog f
+    inner join listingsStocks ss on ss.terminalId = terminal_number
+    inner join ".$GO_CONFIG->db_name.".users uu on uu.id = ss.user_id
+    $j $q order by f.id";
+	$res = q($query);
+
+	echo "<table dir=ltr width=100% border=1 style='border-collapse:collapse'>
+	<tr bgcolor=silver>
+	<th>Terminal</th>
+	<th>Start connection</th>
+	<th>End connection</th>
+	<th>Connection time</th>
+	<th>#Trans</th>
+	<th>PLUDTA uploaded</th>
+	<th>Return time start</th>
+	<th>Return time end</th>
+	<th>PLUADD</th>
+	<th>PLUUPDATE</th>
+	<th>PLUDEL</th>
+	</tr>
+	";
+	while ($row = f($res)){
+		$time = strtotime($row["end_conn"]) - strtotime($row["start_conn"]);
+		$time = floor($time/60).":".str_pad(($time%60),2,"0",STR_PAD_LEFT);
+		echo "
+		<tr align=center>
+			<td>".$row["terminal_number"]." (".$row["UserName"].")</td>
+			<td>".(($row["start_conn"])?$row["start_conn"]:"<span style=color:red>No</span>")."</td>
+			<td>".(($row["end_conn"])?$row["end_conn"]:"<span style=color:red>No</span>")."</td>
+			<td>".$time."</td>
+			<td>".$row["trans_num"]."</td>
+			<td>".(($row["pludta"])?"Yes":"No")."</td>
+			<td>".(($row["start_return"])?$row["start_return"]:(($row["time_plan"]!="00:00:00")?"<span style=color:red>No</span>":""))."</td>
+			<td>".(($row["end_return"])?$row["end_return"]:(($row["time_plan"]!="00:00:00")?"<span style=color:red>No</span>":""))."</td>
+			<td>".(($row["pluadd"])?"<span style=color:green>Yes</span>":"No")."</td>
+			<td>".(($row["pluupdate"])?"<span style=color:green>Yes</span>":"No")."</td>
+			<td>".(($row["pludel"])?"<span style=color:green>Yes></span>":"No")."</td>
+		</tr>
+		";
+	}
+	echo "</table>";
+	
+?>

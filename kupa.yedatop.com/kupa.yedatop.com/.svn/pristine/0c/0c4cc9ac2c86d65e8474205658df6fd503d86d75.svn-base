@@ -1,0 +1,152 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+class GO_MODULES extends db
+{
+	var $read_permissions = false;
+	var $write_permissions = false;
+	var $path;
+	var $id;
+
+	function GO_MODULES()
+	{
+		$this->db();
+	}
+
+
+	function authenticate($module_id)
+	{
+		global $GO_CONFIG;
+		global $GO_SECURITY;
+
+		if($module = $this->get_module($module_id))
+		{
+			$this->path = $module['path'];
+			$this->read_permissions = $GO_SECURITY->has_permission($GO_SECURITY->user_id, $module['acl_read']);
+			$this->write_permissions = $GO_SECURITY->has_permission($GO_SECURITY->user_id, $module['acl_write']);
+			$this->id = $module_id;
+
+			if ($this->read_permissions || $this->write_permissions)
+			{
+				return true;
+			}else
+			{
+				header('Location: '.$GO_CONFIG->host.'error_docs/401.php?noperm'.$module_id);
+				exit();
+			}
+		}else
+		{
+			exit('Illegal module name specified');
+		}
+	}
+
+	function has_read_permission($user_id, $module_id)
+	{
+		global $GO_SECURITY;
+		$module = $this->get_module($module_id);
+		if($GO_SECURITY->has_permission($user_id, $module['acl_read']) || $GO_SECURITY->has_permission($user_id, $module['acl_write']))
+		{
+			return true;
+		}else
+		{
+			return false;
+		}
+	}
+
+	function all_has_read_permission($module_id){
+		global $GO_SECURITY;
+		$module = $this->get_module($module_id);
+		$arr=array();
+		$users = new users();
+		$all_users = $users->get_all_users();
+		foreach($all_users as $user){
+			if($GO_SECURITY->has_permission($user["id"], $module['acl_read']) || $GO_SECURITY->has_permission($user_id, $module['acl_write']))
+			{
+				$arr[] = $user;
+			}
+		}
+		return $arr;
+	}
+
+	function has_write_permission($user_id, $module_id)
+	{
+		global $GO_SECURITY;
+		$module = $this->get_module($module_id);
+		return $GO_SECURITY->has_permission($user_id, $module['acl_write']);
+	}
+
+	function get_module($module_id)
+	{
+		global $db_name,$GO_CONFIG;
+		$sql = "SELECT * FROM ".$GO_CONFIG->db_name.".modules WHERE id='$module_id'";
+		$this->query($sql);
+		if ($this->next_record())
+		{
+			return $this->Record;
+		}else
+		{
+			return false;
+		}
+	}
+
+	function add_module($module_id, $path, $acl_read, $acl_write)
+	{
+		$sql = "INSERT INTO modules (id, path, acl_read, acl_write) VALUES ('$module_id', '".addslashes($path)."', '$acl_read', '$acl_write')";
+		return $this->query($sql);
+	}
+
+	function update_module($old_module_id, $new_module_id, $path)
+	{
+		$sql = "UPDATE modules SET id='$new_module_id', path='".addslashes($path)."' WHERE id='$old_module_id'";
+		return $this->query($sql);
+	}
+
+	function delete_module($module_id)
+	{
+		global $GO_SECURITY;
+		if ($module = $this->get_module($module_id))
+		{
+			$GO_SECURITY->delete_acl($module['acl_read']);
+			$GO_SECURITY->delete_acl($module['acl_write']);
+			$sql = "DELETE FROM modules WHERE id='$module_id'";
+			return $this->query($sql);
+		}
+		return false;
+	}
+
+	function get_modules()
+	{
+		global $GO_CONFIG;
+		global $db_name;
+		$sql = "SELECT * FROM ".$GO_CONFIG->db_name.".modules";
+		$this->query($sql);
+		return $this->num_rows();
+	}
+
+	function is_registered_module($path)
+	{
+		global $GO_CONFIG;
+		if (substr($path, -1) != $GO_CONFIG->slash)
+		{
+			$path .= $GO_CONFIG->slash;
+		}
+		$path = str_replace($GO_CONFIG->root_path,'',$path);
+
+		$sql = "SELECT id FROM ".$GO_CONFIG->db_name.".modules WHERE path='".addslashes($path)."'";
+		//	echo $sql;
+		if ($this->query($sql))
+		{
+			if ($this->next_record())
+			{
+				return $this->f('id');
+			}
+		}
+		return false;
+	}
+}
+?>

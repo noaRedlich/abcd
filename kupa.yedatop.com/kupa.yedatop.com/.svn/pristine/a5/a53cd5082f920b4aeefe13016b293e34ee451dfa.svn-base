@@ -1,0 +1,178 @@
+<table width="100%" style='<?=($rmodule)?"display:none":""?>' border="0" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="100%" nowrap bgcolor="#FFFFFF"><b>תפריט ראשי&nbsp;&nbsp;</b></td>
+    <td width="10" nowrap bgcolor="#669966"><spacer type=block height=100% width=10></td>
+  </tr>
+  <tr bgcolor="669966">
+    <td height=4 colspan="2"><spacer type=block height=4 width=100%></td>
+  </tr>
+   <tr>
+    <td width="13%" nowrap colspan="2">    
+      <table border="0" cellspacing="0" cellpadding="0" width="100%">
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+<?$nCount=1;?>
+
+        <?if ($officeUserID==$userID){?>
+
+        <tr>
+          <td nowrap class="amenumain<?=$service=="userpref"?"active":""?>" onMouseOver="this.className='amenumainover<?=$service=="userpref"?"active":""?>'" onMouseOut="this.className='amenumain<?=$service=="userpref"?"active":""?>'" height="19" width="100%"><a href="main.php?service=userpref" class=navbarmain<?=$service=="userpref"?"active":""?>>
+            &nbsp;<?=$nCount++?>. הגדרות משתמש
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+
+        <tr>
+          <td nowrap class="bold amenumain<?=$service=="payment.php"?"active":""?>" onMouseOver="this.className='bold amenumainover<?=$service=="payment.php"?"active":""?>'" onMouseOut="this.className='bold amenumain<?=$service=="payment.php"?"active":""?>'" height="19" width="100%"><a href="main.php?service=payment.php" class=navbarmain<?=$service=="payment.php"?"active":""?>>
+            &nbsp;<?=$nCount++?>. לשלם עבור תוכנה
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+        
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>		
+		
+
+        <tr>
+          <td nowrap class="amenumain<?=$service=="stocks_user"?"active":""?>" onMouseOver="this.className='amenumainover<?=$service=="stocks_user"?"active":""?>'" onMouseOut="this.className='amenumain<?=$service=="stocks_user"?"active":""?>'" height="19" width="100%"><a href="main.php?service=stocks_user" class=navbarmain<?=$service=="stocks_user"?"active":""?>>
+            &nbsp;<?=$nCount++?>. נקודות מכירה
+			</a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>        
+		
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>		
+		
+        <?}?>        
+
+        <tr>
+          <td nowrap class="amenumain<?=$service=="counters"?"active":""?>" onMouseOver="this.className='amenumainover<?=$service=="counters"?"active":""?>'" onMouseOut="this.className='amenumain<?=$service=="counters"?"active":""?>'" height="19" width="100%"><a href="main.php?service=counters" class=navbarmain<?=$service=="counters"?"active":""?>>
+            &nbsp;<?=$nCount++?>. הגדרות מסמכים
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+		
+		<tr>
+          <td nowrap class="amenumain<?=$service=="currencies"?"active":""?>" onMouseOver="this.className='amenumainover<?=$service=="currencies"?"active":""?>'" onMouseOut="this.className='amenumain<?=$service=="currencies"?"active":""?>'" height="19" width="100%"><a href="main.php?service=currencies" class=navbarmain<?=$service=="currencies"?"active":""?>>
+            &nbsp;<?=$nCount++?>. מטבע חוץ
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+
+        <tr>
+          <td nowrap class="amenumain<?=$service=="paymenttypes"?"active":""?>" onMouseOver="this.className='amenumainover<?=$service=="paymenttypes"?"active":""?>'" onMouseOut="this.className='amenumain<?=$service=="paymenttypes"?"active":""?>'" height="19" width="100%"><a href="main.php?service=paymenttypes" class=navbarmain<?=$service=="paymenttypes"?"active":""?>>
+            &nbsp;<?=$nCount++?>. תנאי תשלום
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+
+
+        <tr>
+          <td nowrap class="amenumain<?=$service=="suppliers"?"active":""?>" onMouseOver="this.className='amenumainover<?=$service=="suppliers"?"active":""?>'" onMouseOut="this.className='amenumain<?=$service=="suppliers"?"active":""?>'" height="19" width="100%"><a href="main.php?service=suppliers" class=navbarmain<?=$service=="suppliers"?"active":""?>>
+            &nbsp;<?=$nCount++?>. לקוחות/ספקים/סוכנים
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+
+        <tr>
+          <td nowrap class="amenumain<?=$service=="clientgroups"?"active":""?>" onMouseOver="this.className='amenumainover<?=$service=="clientgroups"?"active":""?>'" onMouseOut="this.className='amenumain<?=$service=="clientgroups"?"active":""?>'" height="19" width="100%"><a href="main.php?service=clientgroups" class=navbarmain<?=$service=="clientgroups"?"active":""?>>
+            &nbsp;<?=$nCount++?>. קבוצות לקוחות
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+        
+        <tr>
+          <td nowrap class="amenumain<?=$service=="pricelists"?"active":""?>" onMouseOver="this.className='amenumainover<?=$service=="pricelists"?"active":""?>'" onMouseOut="this.className='amenumain<?=$service=="pricelists"?"active":""?>'" height="19" width="100%"><a href="main.php?service=pricelists" class=navbarmain<?=$service=="pricelists"?"active":""?>>
+            &nbsp;<?=$nCount++?>. מחירונים
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+        
+
+        <tr>
+          <td nowrap class="amenumain<?=$service=="tafkidim"?"active":""?>" onMouseOver="this.className='amenumainover<?=$service=="tafkidim"?"active":""?>'" onMouseOut="this.className='amenumain<?=$service=="tafkidim"?"active":""?>'" height="19" width="100%"><a href="main.php?service=tafkidim" class=navbarmain<?=$service=="tafkidim"?"active":""?>>
+            &nbsp;<?=$nCount++?>. תפקידים
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+
+        <tr>
+          <td nowrap class="amenumain<?=$service=="kupot"?"active":""?>" onMouseOver="this.className='amenumainover<?=$service=="kupot"?"active":""?>'" onMouseOut="this.className='amenumain<?=$service=="kupot"?"active":""?>'" height="19" width="100%"><a href="main.php?service=kupot" class=navbarmain<?=$service=="kupot"?"active":""?>>
+            &nbsp;<?=$nCount++?>. קופות ובנקים
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr> 
+
+
+        <tr>
+          <td nowrap class="amenumain<?=$service=="backup.php"?"active":""?>" onMouseOver="this.className='amenumainover<?=$service=="backup.php"?"active":""?>'" onMouseOut="this.className='amenumain<?=$service=="backup.php"?"active":""?>'" height="19" width="100%"><a href="main.php?service=backup.php" class=navbarmain<?=$service=="backup.php"?"active":""?>>
+            &nbsp;<?=$nCount++?>. גיבוי מסמכים
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+        
+        
+        <tr>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="100%"><a href="javascript:void(open('../billing.php','makefiles','top=100,left=100,height=400,width=750,status=1,resizable=no'))" class=navbarmain>
+            &nbsp;<?=$nCount++?> .חיוב תקופתי אוטומטי
+            </a></td>
+          <td nowrap class="amenumain" onMouseOver="this.className='amenumainover'" onMouseOut="this.className='amenumain'" height="19" width="10" bgcolor="B2CCB2"><spacer type=block height=100% width=10></td>
+        </tr>
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>
+
+
+
+        <tr>
+          <td height=1 bgcolor=F8F8F8 colspan="2"><spacer type=block height=1 width=100%></td>
+        </tr>	
+        
+      </table>
+    </td>
+  </tr>
+</table>
+<br>

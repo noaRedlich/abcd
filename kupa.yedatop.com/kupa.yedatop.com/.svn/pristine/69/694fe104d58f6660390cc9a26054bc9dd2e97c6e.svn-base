@@ -1,0 +1,126 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+require("../Group-Office.php");
+require($GO_LANGUAGE->get_language_file('users'));
+require($GO_CONFIG->class_path."users.class.inc");
+$users = new users;
+
+$GO_SECURITY->authenticate(true);
+
+if (isset($delete_user))
+{
+	if (($delete_user != $GO_SECURITY->user_id) && ($delete_user != 1))
+		$users->delete_user($delete_user);
+	else
+		$feedback = '<p class="Error">'.$delete_fail.'</p>';
+}
+
+
+//remember sorting in cookie
+if (isset($newsort))
+{
+	SetCookie("admin_sort",$newsort,time()+3600*24*365,"/","",0);
+	$admin_sort = $newsort;
+}
+if (isset($newdirection))
+{
+	SetCookie("admin_direction",$newdirection,time()+3600*24*365,"/","",0);
+	$admin_direction = $newdirection;
+}
+
+if (!isset($admin_sort))
+        $admin_sort = "name";
+
+if (!isset($admin_direction))
+        $admin_direction = "ASC";
+
+if ($admin_direction == "DESC")
+{
+        $image_string = '&nbsp;<img src="'.$GO_THEME->image_url.'buttons/arrow_down.gif" border="0" />';
+        $newdirection = "ASC";
+}else
+{
+        $image_string = '&nbsp;<img src="'.$GO_THEME->image_url.'buttons/arrow_up.gif" border="0" />';
+        $newdirection = "DESC";
+}
+
+$page_title = $menu_users;
+require($GO_THEME->theme_path."header.inc");
+
+
+$count = $users->get_users($admin_sort, $admin_direction);
+
+echo '<table border="0" cellpadding="10" cellspacing="0"><tr><td>';
+
+if ($count > 0)
+{
+        echo "<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\">\n";
+
+	if ($GO_CONFIG->max_users == 0 || ($count < $GO_CONFIG->max_users))
+		echo '<tr><td colspan="99" align="right"><a href="register.php" class="normal">'.$admin_new_user.'</a></td></tr>';
+
+	echo '<tr><td colspan="99"><h1>'.$menu_admin.'</h1>';
+	if (isset($feedback)) echo $feedback;
+	echo '</td></tr>';
+        echo '<tr><td colspan="99" align="right" class="small">'.$count.' '.$strUsers;
+        if ($GO_CONFIG->max_users != 0)
+                echo ' '.$strMaxOf.' '.$GO_CONFIG->max_users;
+
+        echo '</td></tr>';
+        echo "<tr>";
+        echo "<td class=\"TableHead2\"><a class=\"TableHead2\" href=\"".$PHP_SELF."?newsort=name&newdirection=".$newdirection."\">".$strName;
+        if ($admin_sort == "name")
+                echo $image_string;
+        echo "<td class=\"TableHead2\"><a class=\"TableHead2\" href=\"".$PHP_SELF."?newsort=username&newdirection=".$newdirection."\">".$strUsername;
+        if ($admin_sort == "username")
+                echo $image_string;
+        echo "</a></td>\n";
+        echo "<td class=\"TableHead2\"><a class=\"TableHead2\" href=\"".$PHP_SELF."?newsort=company&newdirection=".$newdirection."\">".$strCompany;
+        if ($admin_sort == "company")
+                echo $image_string;
+        echo "</a></td>\n";
+        echo "<td class=\"TableHead2\"><a class=\"TableHead2\" href=\"".$PHP_SELF."?newsort=logins&newdirection=".$newdirection."\">".$strLogins;
+        if ($admin_sort == "logins")
+                echo $image_string;
+        echo "</a></td>\n";
+                echo "<td class=\"TableHead2\"><a class=\"TableHead2\" href=\"".$PHP_SELF."?newsort=lastlogin&newdirection=".$newdirection."\">".$ac_lastlogin;
+        if ($admin_sort == "lastlogin")
+                echo $image_string;
+        echo "</a></td>\n";
+        echo "<td class=\"TableHead2\"><a class=\"TableHead2\" href=\"".$PHP_SELF."?newsort=registration_time&newdirection=".$newdirection."\">".$strRegistrationDate;
+        if ($admin_sort == "registration_time")
+                echo $image_string;
+        echo "</a></td>\n";
+        echo "<td class=\"TableHead2\"><a class=\"TableHead2\" href=\"".$PHP_SELF."?newsort=expiration&newdirection=".$newdirection."\">".$strExpiration;
+        if ($admin_sort == "expiration")
+                echo $image_string;
+        echo "</a></td>\n";
+		echo "<td class=\"TableHead2\">&nbsp;</td>\n";
+        echo "</tr>\n";
+
+        while ($users->next_record())
+        {
+			echo '<tr height="18">';
+            echo '<td><a class="normal" href="edit_user.php?id='.$users->f("id").'" title="'.$strEdit.' '.$users->f("name").'">'.$users->f("name").'</a>&nbsp;</td>';
+            echo '<td><a class="normal" href="edit_user.php?id='.$users->f("id").'" title="'.$strEdit.' '.$users->f("username").'">'.$users->f("username").'</a>&nbsp;</td>';
+			echo '<td>'.empty_to_stripe($users->f("company")).'&nbsp;</td>';
+			echo '<td>'.$users->f("logins").'&nbsp;</td>';
+			echo '<td>'.date($ses_date_format, $users->f("lastlogin")).'&nbsp;&nbsp;&nbsp;</td>';
+			echo '<td>'.date($ses_date_format, $users->f("registration_time")).'</td>';
+			echo '<td>'.$users->f("expiration").'</td>';
+			echo "<td>&nbsp;<a href='javascript:confirm_action(\"".$PHP_SELF."?delete_user=".$users->f("id")."\",\"".rawurlencode($strDeletePrefix."'".$users->f("name")."'".$strDeleteSuffix)."\")' title=\"".$strDeleteItem." '".$users->f("name")."'\"><img src=\"".$GO_THEME->image_url."buttons/delete.gif\" border=\"0\"></a></td>";
+			echo '<tr><td colspan="99" height="1"><img src="'.$GO_THEME->image_url.'cccccc.gif" border="0" height="1" width="100%" /></td></tr>';
+		}
+        echo '</table>';
+
+}
+echo '</td></tr></table>';
+
+require($GO_THEME->theme_path."footer.inc");
+?>

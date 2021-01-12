@@ -1,0 +1,103 @@
+<?
+$mode = $_GET["mode"];
+if (!$mode) $mode = $_POST["mode"]; 
+
+$simple=1;
+$page_title = "news";
+include("include/common.php");
+include("include/business_functions.php");
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+?>
+
+<style>
+body {background-color:white;padding:10px}
+.newheader{ background-color:lightgreen;font-weight:bold;cursor:hand;padding-right:5px;}
+.newcontent{padding-bottom:10px}
+.header1{font-size:26px !important;color:blue}
+</style>
+<b class="header1"><?=$lang["news"]?></b>
+<table width=100% cellpadding=3>
+<form name=F method=post>
+<tr>
+	<td style='padding:5px 0px'>
+		<input name=searchtext onkeypress="if (window.event.keyCode==13)document.F.submit()" id=searchtext value="<?=htmlspecialchars(stripslashes($searchtext))?>">
+		<input type=submit name="doSearch" id="doSearch" value="<?=$lang["find"]?>" class=button style='background-image:url(<?=$imgPath?>find.gif)'>
+	</td>
+</tr>
+</form>
+<? 
+$qq="";
+if ($searchtext)
+{
+	$qq = " and (header like '%".addslashes(trim($searchtext))."%' or content like '%".addslashes(trim($searchtext))."%' )";
+}
+$news = DBQuery("select n.*,nu.read,nu.id as nuid from $TABLE_NEWS_USERS nu, $TABLE_NEWS n where language = '".$GO_LANGUAGE->language."' and  n.id = nu.news_id and n.newtype = 'ARTICLE' and user_id = $userID and n.posted <= unix_timestamp() and n.visible = 1 $qq order by (case when `read`=0 then 0 else 1 end), nu.posted desc, n.id desc");
+
+if ($news->EOF)
+{
+	?>
+	<tr><td align=center><b>
+	<hr>
+	<?=$lang["news_not_found"]?>
+	</b>
+	</td></tr>
+	<?
+}
+
+while (!$news->EOF)
+{
+	$img = $news->fields["read"] && !$searchtext ?"plus_node":"min_node";
+	$content = $news->fields["content"];
+	$header = $news->fields["header"];
+	if ($searchtext)
+	{
+		$content = str_replace($searchtext,"<span style='background-color:yellow !important'>".$searchtext."</span>",$content);
+		$header = str_replace($searchtext,"<span style='background-color:yellow !important'>".$searchtext."</span>",$header);
+	}
+
+	?>
+	
+	<tr id=header<?=$news->fields["id"]?>>
+	<td class="newheader" onclick='toggleRow(this,<?=$news->fields["id"]?>)' style="background-color:<?=!$news->fields["read"]?"orange":""?>">
+		<div style='float:left'><img id="imgIcon" src="<?=$imgPath.$img?>.gif"></div>
+		<?=$header?>
+	</td>
+	</tr>
+	<tr id=content<?=$news->fields["id"]?> style="display:<?=$news->fields["read"] && !$searchtext?"none":""?>">
+	<td class="newcontent"><?=$content?></td>
+	</tr>
+	<?
+	DBQuery("update $TABLE_NEWS_USERS set `read` = unix_timestamp() where id = ".$news->fields["nuid"]);
+	$news->MoveNext();
+}
+ 
+ 
+?>
+</table>
+<script>
+function toggleRow(el,id)
+{
+	var row = document.getElementById("content"+id);
+	if (row.style.display == "none")
+	{
+		el.all.imgIcon.src = el.all.imgIcon.src.replace("plus","min");
+		row.style.display = "";
+	}
+	else
+	{
+		el.all.imgIcon.src = el.all.imgIcon.src.replace("min","plus");
+		row.style.display = "none";
+	}
+}
+
+document.all.searchtext.focus();
+</script>
+<?
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+?>

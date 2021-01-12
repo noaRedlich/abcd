@@ -1,0 +1,6 @@
+<?
+session_start();
+$rmodule=2;
+$did="SFIRATSOFYOM"; 
+header("Location: ../stock/add_document.php?rmodule=2&did=SFIRATSOFYOM");
+?> 

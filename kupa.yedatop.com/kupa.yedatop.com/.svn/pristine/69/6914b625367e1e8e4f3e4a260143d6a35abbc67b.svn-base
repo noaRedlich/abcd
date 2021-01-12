@@ -1,0 +1,342 @@
+<?php
+
+	$sugIska = array(
+		1=>"רגיל",
+		2=>"קרדיט",
+		3=>"מיידי",
+		4=>"מועדון",
+		6=>"מיוחד", 
+		8=>"תשלומים",
+		9=>"מועדון תשלומים"
+	);
+	
+	$company = array(
+		1=>"ישרא'",
+		2=>"כאל",
+		3=>"דיינרס",  
+		4=>"אמקס",
+		5=>"JCB",
+		6=>"לאומי"
+	);
+	
+	$matbea = array(
+		1 =>"שקל",
+		2 =>"דולר",
+		4 =>"הצמדה לדולר",
+		8 =>"הצמדה מדד"
+	);
+	
+	$ishur = array(
+		0 =>'ללא אישור',
+		1 =>'שב"א',
+		2 =>'חברת אשראי',
+		3 =>'ידני'	
+	);
+	
+	$typeIska = array(
+		1=>'רגיל',
+		2=>'מאושרת',
+		3=>'מאולצת',
+		51=>'זיכוי רגיל',
+		52=>'ביטול',
+		53=>'זיכוי מאושר'
+	);
+
+	$simple=1;
+	$page_subtitle = "היסטוריה העברות
+     של כרטיסי אשראי";
+	$xlsfilename = "creditcard";
+	
+	if ($id && $deposit!=""){
+		$noheader=1;
+	}
+
+	include("include/common.php");
+    
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+
+	include("$config[template_path]/admin_top.html");
+	
+	if (($_GET["sDate"] || $_GET["ids"]) && $saction != "sendreport"){
+		$saction="go";
+	}
+	
+	if ($ids){
+		$sDate = date("d/m/Y");
+		$eDate = $sDate;
+	}
+	
+	if (!$sDate){
+		$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+		$sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+		$eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+	}
+	
+	$asDate = explode("/",$sDate);
+	$aeDate = explode("/",$eDate);
+	
+	$startdate = mktime(23,59,59,$asDate[1],$asDate[0],$asDate[2]);
+	$enddate = mktime(23,59,59,$aeDate[1],$aeDate[0],$aeDate[2]);
+	$startDay = date("Y/m/d",$startdate);
+	$endDay = date("Y/m/d",$enddate);
+
+	$stocks = GetStocks();
+	?>
+		<script>
+		function PrintReport(){
+			document.getElementById("Query").style.display = "none";
+			window.print();
+			document.getElementById("Query").style.display = "";
+		}
+		
+		function openReport1(url){
+			var ss="";
+			s = window.open(url+'&simple=1','','top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+			s.focus();
+		}	
+
+		</script>
+		<style>
+		.z {color:gray}
+		.b {font-weight:bold}
+		th {background-color:silver}
+		</style>
+		<body>
+		<table cellpadding=5 border=0 width=100%>
+		<tr>
+		<form name=F method=post>
+		<input type=hidden name=usr value=<?=$usr?>>
+		<?$reporttitle =  "היסטוריה העברות<br>של כרטיסי אשראי";?>
+		<?if ($usr){$reporttitle.="<br>".$username;}?>
+		<td nowrap>
+		<strong style='font-size:12pt'><?=$reporttitle?></strong>
+		</td><td width=99% style='border:inset 1'>
+		
+		<?if (!$ids){?>
+		<nobr>
+		<?=$lang["from"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+        <img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.sDate")'>
+        </nobr>
+        <nobr>
+         <?=$lang["to"]?> <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+        <img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.eDate")'>
+        </nobr>
+        <nobr>סכום עיסקה: <input size=5 type=text name=amount value="<?=$amount?>"></nobr>
+        <nobr>מס' כרטיס: <input size=5 type=text name=cardno value="<?=$cardno?>"></nobr>
+            <nobr>אסמכטא: <input size=8 name=ackcode value="<?=$ackcode?>"></nobr> 
+        <nobr>תוקף: <input size=2 type=text name=expiration value="<?=$expiration?>"></nobr>
+        <nobr>חברה: 
+            <select name=ccompany>
+                <option value="">
+                <?foreach($company as $comp=>$name){
+                    echo "<option value=$comp ".(($ccompany==$comp)?"selected":"").">$name";
+                }?>
+            </select>
+        </nobr>
+        <nobr>מס' תשלומים: <input type=text size=1 name=numpayments value="<?=$numpayments?>"></nobr>
+		חשבונית: <input name=cnumber size=8 maxlength=12 value="<?=$cnumber?>">
+		<select name=stock>
+		<option value=""><?=$lang["all_points"]?>
+		<?while(!$stocks->EOF){?>
+			<option value="<?=$stocks->fields["ID"]?>" <?=($stock==$stocks->fields["ID"])?"selected":""?>><?=$stocks->fields["StockName"]?>
+			<?$stocks->MoveNext();
+		}?>
+		</select>
+		<input type=submit value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top" >
+
+		<?}?>
+		
+		<?if ($saction=="go" || $saction=="sendreport"){
+			require("sendreport.php");
+		}?>
+		<input type=hidden name=saction value=go>
+		<input type=hidden name=reportbody value="">
+		<input type=hidden name=sendmode value="">
+		</td>
+		</form>
+		</tr>
+		</table>
+	<?	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+	
+	$worksheet->set_column('A:O', 13);
+	
+	$headings = array('תאריך','זמן עיסקה',"סכום",'מס\' כרטיס','תוקף',"חברה","תנאי עסקה","אישור","סוג עסקה","מס' תשלומים","תשלום ראשון","תשלומים אחרים","מס' חשבונית","מס' קופה \ מסוף");
+	$worksheet->write_row('A'.($rrow++), $headings, $heading);
+	;
+	
+	echo "<div ><br><table id=REPORTTABLE dir=$dir  width=100% border=1  bordercolor=gray style='border-collapse:collapse'  bgcolor=white cellpadding=3 cellspacing=1>";
+	echo "
+	<tr align=center bgcolor=#efefef>
+	<td>תאריך</td>
+	<td>זמן עיסקה</td>
+	<td>סכום</td>
+	<td>מס' כרטיס</td>
+	<td>תוקף</td>
+	<td>חברה</td>
+	<td>תנאי עסקה</td>
+	<td>אישור</td>
+	<td>סוג עסקה</td>
+    <td>מס' תשלומים</td>
+    <td>תשלום ראשון</td>
+ 	<td>תשלומים אחרים</td>
+    <td>מס' חשבונית</td> 	
+    <td>מס' קופה \ מסוף</td>
+    </tr>
+	";
+	
+	$day = $enddate;
+	
+    $TOTAL = 0;
+	while ($day >= $startdate){
+
+		$sqldate = date("Y-m-d",$day);
+		$opdate = date("d/m/Y",$day);
+		$qq ="";
+		
+        $qq = " and  trandate = '$sqldate' ";
+		
+        if ($stock)
+        {
+			$qq.=" and t.stock_id=$stock";
+		}
+        if($ackcode){
+			$qq.=" and t.ackcode='$ackcode' ";
+		}
+		if ($cnumber)
+        {
+			$qq .= " and journalNum * 10000 + tranNum = '".$cnumber."'";
+		}
+        
+        if ($numpayments)
+        {
+            $qq .= " and NumPayments  = ".intval($numpayments);
+        }
+        if ($ccompany)
+        {
+            $qq .= " and CompanyNum  = ".intval($ccompany);
+        }
+        if ($cardno)
+        {
+            $qq .= " and CardNum  = '".substr($cardno,strlen($cardno)-4)."'";
+        }
+        
+        if (floatval($amount))
+        {
+            $qq .= " and CreditCardSum  = ".floatval($amount)."";
+        }
+
+		if ($expiration)
+        {
+            $d = explode("/",$expiration);
+            $exp = intval($d[0]).str_pad($d[1],2,"0",STR_PAD_LEFT);
+            $qq .= " and ExpDate  = '".$exp."'";
+        }
+		
+		$sql = "select (case when IsRefund=1  or RefundMode=1 then 1 else 0 end) as isrefund,
+			t.TranNum,t.id,p.id as paymentid, t.TranDate,t.TranTime, j.journalNum,s.terminalid,
+              CreditCardSum,
+              FirstPayment,
+              OtherPayment,
+              CardNum,
+              ExpDate,
+              CreditTerms,
+              CompanyNum,
+              NumPayments,
+              TranCode,
+              TranType,
+              AuthorizCode
+             from
+			 transactions t inner join transactionpackages j on j.id = t.package_id
+			 inner join transactionpayments p on p.trans_id = t.id
+             inner join $TABLE_LISTINGSSTOCKS s on s.id = t.stock_id
+			where 
+				p.paymID in (5,8) and  
+				t.user_id = $userID
+                and (s.id in (select stock_id from $TABLE_USERSTOCKS where userid = $officeUserID and r=1) or $officeUserID=$userID)
+				$qq
+				order by t.id desc
+                
+			";
+			//echo $sql;
+		$payments = $conn->Execute($sql);
+		if ($payments === false){log_error($sql);}
+
+		while (!$payments->EOF)
+        {
+            
+			$transid = $payments->fields["ID"];
+			$chn_num = str_pad( ($payments->fields["journalNum"])*10000 + $payments->fields["TranNum"] , 8,"0",STR_PAD_LEFT);
+	        $exp = substr($payments->fields["ExpDate"],0,strlen($payments->fields["ExpDate"])-2)."/".substr($payments->fields["ExpDate"],strlen($payments->fields["ExpDate"])-2);
+            $TOTAL += $payments->fields["CreditCardSum"] * (($payments->fields["isrefund"]==1)?-1:1);
+ 
+			echo "<tr valign=top ".(($payments->fields["isrefund"]==1)?"style=color:red":"").">";
+            
+            $dayofweek = $days[date("w",strtotime($transData->fields["TranDate"]))];
+               echo "<td nowrap>".DateFromSQL($payments->fields["TranDate"])." $dayofweek</td>";
+               echo "<td>".substr($payments->fields["TranTime"],0,5)."</td>";
+               echo "<td>".number_format($payments->fields["CreditCardSum"],2)."</td>";
+               echo "<td nowrap>"."*".substr($payments->fields["CardNum"],strlen($payments->fields["CardNum"])-4)."</td>";
+               echo "<td>".$exp."</td>";
+               echo "<td>".$company[$payments->fields["CompanyNum"]]."</td>";
+               echo "<td>".$sugIska[$payments->fields["CreditTerms"]]."</td>";
+               echo "<td>".$ishur[$payments->fields["AuthorizCode"]]."</td>";
+               echo "<td>".$typeIska[$payments->fields["TranType"]]."</td>";
+               echo "<td>".(($payments->fields["NumPayments"]==0)?1:$payments->fields["NumPayments"])."</td>";
+               echo "<td>".number_format($payments->fields["FirstPayment"],2)."</td>";
+		       echo "<td>".number_format($payments->fields["OtherPayment"],2)."</td>";
+               echo "<td><a href='javascript:openReport1(\"rep_cheshbonit.php?usr=$usr&ids=".$payments->fields["id"]."\")'>".$chn_num."</a></td>";
+		       echo "<td>".$payments->fields["terminalid"]."</td>";
+                
+	        echo "</tr>";
+			
+			$b=$body;
+            $f=$numformat;
+			$worksheet->write("A".($rrow),DateFromSQL($payments->fields["TranDate"]),$b);
+			$worksheet->write("B".($rrow),substr($payments->fields["TranTime"],0,5),$b);
+			$worksheet->write("C".($rrow),$payments->fields["CreditCardSum"]* (($payments->fields["isrefund"]==1)?-1:1),$f);
+			$worksheet->write("D".($rrow),"*".substr($payments->fields["CardNum"],strlen($payments->fields["CardNum"])-4),$b);
+			$worksheet->write("E".($rrow),$exp,$b);
+			$worksheet->write("F".($rrow),$company[$payments->fields["CompanyNum"]],$b);
+			$worksheet->write("G".($rrow),$sugIska[$payments->fields["CreditTerms"]],$b);
+			$worksheet->write("H".($rrow),$ishur[$payments->fields["AuthorizCode"]],$b);
+            $worksheet->write("I".($rrow),$typeIska[$payments->fields["TranType"]],$b);
+            $worksheet->write("J".($rrow),(($payments->fields["NumPayments"]==0)?1:$payments->fields["NumPayments"]),$b);
+            $worksheet->write("K".($rrow),$payments->fields["FirstPayment"],$f);
+            $worksheet->write("L".($rrow),$payments->fields["OtherPayment"],$f);
+            $worksheet->write("M".($rrow)," ".$chn_num,$b);
+            $worksheet->write("N".($rrow)," ".$payments->fields["terminalid"],$b);
+			$rrow++;
+						
+			$payments->MoveNext();
+		}
+
+        $day= strtotime("-1 day",$day);
+	}
+    echo "<tr>
+    <td colspan=2><b>סה\"כ</td>
+    <td><b>".number_format($TOTAL,2)."</td>
+    <td colspan=11></td>
+    </tr>";
+    
+	$worksheet->write("B".($rrow),"סה\"כ",$b);
+	$worksheet->write("C".($rrow),$TOTAL,$f);
+	
+	echo "</table></div>";     
+	
+	}
+	
+	$workbook->close();
+	copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+    unlink($fname);
+	
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

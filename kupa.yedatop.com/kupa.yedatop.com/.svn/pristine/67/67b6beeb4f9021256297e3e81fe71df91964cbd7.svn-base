@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>supplier_attachments</main_table>
+	<name>חוזים ומסמכים</name>
+	<options>
+		<opt name="create_record" type="sometime"></opt>
+		<opt name="edit_record" type="sometime"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="view" type="always"></opt>
+		<opt name="delete_record" type="always"></opt>
+	</options>
+	<view>
+		<vcol name="title">כותרת</vcol>
+		<vcol name="filename" type="file" targetdir="_ClientAttachments">קובץ</vcol>
+        <vcol name="status" type="yes_no">פעיל</vcol>
+	</view>
+	<edit>
+    	<ecol name="supplier_id" type="cross" cross="listingsSuppliers" cross_field="ID" lookup_field="SupplierName" >לקוח</ecol>
+		<ecol name="title" type="string">כותרת</ecol>
+		<ecol name="filename" type="file" allowedtypes="doc,pdf,tif,gif,jpg,txt,xls" targetdir="_ClientAttachments">קובץ</ecol>
+        <ecol name="description" type="text">הערות</ecol>
+        <ecol name="status" type="yes_no" defaultvalue="1">פעיל</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="SortOrder"></opt>
+	</sql_actions>
+</xml>

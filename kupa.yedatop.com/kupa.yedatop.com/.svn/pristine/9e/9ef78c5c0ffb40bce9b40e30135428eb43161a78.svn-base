@@ -1,0 +1,269 @@
+<?php
+require "excelparser.php";
+$simple=1;
+$page_subtitle = "יבוא ויצוא";
+
+include("include/common.php");
+include("include/business_functions.php");
+include("include/document.php");  
+include("include/product.php");
+
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+if ($action!="do"){
+echo
+"
+<pre dir=rtl>
+פורמט קובץ EXCEL:
+-------------------
+<b style=color:red>A:</b> ברקוד
+<b >B:</b> קוד נקודת מכירה (מחסן ראשי אם לא הוזן)
+
+כמות נספרת לפי מספר שורות
+</pre>
+</body>
+";                                                                                                                                                                                           
+exit;
+}
+                                                                                                                                                                                                                                                                                                                                                                                                         
+print"<pre dir=rtl>";
+$excel_file = $_FILES['impfile'];
+if($excel_file){
+	$excel_file = $excel_file['tmp_name'];                                                                                                                                                  
+}
+                                                                
+if($excel_file == '') die("<center><b style=color:red>יש לבחור קובץ");
+
+
+$fh = @fopen ($excel_file,'rb');
+if( !$fh ) die("<center><b style=color:red>יש לבחור קובץ");
+if( filesize($excel_file)==0 ) die("<center><b style=color:red>יש לבחור קובץ");
+
+$fc = fread( $fh, filesize($excel_file) );
+@fclose($fh);
+if( strlen($fc) < filesize($excel_file) )
+die("<pre dir=ltr>Cannot read file");
+
+$exc = new ExcelFileParser;
+if( $exc->ParseFromFile($excel_file)>0 ) die("This is not an Excel file or file stored in Excel < 5.0");
+//$res = $exc->ParseFromString($fc);
+switch ($res) {
+	case 0: break;
+	case 1: die("Can't open file");
+	case 2: die("File too small to be an Excel file");
+	case 3: die("Error reading file header");
+	case 4: die("Error reading file");
+	case 5: die("This is not an Excel file or file stored in Excel < 5.0");
+	case 6: die("File corrupted");
+	case 7: die("No Excel data found in file");
+	case 8: die("Unsupported file version");
+
+	default:
+		die("Unknown error");
+}
+
+if( count($exc->worksheet['name']) < 1 ) die("No worksheets in Excel file.");
+
+$codes = "";
+
+for ($worksheet=0;$worksheet<count($exc->worksheet['name']);$worksheet++){
+
+	if( $exc->worksheet['unicode'][$worksheet] )
+	{
+		$wname = uc2html($exc->worksheet['name'][$worksheet]);
+	}
+	else
+	{
+		$wname = $exc->worksheet['name'][$worksheet];
+	}
+
+	
+	print "<span style='color:blue' dir=ltr>גיליון: ". $wname."</span>\n";flush();
+	$ws = $exc->worksheet['data'][$worksheet];
+
+	if( is_array($ws) && 	 isset($ws['max_row']) &&    isset($ws['max_col']) )
+	{
+		if( $ws['max_col'] < 1 ) {
+			echo("Invalid format.<br>Number of columns is less then 2.");
+			continue;
+		}
+		if( $ws['max_row'] < 0 ){
+    		echo("Invalid format.<br>No rows defined in document.");
+			continue;
+		}
+		$data = $ws['cell'];
+        
+        $docnums=array();
+        $products = array();
+		foreach( $data as $i => $row )
+		{
+
+			$barcode = trim(get( $exc, $row[0] ));
+			$terminal = trim(get( $exc, $row[1] ));
+ 			
+			if ($barcode!="")
+            {
+                $products[$barcode]++;
+			}
+			else
+            {
+				echo "<span style='color:red' dir=ltr>שורה שגויה: חוסר ברקוד </span>\n";
+			}
+		}
+        
+       
+        foreach ($products as $barcode => $quantity)
+        {
+            $quantitytocalc = $quantity;
+			$sql = "select id as listing_id from listingsDB where user_id = $userID and BarCode='".trim($barcode)."'";
+			$rs=DBQuery($sql);
+			
+			if (!$rs->EOF || $createproducts)
+            { 
+            	if ($rs->EOF)
+				{
+					$prod = new Product("פריט ".$barcode,$barcode,1);
+					$prod->Create();
+					$listingID = $prod->id;
+					echo "<span style='color:darkblue'>נוצר פריט: ". $barcode."</span>\n";flush();
+				}
+				else
+				{            
+					$listingID = $rs->fields["listing_id"];
+				}
+                
+                $sql = "select grams_rate from $TABLE_UNITS where id = (select unit from listingsDB where id = $listingID)";
+                $unitrs=DBQuery($sql);
+				
+                $gramsRate = $unitrs->Fields("grams_rate");
+                if ($gramsRate)
+                {
+                    $quantity = $quantity*$gramsRate;
+                }
+                  
+                $doSfira=false;                
+				if ($workmode=="A")
+                {
+					if (!$terminal)$terminal=$config["MainStock"];
+					$sql="select id from $TABLE_LISTINGSSTOCKS where user_id = $userID and terminalId='$terminal'";
+					$stk=DBQuery($sql);
+					
+					$termID = $stk->fields["id"];
+					if(!$termID)
+                    {
+						echo "<span style='color:red'>Terminal not found: ". $terminal."</span>\n";flush();
+						continue;
+					}
+					$sql = "select lse.id as lseid,quantity  from listingsStocksElements lse
+					where lse.stockid = $termID and listingid=$listingID";
+					$stk=DBQuery($sql);
+					
+					$lseID = $stk->fields["lseid"];
+					if (!$lseID)
+                    {
+                        $prevQuantity = 0;
+                        $doSfira = ($prevQuantity!=$quantity);  
+						$updSQL = "INSERT INTO listingsStocksElements (ListingID, StockID, Quantity, LatestSyncQuantity,LatestSyncDate) VALUES 
+						($listingID, $termID, '$quantity', 0, UNIX_TIMESTAMP())";
+						$newquantity = $quantity;
+					}
+					else
+                    {
+                        $prevQuantity =  $stk->fields["quantity"];
+                        $doSfira = ($prevQuantity!=$quantity);  
+						$newquantity = ($addmode)?$prevQuantity+$quantity:$quantity;
+						$updSQL = "update listingsStocksElements set quantity = '$newquantity' where id = $lseID";
+					}
+				}
+				else
+                {
+					//workmode==B
+                    $sql = "select Quantity from listingsDB where id = $listingID ";
+                    $rsq = DBQuery($sql); 
+                    $prevQuantity =  $rsq->fields["field_value"];
+                    $doSfira = ($prevQuantity!=$quantity);  
+					$newquantity = ($addmode)?$prevQuantity+$quantity:$quantity;
+					$updSQL = "update listingsDB set Quantity = '$newquantity' where id = $listingID ";
+				}
+				
+
+
+                
+                if (true || $doSfira || $addmode)
+                {
+
+                   //create document
+                   if (!isset($docnums[$termID]))   
+                   {      
+                        $docnums[$termID] = new Document("SFIRATMLAI",$termID);
+                        $docnums[$termID]->Create();
+                   }
+                   $docnums[$termID]->AddItem($listingID,$newquantity); 
+                }
+                //end create document
+                
+                //update quantities
+                DBQuery($updSQL);
+				
+				//save to history
+				$sql="insert into history (timestamp,datetime,type,listing_id,quantity_from,supplier_id,stock_id_from,stock_id_to) values(
+				unix_timestamp(),now(),'purchase',$listingID,'$newquantity','-1','$termID','$termID')";
+				$res = DBQuery($sql); 				
+                
+                echo "פריט עודכן: ". $barcode." כמות: ".$quantity."\n";flush();
+			}
+			else
+            {
+				echo "<span style='color:red'>פריט לא נמצא: ". $barcode."</span>\n";flush();
+			}            
+        }
+	}
+}
+echo "<span style=color:green>סוף הקובץ</span>";
+
+?>
+
+
+<?
+	function uc2html($str) {
+		$ret = '';
+		for( $i=0; $i<strlen($str)/2; $i++ ) {
+			$charcode = ord($str[$i*2])+256*ord($str[$i*2+1]);
+			$ret .= '&#'.$charcode;
+		}
+		return $ret;
+	}
+
+	function get( $exc, $data )
+	{
+		switch( $data['type'] )
+		{
+			// string
+		case 0:
+			$ind = $data['data'];
+			if( $exc->sst[unicode][$ind] )
+				return uc2html($exc->sst['data'][$ind]);
+			else
+				return $exc->sst['data'][$ind];
+
+			// integer
+		case 1:
+			return (integer) $data['data'];
+
+			// float
+		case 2:
+			return (float) $data['data'];
+        
+		case 3:
+			return gmdate("m-d-Y",$exc->xls2tstamp($data[data]));
+
+		default:
+			return '';
+		}
+	}
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

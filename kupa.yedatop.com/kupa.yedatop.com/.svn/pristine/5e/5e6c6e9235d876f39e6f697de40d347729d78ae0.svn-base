@@ -1,0 +1,7 @@
+<xml>
+	<name>System Configurator</name>
+	<cfile text="Path to system configuration file">conf/conf.xml</cfile>
+	<visible>on</visible>
+	<disabled></disabled>
+	<root>on</root>
+</xml>

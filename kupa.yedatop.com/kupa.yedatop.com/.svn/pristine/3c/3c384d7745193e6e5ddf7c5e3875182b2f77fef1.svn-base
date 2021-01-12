@@ -1,0 +1,463 @@
+<?
+// dd/mm/yyyy -> YYYY-MM-DD
+function dateToSQL($date){ 
+	$adate = explode("/",$date);
+	return $adate[2] ."-".$adate[1]."-".$adate[0];
+}
+
+function dateFromSQL($date,$nullifzerodate = false){
+	if ($date=="")return ""; 
+	$date = substr($date,0,10);
+    if ($nullifzerodate && ($date == "0000-00-00" || $date == "0000-00-00 00:00:00"))
+    {
+        return "";
+    }
+    $adate = explode("-",$date);
+	return $adate[2] ."/".$adate[1]."/".$adate[0];
+}
+
+function getLetter($ind)
+{
+	$prefixLetter = array(0=>"",1=>"A",2=>"B",3=>"C",4=>"D");
+	$max = ord("Z")-ord("A")+1;
+	$ord = ord("A")+($ind%$max);
+	$prefixInd = floor( $ind / $max );
+	
+	$s = $prefixLetter[$prefixInd].chr($ord);
+	//echo $s.".";
+	return $s;
+	
+}
+
+function GetTime($date)
+{ 
+    $s = substr($date,11,5);
+    if ($s == "00:00")$s="";  
+    return $s;
+}
+
+function startHideOutput()
+{
+	global $excelmode;
+	if ($excelmode)ob_start();
+}
+
+function endHideOutput()
+{
+	global $excelmode;
+	if ($excelmode)ob_end_clean();
+}
+
+function renderExcelOutput()
+{
+	global $excelmode,$xlsfilename,$userID;
+    if ($excelmode)
+    {
+		echo "<br><center><a href='../../tmp/".$xlsfilename."_".$userID.".xls'><u><b>ìçõ ìäåøãú ÷åáõ Excel</a>";
+	}
+}
+
+
+function JSEncode($s)
+{
+	return str_replace("\r"," ",str_replace("\n"," ",str_replace("'","&#39;",str_replace("\"",'\"',str_replace('\\','\\\\',$s)))));
+}
+ 
+function safeHTML($s)
+{
+    return str_replace("'","&#39;",str_replace("\"",'&quot;',$s));
+}
+    
+function ConvertFromUnicode($source,$lang="ru"){
+
+	switch ($lang){
+		case "he": $shift=1264; break;
+		case "ru": $shift=848; break;
+	}
+
+	$s="";
+	$i=0;
+	while ($i<strlen($source)){
+		//echo "$i==";
+		if ($source[$i] == "&" && $source[$i+1] == "#"){
+			$k=$i+2;$cnt=0;
+			$substr="";
+		    while ($source[$k]!=";" && $source[$k]!="&" && $k < strlen($source)){
+				$substr.=$source[$k];
+				$k++;$cnt++;
+			}
+			if ($source[$k]==";")$k++;
+			//echo $substr."($cnt)--";
+			$unicode = intval($substr);
+			$s.= ($cnt==2||($unicode>=65&&$unicode<=122))?chr($unicode):chr($unicode-$shift);
+			$i=$k;
+		}
+		else{
+			$s.=$source[$i];
+			$i++;
+		}
+	}
+	return $s;
+
+}
+
+function ConvertToUnicode ($source,$lang,$add_semicolon=true) 
+{
+	$source=urlencode($source);
+
+	switch ($lang){
+		case "he": $shift=1264; break;
+		case "ru": $shift=848; break;
+	}
+	
+	$decodedStr = '';
+	$pos = 0;
+	$len = strlen ($source);
+	while ($pos < $len) 
+	{
+		$charAt = substr ($source, $pos, 1);
+		if ($charAt == '%') 
+		{
+			$pos++;
+			$charAt = substr ($source, $pos, 1);
+			if ($charAt == 'u') 
+			{
+				// we got a unicode character
+				$pos++;
+				$unicodeHexVal = substr ($source, $pos, 4);
+				$unicode = hexdec ($unicodeHexVal);
+				$entity = "&#". $unicode . ';';
+				$decodedStr .= utf8Encode ($entity);
+				$pos += 4;
+			}
+			else 
+			{
+				// we have an escaped ascii character
+				$hexVal = substr ($source, $pos, 2);
+				$decodedStr .= "&#". (hexdec($hexVal)+$shift);
+				if ($add_semicolon){
+					$decodedStr .= ";";
+				}
+				$pos += 2;
+			}
+		}
+		else 
+		{
+			$decodedStr .= $charAt;
+			$pos++;
+		}
+	}
+	
+	$decodedStr	= str_replace("+","%",$decodedStr);
+	$decodedStr	= str_replace(";","%",$decodedStr);
+	return $decodedStr;
+}
+
+	/**
+	 * Displays SELECT control
+	 *
+	 * @param [tableName]		Host to connect to
+	 * @param [argUsername]		Userid to login
+	 * @param [argPassword]		Associated password
+	 * @param [argDatabaseName]	database
+	 * @param [forceNew]        force new connection
+	 *
+	 * @return true or false
+	 */
+function SelectEntity($tableName,$nameColumn,$controlName,$option_value,$options)
+{
+    global $userID,$conn;
+	$sql = "select ID,$nameColumn from $tableName where Status=1 and user_id = $userID order by SortOrder,binary $nameColumn";
+	$res = $conn->Execute($sql);
+	if ($res === false){log_error($sql);}
+    echo "<select name=$controlName id=$controlName $options>";
+    if ($option_value!="undefined"){
+        echo "<option value=''>".$option_value;
+    }
+    while (!$res->EOF){
+        echo "<option value=".$res->fields["ID"]." ".(($GLOBALS[$controlName]==$res->fields["ID"])?"selected":"").">".$res->fields[$nameColumn];
+        $res->MoveNext();
+    }
+    echo "</select>";
+}
+
+  function utf8RawUrlDecode ($source) {
+    $decodedStr = "";
+    $pos = 0;
+    $len = strlen ($source);
+    while ($pos < $len) {
+        $charAt = substr ($source, $pos, 1);
+        if ($charAt == '%') {
+            $pos++;
+            $charAt = substr ($source, $pos, 1);
+            if ($charAt == 'u') {
+                // we got a unicode character
+                $pos++;
+                $unicodeHexVal = substr ($source, $pos, 4);
+                $unicode = hexdec ($unicodeHexVal);
+                $entity = "&#". $unicode . ';';
+                $decodedStr .= utf8_encode ($entity);
+                $pos += 4;
+            }
+            else {
+                // we have an escaped ascii character
+                $hexVal = substr ($source, $pos, 2);
+                $decodedStr .= chr (hexdec ($hexVal));
+                $pos += 2;
+            }
+        } else {
+            $decodedStr .= $charAt;
+            $pos++;
+        }
+    }
+    return $decodedStr;
+}
+
+function balance($s){
+    return "<span style='color:".($s<0?"red":"green")."'>".number_format(abs($s),2)."</span>";
+}
+ 
+function isValidEmail($email_address) 
+{
+	$regex = '/^[A-z0-9][\w.-]*@[A-z0-9][\w\-\.]+\.[A-z0-9]{2,6}$/';
+	return (preg_match($regex, $email_address));
+}
+
+$translitpairs=array(
+"à"=>"a","á"=>"b","â"=>"v","ã"=>"g","ä"=>"d","å"=>"e","¸"=>"yo","æ"=>"zh","ç"=>"z","è"=>"i","é"=>"y",
+"ê"=>"k","ë"=>"l","ì"=>"m","í"=>"n","î"=>"o","ï"=>"p","ð"=>"r","ñ"=>"s","ò"=>"t","ó"=>"u","ô"=>"f",
+"õ"=>"h","ö"=>"tz","÷"=>"ch","ø"=>"sh","?"=>"y","ù"=>"sch","?"=>"'","ú"=>"'","þ"=>"ju","?"=>"ya",
+"À"=>"A","Á"=>"B","Â"=>"V","Ã"=>"G","Ä"=>"D","Å"=>"E","Æ"=>"ZH","Ç"=>"Z","È"=>"I","É"=>"Y","?"=>"K",
+"Ë"=>"L","Ì"=>"M","Í"=>"N","Î"=>"O","Ï"=>"P","Ð"=>"R","Ñ"=>"S","Ò"=>"T","Ó"=>"U","Ô"=>"F","Õ"=>"H",
+"Ö"=>"TZ","×"=>"CH","Ø"=>"SH","?"=>"SCH","?"=>"Y","?"=>"'","?"=>"'","?"=>"JU","?"=>"YA");
+ 
+function transliterate($s){
+    global $translitpairs;
+    return strtr($s,$translitpairs);
+}
+
+function reverseHebrew ($string){
+    $arrstr = explode("\n",$string);
+    $out="";
+    $isHebrewWord = false;
+    foreach($arrstr as $str){
+        $arr = explode(" ",$str);
+        for($i=0;$i<count($arr);$i++){ 
+            $arr[$i] = str_replace(chr(0),"",$arr[$i]);
+			if (!preg_match("/^([a-zA-Z0-9\'\"\*\!\?\_\r\/\%\.\-\,\}\{\)\(\@ \:\&\\\\]*)$/",$arr[$i]))
+            {
+                   $isHebrewWord = true;
+                   $arr[$i] = strrev($arr[$i]); 
+            }
+        }
+        if ($isHebrewWord)
+        {
+            $arr = array_reverse($arr,true);
+        }
+        $out .= implode(" ",$arr)."\n";
+    }
+    return substr($out,0,strlen($out)-1);
+}
+ 
+function dbsafe($s)
+{
+	return (ini_get("magic_quotes_gpc")=="1")?$s:addslashes($s);
+}
+
+function queryString($excludedParams){
+    $excludedParams = ",".$excludedParams.",";
+    global $HTTP_SERVER_VARS;
+    $s = $HTTP_SERVER_VARS["QUERY_STRING"];
+    $out="";
+    $arr=explode("&",$s);
+    foreach ($arr as $pair){
+        $pairarr = explode("=",$pair);
+         if (!strpos(" ".$excludedParams,",".$pairarr[0]))
+        {
+            $out.= "&".$pair;
+        }
+    }
+    return substr($out,1);
+
+}
+
+function splitLongWords($str,$wordLength){
+    if (!$wordLength)$wordLength=20;
+    return preg_replace_callback("/([^ ]{".$wordLength."})/","trimWord",$str);
+}
+
+function trimWord($matches){
+    $str=$matches[1];
+    $delimiter = "<span style='font-size:0'> </span>";
+    if (strrpos($str,"&") > -1 && strrpos($str,"&")>strlen($str)-8)
+	{
+		//in case there is possible encoded tag (&#23; or &gt;), put delimiter before the tag
+		$result = substr($str,0,strrpos($str,"&"))  . $delimiter . substr($str,strrpos($str,"&"));
+	}
+	else
+	{
+		$result =  $str . $delimiter;
+	}
+
+    return $result;
+}
+
+function getvalue($str){
+	$rr = "";
+	//$s="";
+	for($i=0;$i<strlen($str);$i++){
+		//$s.=ord($str[$i])."-";
+		$rr.=str_pad(dechex(ord($str[$i])),2,"0",STR_PAD_LEFT);
+	}
+	//echo "*".$rr."*";
+	if (substr(strtoupper($rr),0,1)!="F")
+	{
+		//positive
+		return hexdec($rr);
+	}
+	else
+	{
+		//negative
+		$rr = str_pad(strtoupper($rr),8,"F",STR_PAD_LEFT);
+		return hexdec($rr)-4294967295;
+	}
+
+}
+
+function putValue($num,$bytes){
+	$ss.="";
+    $num = $num."";
+	if ($num >= 0)
+    {
+		//positive
+		$s = str_pad(dechex($num),$bytes*2,"0",STR_PAD_LEFT);
+	}
+	else
+    {
+		//negative
+		$s = str_pad(dechex($num+hexdec(str_pad("F",$bytes*2,"F",STR_PAD_LEFT))), $bytes*2,"0",STR_PAD_LEFT);
+	}
+	for($i=0;$i<strlen($s);$i=$i+2)
+    {
+		$ss.=chr(hexdec($s[$i].$s[$i+1]));
+	}
+	return $ss;
+
+}
+
+function decodeFromDOSHeb($str){
+	$s = "";
+	for($i=0;$i<strlen($str);$i++){
+		if (ord($str[$i])>=128 && ord($str[$i])<=154){
+			$s.=chr(ord($str[$i])+96);
+		}
+		else{
+			$s.= $str[$i];
+		}
+	}
+	return trim(reverseHebrew($s));
+}
+
+function decodeToDOSHeb($str,$bytes,$noreverse)
+{
+	$revs = ($noreverse) ? $str : reverseHebrew($str);
+	$str = str_pad($revs,$bytes,chr(0),STR_PAD_RIGHT);
+	$s = "";
+	for($i=0;$i<strlen($str);$i++){
+		if (ord($str[$i])>=224 && ord($str[$i])<=250){
+			$s.=chr(ord($str[$i])-96);
+		}
+		else{
+			$s.=$str[$i]; 
+		}
+	}
+	return $s;
+}
+
+
+function ToPLUCode($str){
+	$s="";
+	for($i=0;$i<strlen($str);$i++){
+		$pos = dechex(ord($str[$i]));
+		$s.=str_pad($pos,2,"0",STR_PAD_LEFT);
+	}
+	return str_replace(array("f","F"),"",$s);
+}
+
+function FromPLUCode($num,$bytes){
+	$s = str_pad($num,$bytes*2,"F",STR_PAD_RIGHT);
+	for($i=0;$i<strlen($s);$i=$i+2){
+		$ss.=chr(hexdec($s[$i].$s[$i+1]));
+	}
+	return $ss;
+}
+
+function getBit($num,$startbit,$bitcount){
+	$n2 = str_pad(base_convert($num,10,2),16,"0",STR_PAD_LEFT);
+	return base_convert(substr($n2,$startbit-1,$bitcount),2,10);
+}
+
+
+function ToBinary($value,$numbits){
+    $s = base_convert($value,10,2);
+    return str_pad($s,$numbits,"0",STR_PAD_LEFT); 
+}
+
+function ToDecimal($value){
+    return base_convert($value,2,10);
+}
+
+/**
+@return ADORecordSet
+*/
+function DBQuery($sql)
+{
+    global $conn; 
+    $res = $conn->Execute($sql);
+    if ($res === false){log_error($sql);}
+    return $res;
+}
+
+function IsDate($date){
+	return preg_match("/\d\d\/\d\d\/\d\d\d\d/",$date);
+}
+
+function IsPostBack()
+{
+    //echo $_SERVER["HTTP_REFERER"]."SS";
+    global $PHP_SELF,$_SERVER;
+    return strpos(" ".$_SERVER["HTTP_REFERER"],$PHP_SELF)>-1;
+}
+
+function FillCategoriesList($selected,$parent_id=0,$level=0)
+{
+    global $userID;
+    if ($level)$bullet = "»";
+    $cats = DBQuery("select * from listingsCategories where user_ID = $userID and Status=1 and ifnull(parent_id,0) = $parent_id order by SortOrder, binary CategoryName");
+    while(!$cats->EOF)
+    { 
+     ?>
+	 <option style='font-family:arial' value="<?=$cats->fields["ID"]?>" <?=($selected==$cats->fields["ID"])?"selected":""?>><?=str_repeat("&nbsp;&nbsp;&nbsp;",$level).$bullet.$cats->fields["CategoryName"]?>
+	 <?
+     FillCategoriesList($selected,$cats->fields["ID"],$level+1);
+     $cats->MoveNext();
+	}
+}
+
+function GetFullCategoryName($catID)
+{
+	$s="";
+	global $userID;
+	$level=0;
+	$category = $catID;
+	while ($category && $level<=5)
+	{
+		$cats = DBQuery("select parent_id,categoryname as name from listingsCategories where user_ID = $userID and id = $category");
+		$category = $cats->fields["parent_id"];
+		$s=$cats->fields["name"]." / ".$s;
+		$level++; 
+	}
+	return substr($s,0,strlen($s)-3);
+}
+ 
+?>

@@ -1,0 +1,284 @@
+<?php
+
+
+	$simple=1;
+	$page_subtitle = "דו\"ח קופה";
+	$xlsfilename = "kupahistory";
+	
+	if ($id && $deposit!=""){
+		$noheader=1;
+		ob_start();
+	}
+	
+	if (!$mode){
+		include("include/common.php");
+		if (!loginCheck('User'))exit;
+		global $action, $id, $cur_page, $lang, $conn, $config;
+	}
+
+	if ($id && $deposit!=""){
+		$sql="update transactionpayments set deposited=$deposit where id=$id";
+		$stocks = DBQuery($sql);
+		ob_end_clean();
+		if ($stocks === false){die("ERROR");}
+		die("OK");
+	}
+	
+	include("$config[template_path]/admin_top.html");
+	$maindb = $GO_CONFIG->db_name;
+	
+	if (($_GET["sDate"] || $_GET["ids"] || $mode) && $saction != "sendreport"){
+		$saction="go";
+	}
+	
+	if ($ids){
+		$sDate = date("d/m/Y");
+		$eDate = $sDate;
+	}
+	
+	if (!$sDate){
+		$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+		$sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+		$eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+	}
+	
+	$asDate = explode("/",$sDate);
+	$aeDate = explode("/",$eDate);
+	
+	$startdate = mktime(23,59,59,$asDate[1],$asDate[0],$asDate[2]);
+	$enddate = mktime(23,59,59,$aeDate[1],$aeDate[0],$aeDate[2]);
+	$startDay = date("Y/m/d",$startdate);
+	$endDay = date("Y/m/d",$enddate);
+	
+	
+	
+	?>
+	
+	<?if(!$mode){
+		$stocks = GetStocks();
+		$rsWorkers = DBQuery("select u.id, suppliername as name from listingsSuppliers s, $maindb.users u where u.username = s.username 
+								and (isworker=1 or isagent=1)  order by binary suppliername");
+	?>
+		<script>
+		function PrintReport(){
+			document.getElementById("Query").style.display = "none";
+			window.print();
+			document.getElementById("Query").style.display = "";
+		}
+		
+		function showDocs(ids){
+		ids1 = ids.replace(/-1/g,"").replace(/\,/g,"")
+	    if (ids1){
+            document.FF.action = "rep_documents.php"
+            document.FF.ids.value = ids
+		    openReport1("blank.htm?")
+            document.FF.submit()
+	    }
+    }
+
+
+		function openReport1(url){
+			var ss="";
+			s = window.open(url+'&simple=1','CHN','top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+			s.focus();
+		}	
+		
+		function deposit(id,el){
+			var url = "rep_cheque.php?id="+id+"&deposit="+((el.checked)?1:0);
+			xmlhttp = new ActiveXObject("Microsoft.XMLHTTP")
+		    xmlhttp.open("GET",url,false)
+			xmlhttp.send();
+			if(xmlhttp.ResponseText!="OK"){
+				alert("ישנה בעיה בעדכון נתונים");
+				el.checked=!el.checked;
+			}
+		} 
+		</script>
+		<style>
+		.z {color:gray}
+		.b {font-weight:bold}
+		th {background-color:silver}
+		</style>
+		<body>
+		<table cellpadding=5 border=0 width=100%>
+		<tr>
+		<form name=F method=post>
+		<input type=hidden name=usr value=<?=$usr?>>
+		<?$reporttitle =$page_subtitle;?>
+		<?if ($usr){$reporttitle.="<br>".$username;}?>
+		<td nowrap>
+		<strong style='font-size:12pt'><?=$reporttitle?></strong>
+		</td><td width=99% style='border:inset 1'>
+		
+		<?if (!$ids){?>
+		
+		<?=$lang["from"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.sDate")
+'>
+ <?=$lang["to"]?> <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.eDate")
+'>
+ 
+		
+		נקודת מכירה:
+		<select name=stock>
+		<option value=""><?=$lang["all_points"]?>
+		<?FillStockList($stocks,$stock);?>
+		</select>
+		
+		עובד:
+		<select name=workeruserid>
+		<option value=""><?=$lang["all_workers"]?>
+		<?while(!$rsWorkers->EOF){?>
+			<option value="<?=$rsWorkers->fields["id"]?>" <?=($workeruserid==$rsWorkers->fields["id"])?"selected":""?>><?=$rsWorkers->fields["name"]?>
+			<?$rsWorkers->MoveNext();
+		}?>
+		</select>	
+			
+		<input type=submit value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top" >
+		<?}?>
+		
+		<?if ($saction=="go" || $saction=="sendreport"){
+			require("sendreport.php");
+		}?>
+		<input type=hidden name=saction value=go>
+		<input type=hidden name=reportbody value="">
+		<input type=hidden name=sendmode value="">
+		</td>
+		</form>
+		</tr>
+		</table>
+	<?}?>
+	<?	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+	
+	$worksheet->set_column('A:J', 13);
+	$worksheet->set_column('B:B', 23);
+	$worksheet->set_column('J:J', 23);
+	
+	$headings = array('נקודה','זמן פתיחה',"שם עובד",'דמי מחזור','מזומן',"המחאות","אשראי","שוברים","יתרה","זמן סגירה");
+	$worksheet->write_row('A'.($rrow++), $headings, $heading);
+	;
+	
+	echo "<div ><br><table id=REPORTTABLE dir=$dir  width=100% border=1  bordercolor=gray style='border-collapse:collapse'  bgcolor=white cellpadding=3 cellspacing=1>";
+	echo "
+	<tr align=center bgcolor=#efefef>
+	<td><b>נקודה</b></td>
+	<td><b>זמן פתיחה</b></td>
+	<td><b>שם עובד</b></td>
+	<td><b>דמי מחזור</b></td>
+	<td><b>מזומן</b></td>
+	<td><b>המחאות</b></td>
+	<td><b>אשראי</b></td>
+	<td><b>שוברים</b></td>
+	<td><b>יתרה</b></td>
+	<td><b>זמן סגירה</b></td>
+	</tr>
+	
+	";
+	
+	
+
+	$sqldate = date("Y-m-d",$day);
+	$opdate = date("d/m/Y",$day);
+	$q = "";
+	if ($stock)
+	{
+		$q.=" and c.stock_id = $stock";
+	}
+	if ($workeruserid)
+	{
+		$q.=" and office_user_id = $workeruserid";
+	}
+	if ($sDate)
+	{
+		$q.=" and from_unixtime(opentime) >= '".dateToSQL($sDate)."'";
+	}
+	if ($eDate)
+	{
+		$q.=" and from_unixtime(opentime) <= '".dateToSQL($eDate)." 23:59:59'";
+	}
+
+	$sql = "select distinct s.suppliername, st.stockname, c.*, from_unixtime(c.opentime) as opendate, from_unixtime(c.closetime) as closedate 
+					from cashboxhistory c
+					left outer join listingsSuppliers s on s.username = (select username from $maindb.users where id = c.office_user_id),
+					$TABLE_LISTINGSSTOCKS st 
+					where st.id = c.stock_id $q order by opentime desc";
+		
+	$rs = DBQuery($sql); 
+
+	while (!$rs->EOF)
+	{
+
+		$dayofweek = $days[date("w",strtotime($rs->fields["opendate"]))];  
+		$dayofweek2 = $days[date("w",strtotime($rs->fields["closedate"]))]; 
+		$opendate = "";
+		if ($rs->fields["opentime"])
+		{
+			$opendate = DateFromSQL($rs->fields["opendate"])." $dayofweek ".GetTime($rs->fields["opendate"]);
+		}
+		$closedate = "";
+		if ($rs->fields["closetime"])
+		{
+			$closedate = DateFromSQL($rs->fields["closedate"])." $dayofweek2 ".GetTime($rs->fields["closedate"]);
+		}
+		
+		$balance = $rs->fields["start_balance"]+$rs->fields["total_cache"]+$rs->fields["total_cheque"]+$rs->fields["total_credit"]+$rs->fields["total_coupons"];
+		echo "<tr valign=top>";
+				echo "<td>".$rs->fields["stockname"]."</strong></td>";
+				echo "<td nowrap>".$opendate."</td>";
+				echo "<td >".$rs->fields["suppliername"]."</strong></td>";
+				echo "<td>".number_format($rs->fields["start_balance"],2)."</strong></td>";
+				echo "<td ><a href='javascript:showDocs(\"".$rs->fields["cache_ids"]."\")'>".number_format($rs->fields["total_cache"],2)."</a></td>";
+				echo "<td ><a href='javascript:showDocs(\"".$rs->fields["cheque_ids"]."\")'>".number_format($rs->fields["total_cheque"],2)."</a></td>";
+				echo "<td ><a href='javascript:showDocs(\"".$rs->fields["credit_ids"]."\")'>".number_format($rs->fields["total_credit"],2)."</a></td>";
+				echo "<td ><a href='javascript:showDocs(\"".$rs->fields["coupons_ids"]."\")'>".number_format($rs->fields["total_coupons"],2)."</a></td>";
+				echo "<td >".number_format($balance,2)."</td>";
+				echo "<td nowrap>".$closedate."</td>";
+		echo "</tr>";
+		
+		$b=$body;
+		$f=$numformat;
+		$worksheet->write("A".($rrow),$rs->fields["stockname"],$b);
+		$worksheet->write("B".($rrow),$opendate,$b);
+		$worksheet->write("C".($rrow),$rs->fields["suppliername"],$b);
+		$worksheet->write("D".($rrow),$rs->fields["start_balance"],$f);
+		$worksheet->write("E".($rrow),$rs->fields["total_cache"],$f);
+		$worksheet->write("F".($rrow),$rs->fields["total_cheque"],$f);
+		$worksheet->write("G".($rrow),$rs->fields["total_credit"],$f);
+		$worksheet->write("H".($rrow),$rs->fields["total_coupons"],$f);
+		$worksheet->write("I".($rrow),$balance,$f);
+		$worksheet->write("J".($rrow),$closedate,$b);
+		$rrow++;
+					
+		$rs->MoveNext();
+	}
+
+		
+
+	echo "</table></div>";
+	
+	}
+	
+	$workbook->close();
+	copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+    unlink($fname);
+	
+	if (!$mode){
+		include("$config[template_path]/admin_bottom.html");
+		$conn->Close(); // close the db connection
+	}
+?>
+
+<form name=FF method=post target=CHN >
+<input type=hidden name=ids>
+<input type=hidden name=simple name=1>
+<input type=hidden name=usr value="<?=$usr?>">
+<input type=hidden name=rmodule value="<?=$rmodule?>">
+</form>

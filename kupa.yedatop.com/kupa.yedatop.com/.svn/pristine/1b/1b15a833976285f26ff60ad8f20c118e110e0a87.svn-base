@@ -1,0 +1,282 @@
+<?php
+$debug = 1;
+//command line interface support
+for($i=0;$i<$argc;$i++)
+{   
+	$argarr = explode("&",$argv[$i]);      
+	foreach($argarr as $pair){                                               
+		$arg = explode("=",$pair);
+		if(strtoupper($arg[0])=="USERID")
+		{
+			$USERID = $arg[1];
+		}
+		if(strtoupper($arg[0])=="action")
+		{
+			$action = $arg[1]; 
+		}
+	}
+}
+
+$openedFiles = array();
+ini_set("max_execution_time","6000");
+ob_start(); 
+$simple=1;
+$page_subtitle = $lang["admin_menu_imports"];
+
+include("include/common.php");
+include("include/business_functions.php");
+ini_set("error_reporting","E_ALL");
+
+if (!loginCheck('User'))exit;
+
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+if ($action!="do" && $action!="upload")
+{
+	ob_end_flush();
+	echo
+	"<pre dir=".$dir.">
+ניתן להעלות קבצי TRANS או ZIP
+לא חובה להעלות קובץ
+בסוף הפעולה תקבלו להורדה קבצי PLU בהתאם להגדרות מערכת
+			";
+	
+	exit;
+}
+ob_end_clean();
+print"
+		<head>
+		<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+		<style>body{background-color:buttonface}</style>
+		</head>
+		<body><pre dir=".$dir.">";
+
+$debugMode = true;
+$isZipMode = false; 
+if ($USERID && !$userID) $userID = $USERID;
+
+if ($action)
+{
+	echo "<script>var scroller=window.setInterval('document.body.scrollTop=document.body.scrollHeight','200');</script>";
+	
+	$rssql = "select  s.UpdateTime, s.UpdateMode, s.ID, s.TerminalID, s.Version, s.TRNVersion, s.lastpludta, s.ForceAllCodes, s.user_id, u.username, 
+				u.id as office_user_id from $TABLE_LISTINGSSTOCKS s, ".$GOCONFIG->db_name.".users u 
+				where s.user_id = u.id and TerminalID is not null and 
+				TerminalID <> '' and TerminalID <>".$config["MainStock"]." 
+				and s.Status=1 and s.RunScript=1 and s.user_id = $userID
+				";
+	
+	if (!$forceNowMode)
+	{
+		if ($action=="upload")
+		{
+			if (!$USERID)
+			{
+				die("No USERID parameter provided");
+			}
+			$UserData = DBQuery("select * from $TABLE_USERDATA where office_user_id = $USERID");
+			if ($UserData->EOF)
+			{
+				die("User does not exist");
+				mailAdmin("Invalid USERID","Invalid USERID provided - $USERID.");
+			}
+			if ($UserData->fields["sql_database"])
+			{
+				$conn->Disconnect();
+				$conn = ADONewConnection($db_type); 
+				$db_database = $UserData->fields["sql_database"];       
+				$conn->Connect($db_server, $db_user, $db_password, $db_database, true); 
+				if($conn->ErrorMsg())
+				{
+					die("\nDatabase connection error: ".$conn->ErrorMsg());
+				}
+			}
+			
+			$debugMode = false;
+			$isManyFiles = true;
+			$dirname = $GO_CONFIG->file_storage_path.$UserData->fields["UserName"]."/trans";
+			echo "Directory: $dirname\n";
+			if (!file_exists($dirname))
+			{
+				echo "Directory created\n";
+				mailAdmin("No input dir","No /exel_items directory found, directory created.");
+				$old_umask = umask(000);
+				mkdir($dirname,0777);
+				umask($oldumask);
+			}
+			$d = dir($dirname);
+			while ($entry = $d->read()) 
+			{
+				if ($entry!="." && $entry!="..")
+				{
+					$trans_files[] = $dirname."/".$entry;
+				}
+			}
+		}
+		else 
+		{
+			$trans_file = $_FILES['impfile'];  
+			$trans_files = array();
+			if($trans_file)
+			{
+				
+				if (strpos($trans_file['name'],".zip")>-1)
+				{
+					$isManyFiles = true;
+					$isZipMode = true;
+					echo $lang["zip_processing"]."<br>";flush();
+					$rootpath = $GOCONFIG->root_path;
+					$dirname = $rootpath."modules/stock/tmp/".$userID."/".str_replace(".","_",$trans_file['name']);
+					$old_umask = umask(000);
+					$zipname = $trans_file['tmp_name'];
+					mkdir($dirname,0777);
+					umask($oldumask);
+					$command = "/usr/local/bin/unzip $zipname -d ".$dirname;
+					@exec($command,$res,$x);
+					$d = dir($dirname);
+					while ($entry = $d->read()) 
+					{
+						if ($entry!="." && $entry!="..")
+						{
+							$trans_files[] = $dirname."/".$entry;
+						}
+					}
+				}
+				else
+				{
+					$trans_files[] = $trans_file['tmp_name'];
+				}
+			}
+			if($trans_file == '') die("<center><b style=color:red>".$lang["sel_fiile"]."");
+		}
+		$res = "";
+		
+		if ($isManyFiles)
+		{
+			echo "Files found: ".count($trans_files)."<br>";flush();
+		}
+		//start processing
+		
+		
+		$rs = DBQuery($rssql);	
+		
+		if ($rs->EOF)
+		{
+			die("לא נמצאו נקודות מכירה פעילים לקליטת TRANS");
+		}
+		
+		$GOCONFIG = new GO_CONFIG();
+		$rootdir = $GOCONFIG->transactions_path;	
+		$userdir = $rootdir.$rs->fields["username"]; 
+		$termdir = $userdir."/".$rs->fields["TerminalID"];
+		$targetdir = $termdir ."/afala";   
+		if (!file_exists($userdir))
+		{
+			$old_umask = umask(000);
+			mkdir($userdir,0777);
+			umask($oldumask);
+		}
+		if (!file_exists($termdir))
+		{
+			$old_umask = umask(000);
+			mkdir($termdir,0777);
+			umask($oldumask);
+		}
+		if (!file_exists($afaladir))
+		{
+			$old_umask = umask(000);
+			mkdir($targetdir,0777);
+			umask($oldumask);
+		}
+		
+		foreach ($trans_files as $tfile)
+		{
+			
+			if ($isManyFiles)
+			{
+				echo $lang["file"].":".basename($tfile)."<br>";flush();
+				$tfilename = $tfile;
+			}
+			else
+			{
+				$tfilename = $_FILES['impfile']['name'];
+			}		
+			$fname = basename($tfilename);
+			if (strpos($fname,"."))
+			{
+				$fname = substr($fname,0,strpos($fname,"."));
+			}
+			if ($isManyFiles){
+				copy($tfile,$targetdir."/".$fname);
+			}
+			else{
+				move_uploaded_file($tfile,$targetdir."/".$fname);
+			}
+		}
+		
+	}
+	$USERID = $userID;
+	$TERM = "";
+	//die($tfile." ".$targetdir."/".basename($tfilename));
+	$inlineMode = true;
+	require("gettrans.php");
+	
+		
+		
+	$zipname = "tmp/".$userID."/plu".date("YmdHis").".zip";
+	
+	//chdir($userdir);
+	//echo getcwd ();echo "\n";
+	
+	$rs = DBQuery($rssql);	
+	while (!$rs->EOF)
+	{
+		$command = "/usr/local/bin/zip -g -D ".$rootpath.$zipname." ".$userdir."/".$rs->fields["TerminalID"]."/* ";
+		//echo $command;
+		exec($command,$res,$x);
+		//print_r($res);
+		$rs->MoveNext();
+	}
+	
+	echo "<br><center><a href='/modules/stock/$zipname'>יש ללחוץ להורדת קובץ פלט</a></center><br>";
+		
+	if (!$forceNowMode)
+	{
+		echo "<script>window.setTimeout('window.clearInterval(scroller);document.body.scrollTop=document.body.scrollHeight;alert(\"הפעולה הסתיימה. יש להוריד קובץ פלט\")',500);</script>";
+	}
+	else
+	{
+		echo "<br><br><br><br><hr><b>
+קובץ נמצא בשרת ומוכן לקבלה
+נא לקבל אותו לפי הוראות
+תפריט 6 המשך 13 המשך 5 המשך 3 המשך
+</b>";
+		echo "<script>window.setTimeout('window.clearInterval(scroller);document.body.scrollTop=document.body.scrollHeight;alert(\"הפעולה הסתיימה.\")',500);</script>";
+	}
+	//echo "<script>location = </script>";
+	
+	register_shutdown_function("DeleteFiles",$trans_files,$dirname,$isZipMode);
+	
+	
+	
+}
+
+function DeleteFiles($trans_files,$dirname,$isZipMode)
+{
+	foreach ($trans_files as $trans_file)
+	{		
+		unlink($trans_file);
+	}
+	if ($dirname && $isZipMode){
+		rmdir($dirname);
+	}
+}
+
+
+?>
+
+
+<?
+$conn->Close(); // close the db connection
+?>

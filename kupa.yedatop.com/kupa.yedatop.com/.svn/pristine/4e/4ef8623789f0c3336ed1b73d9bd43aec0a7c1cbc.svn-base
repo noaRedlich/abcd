@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xml>
+	<main_table>profilereports</main_table>
+	<name>הרשאות דוחות</name>
+	<options>
+		<opt name="create_record" type="none"></opt>
+		<opt name="edit_record" type="always"></opt>
+		<opt name="view" type="none"></opt>
+	</options>
+	<edit>
+		<ecol name="profile_id" type="cross" cross="profile" cross_field="id" lookup_field="name">פרופיל</ecol>
+		<ecol name="report_id" type="cross_child" master_cross="profile"
+			 master_cross_id="id" master_field="profile_id"
+			 cross="reports" cross_field="id" lookup_field="name"
+			 list_name="edit_fields">דו''ח
+					<ecol name="r" type="check_yes_no">הרשאה</ecol>
+		</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="profile_id"></opt>
+		<opt name="group" val="profile_id"></opt>
+	</sql_actions>
+</xml>

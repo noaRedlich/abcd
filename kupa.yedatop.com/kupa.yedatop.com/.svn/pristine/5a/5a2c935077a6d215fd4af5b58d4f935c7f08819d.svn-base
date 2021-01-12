@@ -1,0 +1,76 @@
+<?
+
+class Product
+{
+	var $id;
+	var $cost;
+	var $price;
+	var $description;
+	var $name;
+	var $category;
+	var $supplier;
+	var $barcode;
+	var $treeorigin;
+	var $misparzar;
+	var $attributes;
+	
+	function Product($name,$barcode,$price)
+	{
+
+		global $config,$userID,$officeUserID,$conn;
+		$this->name = $name;
+		$this->barcode = $barcode;
+		$this->price = $price;
+		$this->attributes = array();
+	}
+	
+	function Create($proposebarcode=true)
+	{
+		global $config,$userID,$officeUserID,$conn;
+		
+		if ($proposebarcode)
+		{
+			$testRS = DBQuery("select id from listingsDB where barcode = '".$this->barcode."'");
+			$found = !$testRS->EOF;
+			$cnt=1;
+			$barcodebase = ((strlen($this->barcode)>11)?substr($this->barcode,0,11):$this->barcode);     
+			while ($found)
+			{
+				$this->barcode = $barcodebase.str_pad($cnt,2,"0",STR_PAD_LEFT);
+				$testRS = DBQuery("select id from listingsDB where barcode = '".$this->barcode."'");
+				$found = !$testRS->EOF;         
+				$cnt++;
+			}
+		}
+		
+		$testRS = DBQuery("select id from listingsDB where barcode = '".addslashes($this->barcode)."'");
+		if (!$testRS->EOF)
+		{
+			$this->id = $testRS->fields["id"];
+			return false;
+		}
+		
+		$sql = "
+        insert into listingsDB (lastinserted,user_id,title, barcode, saleprice, cost, description, productgroup, sapak,tree_origin_id,creation_date,misparzar) 
+				values (unix_timestamp(),$userID,'".addslashes($this->name)."','".addslashes($this->barcode)."','".$this->price."','".$this->cost."',
+				'".addslashes($this->description)."','".$this->category."','".$this->supplier."','".$this->treeorigin."',curdate(),'".addslashes($this->misparzar)."')
+        ";
+
+		$prod = DBQuery($sql);
+		$this->id = $conn->Insert_ID();
+		
+		foreach($this->attributes as $attrId=>$attrValue)
+		{
+			DBQuery("insert into listing_attributes (listing_id, attribute_id, value) values (".$this->id.",'".$attrId."','".$attrValue."')");	
+		}
+		
+	}  
+	
+	static function GetIdByBarcode($barcode)
+	{
+		$rs = DBQuery("select id from listingsDB where barcode = '".addslashes($barcode)."'");	
+		return $rs->fields["id"];
+	}
+}
+
+?>

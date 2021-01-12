@@ -1,0 +1,132 @@
+<?
+	session_start();
+
+    if ($_POST["querymode"])
+    {
+        setcookie("querymode",$_POST["querymode"],time()+3600*24*30);
+        $querymode = $_POST["querymode"];
+    }
+    
+	$simple=1;
+	$page_subtitle = "שאילתות שמורות";
+ 
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+    if ($del)
+    {
+        $sql = "delete from saved_query where id = $del and user_id = $userID ";
+        $queryRS = DBQuery($sql);
+    }
+    
+    if (!$querymode)$querymode="my"; 
+        
+    $tbl = ($querymode=="my")?"saved_query":$TABLE_SAVED_QUERY;   
+    $sort = ($querymode=="my")?"binary name":"id";
+    $q = ($querymode=="my")?"where user_id = $userID":"";
+    $sql = "select * from ".$tbl." $q order by $sort ";
+    $queryRS = DBQuery($sql);
+  
+
+    ?>
+    <form method=post name=F action='queries.php'>
+     
+    <table align=center width=100% height=360 border=0>
+    <tr style='height:1%'>
+    <td colspan=2 align=center>
+    <input type=radio name=querymode onclick='document.F.submit()' value=my <?=$querymode=="my"?"checked":""?>> שאילתות שלי
+    <input type=radio name=querymode onclick='document.F.submit()' value=system <?=$querymode=="system"?"checked":""?>> שאילתות כלליות
+    </td>
+    </tr>
+    <tr>
+    <td>
+        <div style='background-color:white;height:100%;width:100%;overflow-y:scroll;overflow-x:none;border:solid 1 black'>
+        <table width=100% cellpadding=2 border=1 style='border-collapse:collapse'>
+             <?if ($queryRS->EOF){?>
+               <tr><td align=center>
+               <br><b>
+               אין שאילתות שמורות
+               <br><br>
+               </td></tr>
+             <?
+             }
+             else
+             {
+             while (!$queryRS->EOF)
+             {
+                 $id=$queryRS->Fields("id");
+                 $s = "";
+                    $arr = explode("&",$queryRS->Fields("query"));
+                    foreach($arr as $pair)
+                    {
+                        $arrkey = explode("=",$pair);
+                        if (strpos($arrkey[0],"Date") && $arrkey[1]!="")
+                        {
+                            $sign =  is_numeric($arrkey[1]) && $arrkey[1] >= 0 ?  "+":"";
+                            $arrkey[1] = (is_numeric($arrkey[1])) ? (date("d/m/Y",strtotime($sign.$arrkey[1]." day"))) : $arrkey[1];
+                        }
+                        $s.="&".$arrkey[0]."=".$arrkey[1];
+                    }
+                    $s = substr($s,1);
+             ?>
+             <tr style='cursor:hand' onclick='this.cells[0].all[0].checked=true;qid=<?=$id?>' ondblclick='runQuery()' onmouseover='this.style.backgroundColor="lightyellow"' onmouseout='this.style.backgroundColor=""'>
+                <td width=1%>
+                <input name=query value=<?=$id?> type=radio onclick='qid=<?=$id?>'>
+                <input type=hidden id=query<?=$id?> value="<?=$s?>">
+                </td>
+                <td id=title<?=$id?>><?=$queryRS->Fields("name")?></td>
+                <?if ($querymode=="my"){?>
+                <td width=1%><a onclick='delQuery(<?=$id?>)' ><img border=0 alt='מחק שאילתה' src='<?=$imgPath?>del.gif'></a></td>
+                <?}?>
+             </tr>                      
+             <?$queryRS->MoveNext();}
+             }?>
+        </table>
+        </div>
+    </td>
+    </tr>
+    <tr style='height:1%'>
+    <td colspan=2 align=center>
+    <br>
+      <input type=button onclick='runQuery()' style='background-image:url(<?=$imgPath?>ok.gif)' class=button value="לבצע שאילתה"> 
+      <input type=button onclick='window.close()' style='background-image:url(<?=$imgPath?>back.gif)' class=button value="סגור">    
+    </td>
+    </tr>
+    </table>
+    
+    <script>      
+    var qid="";
+    function runQuery()
+    {
+        if (qid==""){
+            alert('יש לבחור שאילתה')
+            return;
+        }
+        else{
+            window.opener.location = "pro.php?"+document.getElementById("query"+qid).value;
+            window.close();
+        }
+    }
+    
+    function delQuery(id)
+    {   
+        title = document.getElementById("title"+id).innerText;
+        window.event.cancelBubble = true;
+        if (confirm("למחוק שאילתה \""+title+"\" ?")){
+            document.F.del.value = id;
+            document.F.submit();
+        }
+    }
+    </script>
+    <input type=hidden name=del>
+    </form>
+    <?
+
+
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+
+       
+    ?>

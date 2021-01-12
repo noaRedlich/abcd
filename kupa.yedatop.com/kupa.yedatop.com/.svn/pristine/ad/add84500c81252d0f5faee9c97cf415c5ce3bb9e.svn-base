@@ -1,0 +1,693 @@
+<?php
+$noheader=1;
+
+
+define("ALPHA","X");
+define("NUMERIC","9");
+define("TDATE","D");
+define("AMOUNT","A");
+define("QUANTITY","Q");
+
+$simple=1;
+$page_subtitle = $lang["admin_menu_imports"];
+
+$paytype = array(
+	0=>"2",
+	1=>"1",
+	2=>"3",
+	3=>"4",
+	4=>"4",
+	5=>"5"
+);
+
+$cardtype = array(
+	1=>"1",
+	2=>"2",
+	3=>"3",
+	4=>"4",
+	5=>"6"
+);
+
+$terms = array(
+	1=>"1",
+	8=>"2",
+	6=>"3"
+	);
+
+if (!$action)
+{
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+	
+	echo
+	"
+			<head>
+			<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+			</head>
+			<pre dir=".$dir.">";
+	if($sDate==""||$eDate==""){
+		die($lang["enter_dates_msg"]);
+	}
+	echo $lang["enter_ok_start"];
+	
+	exit;
+}
+
+elseif ($action=="do")
+{
+	
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	
+	if (strtotime(dateToSQL($eDate))>time())$eDate = date("d/m/Y");
+	if (strtotime(dateToSQL($sDate))>time())$sDate = date("d/m/Y");
+	
+	include("$config[template_path]/admin_top.html");
+	print"
+			<head>
+			<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+			</head>
+			<pre dir=".$dir.">";	
+	if (!$UserData->fields["ExportEnabled"]){
+		die( $lang["no_permission1"]);
+	}
+	if(($sDate==""||$eDate=="") && !$auto){
+		die($lang["enter_dates_msg1"]);
+	}    
+	else
+	{
+		
+		$userinfo = DBQuery("select * from $officedbname.users where id = ".$userID);
+		if (!$userinfo->Fields("businessnum"))
+		{
+			die($lang["enter_business_num"]);
+		}
+
+		$root = $GO_CONFIG->file_storage_path.$UserData->fields["UserName"];
+		$dirname = CreateDir($root."/OPENFRMT");
+		$bNum = $userinfo->Fields("businessnum");
+		$bNum = substr($bNum,0,8);
+		$dirname = CreateDir($dirname."/".$bNum.".".date("y"));
+		$dirname = CreateDir($dirname."/".date("mdHi"));
+		
+		$outdirName = str_replace($root,"C:",$dirname);
+		$outdirName = str_replace("/","\\",$outdirName);
+		
+		$prdir = str_replace($root,"",$dirname);
+
+		$mainID = rand(111111,999999).rand(111111,999999).rand(111,999);
+		
+		$branchRS = DBQuery("select count(*) as cnt from ".$TABLE_LISTINGSSTOCKS." where user_id = $userID and isSnif=1");
+		$hasBranches = $branchRS->fields["cnt"]?"1":"0";
+		
+		//BTMV 
+		$numRecords = 1;
+		$bkmv = "";
+		
+		//opening record A100
+		$bkmv.= FormatField(ALPHA,4,"A100"); //1100
+		$bkmv.= FormatField(NUMERIC,9,$numRecords++); //1101
+		$bkmv.= FormatField(NUMERIC,9,$userinfo->Fields("businessnum"));	//1102
+		$bkmv.= FormatField(NUMERIC,15,$mainID);	//1103
+		$bkmv.= FormatField(ALPHA,8,"&OF1.30&");	//1104
+		$bkmv.= FormatField(ALPHA,50,""); //1105
+		$bkmv.=chr(13).chr(10);
+		
+		if ($stock)
+		{
+			$dq=" and d.stock_id = $stock ";
+			$tq=" and t.stock_id = $stock ";
+		}
+		
+		//document titles C100
+		$sql = "select 1 as source, d.id,
+		d.doc_status,d.amount,d.discount,d.vat,d.clearance,d.doc_number,d.doc_date,d.erech_date,d.created,
+		d.client_id,d.client_name, d.client_address,d.client_phone,d.client_businessnum,
+		dt.taxcode, s.terminalid, d1.doc_number as base_doc_number, dt1.taxcode as base_taxcode,
+		3 as deal_type
+		from documents d
+		left outer join documents d1 on d1.closed_by = d.id
+		left outer join ".$TABLE_DOCUMENT_TYPE." dt1 on d1.doc_type = dt1.id
+		,".$TABLE_DOCUMENT_TYPE." dt, ".$TABLE_LISTINGSSTOCKS." s where 
+		d.doc_status != ".$STATUS_DRAFT."
+		and s.id = d.stock_id 
+		and d.doc_type = dt.id
+		and dt.taxcode is not null
+		and d.user_id = $userID 
+		and (
+			   (d.doc_date between '".dateToSQL($sDate)."' and  '".dateToSQL($eDate)."' )
+			or (d.erech_date between '".dateToSQL($sDate)."' and  '".dateToSQL($eDate)."') 
+		) $dq 
+		union all
+		select 2 as source, t.id, 
+		".$STATUS_ACTIVE." as doc_status,
+		(case 
+		when TranCashDiscount <> 0
+		then TranAmount - TranCashDiscount 
+		when TranDiscount <> 0
+		then TranAmount - (TranAmount*TranDiscount/100)
+		else tranamount end) as amount,
+		(case when TranAmount <> 0 then TranAmount else TranCashDiscount/TranAmount*100 end) as discount,
+		t.vat,0 as clearance, 
+		tp.journalnum*10000+t.TranNum as doc_number, t.trandate as doc_date,t.trandate as erech_date,tp.DateTimeStamp as created,
+		1 as client_id,'לקוח כללי' as client_name, '' as client_address,'' as client_phone,'' as client_businessnum,
+		(case when isrefund=1 or t.refundmode=1 then 330 else 320 end) as taxcode,
+		s.terminalid,'' as base_doc_number, '' as base_taxcode, 2 as deal_type
+		from transactions t, transactionpackages tp,".$TABLE_LISTINGSSTOCKS." s
+		where t.package_id = tp.id
+		and (t.trandate between '".dateToSQL($sDate)."' and  '".dateToSQL($eDate)."' )
+		and s.id = t.stock_id  $tq
+		order by source,id ";
+		
+		
+		//TODO: Union transactions
+		
+		$rs = DBQuery($sql);
+		
+		$countC100 = 0;
+		$countD110 = 0;
+		$countD120 = 0;
+		$countB100 = 0;
+		$countB110 = 0;
+		$countM100 = 0;
+		
+		while(!$rs->EOF)
+		{
+			$isTrans = $rs->fields["source"]==2;
+			$snif = $rs->fields["terminalid"];
+			$docid = $rs->fields["id"];
+			$amount = $rs->fields["amount"];
+			$discountPercent = $rs->fields["discount"];
+			$vatPercent = $rs->fields["vat"];
+			$amountBeforeVat = $amount/(1+$vatPercent/100);
+			$discount = ($amountBeforeVat*$discountPercent/100);
+			$amountBeforeDiscount = $amountBeforeVat - $discount;
+			$vat = $amount - $amountBeforeVat;
+			$clearancePercent = $rs->fields["clearance"];
+			$clearance = ($amount*$clearancePercent/100);
+			
+			$bkmv.= FormatField(ALPHA,4,"C100"); //1200
+			$bkmv.= FormatField(NUMERIC,9,$numRecords++); //1201
+			$bkmv.= FormatField(NUMERIC,9,$userinfo->Fields("businessnum"));	//1202
+			$bkmv.= FormatField(NUMERIC,3,$rs->fields["taxcode"]);	//1203
+			$bkmv.= FormatField(NUMERIC,20,$rs->fields["doc_number"]);	//1204
+			$bkmv.= FormatField(TDATE,8,DateFromSQL($rs->fields["doc_date"]));	//1205
+			$bkmv.= FormatField(NUMERIC,4,date("Hi",$rs->fields["created"]));	//1206
+			$bkmv.= FormatField(ALPHA,50,$rs->fields["client_name"]); //1207
+			$bkmv.= FormatField(ALPHA,50,$rs->fields["client_address"]); //1208
+			$bkmv.= FormatField(ALPHA,10,""); //1209
+			$bkmv.= FormatField(ALPHA,30,""); //1210
+			$bkmv.= FormatField(ALPHA,8,""); //1211
+			$bkmv.= FormatField(ALPHA,30,""); //1212
+			$bkmv.= FormatField(ALPHA,2,""); //1213
+			$bkmv.= FormatField(ALPHA,15,$rs->fields["client_phone"]); //1214
+			$bkmv.= FormatField(NUMERIC,9,$rs->fields["client_businessnum"]); //1215
+			$bkmv.= FormatField(TDATE,8,DateFromSQL(($rs->fields["erech_date"]&&$rs->fields["erech_date"]!="0000-00-00")?$rs->fields["erech_date"]:$rs->fields["doc_date"]));	//1216
+			$bkmv.= FormatField(ALPHA,15,""); //1217
+			$bkmv.= FormatField(ALPHA,3,""); //1218
+			$bkmv.= FormatField(AMOUNT,15,$amountBeforeDiscount); //1219
+			$bkmv.= FormatField(AMOUNT,15,$discount); //1220
+			$bkmv.= FormatField(AMOUNT,15,$amountBeforeVat); //1221
+			$bkmv.= FormatField(AMOUNT,15,$vat); //1222
+			$bkmv.= FormatField(AMOUNT,15,$amount); //1223
+			$bkmv.= FormatField(AMOUNT,12,$clearance); //1224
+			$bkmv.= FormatField(ALPHA,15,$rs->fields["client_id"]); //1225
+			$bkmv.= FormatField(ALPHA,10,""); //1226
+			$bkmv.= FormatField(ALPHA,1,$rs->field["doc_status"]==$STATUS_CANCELLED?"1":"0"); //1228
+			$bkmv.= FormatField(TDATE,8,DateFromSQL($rs->fields["doc_date"]));	//1230
+			$bkmv.= FormatField(ALPHA,7,$snif);	//1231
+			$bkmv.= FormatField(ALPHA,29,""); //1232
+			$bkmv.=chr(13).chr(10);
+
+			//document details D110
+			if ($isTrans)
+			{
+				$sql = "select 
+				ifnull(l.title,'פריט ללא שם') as name,
+				(case 
+					when AmountPercentDiscount <> 0 and (tc.DiscountType=1 or SecondDiscFlag=1 or OtherDiscountFlag=1  or ClubDiscount=1)
+					then CompAmount - (CompAmount*AmountPercentDiscount/100)
+					when CompCashDiscount <> 0
+					then CompAmount - CompCashDiscount
+					when CompDiscount <> 0 
+					then CompAmount - (CompAmount*CompDiscount/100)
+					else CompAmount end) as price,
+				(case 
+					when AmountPercentDiscount <> 0 and (tc.DiscountType=1 or SecondDiscFlag=1 or OtherDiscountFlag=1  or ClubDiscount=1)
+					then CompAmount - (CompAmount*AmountPercentDiscount/100)
+					when CompCashDiscount <> 0
+					then CompAmount - CompCashDiscount
+					when CompDiscount <> 0 
+					then CompAmount - (CompAmount*CompDiscount/100)
+					else CompAmount end)/(case when grams_rate<>0 and WeigthFlag <> 0 then weightqty/grams_rate else stockamount end)/(1+$vatPercent/100) as currency_price,
+				(case 
+					when AmountPercentDiscount <> 0 then AmountPercentDiscount 
+					when CompDiscount <> 0 then CompDiscount 
+					else CompCashDiscount/CompAmount*100 end) as discount,
+					(case when grams_rate<>0 and WeigthFlag <> 0 then weightqty/grams_rate else stockamount end) as quantity,
+					tc.plucode as barcode,u.name as unitname, u.grams_rate
+				from transactioncomponents tc left outer join listingsDB l on l.id = tc.listing_id
+				left outer join $TABLE_UNITS u on u.id = l.unit
+				where tc.trans_id = $docid";
+				//echo $sql;
+			}
+			else
+			{
+				$sql = "select 
+					d.name, d.price, d.currency_price,d.discount,d.quantity, 
+					l.barcode,u.name as unitname, u.grams_rate
+					from document_products d
+					left outer join listingsDB l on l.id = d.listing_id
+					left outer join $TABLE_UNITS u on u.id = unit
+					where doc_id = $docid";
+			}
+			$rsDetails = DBQuery($sql);
+			$detailsCnt = 1;
+			while (!$rsDetails->EOF)
+			{
+				$rowAmount = $rsDetails->fields["price"];
+				$rowAmountBeforeVat = $rowAmount/(1+$vatPercent/100);
+				$productAmt = $rsDetails->fields["currency_price"];
+				$productDiscountPercent = $rsDetails->fields["discount"];
+				$productDiscount = ($rowAmountBeforeVat*$productDiscountPercent/100);
+				$gramsrate = $rsDetails->fields["grams_rate"];
+				$quantity = $rsDetails->fields["quantity"];
+				if ($gramsrate)
+				{
+					$quantity = $quantity / $gramsrate;
+				}
+				
+				$bkmv.= FormatField(ALPHA,4,"D110"); //1250
+				$bkmv.= FormatField(NUMERIC,9,$numRecords++); //1251
+				$bkmv.= FormatField(NUMERIC,9,$userinfo->Fields("businessnum"));	//1252
+				$bkmv.= FormatField(NUMERIC,3,$rs->fields["taxcode"]);	//1253
+				$bkmv.= FormatField(NUMERIC,20,$rs->fields["doc_number"]);	//1254
+				$bkmv.= FormatField(NUMERIC,4,$detailsCnt++);	//1255
+				$bkmv.= FormatField(NUMERIC,3,$rs->fields["base_taxcode"]);	//1256
+				$bkmv.= FormatField(NUMERIC,20,$rs->fields["base_doc_number"]);	//1257
+				$bkmv.= FormatField(NUMERIC,1,$rs->fields["deal_type"]); //1258 
+				$bkmv.= FormatField(ALPHA,20,$rsDetails->fields["barcode"]); //1259
+				$bkmv.= FormatField(ALPHA,30,$rsDetails->fields["name"]); //1260
+				$bkmv.= FormatField(ALPHA,50,""); //1261
+				$bkmv.= FormatField(ALPHA,30,""); //1262
+				$bkmv.= FormatField(ALPHA,20,$rsDetails->fields["unitname"]); //1263
+				$bkmv.= FormatField(QUANTITY,17,$quantity); //1264
+				$bkmv.= FormatField(AMOUNT,15,$productAmt); //1265
+				$bkmv.= FormatField(AMOUNT,15,$productDiscount); //1266
+				$bkmv.= FormatField(AMOUNT,15,$rowAmountBeforeVat); //1267
+				$bkmv.= FormatField(NUMERIC,4,$vatPercent*100); //1268
+				$bkmv.= FormatField(ALPHA,7,$snif); //1270
+				$bkmv.= FormatField(ALPHA,43,""); //1271
+				$bkmv.=chr(13).chr(10);
+				$rsDetails->MoveNext();
+				$countD110++;
+			}
+			
+			//document payments D120
+			if ($isTrans)
+			{
+				$sql = "
+				select bankno as checkbank, BankDeptNo as checksnif,BankCntNo as checkaccount,ChequeNumber as checknumber,
+				PaymID as payment_type,PayDate as checkdate,CompanyNum as cardtype_id,
+				(case 
+					when CashSum<>0 then CashSum
+					when ChequeSum<>0 then ChequeSum
+					when CouponSum<>0 then CouponSum
+					when FrnCurrSum<>0 then FrnCurrSum
+					when CreditCardSum<>0 then CreditCardSum 
+					end
+					) as Amount,CreditTerms,c.name as card_name
+				from transactionpayments tp
+				left outer join ".$TABLE_CARDTYPES." c on c.id = tp.CompanyNum
+				where trans_id = $docid
+				";
+			}
+			else
+			{
+				$sql = "select dp.checkbank,dp.checksnif,dp.checkaccount,dp.checknumber,
+				dp.payment_type,dp.checkdate,dp.cardtype_id,Amount,CreditTerms,
+				c.name as card_name
+				from document_payments dp
+				left outer join ".$TABLE_CARDTYPES." c on c.id = dp.cardtype_id
+				where doc_id = $docid order by sort_order";
+			}
+			$rsPayments = DBQuery($sql);
+			$paymentsCnt = 1;
+			while (!$rsPayments->EOF)
+			{
+				$bank = $rsPayments->fields["checkbank"];
+				$snif = $rsPayments->fields["checksnif"];
+				$acc = $rsPayments->fields["checkaccount"];
+				$cheque = $rsPayments->fields["checknumber"];
+				if ($paytype[$rsPayments->fields["payment_type"]]==2) //cheque
+				{
+					$bank = $bank?$bank:"99";
+					$snif = $snif?$snif:"999";
+					$acc = $acc?$acc:"999999";
+					$cheque = $cheque?$cheque:"999999";
+				}
+								
+				$bkmv.= FormatField(ALPHA,4,"D120"); //1300
+				$bkmv.= FormatField(NUMERIC,9,$numRecords++); //1301
+				$bkmv.= FormatField(NUMERIC,9,$userinfo->Fields("businessnum"));	//1302
+				$bkmv.= FormatField(NUMERIC,3,$rs->fields["taxcode"]);	//1303
+				$bkmv.= FormatField(NUMERIC,20,$rs->fields["doc_number"]);	//1304
+				$bkmv.= FormatField(NUMERIC,4,$paymentsCnt++);	//1305
+				$bkmv.= FormatField(NUMERIC,1,$paytype[$rsPayments->fields["payment_type"]]); //1306
+				$bkmv.= FormatField(NUMERIC,10,$bank); //1307
+				$bkmv.= FormatField(NUMERIC,10,$snif); //1308
+				$bkmv.= FormatField(NUMERIC,15,$acc); //1309
+				$bkmv.= FormatField(NUMERIC,10,$cheque); //1310
+				$bkmv.= FormatField(TDATE,8,DateFromSQL($rsPayments->fields["checkdate"])); //1311
+				$bkmv.= FormatField(AMOUNT,15,$rsPayments->fields["Amount"]); //1312
+				$bkmv.= FormatField(NUMERIC,1,$cardtype[$rsPayments->fields["cardtype_id"]]); //1313
+				$bkmv.= FormatField(ALPHA,20,$rsPayments->fields["card_name"]); //1314
+				$bkmv.= FormatField(NUMERIC,1,$terms[$rsPayments->fields["CreditTerms"]]); //1314
+				$bkmv.= FormatField(ALPHA,7,$snif); //1320
+				$bkmv.= FormatField(ALPHA,75,""); //1321				
+				$bkmv.=chr(13).chr(10);
+				$rsPayments->MoveNext();
+				$countD120++;
+			}
+			
+			//Movements B100
+			$sql = "select * from movements where doc_id = $docid";
+			$movRS = DBQuery($sql);
+			$movCnt = 1;
+			while (!$movRS->EOF)
+			{
+				//hova
+				$bkmv.= FormatField(ALPHA,4,"B100"); //1350
+				$bkmv.= FormatField(NUMERIC,9,$numRecords++); //1351
+				$bkmv.= FormatField(NUMERIC,9,$userinfo->Fields("businessnum"));	//1352
+				$bkmv.= FormatField(NUMERIC,10,$rs->fields["doc_number"]);	//1353
+				$bkmv.= FormatField(NUMERIC,5,$movCnt++);	//1354
+				$bkmv.= FormatField(NUMERIC,8,""); //1355
+				$bkmv.= FormatField(ALPHA,15,""); //1356
+				$bkmv.= FormatField(ALPHA,20,$rs->fields["doc_number"]); //1357
+				$bkmv.= FormatField(NUMERIC,3,$rs->fields["taxcode"]);	//1358
+				$bkmv.= FormatField(ALPHA,20,""); //1359
+				$bkmv.= FormatField(NUMERIC,3,"");	//1360
+				$bkmv.= FormatField(ALPHA,50,""); //1361
+				$bkmv.= FormatField(TDATE,8,DateFromSQL($rs->fields["doc_date"]));	//1362
+				$bkmv.= FormatField(TDATE,8,DateFromSQL($movRS->fields["erech_date"]));	//1363
+				$bkmv.= FormatField(ALPHA,15,$movRS->fields["hova_account_id"]); //1364
+				$bkmv.= FormatField(ALPHA,15,""); //1365
+				$bkmv.= FormatField(NUMERIC,1,"1");	//1366
+				$bkmv.= FormatField(ALPHA,3,""); //1367
+				$bkmv.= FormatField(AMOUNT,15,$movRS->fields["amount"]); //1368
+				$bkmv.= FormatField(AMOUNT,15,""); //1369
+				$bkmv.= FormatField(AMOUNT,12,""); //1370
+				$bkmv.= FormatField(ALPHA,10,""); //1371
+				$bkmv.= FormatField(ALPHA,10,""); //1372
+				$bkmv.= FormatField(ALPHA,49,""); //1373
+				$bkmv.=chr(13).chr(10);
+				$countB100++;	
+				
+				//zhut
+				$bkmv.= FormatField(ALPHA,4,"B100"); //1350
+				$bkmv.= FormatField(NUMERIC,9,$numRecords++); //1351
+				$bkmv.= FormatField(NUMERIC,9,$userinfo->Fields("businessnum"));	//1352
+				$bkmv.= FormatField(NUMERIC,10,$rs->fields["doc_number"]);	//1353
+				$bkmv.= FormatField(NUMERIC,5,$movCnt++);	//1354
+				$bkmv.= FormatField(NUMERIC,8,""); //1355
+				$bkmv.= FormatField(ALPHA,15,""); //1356
+				$bkmv.= FormatField(ALPHA,20,$rs->fields["doc_number"]); //1357
+				$bkmv.= FormatField(NUMERIC,3,$rs->fields["taxcode"]);	//1358
+				$bkmv.= FormatField(ALPHA,20,""); //1359
+				$bkmv.= FormatField(NUMERIC,3,"");	//1360
+				$bkmv.= FormatField(ALPHA,50,""); //1361
+				$bkmv.= FormatField(TDATE,8,DateFromSQL($rs->fields["doc_date"]));	//1362
+				$bkmv.= FormatField(TDATE,8,DateFromSQL($movRS->fields["erech_date"]));	//1363
+				$bkmv.= FormatField(ALPHA,15,$movRS->fields["zhut_account_id"]); //1364
+				$bkmv.= FormatField(ALPHA,15,""); //1365
+				$bkmv.= FormatField(NUMERIC,1,"2");	//1366
+				$bkmv.= FormatField(ALPHA,3,""); //1367
+				$bkmv.= FormatField(AMOUNT,15,$movRS->fields["amount"]); //1368
+				$bkmv.= FormatField(AMOUNT,15,""); //1369
+				$bkmv.= FormatField(AMOUNT,12,""); //1370
+				$bkmv.= FormatField(ALPHA,10,""); //1371
+				$bkmv.= FormatField(ALPHA,10,""); //1372
+				$bkmv.= FormatField(ALPHA,49,""); //1373
+				$bkmv.=chr(13).chr(10);
+								
+				$movRS->MoveNext();
+				$countB100++;			
+			}
+			
+			$rs->MoveNext();
+			$countC100++;
+		}
+		
+		//Accounts B110
+		$sql = "select id,suppliername,address,balance,businessnum from listingsSuppliers
+		where user_id = $userID";
+		$rsAccounts = DBQuery($sql);
+		while (!$rsAccounts->EOF)
+		{
+			$name = $rsAccounts->fields["suppliername"];
+			$name = $name?$name:"---";
+			$bkmv.= FormatField(ALPHA,4,"B110"); //1400
+			$bkmv.= FormatField(NUMERIC,9,$numRecords++); //1401
+			$bkmv.= FormatField(NUMERIC,9,$userinfo->Fields("businessnum"));//1402	
+			$bkmv.= FormatField(ALPHA,15,$rsAccounts->fields["id"]); //1403		
+			$bkmv.= FormatField(ALPHA,50,$name); //1404
+			$bkmv.= FormatField(ALPHA,15,"0"); //1405 - ASK
+			$bkmv.= FormatField(ALPHA,30,"0"); //1406 - ASK
+			$bkmv.= FormatField(ALPHA,50,$rsAccounts->fields["address"]); //1407
+			$bkmv.= FormatField(ALPHA,10,""); //1408
+			$bkmv.= FormatField(ALPHA,30,""); //1409
+			$bkmv.= FormatField(ALPHA,8,""); //1410
+			$bkmv.= FormatField(ALPHA,30,""); //1411
+			$bkmv.= FormatField(ALPHA,2,""); //1412
+			$bkmv.= FormatField(ALPHA,15,""); //1413
+			$bkmv.= FormatField(AMOUNT,15,$rsAccounts->fields["balance"]); //1414
+			$bkmv.= FormatField(AMOUNT,15,0); //1415
+			$bkmv.= FormatField(AMOUNT,15,0);  //1416
+			$bkmv.= FormatField(NUMERIC,4,0);  //1417
+			$bkmv.= FormatField(NUMERIC,9,$rsAccounts->fields["businessnum"]);  //1419
+			$bkmv.= FormatField(ALPHA,41,""); //1419
+			
+			$bkmv.=chr(13).chr(10);
+			$rsAccounts->MoveNext();
+			$countB110++;
+		}
+			
+		//Products M100
+		$sql = "select l.id,l.barcode,l.title,l.MisparSiduri,l.cost,l.saleprice,
+		u.name as unitname 
+		from listingsDB l,".$TABLE_UNITS." u 
+		where u.id = l.unit and l.user_id = $userID order by l.barcode,l.title ";
+		$rsProducts = DBQuery($sql);
+		while (!$rsProducts->EOF)
+		{
+			$bkmv.= FormatField(ALPHA,4,"M100"); //1450
+			$bkmv.= FormatField(NUMERIC,9,$numRecords++); //1451
+			$bkmv.= FormatField(NUMERIC,9,$userinfo->Fields("businessnum"));//1452	
+			$bkmv.= FormatField(ALPHA,20,$rsProducts->fields["barcode"]); //1453
+			$bkmv.= FormatField(ALPHA,20,""); //1454
+			$bkmv.= FormatField(ALPHA,20,$rsProducts->fields["barcode"]); //1455
+			$bkmv.= FormatField(ALPHA,50,$rsProducts->fields["title"]); //1456
+			$bkmv.= FormatField(ALPHA,10,""); //1457
+			$bkmv.= FormatField(ALPHA,30,""); //1458
+			$bkmv.= FormatField(ALPHA,20,$rsProducts->fields["unitname"]); //1459
+			$bkmv.= FormatField(AMOUNT,12,0); //1460
+			$bkmv.= FormatField(AMOUNT,12,0); //1461
+			$bkmv.= FormatField(AMOUNT,12,0); //1462
+			$bkmv.= FormatField(AMOUNT,10,$rsProducts->fields["cost"]); //1463
+			$bkmv.= FormatField(AMOUNT,10,$rsProducts->fields["saleprice"]); //1464
+			$bkmv.= FormatField(ALPHA,50,""); //1465						
+			$bkmv.=chr(13).chr(10);
+			$rsProducts->MoveNext();
+			$countM100++;
+		}
+		
+		//closing record Z900
+		$bkmv.= FormatField(ALPHA,4,"Z900"); //1150
+		$bkmv.= FormatField(NUMERIC,9,$numRecords++); //1151
+		$bkmv.= FormatField(NUMERIC,9,$userinfo->Fields("businessnum"));	//1152
+		$bkmv.= FormatField(NUMERIC,15,$mainID);	//1153
+		$bkmv.= FormatField(ALPHA,8,"&OF1.30&");	//1154
+		$bkmv.= FormatField(NUMERIC,15,$numRecords-1);	//1155
+		$bkmv.= FormatField(ALPHA,50,""); //1156		
+		
+		
+		$numRecords--;
+		
+		//INI.TXT
+		$ini = "";
+		
+		//opening record A000
+		$ini.= FormatField(ALPHA,4,"A000"); //1000
+		$ini.= FormatField(ALPHA,5,"");	//1001
+		$ini.= FormatField(NUMERIC,15,$numRecords);	//1002		TODO
+		$ini.= FormatField(NUMERIC,9,$userinfo->Fields("businessnum"));	//1003
+		$ini.= FormatField(NUMERIC,15,$mainID);	//1004
+		$ini.= FormatField(ALPHA,8,"&OF1.30&");	//1005
+		$ini.= FormatField(NUMERIC,8,$config["TaxRegistrationNumber"]);	//1006	
+		$ini.= FormatField(ALPHA,20,$config["TaxRegistrationProgramName"]);	//1007	
+		$ini.= FormatField(ALPHA,20,$config['version']);	//1008	
+		$ini.= FormatField(NUMERIC,9,$config['TaxRegistrationBusinessNumber']);	//1009
+		$ini.= FormatField(ALPHA,20,$config["TaxRegistrationProgramAuthor"]);	//1010
+		$ini.= FormatField(NUMERIC,1,"2");	//1011	
+		$ini.= FormatField(ALPHA,50,$outdirName);	//1012
+		$ini.= FormatField(NUMERIC,1,"2");	//1013
+		$ini.= FormatField(NUMERIC,1,"1");	//1014	
+		$ini.= FormatField(NUMERIC,9,"");	//1015
+		$ini.= FormatField(NUMERIC,9,"");	//1016
+		$ini.= FormatField(NUMERIC,10,"");	//1017 
+		$ini.= FormatField(ALPHA,50,$userinfo->Fields("company")); //1018
+		$ini.= FormatField(ALPHA,50,$userinfo->Fields("work_address")); //1019
+		$ini.= FormatField(ALPHA,10,""); //1020
+		$ini.= FormatField(ALPHA,30,$userinfo->Fields("work_city")); //1021
+		$ini.= FormatField(ALPHA,8,$userinfo->Fields("work_zip")); //1022
+		$ini.= FormatField(NUMERIC,4,"");	//1023
+		$ini.= FormatField(TDATE,8,$sDate);	//1024
+		$ini.= FormatField(TDATE,8,$eDate);	//1025
+		$ini.= FormatField(TDATE,8,date("d/m/Y")); //1026;
+		$ini.= FormatField(NUMERIC,4,date("Hi")); //1027;
+		$ini.= FormatField(NUMERIC,1,"0");	//1028
+		$ini.= FormatField(NUMERIC,1,"1");	//1029
+		$ini.= FormatField(ALPHA,20,"zip");	//1030
+		$ini.= FormatField(ALPHA,3,"ILS");	//1032
+		$ini.= FormatField(NUMERIC,1,$hasBranches);	//1034 
+		$ini.= FormatField(ALPHA,46,"");	//1035
+		$ini.=chr(13).chr(10);
+		
+		//record for C100
+		if($countC100)
+		{
+			$ini.= FormatField(ALPHA,4,"C100"); //1050
+			$ini.= FormatField(NUMERIC,15,$countC100); //1050
+			$ini.=chr(13).chr(10);
+		}
+
+		//record for D110
+		if ($countD110)
+		{
+			$ini.= FormatField(ALPHA,4,"D110"); //1050
+			$ini.= FormatField(NUMERIC,15,$countD110); //1050
+			$ini.=chr(13).chr(10);	
+		}
+		//record for D120
+		$ini.= FormatField(ALPHA,4,"D120"); //1050
+		$ini.= FormatField(NUMERIC,15,$countD120); //1050
+		$ini.=chr(13).chr(10);	
+
+		//record for B100
+		if ($countB100)
+		{
+			$ini.= FormatField(ALPHA,4,"B100"); //1050
+			$ini.= FormatField(NUMERIC,15,$countB100); //1050
+			$ini.=chr(13).chr(10);	
+		}
+		
+		//record for B110
+		if ($countB110)
+		{
+			$ini.= FormatField(ALPHA,4,"B110"); //1050
+			$ini.= FormatField(NUMERIC,15,$countB110); //1050
+			$ini.=chr(13).chr(10);	
+		}
+		
+		//record for M100
+		if ($countM100)
+		{
+			$ini.= FormatField(ALPHA,4,"M100"); //1050
+			$ini.= FormatField(NUMERIC,15,$countM100); //1050
+			$ini.=chr(13).chr(10);			
+		}
+		
+		$filename = $dirname."/INI.TXT";
+		$file = fopen($filename,"w");
+		if (!$file)
+		{
+			die("Cannot create file: $dirname/INI.TXT");
+		}
+		fwrite($file,$ini,strlen($ini));
+		fclose($file);
+
+
+		$filename1 = $dirname."/BKMVDATA.TXT";
+		$file = fopen($filename1,"w");
+		if (!$file)
+		{
+			die("Cannot create file: $dirname/BKMVDATA.TXT");
+		}
+		fwrite($file,$bkmv,strlen($bkmv));
+		fclose($file);
+
+		$zipname = str_replace(".TXT",".ZIP",$filename1);
+		$command = "/usr/local/bin/zip -j $zipname $filename1";
+		@unlink($zipname);
+		@exec($command,$res,$x);
+		if ($x==0)
+		{
+			@unlink($filename1);
+		}
+
+		$zipname2 = $dirname."/OF".date("mdHi").".ZIP";
+		$command = "/usr/local/bin/zip -j $zipname2 $filename $zipname";
+		@unlink($zipname2);
+		@exec($command,$res,$x);
+
+		echo $lang["file_created_in_dir"]." <span dir=ltr><a  target=_blank href='/modules/filesystem/index.php?path=".urlencode($dirname)."'>".$prdir."</a></span>\n";
+		echo "<a target=_blank href='/modules/filesystem/download.php?path=".urlencode($zipname)."'><strong>".$lang["click_to_download"]." <span dir=ltr>BKMVDATA.ZIP + INI.TXT</span></strong></a><br>";
+	}           
+	exit;
+}
+
+ 
+
+
+function FormatField($type,$length,$value)
+{
+	global $ini;
+	if ($type==ALPHA)
+	{
+		$s = str_replace("\n"," ",$value);
+		$s = str_replace("\r","",$s);
+		$s = substr($s,0,$length);
+		$s = str_pad($s,$length," ",STR_PAD_RIGHT);
+	} 
+	elseif ($type==TDATE)
+	{
+		$s = substr($value,6,4).substr($value,3,2).substr($value,0,2); //expecting input d/m/Y
+	}
+	elseif($type==NUMERIC)
+	{
+		$value = substr($value,0,$length);
+		$s = str_pad($value,$length,"0",STR_PAD_LEFT);
+	}
+	elseif($type==AMOUNT)
+	{
+		$s = number_format(substr(abs($value),0,$length-1),2,".","");
+		$s = $s*100;
+		$s = str_pad($s,$length-1,"0",STR_PAD_LEFT);
+		$s = ($value>=0?"+":"-").$s;
+	}
+	elseif($type==QUANTITY)
+	{
+		$s = number_format(substr(abs($value),0,$length-1),4,".","");
+		$s = $s*10000;
+		$s = str_pad($s,$length-1,"0",STR_PAD_LEFT);
+		$s = ($value>=0?"+":"-").$s;
+	}	
+	//echo $s." - ".(strlen($ini)+1)."\n<BR>";
+	return $s;
+}
+
+function CreateDir($dirname)
+{
+	if (!file_exists($dirname))
+	{
+		$old_umask = umask(000);mkdir($dirname,0777);umask($oldumask);
+	}
+	return $dirname;
+}
+
+
+?>

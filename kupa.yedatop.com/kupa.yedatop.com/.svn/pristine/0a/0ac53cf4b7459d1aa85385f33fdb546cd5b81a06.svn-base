@@ -1,0 +1,78 @@
+<?
+	$fUser = f(q("SELECT login FROM webDate_bd_users WHERE id='$bd3AuthFlag'"));
+?>
+<table border="0" cellspacing="0" cellpadding="1" bgcolor="#000000">
+  <tr>
+    <td>
+      <table border="0" cellspacing="4" cellpadding="4" bgcolor="#AAAAAA" width="311">
+        <?
+	$sLink = "action=validate_new_password&user_id=$bd3AuthFlag";
+	$sLink = base64_encode($sLink);
+
+	echo "<form action='index.php?$sLink' method=post>\n";
+?>
+        <tr>
+          <td>
+            <table border="0" cellspacing="2" cellpadding="2" bgcolor="#AAAAAA">
+              <tr>
+                <td colspan="2"><br>
+                  Before entering system you must <br>
+                  change your current password:<br>
+                  <br>
+                </td>
+              </tr>
+              <?
+	if($sError != "" && $action == validate_new_password)
+	{
+?>
+              <tr>
+                <td colspan="2" bgcolor=C0C0C0 align=center> <font color=0><b>
+                  <?
+					echo $sError;
+			  ?>
+                  </b></font> </td>
+              </tr>
+              <?
+	}
+?>
+              <tr>
+                <td>User name:</td>
+                <td>
+                  <?
+				echo $fUser[ login ];
+			?>
+                </td>
+              </tr>
+              <tr>
+                <td>Your current password:</td>
+                <td>
+                  <input type="password" name="pswd">
+                </td>
+              </tr>
+              <tr>
+                <td>New password:</td>
+                <td>
+                  <input type="password" name="new_pswd">
+                </td>
+              </tr>
+              <tr>
+                <td>Confirmation:</td>
+                <td>
+                  <input type="password" name="new_pswd_1">
+                </td>
+              </tr>
+              <tr>
+                <td>&nbsp;</td>
+                <td>
+                  <input type="submit" value="  OK  " name="submit">
+                  <br>
+                  <br>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>

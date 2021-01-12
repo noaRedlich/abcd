@@ -1,0 +1,137 @@
+<?php
+	$page_subtitle = "עץ פריטים";
+	include("include/common.php");
+    echo '<script src="/javascript/common.js"></script>';
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+    $enabled = HasActionPermission("EDITLISTING");
+	$sql_edit = make_db_safe($edit);
+
+	$sql = "select t.id as treeid, l.id, title,t.discount,saleprice,t.quantity from listingsDB l, listings_tree t where t.listing_id = l.id and master_id = $sql_edit order by sortorder and status = '1'";    
+    $products = DBQuery($sql);    
+
+	$sql = "select sum(saleprice*t.quantity) as amount, sum(saleprice*t.quantity*(100-t.discount)/100) as camount from listingsDB l, listings_tree t where t.listing_id = l.id and master_id = $sql_edit ";    
+    $total = DBQuery($sql);    
+    $totalamt = $total->Fields("amount");
+    $totalcurrentamt = $total->Fields("camount");
+    if ($action=="do")
+    { 
+        $i=0;
+        while (!$products->EOF)
+        {
+            $sql = "update listings_tree set discount = ".$discount[$i]." where id = ".$products->Fields("treeid");
+            DBQuery($sql);    
+            $products->MoveNext();$i++;
+        }
+        echo "<script>reloadParent();window.close();</script>";    
+    }
+    
+    
+?>
+        
+<table width=100% height=320     cellpadding=0 cellspacing=0 >
+<form name=F method=post>
+<TR><TD align=center valign=top>    
+<div style='overflow:auto;width:100%;height:100%;border:solid 1 gray;background-color:white'>
+
+<table width=100% cellspacing=0>
+<tr>
+    <td class=tablehead2>שם פריט</td>
+    <td nowrap class=tablehead2>&nbsp;מחיר</td>
+    <td nowrap class=tablehead2>&nbsp;כמות</td>
+    <td class=tablehead2>% הנחה</td>
+    <td class=tablehead2>סה"כ</td>
+    <input id=totalorig value=0 type=hidden>
+    <input id=total value=0 type=hidden>
+    <input id=discount value=0 type=hidden>
+    <input id=weight value=0 type=hidden>
+</tr>
+<?while (!$products->EOF){?>
+<tr>
+    <td class=row3_1 width=100%>
+        <?=$products->Fields("title")?>
+            <input type=hidden id=quantity value="<?=$products->Fields("quantity")?>">
+            <input type=hidden id=weight value="<?=$products->Fields("quantity")*$products->Fields("saleprice")/$totalamt?>">
+
+    </td>
+    <td nowrap class=row3_1>&nbsp;<?=number_format($products->Fields("saleprice"),2,".","")?>&nbsp;</td>
+    <td nowrap class=row3_1>&nbsp;<?=$products->Fields("quantity")?>&nbsp;</td>
+    <td class=row3_1><input id=discount name='discount[]' dir=ltr size=6 style='text-align:right;background-color:#efefef' readonly value="<?=$products->Fields("discount")?>"></td>
+    <td class=row3_1>
+        <input id=total size=6  dir=ltr style='background-color:#efefef;text-align:right;' readonly value="<?=number_format($products->Fields("quantity")*$products->Fields("saleprice")*(100-$products->Fields("discount"))/100,2,".","")?>">
+        <input id=totalorig type=hidden value="<?=number_format($products->Fields("quantity")*$products->Fields("saleprice"),2,".","")?>">
+    </td>
+</tr>              
+<?$products->MoveNext();}?>
+<tr>
+    <td  class=row3_1 colspan=4><b>סה"כ</td>
+    <td  class=row3_1><input id=TOTALS  dir=ltr size=6 style='text-align:right;color:green;background-color:#efefef' readonly value="<?=number_format($totalcurrentamt,2,".","")?>"></td>
+</tr>
+</table>
+
+</td>
+</tr>
+<tr style='height:1%;padding-top:5px'>  
+<td align=center>
+מחיר סופי:                                                          
+<input size=5 name=ENDPRICE onkeyup='ReCalc()' dir=ltr style='text-align:right' onchange='ReCalc()' value="<?=number_format($totalcurrentamt,2,".","")?>">
+<input type=submit class=button style='background-image:url("<?=$imgPath?>ok.gif")' value="שמור וסגור">
+</td>
+</tr>
+
+<input type=hidden name=action value=do>
+</form>
+</table>
+
+<script>
+document.F.ENDPRICE.focus();
+
+function ReCalc()
+{
+   finalPrice = parseFloat(document.F.ENDPRICE.value);
+   if (isNaN(finalPrice)){finalPrice=0}
+   reduction = finalPrice/<?=$totalamt?>;
+   totaldiff = <?=$totalamt?> -  finalPrice;
+
+   aggregate = 0;
+   for (i=0;i<document.all("discount").length;i++)
+   {                                   
+        orig = parseFloat(document.all("totalorig")[i].value);                  
+        t = (orig*reduction);
+        discount = 100-(reduction*100);
+        
+        //total = parseFloat(document.all("totalorig")[i].value);
+        //weight = parseFloat(document.all("weight")[i].value);        
+        //discount = (reduction*weight*100);
+        //t = total*discount/100;
+                                            
+        document.all("total")[i].value = t.toFixed(2);
+        aggregate+=parseFloat(document.all("total")[i].value);
+        document.all("discount")[i].value = discount.toFixed(3);
+        if (i==document.all("discount").length-1 && aggregate.toFixed(2)!=finalPrice.toFixed(2))
+        {
+			document.all("total")[i].value = parseFloat(document.all("total")[i].value) + (finalPrice-aggregate);
+			document.all("discount")[i].value = (100-(document.all("total")[i].value/document.all("totalorig")[i].value*100)).toFixed(3);
+        }
+        
+   }
+   document.all("TOTALS").value = finalPrice.toFixed(2);
+}
+
+//init
+var aggregate=0;
+for (i=0;i<document.all("discount").length;i++)
+{  
+	aggregate+=parseFloat(document.all("total")[i].value);
+}
+document.all("TOTALS").value = document.all("ENDPRICE").value = aggregate.toFixed(2);
+
+</script>
+
+
+<?php
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

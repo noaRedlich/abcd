@@ -1,0 +1,66 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+class GO_THEME
+{
+	var $theme;
+	var $default_theme;
+	var $image_url;
+	var $theme_path;
+	var $theme_url;
+    var $stylesheet;
+    var $path_to_themes;
+
+	function GO_THEME()
+	{
+		global $GO_CONFIG;
+		$this->path_to_themes = $GO_CONFIG->root_path.$GO_CONFIG->theme_path.'/';
+		$this->url_to_themes = $GO_CONFIG->host.$GO_CONFIG->theme_path.'/';
+		$this->theme = $GO_CONFIG->theme;
+		$this->default_theme = $GO_CONFIG->theme;
+
+		global $GO_THEME_NAME;
+		$this->set_theme($GO_THEME_NAME);
+	}
+
+	function set_theme($theme)
+	{
+        global $GO_CONFIG;   
+		if ($theme != '' && file_exists($this->path_to_themes.$theme))
+		{
+			global $GO_THEME_NAME;
+			$GO_THEME_NAME = $theme;
+			$this->theme = $theme;
+		}
+                              
+		SetCookie("GO_THEME_NAME",$this->theme,time()+3600*24*365,"/","",0);
+		$this->theme_path = $this->path_to_themes.$this->theme.'/';
+		$this->theme_url = $this->url_to_themes.$this->theme.'/';
+		//$this->image_url = $this->theme_url.'images/';
+        $this->image_url = $GO_CONFIG->image_url;
+		$this->stylesheet = $this->theme_url."style.css";
+	}
+
+	//gets the themes
+	function get_themes()
+	{
+		//$location = $SCRIPT_FILENAME."languages";
+		$theme_dir=opendir($this->path_to_themes);
+		while ($file=readdir($theme_dir))
+		{
+			//Couldn't get is_file to work right so i worked around
+			if (is_dir($this->path_to_themes.$file) && $file != "." && $file != "..")
+			{
+					  $themes[] = $file;
+			}
+		}
+		closedir($theme_dir);
+		return $themes;
+	}
+}
+?>

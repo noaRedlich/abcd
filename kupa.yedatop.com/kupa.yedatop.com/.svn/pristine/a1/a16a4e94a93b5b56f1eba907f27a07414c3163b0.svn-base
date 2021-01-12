@@ -1,0 +1,49 @@
+<?
+	$connected = false;
+  function c()
+  {
+      global $db_host, $db_login, $db_pswd;
+
+	  $GOCONFIG = new GO_CONFIG();
+
+	  $db_login = $GOCONFIG->stock_db_user;		
+	  $db_pswd = $GOCONFIG->stock_db_pass;		
+	  $db_host = $GOCONFIG->db_host;		
+      $db = @mysql_connect($db_host, $db_login, $db_pswd);
+      mysql_query("set names ".$GOCONFIG->db_charset);
+      $connected = true;
+      return $db;
+  }
+
+ function q($q_str)
+ {
+    global $db_name, $connected;
+    if(!$connected)
+    {
+    	c(); 
+    }
+
+    $r = mysql($db_name, $q_str) or die(mysql_error());
+    return $r;
+ }
+
+ function d($db)
+ {
+    @mysql_close($db);
+ }
+
+ function e($r)
+ {
+  if(@mysql_numrows($r))
+   return 0;
+  else return 1;
+ }
+
+ function f($r){
+  return @mysql_fetch_array($r);
+ }
+
+ function nr($r){
+  return @mysql_num_rows($r);
+ }
+?>

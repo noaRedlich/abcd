@@ -1,0 +1,202 @@
+<?
+		if($id != "")
+		{
+			$fProfile = f(q("select member_id from dt_profile where id='$id'"));
+			$fMember = f(q("select * from dt_members where id='$fProfile[member_id]'"));
+
+			$login = $fMember[ login ];
+			$profile_code = sysGetProfileCode();
+		}
+
+		if($action == do_decline && $id != "")
+		{
+				$reason = "";
+
+				if($reason_id != "")
+				{
+					$fReason = f(q("SELECT reason FROM dt_reasons WHERE id='$reason_id'"));
+					$reason = $fReason[ reason ];
+				}
+				else
+				{
+					$reason = $my_reason;
+				}
+
+				if($reason != "")
+				{
+					//	Mailing member
+
+					mailSend($fMember[ email ], "../../../$mail_template_dir/decline_profile");
+
+					//	Update database entry
+
+					q("UPDATE dt_profile SET status='4' WHERE id='$id'");
+				}
+		}
+
+		if($action == approve && $id != "")
+		{
+			//	Mailing member
+
+			mailSend($fMember[ email ], "../../../$mail_template_dir/approve_profile");
+
+			//	Update database entry
+
+			q("UPDATE dt_profile SET status='1' WHERE id='$id'");
+
+            $pr = f(q("SELECT gender,birth_year,not_newbie FROM dt_profile WHERE id='$id'"));
+
+            if($pr[ not_newbie ] == 0)
+            {
+                q("UPDATE dt_profile SET not_newbie='1' WHERE id='$id'");
+
+                //  Matchfinder service
+
+                /*
+				$user_age = date("Y") - $pr[ birth_year ];
+                $r_users = q("SELECT mb.email, mb.login FROM dt_members mb,  mf WHERE mb.matchfinder='1' AND (mb.looking_for='Male or Female' OR mb.looking_for='$pr[gender]') AND mf.member_id=mb.id");
+                $profile_link = $root_host."profile.php?id=$id";
+
+                while($f_user = f($r_users))
+                {
+                    mailSend($f_user[ email ], "../../../$mail_template_dir/matchfinder");
+                }*/
+				
+            }
+
+			echo "
+				<center>
+					<b>
+						Profile has been successfully approved!
+					</b>
+				</center>
+			";
+		}
+
+		if($action == decline && $id != "")
+		{
+?>
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+  <tr>
+    <td height="20" bgcolor="#666666">&nbsp;&nbsp;<font color="#FFFFFF"><b>Decline
+      profile</b></font></td>
+  </tr>
+  <tr>
+    <td bgcolor="#CCCCCC">
+      <table width="90%" border="0" cellspacing="4" cellpadding="4" align=center>
+				<form action="main.php?action=do_decline&id=<? echo $id ?>" method=post>
+        <tr>
+          <td>Please, choose the reason. (Why you decline this profile). <br>
+            Or enter your reason. Also, please, note that you should choose 'My
+            reason' in the select box, if you want to enter your reason.</td>
+        </tr>
+        <tr>
+          <td>
+            <select name="reason_id" style="width:300px">
+              <option value="" selected>My Reason</option>
+							<?
+									$rReasons = q("SELECT id, name FROM dt_reasons ORDER BY name");
+
+									while($fReason = f($rReasons))
+									{
+										echo "<option value='$fReason[id]'>$fReason[name]</option>\n";
+									}
+							?>
+            </select>
+            &nbsp;[ <a href="main.php?service=reasons">Edit reasons</a> ]</td>
+        </tr>
+        <tr>
+          <td>
+            <textarea name="my_reason" rows="7" cols="46"></textarea>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <input type="submit" value="Decline">
+            <input type="button" value="Cancel" onClick="window.location.href='main.php';">
+						<?
+								echo "<input type=hidden name=id value='$id'>";
+						?>
+          </td>
+        </tr>
+				</form>
+      </table>
+    </td>
+  </tr>
+</table>
+<br><br>
+<?
+		}
+?>
+
+<table width="100%" border="0" cellspacing="2" cellpadding="2">
+  <tr>
+    <td class="big">New profiles</td>
+  </tr>
+  <tr>
+    <td>
+      <table width="100%" border="0" cellspacing="1" cellpadding="0">
+        <tr bgcolor="#CCCCCC">
+          <td height="20">&nbsp;&nbsp;Member name</td>
+          <td>&nbsp;&nbsp;Profile Name</td>
+          <td align="center">Options</td>
+        </tr>
+
+<?
+
+		$rProfiles = q("SELECT members.login as login, profile.id as id, profile.name as profile_name FROM dt_members members, dt_profile profile WHERE profile.status='3' AND profile.member_id=members.id");
+		$i = nr($rProfiles);
+
+		while($fProfile = f($rProfiles))
+		{
+?>
+
+   <tr>
+          <td bgcolor="F0F0F0">&nbsp;&nbsp;
+						<?
+								echo $fProfile[ login ];
+						?>
+					</td>
+          <td bgcolor="F0F0F0" height="20">&nbsp;&nbsp;
+						<?
+								echo $fProfile[ profile_name ];
+						?>
+					</td>
+          <td align="center" height="20" bgcolor="#E0E0E0" nowrap width="1%">&nbsp;&nbsp;[
+            <a href=main.php?action=approve&id=<? echo $fProfile[ id ] ?>>Approve</a> ]
+						[ <a href=main.php?action=decline&id=<? echo $fProfile[ id ] ?>>Decline</a> ]
+						[ <a href=preview_profile.php?id=<? echo $fProfile[ id ] ?> target=profile onClick="window.open('','profile','toolbars=0, scrollbars=1, resize=1')">View</a> ]&nbsp;&nbsp;</td>
+        </tr>
+
+<?
+		}
+?>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td>Total
+      <? echo $i ?>
+      new profile(s).</td>
+  </tr>
+</table> <br><br>
+<table><tr><td>
+Questions? Comments? Bug reports?  Please feel free to contact us!  Testimonials are always welcome! <br>
+      <form name="form1" method="post" action="http://www.web-scribble.com/cgi-bin/feedback.pl">
+        <p>Your Name:<br>
+          <input type="text" name="name" size="30">
+          <br>
+          Your Email:<br>
+          <input type="text" name="email" size="30">
+          <br>
+          Message:<br>
+          <textarea name="message" cols="40" rows="5"></textarea>
+          <br>
+          <input type="submit" name="Submit" value="Send Feedback">
+        </p>
+        </form>
+</td><td>
+<!-------- Start of HTML Code --------><form action="http://www.hotscripts.com/cgi-bin/rate.cgi" method="POST"><input type="hidden" name="ID" value="17462"><table BORDER="0" CELLSPACING="0" bgcolor="#800000"><tr><td><table border="0" cellspacing="0" width="100%" bgcolor="#EFEFEF" cellpadding="3"><tr><td align="center"><font face="arial, verdana" size="2"><b>Rate Our Program<br><font face="verdana, arial" size="1"><a href="http://www.hotscripts.com" style="text-decoration: none">
+@ HotScripts.com
+</a></b></font></font><table border="0" cellspacing="3" cellpadding="0"><tr><td align="center"><select name="ex_rate" size="1"><option value selected>-- Select One --</option><option value="5">Excellent!</option><option value="4">Very Good</option><option value="3">Good</option><option value="2">Fair</option><option value="1">Poor</option></select></td></tr><tr><td align="center"><input type="submit" value="Cast My Vote!"></td></tr></table></td></tr></table></td></tr></table></form><!-------- End of HTML Code -------->
+</td></tr></table>

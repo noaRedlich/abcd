@@ -1,0 +1,6 @@
+<Files "doc_services.php">
+AddDefaultCharset Windows-1255
+</Files>
+<Files "cashbox_services.php">
+AddDefaultCharset Windows-1255
+</Files>

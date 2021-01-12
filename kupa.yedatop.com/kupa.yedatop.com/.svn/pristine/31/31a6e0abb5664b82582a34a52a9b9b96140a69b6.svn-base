@@ -1,0 +1,68 @@
+<?php
+	$page_subtitle = "עץ פריטים";
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+    $enabled = HasActionPermission("EDITLISTING");
+	
+		$sql_edit = make_db_safe($edit);
+		// first, grab the listings's main info
+		$sql = "SELECT l.ID, title, notes, is_tree, last_modified, 
+        featured, active, expiration, 
+        SalePrice,
+        Unit,
+        u.abbreviation as unit_abbreviation,
+        u.grams_rate, u.decimals
+		FROM listingsDB l
+        inner join $TABLE_UNITS u on u.id = unit
+		WHERE l.ID = $sql_edit AND l.user_ID = '$userID'";
+		$ADODB_FETCH_MODE = ADODB_FETCH_ASSOC;
+		$recordSet = $conn->Execute($sql);
+		if ($recordSet === false)
+		{
+			log_error($sql);
+		}
+
+
+		$num_records = $recordSet->RecordCount();
+		if ($num_records == 0)
+		{
+			die("$lang[priv_failure]");
+		}
+
+		while (!$recordSet->EOF)
+		{
+			// collect up the main DB's various fields
+			$listing_ID = make_db_unsafe ($recordSet->fields[ID]);
+			$edit_title = make_db_unsafe ($recordSet->fields[title]);
+            $is_tree = make_db_unsafe ($recordSet->fields[is_tree]);
+			$SalePrice = make_db_unsafe ($recordSet->fields[SalePrice]);
+            $UnitName = make_db_unsafe( $recordSet->Fields("unit_abbreviation"));
+            $UnitGramRate = make_db_unsafe( $recordSet->Fields("grams_rate"));
+            $Decimals = make_db_unsafe( $recordSet->Fields("decimals"));
+			$recordSet->MoveNext();
+		} // end while
+	
+
+?>
+
+		<table width=100% height=465     cellpadding=0 cellspacing=0 >
+		<TR style='height:1%'><TD align=center>
+		<?include("productmenu.php")?>
+		</td></td>
+		<TR><TD align=center >    
+            <iframe src='cppro/main.php?service=tree&cid=<?=$edit?>' width=100% scrolling=no height=100% frameborder=0></iframe>
+        </td>
+        </tr>
+        <tr style='height:1%;padding-top:5px'>  
+        <td align=center><input type=button <?=(!$enabled)?"disabled":""?> onclick='wopen("treecalc.php?edit=<?=$edit?>","treecalc",500,350,true,"no")' class=button style='background-image:url("<?=$imgPath?>calc.gif")' value="חישוב הנחות "></td>
+        </tr>
+        </table>
+
+
+<?php
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

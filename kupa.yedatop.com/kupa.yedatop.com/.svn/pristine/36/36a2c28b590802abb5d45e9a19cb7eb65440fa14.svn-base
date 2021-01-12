@@ -1,0 +1,119 @@
+<?
+  	function BD3VisionObject($sObjectName)
+	{
+        global $tIndex,$activeTab;
+	 	switch($sObjectName)
+		{
+		 	case "TABLE":
+				echo "<table border=0 cellspacing=1 cellpadding=1 width=100%>";
+				break;
+
+		 	case "CTABLE":
+				echo "<table border=0 cellspacing=2 cellpadding=2 width=100% bgcolor=EFEFEF>";
+				break;
+
+		 	case "TAB":
+				echo "<table border=0 cellspacing=1 cellpadding=1 width=100%>";
+				break;
+
+		 	case "LTABLE":
+				echo "<table border=0 cellspacing=1 cellpadding=1 align=center bgcolor=EFEFEF>";
+				break;
+
+		 	case "RTABLE":
+				echo "<table border=0 cellspacing=1 cellpadding=1 align=center width=100% bgcolor=EFEFEF>";
+				break;
+
+		 	case "/TABLE":
+				echo "</table>";
+				break;
+
+		 	case "ROW":
+				echo "<tr>";
+				break;
+
+            case "TROW":
+				echo "<tr id=TROW tabIndex=$tIndex ".(($activeTab!=$tIndex)?"style=display:none":"").">";
+			break;
+
+		 	case "HEAD_ROW":
+				echo "<tr height=25 bgcolor=CCCCCC>";
+				break;
+
+		 	case "/ROW":
+				echo "</tr>";
+				break;
+
+		 	case "COL":
+				echo "<td>";
+				break;
+
+		 	case "CCOL":
+				echo "<td align=center>&nbsp;<font color=0>";
+				break;
+
+		 	case "SCOL":
+				echo "<td>";
+				break;
+
+		 	case "COLC":
+				echo "<td valign=top>";
+				break;
+
+		 	case "/COL":
+				echo "</font></td>";
+				break;
+		}
+
+		echo "\n";
+	}
+
+	function BD3VisionObjects($sObjects)
+	{
+	 	$aObjects = split("\|",$sObjects);
+
+		while(list($k, $v) = each($aObjects))
+		{
+			BD3VisionObject($v);
+		}
+	}
+
+	function BD3VisionControlPanel()
+	{
+		global $bd_event_type, $sOptions,$rmodule, $bd_event,$service,$cid,$sAddLabel;
+        $s = $sAddLabel ? $sAddLabel : "רשומה חדשה";
+		echo "<table border=0 cellspacing=0 cellpadding=0 bgcolor=E0E0E0 width=100%><td height=19><font color=0>";
+		//echo "<b>Control panel:</b> &nbsp;";
+
+		if($sOptions[create_record] != always && $bd_event != create_record && $sOptions[create_record] != none)
+		{
+            if ($cid){
+			    echo " <input type=button value='$s' class=btnNew onclick='window.open(\"main.php?cid=$cid&service=$service&bd_event=create_record\",\"\",\"width=400,height=450,left=\"+(window.screenLeft+20)+\",top=\"+(window.screenTop-10))'> ";
+            }
+            else{
+			    echo " <input type=button value='$s' class=btnNew onclick=\"location='main.php?cid=$cid&service=$service&bd_event=create_record'\" > ";
+            }
+		}
+
+		if($sOptions[search] == sometimes && $bd_event != search)
+		{
+			echo " <input type=button value='חיפוש' class=btnFind onclick=\"location='main.php?cid=$cid&service=$service&bd_event=search'\"> ";
+		}
+
+		if($bd_event == link_to)
+		{
+			global $source, $action;
+			echo " [ <a href=main.php?cid=$cid&service=$service&bd_event=link_to&source=$source&action=$action&lparam=delete onClick=\"return window.confirm('Delete file?')\"><font color=0>Delete file</font></a> ] ";
+		}
+
+		if($bd_event_type == modal && !$rmodule && !$cid)
+		{
+			echo " <input type=button value='חזרה' class=btnBack onclick=\"location='main.php?cid=$cid&service=$service'\"> ";
+		}
+
+		BD3VisionObjects("/COL|/TABLE");
+		echo "<br>";
+	}
+	
+
+?>

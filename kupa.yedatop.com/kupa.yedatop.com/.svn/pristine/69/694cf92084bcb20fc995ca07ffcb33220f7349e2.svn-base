@@ -1,0 +1,11 @@
+				</td>
+				</tr>
+				</table>
+<?		
+//require the footer file
+if ($simple)
+	require($GO_THEME->theme_path."simple_footer.inc");
+else
+	require($GO_THEME->theme_path."footer.inc");
+
+?>

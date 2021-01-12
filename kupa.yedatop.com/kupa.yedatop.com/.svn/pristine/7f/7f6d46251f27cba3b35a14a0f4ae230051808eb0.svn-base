@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>listingsSuppliers</main_table>
+	<condition>IsSupplier=1</condition>
+	<name>ספקים</name>
+	<options>
+		<opt name="create_record" type="sometimes"></opt>
+		<opt name="search" type="sometimes"></opt>
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="ID" >ID</vcol>
+		<vcol name="code" >קוד</vcol>
+		<vcol name="SortOrder" >מיקום</vcol>
+		<vcol name="SupplierName">שם ספק</vcol>
+		<vcol name="Status" type="yes_no">פעיל</vcol>
+		<vcol name="Phone">טלפון</vcol>
+		<vcol name="ContactPerson">איש קשר</vcol>
+	</view>
+	<edit>
+		<ecol name="SupplierName" type="string">שם ספק</ecol> 
+		<ecol name="code" type="string">קוד</ecol>
+		<ecol name="Phone"  type="string">טלפון</ecol>
+		<ecol name="ContactPerson"  type="string">איש קשר</ecol>
+		<ecol name="SortOrder"  type="string">מיקום</ecol>
+		<ecol name="Status" type="yes_no"  defaultvalue="1">פעיל</ecol>
+		<ecol name="IsSupplier" type="hidden" value="1"></ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="SortOrder,SupplierName"></opt>
+		<opt name="search_by" type="SupplierName"></opt>
+	</sql_actions>
+</xml>

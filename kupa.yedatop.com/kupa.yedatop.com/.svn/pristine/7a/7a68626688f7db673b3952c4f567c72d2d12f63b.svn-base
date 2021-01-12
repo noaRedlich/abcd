@@ -1,0 +1,133 @@
+<?
+	//include "temp_include.inc.php";
+	$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+    if (!$sDate){
+	    $sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+    }
+    if (!$eDate){
+	    $eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+    }
+     
+                                              
+    $sql = "select lastbackup_timestamp from $main_db.userdata where office_user_id = $userID";
+    $lastbackupRS = f(q($sql));
+    if ($lastbackupRS["lastbackup_timestamp"])
+    {
+        $note = "גיבוי מתוכנן האחרון נעשה ב-".date("d/m/Y H:i",$lastbackupRS["lastbackup_timestamp"]);     
+        $sql = "select id from documents where user_id = $userID and id > (select lastbackup_doc_id from $main_db.userdata where office_user_id = $userID)";
+        $backupavailable = f(q($sql));
+        $backupavailable = $backupavailable["id"];
+    }
+    else
+    {
+        $sql = "select id from documents where user_id = $userID limit 1";
+        $backupavailable = f(q($sql));
+        $backupavailable = $backupavailable["id"];
+        $note = "לא נעשה גיבוי מתוכנן עד עכשיו";
+    }                          
+    
+    if (!$backupavailable){
+        $scheduledonly = false;
+    }
+
+ 
+?>
+<script>
+function HideDiv()
+{
+	document.all.divWait.style.display = "none";
+}
+</script>
+<div id=divWait style='display:none;font-size:10pt;padding:5;background-color:white;border:outset;width:250;position:absolute;top:expression(document.body.clientHeight/2-this.clientHeight/2);left:expression(document.body.clientWidth/2-this.clientWidth/2)'>
+<img src='<?=$imgPath?>progress-animation_circles.gif' align=absmiddle hspace=10><b>
+הגיבוי מתבצע כעת. נא המתן.</b>
+</div>
+<iframe style='display:none' name=BackupFrame src='/blank.htm'  onreadystatechange='HideDiv()'></iframe>
+<form method=post name=BACKUP target=BackupFrame action="/modules/stock/printpdf.php" onsubmit='return validateForm()'>
+<table>
+<tr><td colspan=2><h1>גיבוי מסמכים</h1>
+</td>
+</tr>
+<tr>
+    <td><input type=radio onclick=switchForm("schedule") name=backuptype value="schedule" <?=$backupavailable?"checked":"disabled"?> ></td>
+    <td>גיבוי מתוכנן (<b><?=$note?></b>)</td>
+</tr>
+<tr>
+    <td><input type=radio onclick=switchForm("month") name=backuptype value="month" <?=$backupavailable?"":"checked"?> <?=$scheduledonly?"disabled":""?>></td>
+    <td>
+    כל המסמכים עבור חודש
+    <select name=month id=month disabled>
+    <?foreach ($months as $key=>$month){?>
+        <option value="<?=$key?>" <?=($key==date("m")-1)?"selected":""?>><?=$month?>
+    <?}?>
+    </select>
+    <select name=year id=year disabled >
+    <?for($i=2005;$i<=date("Y");$i++){?>
+        <option value="<?=$i?>" <?=($i==date("Y"))?"selected":""?>><?=$i?>
+    <?}?>
+    </select>
+    </td>
+</tr>
+<tr>
+    <td><input type=radio onclick=switchForm("dates") id=chkDates name=backuptype value="dates" <?=$scheduledonly?"disabled":""?>></td>
+    <td>כל המסמכים עבור תווך תאריכים
+	מ <input disabled size=10 name=sDate id=sDate value="<?=$sDate?>">
+      <img disabled id=cal1 align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("BACKUP.sDate")'>
+    עד <input disabled size=10 name=eDate id=eDate value="<?=$eDate?>">
+    <img disabled id=cal2 align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("BACKUP.eDate")'>
+    
+    </td>
+</tr>
+<tr style='display:none'>
+    <td><input type=radio onclick=switchForm("all") name=backuptype id=chkAll value="all" <?=$scheduledonly?"disabled":""?>></td>
+    <td>כל המסמכים</td>
+</tr>
+</table>
+<br>
+<input type=submit class=btnOK value="אישור">
+</form>
+
+<script language="JavaScript" src="include/calendar/Calendar1-901.js"></script>
+<LINK REL="stylesheet" TYPE="text/css" HREF="include/calendar/Calendar.css">
+<script>
+function ShowCalendar(id)
+{
+    show_calendar(id,null,null,"DD/MM/YYYY","POPUP","InlineX="+(event.screenX-window.screenLeft)+";Title=Date;Width=135;Height=200;InlineY="+(event.screenY-window.screenTop+10)+";Fix=No;WeekStart=0;Weekends=56;AllowWeekends=Yes;ShortNames=Yes");
+}
+function switchForm(mode){                                         
+    document.all.month.disabled = document.all.year.disabled = mode!="month";
+    document.all.cal1.disabled = document.all.cal2.disabled = document.all.sDate.disabled = document.all.eDate.disabled = mode!="dates";
+}
+
+function validateForm(){
+    if (document.all.chkDates.checked)
+    {
+       sDate = document.all.sDate.value;
+       eDate = document.all.eDate.value;  
+       d1 = new Date(sDate.substr(6,4),sDate.substr(3,2),sDate.substr(0,2))
+       d2 = new Date(eDate.substr(6,4),eDate.substr(3,2),eDate.substr(0,2))
+       diff = (d2-d1)/(3600*1000*24);
+       if (isNaN(diff)||diff<0||diff>31)
+       {
+            alert("יש להזין טווח תאריכים לא יותר מחודש");
+            return false;
+       }
+    }
+    if (document.all.chkAll.checked){
+        s = confirm("גיבוי של כל המסמכים הינו תהליך ארוך שיכול לקחת הרבה זמן. להמשיך?");
+    }
+    else{
+        s = true;
+    }
+    
+    if (s)
+    {
+		document.all.divWait.style.display = "";
+    }
+    
+    return s;
+}
+<?if (!$backupavailable){?>
+switchForm("month");
+<?}?>
+</script>

@@ -1,0 +1,44 @@
+
+<link rel="stylesheet" href="../style.css" type="text/css">
+
+<table width="100%" border="0" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="100%" nowrap bgcolor="#FFFFFF"><b>תפריט ניהול&nbsp;&nbsp;</b></td>
+    <td width="10" nowrap bgcolor="#5879A5"><spacer type=block height=100% width=10></td>
+  </tr>
+  <tr>
+    <td width="13%" nowrap colspan="2">
+      <table border="0" cellspacing="0" cellpadding="0" width="100%">
+        <tr bgcolor="#5879A5">
+          <td height=4 colspan="2"><spacer type=block height=4 width=100%></td>
+        </tr>
+  
+        <tr><td colspan=2 style='padding-top:5px'>
+        <select dir=ltr onchange="eval(this.value)" style='width:100%'>
+        <option style='color:silver'>-------- Select action ---------
+        <option value="location='main.php?plugin=sysinfo'">System Information   
+        <option value="location='main.php?service=services'">Services List
+        <option value="wopen('rep_users.php?simple=1','users',600,500)">Users/Terminals list 
+        <option value="wopen('rep_translog.php?simple=1','translog',700,500)">TRANS Log
+        <option style='color:silver'>---------------------------------------
+        <?
+	        $rRootServices = q("select * from webDate_bd_services where admin_only='1' order by name");
+
+	        $nCount = 4;
+	        while($fRootService = f($rRootServices))
+	        {
+		        if ($fRootService[name]!="User Preferences"){
+		        ?>
+                <option value="location='main.php?service=<?=$fRootService[link]?>'"  <?=($service==$fRootService[link])?"selected":""?> >
+                    <? echo $fRootService[name]; $nCount++; ?>
+                <?
+		        }
+	        }
+        ?>
+        </select>
+        </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>

@@ -1,0 +1,181 @@
+<?
+    $mode = $_GET["mode"];
+    if (!$mode) $mode = $_POST["mode"]; 
+    $simple=1;
+	$page_subtitle = "עדכון קבוצתי";
+          
+	include("include/common.php");
+	include("include/business_functions.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+	if ($saction=="GO")
+	{
+		if ($saleprice && !is_numeric($saleprice))
+		{
+			$error = "יש להזין ערך נומרי בשדה מחיר";
+		}
+		elseif ($cost && !is_numeric($cost))
+		{
+			$error = "יש להזין ערך נומרי בשדה עלות";
+		}
+		if (!$error)
+		{
+			if ($category)
+			{
+				DBQuery("update listingsDB set ProductGroup = $category where user_id = $userID and basket > 0");
+			}
+			if ($supplier)
+			{
+				DBQuery("update listingsDB set Sapak = $supplier where user_id = $userID and basket > 0");
+			}
+			if ($unit)
+			{
+				DBQuery("update listingsDB set unit = $unit where user_id = $userID and basket > 0");
+			}
+			if ($saleprice)
+			{
+				$prods=DBQuery("select id,saleprice from listingsDB where user_id = $userID and basket > 0");
+				while (!$prods->EOF)
+				{
+					if (floatval($prods->fields["saleprice"])!=floatval($saleprice))
+					{
+						$sql = "insert into history (timestamp,datetime,type,listing_id,saleprice_from,saleprice_to,note) values 
+						(unix_timestamp(),now(),'adjustment',".$prods->fields["id"].",'".$prods->fields["saleprice"]."','".addslashes($saleprice)."','עדכון קבוצתי')";
+						DBQuery($sql);  
+					}
+					DBQuery("update listingsDB set SalePrice = '".addslashes($saleprice)."' where id = ".$prods->fields["id"]);
+					if ($allpoints)
+					{
+						DBQuery("update listingsStocksElements set SalePrice = null where listingid = ".$prods->fields["id"]);
+					}
+					$prods->MoveNext();
+				}
+			}
+			if ($cost)
+			{
+				$prods=DBQuery("select id,cost from listingsDB where user_id = $userID and basket > 0");
+				while (!$prods->EOF)
+				{
+					if (floatval($prods->fields["cost"])!=floatval($cost))
+					{
+					$sql = "insert into history (timestamp,datetime,type,listing_id,supplier_id,cost_from,cost,note) values 
+							(unix_timestamp(),now(),'cost',".$prods->fields["id"].",-1,'".addslashes($prods->fields["cost"])."','".addslashes($cost)."','עדכון קבוצתי')";  
+						DBQuery($sql);
+					}  
+					DBQuery("update listingsDB set Cost = '".addslashes($cost)."' where id = ".$prods->fields["id"]);
+					$prods->MoveNext();
+				}				
+			}
+			echo "<script>location='batch.php?saction=success'</script>";
+		}
+    }
+    if ($saction=="success")
+    {
+		echo "<br><center style='color:green;font-weight:bold'> הפעלה הסתיימה בהצלחה <br></center>";
+        echo "<script>opener.reloadParent()</script>";
+	}
+	elseif ($error)
+    {
+		echo "<br><center style='color:red;font-weight:bold'>$error<br>";
+	}
+    else
+    {
+        echo "<br><center style='color:blue;font-weight:bold'>עדכון פריטים שנמצאים בסל<br>";
+    }
+    
+
+
+    
+   	$cats = DBQuery("select * from listingsCategories where user_ID = $userID and Status=1 order by binary CategoryName");
+	$suppliers = DBQuery("select * from listingsSuppliers where Status=1 and isSupplier=1 and user_id = $userID order by binary SupplierName");
+	$units = DBQuery("select id,name from $TABLE_UNITS order by SortOrder");
+    
+    ?>
+    
+    <form method=post name=F>
+	<table width=100%>
+        <tr>
+            <td width=1%>מחלקה:</td>
+            <td>
+            
+            	<select name=category style='width:100%'>
+	            <option value="">--- ללא שינוי ---
+                <?FillCategoriesList($category);?> 
+	            </select>
+    
+            </td>
+        </tr>
+        
+         <tr>
+            <td>ספק:</td>
+            <td>
+            
+            	<select name=supplier style='width:100%'>
+	            <option value="">--- ללא שינוי ---
+	            <?while(!$suppliers->EOF){?>
+		            <option value="<?=$suppliers->fields["ID"]?>" <?=($supplier==$suppliers->fields["ID"])?"selected":""?>><?=$suppliers->fields["SupplierName"]?>
+		            <?$suppliers->MoveNext();
+	            }?>
+	            </select>
+             
+            </td>
+        </tr>
+
+         <tr>
+            <td>יחידה:</td>
+            <td>
+
+            	<select name=unit style='width:100%'>
+	            <option value="">--- ללא שינוי ---
+	            <?while(!$units->EOF){?>
+		            <option value="<?=$units->fields["id"]?>" <?=($unit==$units->fields["id"])?"selected":""?>><?=$units->fields["name"]?>
+		            <?$units->MoveNext();
+	            }?>
+	            </select>
+
+            </td>
+        </tr>
+               
+        <tr>
+            <td valign=top nowrap>מחיר כולל מע"מ:</td>
+            <td>
+				<input name=saleprice value="<?=$saleprice?>" onchange='document.all.PRICE.style.display=(this.value=="")?"":"none"' onkeyup='document.all.PRICE.style.display=(this.value=="")?"":"none"'>
+				<span id=PRICE >ללא שינוי</span>
+				<br><input type=checkbox name=allpoints <?=($allpoints)?"checked":""?> >בכל נקודות המכירה
+				</td>
+            
+        </tr>
+        
+        <tr>
+            <td nowrap>עלות כולל מע"מ:</td>
+            <td>
+				<input name=cost value="<?=$cost?>"  onchange='document.all.COST.style.display=(this.value=="")?"":"none"' onkeyup='document.all.COST.style.display=(this.value=="")?"":"none"'>
+				<span id=COST >ללא שינוי</span></td>
+        </tr>
+               
+		<tr valign=middle>
+		<td colspan=2 width=100% align=center>
+        <br>
+            <hr>
+            
+            <input type=hidden name=saction value=GO>
+            <input type='submit' class=button style='background-image:url(<?=$imgPath?>ok.gif)' value='אישור'>
+            <input type='button' onclick='window.close()' class=button style='background-image:url(<?=$imgPath?>back.gif)' value='סגור'>
+        </td>
+        </tr>
+	</table>		
+	</FORM>	
+	</td>
+	</tr>
+	</table>
+
+<?
+
+
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+?>

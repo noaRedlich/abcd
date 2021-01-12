@@ -1,0 +1,97 @@
+input,textarea {font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 11px; color: #000000; text-decoration: none; }
+select {  font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 11px; color: #000000; text-decoration: none; border-color: #FFFFFF #333333 #333333 #FFFFFF; border-style: solid; border-top-width: 1px; border-right-width: 1px; border-bottom-width: 1px; border-left-width: 1px}
+td {  font-family: Verdana, Helvetica, sans-serif; font-size: 11px}
+.small {  font-family: Verdana, Helvetica, sans-serif; font-size: 11px}
+.big {  font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 22px; font-weight: normal}
+a {  text-decoration:underline; color: #000066}
+a:link {  text-decoration:underline; color: #000066}
+a:hover {  ;text-decoration: underline; color: #FF0000}
+a:visited {  ;text-decoration: underline; color: #FF0000}
+.larger {  font-size: 12px}
+.menu {  color: #FFFFFF; text-decoration: none}
+.bl { font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 18px; font-weight: normal}
+.amenumain {
+BORDER-BOTTOM: #333333 1px; BORDER-LEFT: #333333 1px; BORDER-RIGHT: #333333 1px; BORDER-TOP: #333333 1px
+; font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 9pt
+}
+.amenumainover {
+	BACKGROUND-COLOR: #CCCCCC; BORDER-BOTTOM: medium none; BORDER-LEFT: medium none; BORDER-RIGHT: medium none; BORDER-TOP: medium none; COLOR: #FFFFFF; CURSOR: hand; FONT-FAMILY: Verdana, Arial, Helvetica, sans-serif; FONT-SIZE: 9pt; text-decoration: underline
+}
+a.navbarmain:visited {COLOR: #000000; TEXT-DECORATION: none ;FONT-WEIGHT: bold;}
+a.navbarmain:hover { COLOR: #000000; CURSOR: hand; TEXT-DECORATION: none;FONT-WEIGHT: bold; }
+A.navbarmain:active { COLOR: #000000; FONT-WEIGHT: bold; TEXT-DECORATION: none }
+a.navbarmain:link { COLOR: #000000; TEXT-DECORATION: none;FONT-WEIGHT: bold;}
+
+a.navbarmainactive:link { COLOR: white; TEXT-DECORATION: none;FONT-WEIGHT: bold;}
+a.navbarmainactive:visited {COLOR: white; TEXT-DECORATION: none ;FONT-WEIGHT: bold;}
+a.navbarmainactive:hover { COLOR: white; CURSOR: hand; TEXT-DECORATION: none;FONT-WEIGHT: bold; }
+A.navbarmainactive:active { COLOR: white; FONT-WEIGHT: bold; TEXT-DECORATION: none }
+.err {color:white;background-color:red;font-size:9pt}
+
+body {BACKGROUND-COLOR:ButtonFace}
+
+.sactiveTab{border:solid 1 black;border-bottom:none;cursor:hand;color:blue}
+.sinactiveTab{border:solid 1 black;cursor:hand;color:blue}
+.emptyTab{border-bottom: solid 1 black}
+.tabContent{border:solid 1 black;border-top:none;height:220;width:100%;padding:0px;vertical-align:top}
+
+input.btnNew
+{
+    border: outset 2;
+    margin:2px;
+    background:url(images/add.gif);
+    background-repeat:no-repeat;
+    padding-left:10px;
+}
+
+input.btnFind
+{
+    border: outset 2;
+    margin:2px;
+    background:url(images/view.gif);
+    background-repeat:no-repeat;
+    padding-left:15px;
+}
+
+input.btnBack
+{
+    border: outset 2;
+    margin:2px;
+    background:url(images/back.gif);
+    background-repeat:no-repeat;
+    padding-left:15px;
+}
+
+
+input.btnOK
+{
+    border: outset 2;
+    margin:2px;
+    background:url(images/ok.gif);
+    background-repeat:no-repeat;
+    padding-left:15px;
+}
+
+
+input.btnOK1
+{
+    border: outset 2;
+    margin:2px;
+    background:url(images/ok1.gif);
+    background-repeat:no-repeat;
+    padding-left:15px;
+}
+
+.amenumainactive {
+BORDER-BOTTOM: #333333 1px; BORDER-LEFT: #333333 1px; BORDER-RIGHT: #333333 1px; BORDER-TOP: #333333 1px
+; font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 9pt; background-color:darkblue;color:white
+
+}
+.amenumainoveractive {
+	BACKGROUND-COLOR: #CCCCCC; BORDER-BOTTOM: medium none; BORDER-LEFT: medium none; BORDER-RIGHT: medium none; BORDER-TOP: medium none; COLOR: #FFFFFF; CURSOR: hand; FONT-FAMILY: Verdana, Arial, Helvetica, sans-serif; FONT-SIZE: 9pt; text-decoration: underline;background-color:darkblue;color:white
+}
+
+.bold a, .bold a:visited
+{
+	color:#ce0000 !important;
+}

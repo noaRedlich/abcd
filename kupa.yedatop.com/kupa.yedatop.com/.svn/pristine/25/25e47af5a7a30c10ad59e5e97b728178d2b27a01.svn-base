@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>currencies</main_table>
+	<name>מטבע חוץ</name>
+	<options>
+		<opt name="create_record" type="sometime"></opt>
+		<opt name="edit_record" type="sometime"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+        <vcol name="SortOrder">#</vcol>
+		<vcol name="name">שם מטבע</vcol>
+		<vcol name="code">קוד מטבע</vcol>
+        <vcol name="course">שער יציג</vcol>
+        <vcol name="is_default" type="yes_no">בררת מחדל</vcol>
+        <vcol name="status" type="yes_no">פעיל</vcol>
+
+	</view>
+	<edit>
+		<ecol name="name" type="string">שם מטבע</ecol>
+		<ecol name="code" type="string" >קוד מטבע</ecol>
+		<ecol name="symbolbefore" type="string">סמל מטבע</ecol>
+		<ecol name="course" type="string">שער יציג</ecol>
+        <ecol name="is_default" type="yes_no">בררת מחדל</ecol>
+        <ecol name="status" type="yes_no">פעיל</ecol>
+        <ecol name="SortOrder" type="string">מיקום</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="SortOrder"></opt> 
+	</sql_actions>
+</xml>

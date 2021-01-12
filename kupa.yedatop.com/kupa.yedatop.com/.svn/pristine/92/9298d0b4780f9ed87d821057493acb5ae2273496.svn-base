@@ -1,0 +1,24 @@
+<xml>
+	<main_table>dt_relationship</main_table>
+	<name>Relationship</name>
+	<options>
+		<opt name="create_record" type="always"></opt>
+		<opt name="search" type="sometimes"></opt>
+		<opt name="main_view" type="always"></opt>
+	</options>
+	<view>
+		<vcol name="bd_counter">#</vcol>
+		<vcol name="name_eng">Eng</vcol>
+		<vcol name="name_heb">Heb</vcol>
+		<vcol name="name_rus">Rus</vcol>
+	</view>
+	<edit>
+		<ecol name="name_eng" type="string">Name (eng)</ecol>
+		<ecol name="name_rus" type="string">Name (rus)</ecol>
+		<ecol name="name_heb" type="string">Name (heb)</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="name_eng"></opt>
+		<opt name="search_by" type="name_eng"></opt>
+	</sql_actions>
+</xml>

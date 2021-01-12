@@ -1,0 +1,91 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+//////////////////////////////////////////////////////////////////////////////////
+///////////////////// This file handles registration          ////////////////////
+//////////////////////////////////////////////////////////////////////////////////
+
+require("../Group-Office.php");
+//$GO_SECURITY->authenticate();
+require($GO_LANGUAGE->get_language_file('users'));
+require($GO_CONFIG->class_path."/users.class.inc");
+$users = new users;
+
+$page_title = $admin_forgot;
+require($GO_THEME->theme_path."header.inc");
+
+require($GO_CONFIG->class_path."/validate.class.inc");
+$val = new validate;
+
+$module_acl = isset($module_acl) ? $module_acl : array();
+
+echo '<table border="0" cellpadding="10" cellspacing="0"><tr><td>';
+
+if ($REQUEST_METHOD == "POST")
+{
+	$username = strtolower($_POST['username']);
+
+
+	$val->error_required = $error_required;
+	$val->error_min_length = $error_min_length;
+	$val->error_max_length = $error_max_length;
+	$val->error_expression = $error_email;
+
+	$val->name="username";
+	$val->input=$username;
+	$val->min_length=3;
+	$val->max_length=20;
+	$val->required=true;
+	$val->validate_input();
+
+	$val->name="email";
+	$val->input=$email;
+	$val->max_length=75;
+
+	if (!isset($create_email))
+	{
+		$val->required=true;
+	}
+
+	$val->expression="^([a-z0-9]+)([._-]([a-z0-9]+))*[@]([a-z0-9]+)([._-]([a-z0-9]+))*[.]([a-z0-9]){2}([a-z0-9])?$";
+	$val->validate_input();
+	
+	if ($val->validated)
+	{
+				$user=$users->get_profile_by_email($email);
+				if(strtolower($user[username])==strtolower($username)){
+					//send email to the user with password
+					$forgot_mail_body = str_replace("%name%",$user[name], $forgot_mail_body);
+					$forgot_mail_body = str_replace("%password%", $user[password],$forgot_mail_body);
+					$forgot_mail_body .= "\n\n".$GO_CONFIG->host;
+					sendmail($email,  $GO_CONFIG->webmaster_email, $GO_CONFIG->title, $forgot_mail_subject, $forgot_mail_body);
+					//confirm and exit the script so the form won't load
+					echo "<b>$forgot_success</b>";
+	
+					echo '<br /><br />';
+					$button = new button($cmdContinue, "javascript:document.location='../index.php';");
+					echo '</td></tr></table>';
+					require($GO_THEME->theme_path."footer.inc");
+					exit;
+				
+				}
+				else{
+				$forgot_error=$user_not_found;
+				}
+	}
+}
+if ($users->get_users() < $GO_CONFIG->max_users || $GO_CONFIG->max_users == 0)
+{
+        require("forgot.inc");
+}else
+{
+        echo '<h1>'.$max_user_limit.'</h1>'.$max_users_text;
+}
+echo '</td></tr></table>';
+require($GO_THEME->theme_path."footer.inc");
+?>

@@ -1,0 +1,484 @@
+<?
+	session_start();
+	
+	$simple=1;
+	$page_subtitle = "מכירות לפי מוצרים ";
+	$xlsfilename="MechirotLefiMutzar";
+	
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+    if (!IsPostBack())
+    {
+        $includevat=true; 
+    }
+        
+	if ($_POST["posted"])
+    {
+	    $onlysold = $_POST["onlysold"];
+        $fromkupa = $_POST["fromkupa"];
+        $fromdocs = $_POST["fromdocs"];
+    }
+	else
+    {                                                                 
+	    $onlysold = $_GET["onlysold"];
+        $fromkupa = $_GET["fromkupa"];
+        $fromdocs = $_GET["fromdocs"];
+    }
+
+	if ($_GET["sDate"] && $saction != "sendreport"){
+		$saction="go";
+	}
+	
+	if (!$sDate){
+		$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+		$sDate = date("d/m/Y",strtotime("",$firstday));
+		$eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+	}
+
+	$asDate = explode("/",$sDate);
+	$aeDate = explode("/",$eDate);
+	
+	$startdate = mktime(0,0,0,$asDate[1],$asDate[0],$asDate[2]);
+	$enddate = mktime(23,59,59,$aeDate[1],$aeDate[0],$aeDate[2]);
+	$startDay = date("Y/m/d",$startdate);
+	$endDay = date("Y/m/d",$enddate);
+	
+	
+    
+	$stocks = GetStocks(true);
+
+	$suppliers = $conn->Execute("select * from listingsSuppliers where Status=1 and isSupplier=1 and user_id = $userID order by binary SupplierName");
+	if ($suppliers === false){log_error($sql);}    
+                                                   
+	?>
+	<style>
+	.z {color:gray}
+	.b {font-weight:bold}
+	th {background-color:silver}
+	</style>
+	<script>
+	function PrintReport(){
+		document.getElementById("Query").style.display = "none";
+		window.print();
+		document.getElementById("Query").style.display = "";
+	}
+	</script>
+	<body>
+	<table cellpadding=5 border=0 width=100%>
+	<tr>
+	<form name=F method=post action="<?=$PHP_SELF?>">
+    <input type=hidden name=posted value=1>
+	<input type=hidden name=usr value=<?=$usr?>>
+	<input type=hidden name=rmodule value=<?=$rmodule?>>
+	<td nowrap> 
+	<?$reporttitle = "מכירות <br> לפי מוצרים";?>
+	<?if ($usr){$reporttitle.="<br>".$username;}?>
+	<strong style='font-size:12pt'><?=$reporttitle?></strong>
+	</td><td width=99% style='border:inset 1'>
+	<?=$lang["from"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.sDate")
+'>
+ <?=$lang["to"]?> <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.eDate")
+'>
+ 
+	
+	<select name=category>
+	<option value=""><?=$lang["all_cats"]?>
+    <?FillCategoriesList($category);?>
+	</select>
+    
+	
+	<select name=stock>
+	<?FillStockList($stocks,$stock)?>
+	</select>                        
+
+	<select name=supplier>
+	<option value="">כל הספקים
+	<?while(!$suppliers->EOF){?>
+		<option value="<?=$suppliers->fields["ID"]?>" <?=($supplier==$suppliers->fields["ID"])?"selected":""?>><?=$suppliers->fields["SupplierName"]?>
+		<?$suppliers->MoveNext();
+	}?>
+	</select>
+
+	<input type=submit name=gosearch value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top;" >
+    <br>
+    ברקוד <input name=barcode size=8 value="<?=$barcode?>">
+
+	 רק פרטים שנמכרו <input type=checkbox name=onlysold value=1 <?=($onlysold==1)?"checked":""?>>
+
+     נתוני קופה <input type=checkbox name=fromkupa value=1 <?=($fromkupa==1)?"checked":""?>>
+     נתוני חשבוניות נוספות<input type=checkbox name=fromdocs value=1 <?=($fromdocs==1)?"checked":""?>>
+&nbsp;
+     <input type=radio name=treeMode value=0 <?=(!$treeMode)?"checked":""?>> פריטים רגילים
+     <input type=radio name=treeMode value=1 <?=($treeMode)?"checked":""?>> עצי מוצר
+     <br>
+     <input type=checkbox value=1 name=includevat <?=($includevat)?"checked":""?> >מחיר מכירה ועלות כוללים מע"מ
+     <hr>
+	<?if ($saction=="go" || $saction=="sendreport"){
+		require("sendreport.php");
+	}?>
+	<input type=hidden name=saction value=go>
+	<input type=hidden name=reportbody value="">
+	<input type=hidden name=sendmode value="">
+	</td>
+	</form>
+	</tr>
+	</table>
+	<?	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+	
+	if (!$sort || $gosearch){
+	
+		$q="";
+        $q .= " and l.is_tree = ".(($treeMode)?"1":"0")." ";
+		if ($category){
+			$q.=" and c.ID=$category";
+		}
+        if ($supplier){
+            $q.=" and sapak = $supplier";
+        }
+        if($barcode){
+            $q.=" and barcode = '".addslashes($barcode)."'";
+        }
+        
+        if ($onlysold){
+            $q.=" and (1=0   ";
+            if ($fromkupa){
+            $q.=  " or exists (select tc.id from transactioncomponents tc, transactions t
+                    where listing_id = l.id and tc.trans_id = t.id and trandate between '$startDay' and '$endDay' )";
+            }
+            if ($fromdocs){
+            $q.= " or exists (select dp.id from document_products dp, documents d
+                    where listing_id = l.id and dp.doc_id = d.id and doc_date between '$startDay' and '$endDay' ) ";
+            }
+            $q.=")";
+        }
+        
+        if ($includevat)
+        {
+            $costsql = "cost"; 
+            $pricesql = "saleprice"; 
+            $vats = "";
+        }
+        else
+        {
+            $costsql = "cost/(1+".$config["VAT"]."/100)"; 
+            $pricesql = "saleprice/(1+".$config["VAT"]."/100)"; 
+            $vats = "/(1+".$config["VAT"]."/100)";
+        }
+        
+		$sql = "select
+				l.id,
+				title,
+				c.CategoryName,
+				active,
+				$costsql as cost,
+				$pricesql as price,
+				barcode,
+                grams_rate, abbreviation, decimals
+			from
+				 listingsDB l,		
+				 listingsCategories c, 
+                 $TABLE_UNITS
+	 		where
+                $TABLE_UNITS.id = unit and
+                productGroup = c.ID and
+                active = 'yes' and 
+				l.user_id = $userID
+				$q
+			order by binary CategoryName, binary title";
+
+		$products = $conn->Execute($sql);
+		if ($products === false){log_error($sql);}
+	
+		$report = array();
+		
+		while (!$products->EOF)
+        {
+			$Alut = $products->fields("cost");
+			$Alut = str_replace(",",".",$Alut);
+			if (!floatval($Alut))$Alut=0;
+			$prodid = $products->fields("id");
+            $decimals = $products->Fields("decimals");
+            $grams_rate = $products->Fields("grams_rate");
+            if (!$grams_rate)$grams_rate=1;
+			if (!$cost) $cost=0;
+
+			$qq="";$qd = "";
+			if ($stock)
+            {
+			    $qq.=" and t.stock_id=$stock"; 
+			    $qd.=" and d.stock_id=$stock"; 
+			}
+            $qq .= " and IsTree = ".(($treeMode)?"1":"0");
+
+            if ($fromkupa)
+            {
+    			$sql = "select
+    				sum((case when WeigthFlag then WeightQty/$grams_rate else StockAmount end)* (case when IsRefund=1  or RefundMode=1 then -1 else 1 end) )    as StockAmount ,
+    				round(sum(
+    					(case
+                        when AmountPercentDiscount <> 0 and (DiscountType=1 or SecondDiscFlag=1 or OtherDiscountFlag=1)
+                            then CompAmount - (CompAmount*AmountPercentDiscount/100)
+    					when CompCashDiscount <> 0
+    						then CompAmount - CompCashDiscount
+    					when CompDiscount <> 0
+    						then CompAmount - (CompAmount*CompDiscount/100)
+    					when TranDiscount <> 0
+    						then CompAmount - (CompAmount*TranDiscount/100)
+    					when TranCashDiscount <> 0
+    						then CompAmount - (CompAmount*(TranCashDiscount*100/TranAmount)/100)
+    					else CompAmount end) * (case when IsRefund=1  or RefundMode=1 or StockAmount <0 then -1 else 1 end)
+    					) $vats,2) as Mahzor,
+    				round(sum(
+    					(((case
+                        when AmountPercentDiscount <> 0 and (DiscountType=1 or SecondDiscFlag=1 or OtherDiscountFlag=1)
+                            then CompAmount - (CompAmount*AmountPercentDiscount/100)
+    					when CompCashDiscount <> 0
+    						then CompAmount - CompCashDiscount
+    					when CompDiscount <> 0
+    						then CompAmount - (CompAmount*CompDiscount/100)
+    					when TranDiscount <> 0
+    						then CompAmount - (CompAmount*TranDiscount/100)
+    					when TranCashDiscount <> 0
+    						then CompAmount - (CompAmount*(TranCashDiscount*100/TranAmount)/100)
+    					else CompAmount end)
+    					- ($Alut * abs(case when WeigthFlag then WeightQty/$grams_rate else StockAmount end))) * (case when IsRefund=1  or RefundMode=1 or StockAmount <0 then -1 else 1 end))
+    					) $vats,2) as RevachAgol
+    				from
+    					transactioncomponents c, transactions t
+    				where
+    					t.ID = c.trans_id and
+    					c.listing_id = $prodid and
+    					trandate between '$startDay' and '$endDay'
+    					$qq
+    				";
+
+                //echo("<!--SQL:". $sql ."-->");
+    			$transData = $conn->Execute($sql);
+    			if ($transData === false){log_error($sql);}
+
+            }
+
+            //mismachim
+            if ($fromdocs){
+                $sql="select
+                sum((price*(100-d.discount)/100) * (case when doc_type='MASZIKUI' then -1 else 1 end)) as amount,
+                sum(quantity * (case when doc_type='MASZIKUI' then -1 else 1 end)) as quantity,
+                sum(((price*(100-d.discount)/100) - ($Alut * quantity ))
+                * (case when doc_type='MASZIKUI' then -1 else 1 end) ) as RevachAgol
+                from document_products dp, documents d where d.id = dp.doc_id
+                and listing_id = $prodid
+                and user_id = $userID
+                and doc_type in ('CHESHBONIT','MASKABALA','MASZIKUI')
+                and doc_date between '$startDay' and '$endDay' $qd";
+
+		        $docData = $conn->Execute($sql);
+		        if ($docData === false){log_error($sql);}
+            }
+
+			$MechirMetuchnan = ($products->fields["price"])?$products->fields["price"]:0;
+
+            $RevachAgol = 0;
+            if ($fromkupa)
+            {
+                $RevachAgol+=$transData->fields["RevachAgol"];
+            }
+            if ($fromdocs)
+            {
+                $doctotal = $docData->fields["RevachAgol"]; 
+                $RevachAgol+=$doctotal;
+            }
+
+
+            $KamutNimkeret=0;
+            if ($fromkupa){
+			    $KamutNimkeret += $transData->fields["StockAmount"];
+            }
+            if ($fromdocs){
+                $KamutNimkeret += $docData->fields["quantity"];
+            }
+
+			$Mahzor=0;
+            if ($fromkupa){
+			    $Mahzor += $transData->fields["Mahzor"];
+            }
+            if ($fromdocs){
+                $Mahzor  += $docData->fields["amount"];
+            }
+
+			$MechirMemutza = ($Mahzor) ? $Mahzor/$KamutNimkeret : 0;
+			$AchuzRevachMemutza = $RevachAgol*100/$Mahzor;
+			$RevachMemutza = ($MechirMemutza)?($MechirMemutza - $Alut):0;
+			if ($products->fields["barcode"]=='0000000000000'){
+				$RevachAgol=0;
+				$AchuzRevachMemutza=0;
+				$MechirMemutza=0;
+				$RevachMemutza=0;
+			}
+		
+			if (($onlysold && $KamutNimkeret) || (!$onlysold)){
+				$report[] = array(
+					"ProductID" => $prodid,
+					"BarCode" => $products->fields["barcode"],
+					"Category" => $products->fields["CategoryName"],
+					"Name" => $products->fields["title"],
+					"Alut" => $Alut,
+					"MechirMetuchnan" => $MechirMetuchnan,
+					"KamutNimkeret" => $KamutNimkeret,
+					"Mahzor" => $Mahzor,
+					"RevachAgol" => $RevachAgol,
+					"AchuzRevachMemutza" => $AchuzRevachMemutza,
+					"MechirMemutza" => $MechirMemutza,
+					"RevachMemutza" => $RevachMemutza,
+                    "Decimals" => $products->fields["decimals"]
+				);
+			}
+			 
+			$products->MoveNext();
+		}
+		
+		$_SESSION["REPORT"] = $report;
+	
+	}
+	else{ 
+
+		//Sort Mode
+	
+		$report = $_SESSION["REPORT"];
+		$report = aSortBySecondIndex($report,$sort,$desc);
+	}
+	//Output
+	
+	$TAchuzRevachMemutza = 0;
+	$TMahzor = 0;
+    $TKamutNimkeret = 0;
+	$TRevachAgol = 0;
+    $MaxDecimals=0;
+	$cnt=0;
+
+	$url = $_SELF."?saction=go&includevat=$includevat&barcode=$barcode&posted=$posted&usr=$usr&rmodule=$rmodule&treeMode=$treeMode&stock=$stock&category=$category&supplier=$supplier&sDate=$sDate&eDate=$eDate&onlysold=$onlysold&fromkupa=$fromkupa&fromdocs=$fromdocs&desc=".(($desc=="0")?1:0);
+	
+	$worksheet->set_column('A:B', 15);
+	$worksheet->set_column('C:J', 12);
+	$headings = array('מחלקה','ברקוד','פריט','עלות','מחיר מחירון','כמות שנמכרה','מחזור','רווח עגול','רווח ממוצע ב% מהמחזור','מחיר מכירה ממוצע','רווח ממוצע בש"ח');
+	$worksheet->write_row('A'.($rrow++), $headings, $heading);
+	;
+
+	echo "<div ><table id=REPORTTABLE dir=$dir  border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+	echo "
+	<tr valign=top>
+	<th><a href='$url&sort=Category'>מחלקה</a></th>
+	<th><a href='$url&sort=BarCode'>ברקוד</a></th>
+	<th><a href='$url&sort=Name'>פריט</a></th>
+	<th><a href='$url&sort=Alut'>עלות</a></th>
+	<th><a href='$url&sort=MechirMetuchnan'>מחיר<br>מכירה</a></th>
+	<th><a href='$url&sort=KamutNimkeret'>כמות<br>שנמכרה</a></th>
+	<th><a href='$url&sort=Mahzor'>מחזור</a></th>
+	<th><a href='$url&sort=RevachAgol'>רווח עגול</a></th>
+	<th><a href='$url&sort=AchuzRevachMemutza'>רווח ממוצע<br>ב% מהמחזור</a></th>
+	<th><a href='$url&sort=MechirMemutza'>מחיר מכירה<br>ממוצע</a></th>
+	<th><a href='$url&sort=RevachMemutza'>רווח ממוצע<br>בש''ח</a></th>
+	</tr>
+	";
+	
+	foreach ($report as $row){
+		echo "
+		<tr valign=top>
+		<td>".$row["Category"]."</td>
+		<td>".$row["BarCode"]."</td>
+		<td><a href=\"javascript:wopen('edit_my_listings.php?edit=".$row["ProductID"]."','edit')\">".$row["Name"]."</a></td>
+		<td><span dir=ltr>".number_format($row["Alut"],2)."</td>
+		<td><span dir=ltr>".number_format($row["MechirMetuchnan"],2)."</td>
+		<td><span dir=ltr>".number_format($row["KamutNimkeret"],$row["Decimals"])."</td>
+		<td><span dir=ltr>".number_format($row["Mahzor"],2)."</td>
+		<td><span dir=ltr>".number_format($row["RevachAgol"],2)."</td>
+		<td><span dir=ltr>".number_format($row["AchuzRevachMemutza"],2)."%</td>
+		<td><span dir=ltr>".number_format($row["MechirMemutza"],2)."</td>
+		<td><span dir=ltr>".number_format($row["RevachMemutza"],2)."</span></td>
+		</tr>
+	
+		";	
+		
+		$b=$body;
+		$f=$numformat;
+		$worksheet->write("A".$rrow,$row["Category"],$b);
+		$worksheet->write("B".$rrow," ".$row["BarCode"],$bodyr);
+		$worksheet->write("C".$rrow,$row["Name"],$b);
+		$worksheet->write("D".$rrow,$row["Alut"],$f);
+		$worksheet->write("E".$rrow,$row["MechirMetuchnan"],$f);
+		$worksheet->write("F".$rrow,$row["KamutNimkeret"],$b);
+		$worksheet->write("G".$rrow,$row["Mahzor"],$f);
+		$worksheet->write("H".$rrow,$row["RevachAgol"],$f);
+		$worksheet->write("I".$rrow,$row["AchuzRevachMemutza"],$f);		
+		$worksheet->write("J".$rrow,$row["MechirMemutza"],$f);		
+		$worksheet->write("K".$rrow,$row["RevachMemutza"],$f);		
+		$rrow++;
+		
+		$TAchuzRevachMemutza += $row["AchuzRevachMemutza"];
+		$cnt += ($row["Mahzor"])?1:0;
+		$TMahzor += $row["Mahzor"];
+		$TRevachAgol += $row["RevachAgol"];
+		$TKamutNimkeret += $row["KamutNimkeret"];
+        if ($MaxDecimals<$row["Decimals"])$MaxDecimals=$row["Decimals"];
+
+ 	}
+	
+	echo "<tr>
+	<td><b>סה\"כ</b></td>
+	<td></td>
+	<td></td>
+	<td></td>
+	<td></td>
+	<td><strong dir=ltr>".number_format($TKamutNimkeret,$MaxDecimals)."</strong></td>
+	<td><strong dir=ltr>".number_format($TMahzor,2)."</strong></td>
+	<td><strong dir=ltr>".number_format($TRevachAgol,2)."</strong></td>
+	<td><span dir=ltr><strong>".number_format($TRevachAgol*100/$TMahzor,2)."%</strong></span></td>
+	<td></td>
+	<td></td>
+	</tr>";
+	
+	echo "</table></div>";
+	
+	}
+	
+	$worksheet->write("E".($rrow),"סה\"כ",$numformatb);
+	$worksheet->write("F".($rrow),$TKamutNimkeret,$numformatb);
+	$worksheet->write("G".($rrow),$TMahzor,$numformatb);
+	$worksheet->write("H".($rrow),$TRevachAgol,$numformatb);	
+	$worksheet->write("I".($rrow),$TAchuzRevachMemutza/$cnt,$numformatb);
+	
+	$workbook->close();
+	copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+    unlink($fname);
+
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+	
+	
+	function aSortBySecondIndex($multiArray, $secondIndex,$rew = false) {
+		while (list($firstIndex, ) = each($multiArray))
+		$indexMap[$firstIndex] = $multiArray[$firstIndex][$secondIndex];
+		if (!$rew)
+			asort($indexMap);
+		else 	
+			arsort($indexMap);
+		while (list($firstIndex, ) = each($indexMap))
+		if (is_numeric($firstIndex))
+		$sortedArray[] = $multiArray[$firstIndex];
+		else $sortedArray[$firstIndex] = $multiArray[$firstIndex];
+	return $sortedArray;
+
+
+}
+?>

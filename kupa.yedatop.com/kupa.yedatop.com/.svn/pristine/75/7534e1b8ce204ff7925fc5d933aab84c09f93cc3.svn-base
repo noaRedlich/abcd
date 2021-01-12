@@ -1,0 +1,172 @@
+<?php
+$noheader=1;
+session_start();
+
+include("include/common.php");
+//if(!loginCheck('User'))exit;
+
+if ($refresh){
+	echo "<html>
+	<head>
+	<script>
+	function refresh(){
+		window.setTimeout('window.location=window.location.href',$refresh*1000);
+	}
+	</script>
+	</head>
+	<body onload='refresh()'>
+	";
+}
+
+$config = new GO_CONFIG();
+$rootdir = $config->ftplog_path;
+$dbname = $config->db_name;
+
+
+$usersToReset = "''";
+
+echo "<pre dir=ltr>";
+
+$sql = "select s.ID, s.TerminalID, s.user_id, u.username from $TABLE_LISTINGSSTOCKS s, $dbname.users u where s.user_id = u.id and TerminalID is not null and s.Status=1 order by username";
+$terms = $conn->Execute($sql);
+if ($terms === false){log_error($sql);}
+
+echo "Scanning directory ".$rootdir."\n";flush();
+
+$d = dir($rootdir);
+while (false !== ($entry = $d->read())) {
+	$initialized = false;
+	if (strpos($entry,".log")){
+		//echo "Started processing file: ".$entry."\n";
+		$fd = fopen($rootdir.$entry,"r");
+		$process = true;
+		$processStarted = false;
+		$sessiondate = "";
+		while (!feof($fd) && $process) {
+		   $buffer = fgets($fd, 4096);
+		   echo ($buffer);
+		   $arr = preg_match("/\(([\d]+)\) (\d\d\-\w\w\w\-\d\d) (\d\d:\d\d:\d\d) \- (\d+) \(([^)]+)\) > (.*)\n/i",$buffer,$matches);
+		   if ($arr){
+		   	   //parsing log record
+			   $osession = $matches[1];			   
+			   $date = $matches[2];			   
+			   $time = $matches[3];	
+			   $terminal = $matches[4];		
+			   $ip = $matches[5];		
+			   $command = $matches[6];	   
+			   echo $session." - ".$date." - ".$time." - ".$terminal." - ".$ip." ".$command."\n";
+			   
+			   $sqldateonly = date("Y-m-d",strtotime($date));
+			   $sqldate = date("Y-m-d",strtotime($date))." ".$time;
+			   $session = "$osession $terminal $sqldateonly";
+			   
+			   //analysing data
+			   //START UPLOADING TRANS
+			   if (preg_match("/finished uploading 'TRANS([\d]+)'/i",$command,$matches)){
+				   	$trans = $matches[1];
+					$startdate = $sqldate;
+					$sql = "select id from ftplog where session = '$session' and trans_num = '$trans' and terminal_number = '$terminal'";
+					$rec = $conn->Execute($sql);
+					if ($rec === false){log_error($sql);}
+					if ($rec->EOF){
+						$sql = "select s.UpdateTime from $TABLE_USERDATA ud, ".$config->db_name.".users u, $TABLE_LISTINGSSTOCKS s where s.terminalID = '$terminal' and s.user_id = u.id and u.username = ud.username";
+						$user = $conn->Execute($sql);
+						if ($user === false){log_error($sql);}
+					
+						$sql = "INSERT INTO ftplog 
+						(session, terminal_number, start_conn, end_conn, trans_num,time_plan) 
+						VALUES ('$session', '$terminal', '$startdate', NULL, '$trans','".$user->fields["UpdateTime"]."')";
+						if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;}
+						$processStarted = true;
+						if (!$sessiondate){
+							$sessiondate = $sqldateonly;
+						}
+					}
+					elseif (!$processStarted){
+						echo date("d/m/Y H:i:s").". File $entry has been already processed - file skipped.\n";flush();
+						$process = false;
+					}
+			   }
+			   //END SESSION
+			   elseif (preg_match("/Bye bye/i",$command,$matches)){
+					$enddate = $sqldate;
+					//end trans session
+					$sql = "update ftplog set end_conn = '$enddate' where session = '$session' and terminal_number = '$terminal'";
+					if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;}
+					//or end return session
+					$sql = "update ftplog set end_return = '$enddate' where return_session = '$session' and terminal_number = '$terminal'";
+					if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;}
+			   }
+			   //UPLOADING PLUDTA (THE SAME SESSION LIKE UPLOADING TRANS)
+			   elseif (preg_match("/finished uploading 'PLUDTA'/i",$command,$matches)){
+					$sql = "update ftplog set pludta = 1 where session = '$session' and terminal_number = '$terminal'";
+					if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;}
+			   }
+			   //RETURN 
+			   elseif (preg_match("/asked to download (.*)PLUUPDATE/i",$command,$matches)){
+			   		$sql = "select max(id) as id from ftplog where terminal_number = '$terminal' and start_conn < '$sqldate'";
+			   		$rec = $conn->Execute($sql);
+					if ($rec === false){log_error($sql);}
+					if (!$rec->EOF && $rec->fields["id"]){
+				   		$sql = "update ftplog set start_return = '$sqldate', return_session = '$session' where id = ".$rec->fields["id"];
+						if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;}
+					}
+			   }
+			   //RETURN - STRATING DOWNLOADING PLUUPDATE
+			   elseif (preg_match("/started downloading (.*)PLUUPDATE/i",$command,$matches)){
+			   		$sql = "select max(id) as id from ftplog where terminal_number = '$terminal' and start_conn < '$sqldate'";
+			   		$rec = $conn->Execute($sql);
+					if ($rec === false){log_error($sql);}
+					if (!$rec->EOF && $rec->fields["id"]){
+				   		$sql = "update ftplog set pluupdate = 1 where id = ".$rec->fields["id"];
+						if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;}
+					}
+			   }
+			   //RETURN - STRATING DOWNLOADING PLUADD
+			   elseif (preg_match("/started downloading (.*)PLUADD/i",$command,$matches)){
+			   		$sql = "select max(id) as id from ftplog where terminal_number = '$terminal' and start_conn < '$sqldate'";
+			   		$rec = $conn->Execute($sql);
+					if ($rec === false){log_error($sql);}
+					if (!$rec->EOF && $rec->fields["id"]){
+				   		$sql = "update ftplog set pluadd = 1 where id = ".$rec->fields["id"];
+						if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;}
+					}
+			   }
+			   //RETURN - STRATING DOWNLOADING PLUDEL
+			   elseif (preg_match("/started downloading (.*)PLUDEL/i",$command,$matches)){
+			   		$sql = "select max(id) as id from ftplog where terminal_number = '$terminal' and start_conn < '$sqldate'";
+			   		$rec = $conn->Execute($sql);
+					if ($rec === false){log_error($sql);}
+					if (!$rec->EOF && $rec->fields["id"]){
+				   		$sql = "update ftplog set pludel = 1 where id = ".$rec->fields["id"];
+						if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;}
+					}
+			   }
+		   }
+		}
+		
+		//fill data for all other terminals
+		if ($sessiondate){
+	   		$terms->MoveFirst();
+			while (!$terms->EOF){
+				$sql = "select id from ftplog where session like '% ".$terms->fields["TerminalID"]." $sessiondate'";
+				$ch = $conn->Execute($sql);
+				if ($ch === false){log_error($sql);}
+				if ($ch->EOF){
+					$sql = "insert into ftplog (session,terminal_number) values ('$osession ".$terms->fields["TerminalID"]." $sessiondate','".$terms->fields["TerminalID"]."')";
+					if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;}
+				}
+				$terms->MoveNext();	
+			}
+   		}
+		
+		fclose ($fd); 		
+		if ($process){
+			echo date("d/m/Y H:i:s").". File processed: ".$entry."\n";flush();
+		}
+		
+	}
+}
+$d->close(); 
+echo "Done.\n";flush();
+?>

@@ -1,0 +1,20 @@
+<?
+  	if($plugin != "")
+	{
+		if($current_plugin != $plugin)
+		{
+		 	setcookie("current_plugin", $plugin);
+		 	//setcookie("current_service");
+			$current_plugin = $plugin;
+			$current_service = "";
+
+			sysLogUserEvent(on_loading_module, "(plugin name: $current_plugin)");
+		}
+	}
+
+	if($plugin_name != "")
+	{
+		setcookie("current_plugin_name", $plugin_name);
+		$current_plugin_name = $plugin_name;
+	}
+?>

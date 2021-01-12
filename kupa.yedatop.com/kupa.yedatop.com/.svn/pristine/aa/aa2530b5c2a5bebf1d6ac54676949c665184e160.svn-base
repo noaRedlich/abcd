@@ -1,0 +1,200 @@
+<?php
+require "excelparser.php";
+$simple=1;
+$page_subtitle = "יבוא ויצוא";
+
+include("include/common.php");
+include("include/business_functions.php");
+include("include/document.php");  
+include("include/product.php");
+
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+if ($action!="do"){
+	echo
+	"
+<pre dir=rtl>
+פורמט קובץ EXCEL:
+-------------------
+<b style=color:red>A:</b> ברקוד
+<b>B:</b><span dir=rtl> 0=למחיקה 1=פעיל 2=בינוני</span>
+
+במצב של מחיקה:
+פריטים ללא הסטורייה ימחקו.
+פריטים עם היסטורייה יעברו ללא פעילים.
+</pre>
+</body>
+";                                                                                                                                                                                           
+	exit;
+}
+
+print"<pre dir=rtl>";
+$excel_file = $_FILES['impfile'];
+if($excel_file){
+	$excel_file = $excel_file['tmp_name'];                                                                                                                                                  
+}
+
+if($excel_file == '') die("<center><b style=color:red>יש לבחור קובץ");
+
+
+$fh = @fopen ($excel_file,'rb');
+if( !$fh ) die("<center><b style=color:red>יש לבחור קובץ");
+if( filesize($excel_file)==0 ) die("<center><b style=color:red>יש לבחור קובץ");
+
+$fc = fread( $fh, filesize($excel_file) );
+@fclose($fh);
+if( strlen($fc) < filesize($excel_file) )
+	die("<pre dir=ltr>Cannot read file");
+
+$exc = new ExcelFileParser;
+if( $exc->ParseFromFile($excel_file)>0 ) die("This is not an Excel file or file stored in Excel < 5.0");
+//$res = $exc->ParseFromString($fc);
+switch ($res) {
+	case 0: break;
+	case 1: die("Can't open file");
+	case 2: die("File too small to be an Excel file");
+	case 3: die("Error reading file header");
+	case 4: die("Error reading file");
+	case 5: die("This is not an Excel file or file stored in Excel < 5.0");
+	case 6: die("File corrupted");
+	case 7: die("No Excel data found in file");
+	case 8: die("Unsupported file version");
+	
+	default:
+		die("Unknown error");
+}
+
+if( count($exc->worksheet['name']) < 1 ) die("No worksheets in Excel file.");
+
+$codes = "";
+
+for ($worksheet=0;$worksheet<count($exc->worksheet['name']);$worksheet++){
+	
+	if( $exc->worksheet['unicode'][$worksheet] )
+	{
+		$wname = uc2html($exc->worksheet['name'][$worksheet]);
+	}
+	else
+	{
+		$wname = $exc->worksheet['name'][$worksheet];
+	}
+	
+	
+	print "<span style='color:blue' dir=ltr>גיליון: ". $wname."</span>\n";flush();
+	$ws = $exc->worksheet['data'][$worksheet];
+	
+	if( is_array($ws) && 	 isset($ws['max_row']) &&    isset($ws['max_col']) )
+	{
+		if( $ws['max_col'] < 0 ) {
+			echo("Invalid format.<br>Number of columns is less then 1.");
+			continue;
+		}
+		if( $ws['max_row'] < 0 ){
+			echo("Invalid format.<br>No rows defined in document.");
+			continue;
+		}
+		$data = $ws['cell'];
+		
+		$docnums=array();
+		$products = array();
+		//print_r($data);
+		foreach( $data as $i => $row )
+		{
+			
+			$barcode = trim(get( $exc, $row[0] ));
+			$status = trim(get( $exc, $row[1] ));
+			if ($barcode=="")
+			{
+				echo "<span style='color:red' dir=ltr>שורה שגויה: חוסר ברקוד</span>\n";
+				continue;
+			}
+			$products = DBQuery("select id  from listingsDB where user_id = $userID and BarCode='".trim($barcode)."'");
+			if($products->EOF)
+			{
+				echo "<span style='color:red' dir=ltr>שורה שגויה: לא נמצא ברקוד ".$barcode."</span>\n";
+				continue;				
+			}
+			
+			$pid = $products->fields["id"];
+			if (!$status){
+				
+				$test = DBQuery("select id from history where listing_id = $pid");
+				$test2 = DBQuery("select id from listings_tree where listing_id = $pid");
+				$test3 = DBQuery("select id from transactioncomponents where listing_id = $pid"); 
+				$test4 = DBQuery("select id from document_products where listing_id = $pid"); 
+				if ($test->EOF && $test2->EOF && $test3->EOF && $test4->EOF)
+				{                                              
+					// delete a listing
+					$sql = "DELETE FROM listingsDB WHERE ID = ".$pid." AND user_ID = $userID";
+					DBQuery($sql);   
+					echo "<span dir=ltr>פריט נמחק: ".$barcode."</span>\n";
+				}
+				else
+				{
+					$sql = "update listingsDB set active='no',lastupdated=0,lastdeleted=0,synccatalog = 0  WHERE ID = ".$pid." AND user_ID = $userID";
+					DBQuery($sql); 
+					echo "<span dir=ltr>פריט עבר ללא פעיל: ".$barcode."</span>\n";
+				}
+			}
+			elseif ($status==1){
+				$sql = "update listingsDB set active='yes',lastupdated=0,lastdeleted=0,synccatalog = 0  WHERE ID = ".$pid." AND user_ID = $userID";
+				DBQuery($sql); 
+				echo "<span dir=ltr>פריט עבר לפעיל: ".$barcode."</span>\n";
+			}
+			elseif ($status==2){
+				$sql = "update listingsDB set active='yek',lastupdated=0,lastdeleted=0,synccatalog = 0  WHERE ID = ".$pid." AND user_ID = $userID";
+				DBQuery($sql); 
+				echo "<span dir=ltr>פריט עבר לסטטוס בינוני: ".$barcode."</span>\n";
+			}			
+		}
+		
+	}
+}
+echo "<span style=color:green>סוף הקובץ</span>";
+
+?>
+
+
+<?
+function uc2html($str) {
+	$ret = '';
+	for( $i=0; $i<strlen($str)/2; $i++ ) {
+		$charcode = ord($str[$i*2])+256*ord($str[$i*2+1]);
+		$ret .= '&#'.$charcode;
+	}
+	return $ret;
+}
+
+function get( $exc, $data )
+{
+	switch( $data['type'] )
+	{
+		// string
+		case 0:
+			$ind = $data['data'];
+			if( $exc->sst[unicode][$ind] )
+				return uc2html($exc->sst['data'][$ind]);
+			else
+				return $exc->sst['data'][$ind];
+		
+		// integer
+		case 1:
+			return (integer) $data['data'];
+		
+		// float
+		case 2:
+			return (float) $data['data'];
+		
+		case 3:
+			return gmdate("m-d-Y",$exc->xls2tstamp($data[data]));
+		
+		default:
+			return '';
+	}
+}
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

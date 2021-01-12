@@ -1,0 +1,41 @@
+<?
+	session_start();
+    ini_set("max_execution_time",1000);
+
+	$simple=1;
+	$page_subtitle = "הפקת קבצים";
+ 
+	include("include/common.php");
+    include("include/business_functions.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+            
+
+    ?>
+    <table>
+    <form name=F>
+    <tr><td colspan=2><b>יש לבחור אופן שיוך</td></tr>
+    <tr>
+    <td valign=top><input type=radio name=assign value=2 checked></td>
+    <td>לשייך עסקה נוכחית בלבד</td>
+    </tr>
+    <tr>
+    <td valign=top><input type=radio name=assign value=2 <?=!$menabled?"disabled":""?>></td>
+    <td>לשייך כל העסקאות עם סכום <?=$price?></td>
+    </tr>
+    </table>
+    </form>
+    <center>
+    <hr>
+    
+     <input type=button id=btnOK value='אישור' onclick='window.returnValue=(document.F.assign[0].checked)?1:2;window.close();' style='width:60;padding-left:15px;background:url(<?=$imgPath?>ok.gif);background-repeat:no-repeat;'>
+     <input type=button value='סגור' onclick='window.returnValue=0;window.close();' style='width:60;padding-left:15px;background:url(<?=$imgPath?>back.gif);background-repeat:no-repeat;'>
+
+    </center>
+
+    <?
+    include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+    ?>

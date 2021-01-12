@@ -1,0 +1,230 @@
+<?php
+$simple=1;
+ob_start();
+                  
+$stockmode="clients";   
+require("include/common.php");
+require("include/business_functions.php");
+
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+ob_end_clean();
+
+$sql = "select c.*, g.GroupName,
+    pl.name as PriceList,
+    pt.name as PaymentType,
+    cc.suppliername as PaymentSupplier,
+    cc1.suppliername as Agent   
+ from listingsSuppliers c
+ left outer join clientgroups g on g.id = c.groupid
+ left outer join pricelists pl on pl.id = c.pricelist_id
+ left outer join payment_type pt on pt.id = c.PaymentTypeId 
+ left outer join listingsSuppliers cc on cc.id = c.PaymentSupplierId   
+ left outer join listingsSuppliers cc1 on cc1.id = c.AgentID   
+ where c.id = $client and c.user_id = $userID";
+$clientRS = DBQuery($sql);
+
+$sql = "select p.*,t.name as tafkid from persons p
+     left outer join tafkid t on t.id = p.tafkid_id
+     where supplier_id = $client and p.status=1 order by p.sortorder, binary p.name";
+$persons = DBQuery($sql);
+
+$sql = "select sum(amount * (case when dt.balance='+' then 1 else -1 end)) as amount 
+       from documents d, $TABLE_DOCUMENT_TYPE dt, $TABLE_DOCUMENT_STATUS ds where
+       dt.id = d.doc_type and
+       ds.id = d.doc_status and
+       ds.countbalance = 1 and
+       ($officeUserID=$userID or stock_id is null or stock_id = 0 or stock_id in (select stock_id from $TABLE_USERSTOCKS where userid = $officeUserID and r=1)) and
+       dt.balance in ('+','-') and
+       d.client_id = $client";
+$itrars = DBQuery($sql);
+
+$clientName = $clientrs->fields["SupplierName"];
+
+$sqlCheques = "select sum(dp.amount) as amount 
+    from document_payments dp, documents d,$TABLE_DOCUMENT_STATUS ds 
+    where d.id = dp.doc_id and d.doc_type in ('KABALA','MASKABALA') and payment_type=0
+    and ds.id = d.doc_status 
+    and ds.countbalance = 1 
+    and curdate() < date_add(checkdate,INTERVAL 4 DAY)
+    and d.client_id = $client
+";
+$chequesrs = DBQuery($sqlCheques);
+
+
+?>
+<style>
+td,th{font-family:verdana,arial;font-size:10pt;}
+.caption{font-size:16pt}
+.subheader{font-size:12pt;background-color:#efefef;text-align:center}
+</style>
+                              
+                              
+<meta http-equiv="content-type" content="text/html; charset=Windows-1255">                                         
+<link href="template/vertical-menu/style.css" rel="stylesheet" type="text/css">
+<body dir=rtl topmargin=0 leftmargin=0>
+<table width=100% >
+<tr  id=BUTTONS><td>
+<input type=button value='הדפס' class=button onclick='winPrint()' style='background-image:url(<?=$imgPath?>printer.gif)'>             
+<input type=button value='סגור' class=button onclick='window.close()' style='background-image:url(<?=$imgPath?>back.gif)'>             
+
+</td></tr>
+<tr><td valign=top>
+    
+
+<script>
+function winPrint()
+{
+    document.all.BUTTONS.style.display="none";
+    print();      
+    document.all.BUTTONS.style.display="";  
+}
+</script>
+
+<table width=100% dir=rtl>
+<TR><TD CLASS=caption colspan=2><?=$clientRS->Fields("SupplierName")?></TD></TR>
+
+<tr><td class=subheader colspan=2>מידע ללית</tr>
+
+<tr><td class=row width=20%>מס' עסק \ ת.ז.: </td><td><?=$clientRS->Fields("BusinessNum")?></td></tr>
+<?if ($clientRS->Fields("GroupName")){?>
+<tr><td  class=row>קבוצה: </td><td><?=$clientRS->Fields("GroupName")?></td></tr> 
+<?}?>
+<?if ($clientRS->Fields("ClientNum")){?>
+<tr><td  class=row>מספר לקוח: </td><td><?=$clientRS->Fields("ClientNum")?></td></tr> 
+<?}?>
+<?if ($clientRS->Fields("WorkerNum")){?>
+<tr><td  class=row>מספר עובד: </td><td><?=$clientRS->Fields("WorkerNum")?></td></tr> 
+<?}?>
+<?if ($clientRS->Fields("PriceList")){?>
+<tr><td  class=row>מחירון: </td><td><?=$clientRS->Fields("PriceList")?></td></tr> 
+<?}?>
+<?if ($clientRS->Fields("AgentComission")){?>
+<tr><td  class=row>עמלת סוכן: </td><td><?=number_format($clientRS->Fields("AgentComission"),2)?>%</td></tr> 
+<?}?>
+<?if ($clientRS->Fields("Comment")){?>
+<tr><td class=row valign=top>סוג עיסוק: </td><td><?=$clientRS->Fields("Comment")?></td></tr> 
+<?}?>
+
+<tr><td class=subheader colspan=2>מידע פיננסי</tr>
+
+<tr><td class=row valign=top>יתרה: </td><td><?=number_format($itrars->Fields("amount"),2)?></td></tr>  
+<tr><td class=row valign=top>שיקים פתוחים: </td><td><?=number_format($chequesrs->Fields("amount"),2)?></td></tr>  
+
+<tr><td class=subheader colspan=2>תקשורת</tr> 
+
+<?if ($clientRS->Fields("Address")){?>
+<tr><td class=row valign=top>כתובת: </td><td><?=nl2br($clientRS->Fields("Address"))?></td></tr> 
+<?}?>
+<?if ($clientRS->Fields("PostAdress")){?>
+<tr><td class=row valign=top>כתובת דואר: </td><td><?=nl2br($clientRS->Fields("PostAdress"))?></td></tr> 
+<?}?>
+<?if ($clientRS->Fields("Phone")){?>
+<tr><td class=row valign=top>טלפון: </td><td><?=nl2br($clientRS->Fields("Phone"))?></td></tr> 
+<?}?>
+<?if ($clientRS->Fields("Fax")){?>
+<tr><td class=row valign=top>פקס: </td><td><?=nl2br($clientRS->Fields("Fax"))?></td></tr> 
+<?}?>
+<?if ($clientRS->Fields("Email")){?>
+<tr><td class=row valign=top>דואר אלקטרוני: </td><td><?=nl2br($clientRS->Fields("Email"))?></td></tr> 
+<?}?>
+<?if ($clientRS->Fields("Web")){?>
+<tr><td class=row valign=top>כתובת אינטרנט: </td><td><?=nl2br($clientRS->Fields("Web"))?></td></tr> 
+<?}?>
+            
+<tr><td class=subheader colspan=2>תנאים מיוחדים</tr>    
+
+<?if ($clientRS->Fields("PaymentType")){?>
+<tr><td class=row valign=top>תנאי תשלום: </td><td><?=nl2br($clientRS->Fields("PaymentType"))?></td></tr> 
+<?}?>
+
+<?if ($clientRS->Fields("PaymentSupplier")){?>
+<tr><td class=row valign=top>תשלום באמצאות: </td><td><?=nl2br($clientRS->Fields("PaymentSupplier"))?></td></tr> 
+<?}?>
+
+<tr><td nowrap class=row valign=top>אמצעי תשלום מעודכן: </td><td><?=$clientRS->Fields("PaymentTypeVerified")?"כן":"לא"?></td></tr> 
+
+<?if ($clientRS->Fields("Agent")){?>
+<tr><td class=row valign=top>תשלום באמצאות: </td><td><?=nl2br($clientRS->Fields("Agent"))?></td></tr> 
+<?}?>
+ 
+<tr><td nowrap class=row valign=top>פטור מע''מ: </td><td><?=$clientRS->Fields("VatFree")?"כן":"לא"?></td></tr> 
+
+<?if ($clientRS->Fields("Discount")){?>
+<tr><td  class=row>הנחה קבועה: </td><td><?=number_format($clientRS->Fields("Discount"),2)?>%</td></tr> 
+<?}?>
+
+<?if ($clientRS->Fields("ClearanceDate") && $clientRS->Fields("ClearanceDate")!="0000-00-00"){?>
+<tr><td class=row valign=top>ניקוי מס במקור עד תאריך: </td><td><?=dateFromSQL($clientRS->Fields("ClearanceDate"))?></td></tr> 
+<?}?>
+
+<?if ($clientRS->Fields("ClearancePercent")>0){?>
+<tr><td  class=row>אחוז ניקוי מס במקור: </td><td><?=number_format($clientRS->Fields("ClearancePercent"),2)?>%</td></tr> 
+<?}?>    
+
+<tr><td class=subheader colspan=2>אובליגו ואשראי</tr>  
+
+<?if ($clientRS->Fields("OpenCheques")>0){?>
+<tr><td  class=row>שיקים פתוחים: </td><td><?=number_format($clientRS->Fields("OpenCheques"),2)?></td></tr> 
+<?}?> 
+
+<?if ($clientRS->Fields("OpenCheques")>0){?>
+<tr><td  class=row>שיקים פתוחים: </td><td><?=number_format($clientRS->Fields("OpenCheques"),2)?></td></tr> 
+<?}?> 
+
+<?if ($clientRS->Fields("Obligo")>0){?>
+<tr><td  class=row>אובליגו: </td><td><?=number_format($clientRS->Fields("Obligo"),2)?></td></tr> 
+<?}?> 
+
+<?if ($clientRS->Fields("Bank")){?>
+<tr><td  class=row>מספר בנק: </td><td><?=$clientRS->Fields("Bank")?></td></tr> 
+<?}?>
+
+<?if ($clientRS->Fields("Snif")){?>
+<tr><td  class=row>מספר סניף: </td><td><?=$clientRS->Fields("Snif")?></td></tr> 
+<?}?>
+
+<?if ($clientRS->Fields("Account")){?>
+<tr><td  class=row>מספר חשבון: </td><td><?=$clientRS->Fields("Account")?></td></tr> 
+<?}?>
+
+
+<?if (!$persons->EOF){?>
+<tr><td class=subheader colspan=2>אנשי קשר</tr>  
+
+<tr>
+<td colspan=2>
+    <table width=100%>
+        <tr>
+            <Td><b>שם</TH>
+            <Td><b> ת.ז.</TH>
+            <Td><b>תפקיד</TH>
+            <Td><b>טלפון נייד</TH>
+            <td><b>טלפון עבודה</th>
+        </tr>
+        <?while (!$persons->EOF){?>
+        <tr>
+            <td><?=$persons->Fields("name")?></td>
+            <td><?=$persons->Fields("personnum")?></td> 
+            <td><?=$persons->Fields("tafkid")?></td> 
+            <td><?=$persons->Fields("cellular")?></td> 
+            <td><?=$persons->Fields("phone")?></td> 
+        </tr>
+        <?$persons->MoveNext();}?>
+    </table>
+</td>
+</tr>
+<?}?>
+
+</table>
+
+    </td></tr>
+    </table>
+
+<?
+
+                          
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

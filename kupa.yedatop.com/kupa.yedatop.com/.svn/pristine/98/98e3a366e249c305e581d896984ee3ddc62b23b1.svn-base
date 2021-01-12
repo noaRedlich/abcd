@@ -1,0 +1,437 @@
+<?
+    $mode = $_GET["mode"];
+    if (!$mode) $mode = $_POST["mode"]; 
+    $simple=1;
+	$page_subtitle = ($zikuipurchase)?"זיכוי קניה":"קניה";
+          
+	include("include/common.php");
+	include("include/business_functions.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+  	?>
+    
+    <script>
+            function reloadParent(){
+                var delim = (window.opener.location.href.indexOf("?")>-1)?"&":"?";
+                try{
+                    window.opener.location=window.opener.location.href+delim+'nofocus=1'
+                }
+                catch(e){}
+            }
+    </script>
+
+    <?
+	if ($saction=="GO")
+	{
+        
+        if ($UserData->fields["MlaitekProEnabled"])
+        {
+            //assume NIS as currency (for document creation)
+            $sql = "select id,course from currencies where user_id = $userID and is_default = 1";
+            $currency = $conn->Execute($sql);
+            if ($currency === false) {log_error($sql);}
+            $rate = 1;
+            $currencyid = $currency->fields["id"];
+            if (!$currencyid){
+                $currencyid = InitializeUserCurrency($userID);
+            }
+        }
+               
+        $error = "";
+
+        if (!$error)
+        {
+            $i = 0;
+
+            $sql = "select max(group_id) as gid from purchases where supplier_id = ".$sup;
+            $gid = $conn->Execute($sql);
+	        if ($gid === false){log_error($sql);die();}
+            $groupid = $gid->fields["gid"]+1;
+
+            $docid="";
+            $docnum="";
+            //create document
+            $doctype = ($zikuipurchase)?"ECHZERLESAPAK":"KNIYA";
+            if ($UserData->fields["MlaitekProEnabled"])
+            {
+                $docnum = setDocNumber($doctype);
+                $DOCAMOUNT = $TOTALSUM;
+                $sql = "insert into documents (vat, doc_type, doc_status, doc_date, created, modified, doc_number, user_id, amount,discount,stock_id, comment,office_user_id, client_id)
+                values ('".$config["VAT"]."','$doctype','".$STATUS_ACTIVE."',now(),unix_timestamp(),unix_timestamp(),$docnum,$userID,$DOCAMOUNT,'$discount',$stock,'".addslashes($cheshbonit)."',$officeUserID,".$supplier[$i].")";
+                $doc = $conn->Execute($sql); 
+     		    if ($doc === false) {die( $conn->ErrorMsg()."<br>".$sql); }
+                $docid = $conn->Insert_ID();
+            }
+            
+            
+    		foreach($id as $pid)
+            {
+    			if ((floatval($quantity[$i]) > 0 && floatval($price[$i]) >0) || ($supplier[$i]==-1 && floatval($quantity[$i])>0))
+                {
+                    if ($assignSupplier)
+                    {
+                        DBQuery("update listingsDB set sapak = '".$supplier[$i]."' where sapak = 0 and id = ".$pid);
+                    }
+                    
+                    if ($grams_rate[$i])
+                    {
+                        $quantity[$i]*=$grams_rate[$i];
+                    }
+                    if ($zikuipurchase)
+                    {
+                        sellProduct($pid, $quantity[$i], $supplier[$i], $stock, $workmode, DateToSQL($purdate), $price[$i], "zikuipurchase",trim($cheshbonit),$groupid,$discount);
+                    }
+                    else
+                    {
+                        purchaseProduct($pid,$quantity[$i],$supplier[$i],$stock,$price[$i],$discount,$workmode,$purdate,0,trim($cheshbonit),$groupid,$docid);
+                    }
+                    
+                    //create document_product record
+                    if ($UserData->fields["MlaitekProEnabled"])
+                    {                                                                
+                        $sql = "select l.title,barcode from listingsDB l where l.id = $pid";
+                        $product = $conn->Execute($sql);
+         		        if ($product === false) {die( $conn->ErrorMsg()."<br>".$sql); }
+                        $barcode = addslashes($product->fields["barcode"]);
+                        $pquantity =  floatval($quantity[$i]);
+                        $pname = addslashes($product->fields["title"]);
+                        $saleprice = $price[$i]/(1+$config["VAT"]/100);
+                        $pprice = $sum[$i];
+                        $sql = "insert into document_products(doc_id, listing_id, sort_order, barcode, name,
+                        currency_price, currency_id, currency_rate, quantity, price, discount)
+                        values ($docid,$pid,$i,'$barcode','$pname',$saleprice,$currencyid,$rate,$pquantity,$pprice,0)";
+                        if ($conn->Execute($sql)===false){           
+    					    die( $conn->ErrorMsg()."<br>".$sql);
+    				    };                                       
+                    }
+                    //end create document_product record
+    			}
+                $i++; 
+    		}
+    		echo "<script>window.location='purchase.php?action=success&docnum=$docnum&docid=$docid'</script>";
+            exit;
+        }
+    }
+    if ($action=="success")
+    {
+		echo "<br><h1><center> הפעלה הסתיימה בהצלחה </h1><br>";
+        if ($docid){
+           echo "<b>נוצר מסמך 
+           <a href=\"javascript:showDocument($docid)\"><u>תעודת קניה מס' ".$docnum."<u></a></b><br><br>";     
+        }
+        echo "
+		<hr>
+		<input type=button class=button style='background-image:url(".$imgPath."back.gif)' value='סגור' onclick='window.close()'>
+		</center>";
+		?>
+			<script type="text/javascript">
+	        
+            function showDocument(id){
+                parent.wopen('add_document.php?did=KNIYA&docid='+id,'',screen.availWidth-100,490,true,'no')
+            }
+    
+            /*
+			function wopenMove(){
+				<?if($mode=="basket"){?>
+				s = window.open('basket.php?show=1&move=1&simple=1','basket','top=50,left=150,height=500,width=440,resizable=yes,scrollbars=yes');
+				<?}else{?>
+				s = window.open('move_listings.php?edit=<?=$ids?>&simple=1','edit','top=50,left=150,height=500,width=440,resizable=yes,scrollbars=yes');
+				<?}?>
+				s.focus();
+				window.close();
+			}
+            */
+		</script>
+		<?exit;
+	}
+
+    
+    if ($mode=="basket"){
+        $q = " and l.basket <> 0 ";
+    }
+    else{
+        $q = " and l.id in ($ids) ";
+    }   
+	
+	$sql="select l.id, title, cost, barcode, 
+    u.abbreviation, u.grams_rate
+    from 
+    listingsDB l, 
+    $TABLE_UNITS u
+	where 
+    u.id = unit 
+    and l.user_id = $userID
+    and is_tree = '0'
+	$q order by l.basket, barcode+0";
+	$products = $conn->Execute($sql);
+    
+   
+	if ($products === false){log_error($sql);die();}
+
+	$sql = "select ID,SupplierName from listingsSuppliers where issupplier=1 and status = 1 and user_id = $userID order by binary supplierName ";
+	$suppliers = $conn->Execute($sql);
+	if ($suppliers === false){log_error($sql);die();} 
+	
+	if($suppliers->EOF)
+	{
+		echo "
+		<script>
+		function NoSapak()
+		{
+			alert('יש להגדיר ספקים לפני קנייה למלאי');
+		}
+		document.body.onload=NoSapak;
+		</script>
+		";	
+	}
+	
+	$q=($workmode=="B")?(" terminalID = ".$config["MainStock"]):"";
+	$stocks = GetStocks(false,$q,$showAllPoints,true);
+
+	?>
+	<script>
+	function validate(){
+        var allow = true;
+        if (document.F.sup.value == '' || document.F.sup.selectedIndex==-1)
+        {
+            alert("יש לבחור ספק");
+            document.F.sup.focus();
+            return false;
+        }
+        if (document.F.stock.value == '' || document.F.stock.selectedIndex==-1)
+        {
+            alert("יש לבחור נקודה לשליחת פריטים");
+            document.F.stock.focus();
+            return false;
+        }
+		for (i=0;i<document.F.all.length;i++){
+			s = document.F.all(i);
+			if ((s.name=="price[]" || s.name=="quantity[]") && s.value==""){
+				allow = confirm("ישנם פריטים שלא הוזנו בהם עלות וכמות! הפריטים האלו לא ייחשבו. האם להמשיך?");
+                break;
+			}
+		}
+        
+        if (allow){
+		    document.F.saction.value="GO";
+            document.F.submit();
+        }
+        
+	}
+	
+    function calcPrice(i){
+        var source = (window.event!=null)?window.event.srcElement.tag:'';
+        var vat = <?=$config[VAT]?>;
+        PriceBefore = document.getElementById("before"+i)
+        Qty = document.getElementById("quant"+i)     
+        Vat = document.getElementById("vat"+i)
+        PriceAfter = document.getElementById("after"+i)
+        Total =  document.getElementById("TOTAL"+i)   
+        
+        if (source == 'PriceBefore'){
+            if (PriceBefore.value==''){
+                Vat.value = PriceAfter.value = '0.00';
+            }
+            else
+            {
+                Vat.value = (parseFloat(PriceBefore.value) * vat /100).toFixed(2);
+                PriceAfter.value = (parseFloat(PriceBefore.value) + parseFloat(Vat.value)).toFixed(2);
+            }
+        }
+        else{
+            if (PriceAfter.value==''){
+                Vat.value = PriceBefore.value = '0.00';
+            }
+            else
+            {
+                Vat.value = (parseFloat(PriceAfter.value) * vat /(100+vat)).toFixed(2);
+                PriceBefore.value = (parseFloat(PriceAfter.value) - parseFloat(Vat.value)).toFixed(2);
+            }
+        }
+        q = (isNaN(parseFloat(Qty.value)))?0:parseFloat(Qty.value);
+        Total.value =  (q*parseFloat(PriceAfter.value)).toFixed(2);   
+        
+        Recalc();
+    }
+    
+	function Recalc(){
+		var total=0;
+        cnt=-1;
+		for (i=0;i<document.all.PID.length;i++)
+        {
+			s = document.getElementById("TOTAL"+cnt);     
+			if (s.parentElement.tagName=="TD"){
+				total+= parseFloat(s.value);
+			}
+            cnt++;
+		}
+        
+        if (document.F.discount.value!=""){
+			total = total-(total*document.F.discount.value/100);
+		}
+        
+		document.F.TOTALSUM.value=(Math.round(total*100)/100).toFixed(2);
+        document.F.TOTALSUMBEFORE.value=(document.F.TOTALSUM.value/(1+(<?=$config["VAT"]?>/100))).toFixed(2);   
+	}
+	</script>
+    <?if ($error){?>
+     <center><b style=color:red><?=$error?></b></center>
+    <?}?>
+	<table width=100% border=0 height=100%>
+	<FORM NAME=F METHOD=POST id=F refreshable=1>
+	<tr>
+	<td >
+		<div style='border:inset 2;overflow-x:auto;OVERFLOW-Y:scroll;height:220;width:100%'>
+			<table id=TAB width=100% border=1 style='border-collapse:collapse' bordercolor=buttonface cellpadding=1>
+			<tr STYLE='COLOR:WHITE;BACKGROUND-COLOR:DARKBLUE'>
+				<th>ברקוד</th>
+				<th>שם</th>
+				<th style=display:none>ספק
+					<script>
+					function ch_all(val){
+						T = document.getElementById("TAB");
+						for (i=0;i<T.all.length;i++){
+							if (T.all(i).name=="supplier[]")T.all(i).value=val;
+						}
+					}</script>
+				</th>
+				<th>כמות שנרכשה</th>
+                <th>יח'</th>
+				<th>עלות ספק
+				ליחידה לפני מע"מ
+				</th>
+                <th>מע"מ</th>
+				<th>עלות ספק
+				ליחידה כולל מע"מ
+				</th>
+				<th>סה"כ<input disabled id=TOTAL-1 value='0' style=display:none size=5></th>
+				<input type=hidden id=PID>
+			</tr>
+			<?
+            $cnt=0;
+			while (!$products->EOF){
+				echo "<tr valign=top bgColor=".(($cntr++ %2 == 0)?"#efefef":"silver")."><td width=1%  >".splitLongWords($products->fields["barcode"])."</td>
+				<td width=99%><a href='javascript:wopen(\"edit_my_listings.php?simple=1&edit=".$products->fields["id"]."\",450,500)'><u>".splitLongWords($products->fields["title"])."</u></a></td>
+				<td width=1% ALIGN=CENTER style=display:none>
+					<select name=supplier[] onchange='s=this.parentElement.parentElement.cells[6].all(0);if(this.value==-1){s.disabled=true;s.style.backgroundColor=\"buttonface\";s.value=\"\"}else{s.style.backgroundColor=\"\";s.disabled=false};'>
+						";
+						$issupplier=false;
+						$suppliers->MoveFirst();
+						while (!$suppliers->EOF){
+							echo "<option value=".$suppliers->fields["ID"].">".$suppliers->fields['SupplierName']."</option>";
+							$suppliers->MoveNext();
+							$issupplier=true;
+						}
+						echo "
+					</select>
+				</td>
+				<td width=1% ALIGN=CENTER>
+					<input ".(($calc)?"readonly style=background-color:#efefef;color:gray":"")." size=3 tag=PriceBefore onkeyup='calcPrice($cnt)' onchange='calcPrice($cnt)' value='$quantity[$cnt]' id=quant$cnt name='quantity[]' ".((!$issupplier)?" disabled style='background-color:buttonface'":"").">
+				</td>
+                <td width=1% nowrap>".$products->Fields("abbreviation")."<input type=hidden name=grams_rate[] value=".$products->Fields("grams_rate")."></td>
+				<td width=1% ALIGN=CENTER>
+					<input ".(($calc)?"readonly style=background-color:#efefef;color:gray":"")." size=6 tag=PriceBefore name='pricebefore[]' id=before$cnt onkeyup='calcPrice($cnt)' onchange='calcPrice($cnt)' value='".(($pricebefore[$cnt])?$pricebefore[$cnt]:number_format($products->fields["cost"]/(1+$config["VAT"]/100),2,".",""))."'".((!$issupplier)?" disabled style='background-color:buttonface'":"").">
+					<input type=hidden name='id[]' id=PID value='".$products->fields["id"]."'>
+				</td>
+                <td width=1% ALIGN=CENTER>  
+                    <input readonly style='color:gray' size=4 name='vat[]' id=vat$cnt value='".(($vat[$cnt])?$vat[$cnt]:number_format($products->fields["cost"] - ($products->fields["cost"]/(1+$config["VAT"]/100)),2,".",""))."'".((!$issupplier)?" disabled style='background-color:buttonface'":"").">
+                </td>
+                <td width=1% ALIGN=CENTER> 
+                    <input ".(($calc)?"readonly style=background-color:#efefef;color:gray":"")." size=6 tag=PriceAfter name='price[]'  id=after$cnt onkeyup='calcPrice($cnt)' onchange='calcPrice($cnt)' value='".(($price[$cnt])?$price[$cnt]:number_format($products->fields["cost"],2,".",""))."'".((!$issupplier)?" disabled style='background-color:buttonface'":"")."> 
+                </td>
+				<td width=1% ALIGN=CENTER><input readonly style='color:green' id=TOTAL$cnt size=5 name='sum[]' value='".(($sum[$cnt])?$sum[$cnt]:"0.00")."'></td>
+				</tr>";
+				$products->MoveNext();
+                $cnt++;
+			}
+			?>
+			</table>
+		</div>
+	</td>
+	</tr>
+	<tr style='height:1%'>
+	<td >
+	<table width=100% cellpadding=0 border=0 cellspacing=1>
+	<tr>
+		<td align=left width=1% nowrap>ספק:</td>
+		<td >&nbsp;<?echo"<select name=sup onchange='ch_all(this.value)'>
+			";
+			$issupplier=false;
+			$suppliers->MoveFirst();
+			while (!$suppliers->EOF){
+				echo "<option value=".$suppliers->fields["ID"]." ".($suppliers->fields["ID"]==$sup?"selected":"").">".$suppliers->fields['SupplierName']."</option>";
+				$suppliers->MoveNext();
+				$issupplier=true;
+			}
+			echo "</select>";?>
+            <script>
+            ch_all(document.F.sup.value);
+            </script>
+        </td>
+		<td width=1% align=left nowrap>מספר חשבונית:</td>
+		<td>&nbsp;<input name=cheshbonit value="<?=$cheshbonit?>" size=8></td>
+	</tr>
+	<tr>
+		<td width=1% colspan=2  nowrap><input type=checkbox name=assignSupplier checked value=1>
+		לשייך פריטים ללא ספק לספק הנבחר</td>
+
+		<td width=1% align=left nowrap>תאריך <?if ($zikuipurchase){?>זיכוי<?}?>  קניה: </td>
+		<td>&nbsp;<input name=purdate size=6 value='<?=($purdate)?$purdate:date("d/m/Y")?>'><img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar1("F.purdate")'></td>
+	</tr>
+	<tr>
+    		<td width=1% align=left nowrap>הנחה כללית לכל הפריטים:</td>
+		<td>&nbsp;<input <?=(($calc)?"readonly style=color:gray;background-color:#efefef":"")?> onchange=Recalc() onkeyup=Recalc() value="<?=$discount?>" name=discount size=5>%</td>
+
+		<td width=1% nowrap align=left>
+			<?if ($workmode=="A"){?>
+                <?if (!$zikuipurchase){?>
+			    לשלוח פריטים לנקודה:
+                <?}else{?>
+			    לשלוח פריטים מנקודה:
+                <?}?>
+			<?}?>
+		</td>
+		<td>&nbsp;<?if ($workmode=="A"){
+				echo "<select name=stock>";
+						$stocks->MoveFirst();
+						while (!$stocks->EOF){
+							echo "<option value=".$stocks->fields["ID"]." ".($stock==$stocks->fields["ID"]?"selected":"").">".$stocks->fields['StockName']."</option>";
+							$stocks->MoveNext();
+						}
+						echo "</select>";
+		}?></td>
+	</tr>
+	</table>
+	</td>
+	</tr>
+	<tr style='height:1%'>
+	<td align=center>
+	<hr>                          
+	<table width=100%>
+			<tr valign=middle>
+			<td width=100% align=right>
+                
+                <input type=hidden name=saction>
+                <input type='button' onclick='validate()' class=button style='background-image:url(<?=$imgPath?>ok.gif)' value='אישור'>
+            </td>
+			<td nowrap >סה"כ לפני מע"מ: </td><td style='padding-left:20'>
+            <input size=6 readonly style='color:green' name=TOTALSUMBEFORE value="<?=$TOTALSUMBEFORE?$TOTALSUMBEFORE:"0.00"?>"></td>
+			<td nowrap >סה"כ כולל מע"מ: </td><td style='padding-left:20'>
+            <input size=6 readonly style='color:green' name=TOTALSUM value="<?=$TOTALSUM?$TOTALSUM:"0.00"?>"></td>
+            </tr>
+	</table>		
+	</FORM>	
+	</td>
+	</tr>
+	</table>
+
+<?
+
+
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+
+?>

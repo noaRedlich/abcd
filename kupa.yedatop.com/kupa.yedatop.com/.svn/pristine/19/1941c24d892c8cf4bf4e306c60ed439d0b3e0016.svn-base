@@ -1,0 +1,185 @@
+<style>
+.z {color:gray}
+.b {font-weight:bold}
+th {background-color:silver}
+</style>
+<?php
+
+    $mode = $_GET["mode"];
+    if (!$mode) $mode = $_POST["mode"]; 
+    
+	$simple=1;
+	$page_subtitle = "ריכוז יתרה"; 
+	if (!$mode)
+    {
+		include("include/common.php");
+    	if (!loginCheck('User'))exit;
+		global $action, $id, $cur_page, $lang, $conn, $config;
+		include("$config[template_path]/admin_top.html");
+	}
+	if (!IsPostBack())
+    {
+		$suppliers = $clients = 1;
+	}
+
+	//if ($coupon || (($_GET["sDate"] || $_GET["ids"] || $mode) && $saction != "sendreport")){
+		$saction="go";                              
+	//}
+	 
+   	?>
+
+		<script>
+		function PrintReport(){
+			document.getElementById("Query").style.display = "none";
+			window.print();
+			document.getElementById("Query").style.display = "";
+		}
+		</script>
+		<body>
+		<table cellpadding=5 border=0 width=100%>
+		<tr>
+		<form name=F method=post action=rep_itra.php>
+		<input type=hidden name=usr value=<?=$usr?>>
+		<input type=hidden name=toremove value="">
+		<input type=hidden name=rmodule value=<?=$rmodule?>>
+		<?$reporttitle = "ריכוז יתרה"; ?>
+		<?if ($usr){$reporttitle.="<br>".$username;}?>
+		<td nowrap>
+		<strong style='font-size:12pt'><?=$reporttitle?></strong>
+		</td><td width=99% style='border:inset 1' id=Query>
+
+		<?if (!$clientid){?>
+		<table><tr>
+		<td>
+		<fieldset>
+        <input type=checkbox name=chov <?=$chov?"checked":""?>> חוב
+        <input type=checkbox name=zikui  <?=$zikui?"checked":""?>> זיכוי
+		</fieldset>
+		</td>
+		<td>
+		<fieldset>
+        <input type=checkbox name=clients <?=$clients?"checked":""?>> לקוחות
+        <input type=checkbox name=suppliers  <?=$suppliers?"checked":""?>> ספקים
+		</fieldset>		
+		</td>
+		<td>
+        <input type=submit name=gosearch value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top" >
+		</td>
+		</tr>
+		</table>
+		<?}?>
+
+ 		<?if ($saction=="go" || $saction=="sendreport"){
+			require("sendreport.php");
+		}?>
+
+		<input type=hidden name=saction value=go>
+		<input type=hidden name=reportbody value="">
+		<input type=hidden name=sendmode value="">
+		</td>
+		</form>
+		</tr>
+		</table>
+
+	<?	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+	
+
+    ?>
+	<div ><br><table id=REPORTTABLE bordercolor=gray border=1 style='border-collapse:collapse' dir=$dir width=100% border=0 cellpadding=2 cellspacing=0 bgcolor=white>
+    <tr>
+		<td class="tableHead2" width=1% nowrap>שם לקוח</td>
+		<td class="tableHead2" width=1% nowrap >יתרה</td>
+    </tr>
+    <?
+
+    $q="having amount <> 0 ";
+    if ($chov||$zikui){
+        if (!($chov && $zikui)){
+            $sign = $zikui?"<":">";
+            $q.=" and amount $sign 0 ";
+        }
+    }
+    else{
+        $q = " and 1=0 ";
+    }
+	$qc= " and (1=0 ";
+	if ($clients)
+	{
+		$qc .= " or s.isClient =1 ";
+	}
+	if ($suppliers)
+	{
+		$qc .= " or s.isSupplier =1 ";
+	}
+	$qc.=")";
+    $sql = "select
+    s.id, s.suppliername,
+    group_concat(d.id) as docids,
+    round(sum(round(amount,2) * (case when dt.balance='+' then 1 else -1 end)),2) as amount
+    from documents d, $TABLE_DOCUMENT_TYPE dt, listingsSuppliers s, $TABLE_DOCUMENT_STATUS ds
+    where
+    d.user_id = $userID and
+    s.id = d.client_id and 
+	dt.id = d.doc_type and
+    ds.id = d.doc_status and
+    ds.countbalance = 1 and
+	dt.balance in ('+','-') and
+	d.doc_status not in (".$STATUS_DRAFT.") and
+    ($officeUserID=$userID or stock_id is null or stock_id = 0 or stock_id in (select stock_id from $TABLE_USERSTOCKS where userid = $officeUserID and r=1)) 
+    $qc
+    group by s.id, s.suppliername
+    $q                            
+    order by (case when s.id = 1 then 0 else 1 end), binary suppliername
+	";
+    //echo "<!--SQL: $sql-->";                                   
+
+	$recordSet = DBQuery($sql);
+                                                       
+
+    $doctype=$recordSet->fields["type"];
+
+	while (!$recordSet->EOF){
+        if (round($recordSet->fields["amount"],2)!=0){
+    		$ID = $recordSet->fields["id"];
+            $docid.=",".$ID;
+            $total+=$recordSet->fields["amount"];
+            $supplierColor = $ID==1?"gray":"black";
+    		echo "<tr style='cursor:hand' onclick=\"s=wopen('rep_documents.php?itramode=1&ids=".$recordSet->fields["docids"]."','rep_doc',700,500);try{s.focus()}catch(e){}\"  id='tr$ID'>";
+    		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><span style=color:$supplierColor>".$recordSet->Fields("suppliername")."</span>&nbsp;</td>";
+    		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".balance($recordSet->fields["amount"])."&nbsp;</td>";
+            echo "</tr>";
+        }
+
+		$recordSet->MoveNext();
+	}
+
+
+	echo "
+    <tr>
+    <td Colspan=><b>סה\"כ</td>
+    <td><b>".balance($total,2)."</td>
+    </tr>
+    </table></div>";
+
+	}
+
+    if ($docid) $docid = substr($docid,1);
+	?>
+	<script>
+    function printCopies(){
+        return showModalDialog("printdoc.php?docid=<?=$docid?>","","dialogWidth:300px;dialogHeight:230px;center:yes;resizable:no;status:no;help:no");
+        //var sd = showModalDialog("printpdfframe.php?rand=<?=rand()?>&docid=<?=$docid?>&itra="+((document.F.printItra.checked)?1:0)+"&form="+((document.F.printForm.checked)?1:0)+"&numcopy="+document.F.numcopy.value,"doc","dialogWidth:800px;dialogHeight:600px;help:no;");
+    }
+	</script>
+	<?
+	
+    include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

@@ -1,0 +1,146 @@
+<?php
+	$simple=1;
+	global $action, $id, $lang, $conn, $config;
+
+	$page_subtitle = "מסמכים אחרונים";
+
+	include("include/common.php");
+	if(!loginCheck('User'))exit;
+
+	include("$config[template_path]/admin_top.html");
+
+    $sql ="select title from listingsDB where id = $pid";
+    $listingrs = $conn->Execute($sql);
+    if ($listingrs === false){log_error($sql);}
+    
+    $sql ="select docgroup from $TABLE_DOCUMENT_TYPE where id = '$did'";
+    $grouprs = $conn->Execute($sql);
+    if ($grouprs === false){log_error($sql);}    
+    if ($grouprs->Fields("docgroup"))
+    {
+        $q.=" and dt.docgroup = '".$grouprs->Fields("docgroup")."'";
+    }
+    else
+    {
+        $q.=" and doc_type = '".$did."'";
+    }
+    
+    if ($client && $grouprs->Fields("docgroup")!="PURCHASE")
+    {
+        $q.= " and s.id = $client ";
+    }    
+    
+    $sql ="select 
+           dp.*,
+           dt.id as type, d.id,doc_number,doc_date, dt.name as doc_type,ds.name as doc_status,
+           ds.id as status_id, 
+           client_name, 
+           amount, decimals, grams_rate
+           from document_products dp, documents d, $TABLE_DOCUMENT_TYPE dt,listingsSuppliers s,$TABLE_DOCUMENT_STATUS ds,
+           listingsDB l, $TABLE_UNITS 
+           where 
+           dp.listing_id = $pid 
+           and dp.doc_id = d.id 
+           and ds.id = doc_status
+           and d.doc_type = dt.id
+           and s.id = d.client_id
+           and l.id = dp.listing_id 
+           and $TABLE_UNITS.id = l.unit
+           $q
+           and doc_type in (select doc_type from $TABLE_PROFILEDOCTYPES where r=1 and profile_id in 
+           (select profile_id from $TABLE_USERPROFILE where r=1 and userid = $officeUserID))
+           and (stock_id in (select stock_id from $TABLE_USERSTOCKS where userid = $officeUserID and r=1) 
+            or $officeUserID=$userID
+            or stock_id is null)
+    ";
+    $sql.=" order by doc_date desc,doc_number desc limit 10";
+
+    //echo $sql;
+    $recordSet = $conn->Execute($sql);
+    if ($recordSet === false){log_error($sql);}
+    ?>
+
+
+
+    <table width=100% height=340>
+
+    <tr style='height:1%'>
+        <td>
+        פריט: <b><?=$listingrs->Fields("title")?></b>
+        </td>
+    </tr>
+    
+    <tr>
+    <td>
+    <div style='background-color:white;overflow-x:auto;overflow-y:scroll;border:inset 2;width:100%;height:100%'>
+    <table width=100% border=1 cellpadding=2 style='border-collapse:collapse'>
+		<tr class=tableHead2 align=center>
+		<td class="tableHead2" width=1%>מספר מסמך</td>
+		<td class="tableHead2" width=1% nowrap>תאריד</td>
+		<td class="tableHead2" width=1% nowrap >סוג</td>
+		<td class="tableHead2" width=1% nowrap >סטטוס</td>
+		<td class="tableHead2" nowrap >לקוח</td>
+		<td class="tableHead2 " width=1%>מחיר <nobr>לפני מע"מ</nobr><span id=AMOUNT style='display:none'>0</span></td>
+		<td class="tableHead2 " width=1% nowrap>% הנחה</td>
+		<td class="tableHead2 " width=1% nowrap>כמות</td>
+		<td class="tableHead2 " width=1% nowrap>סה"כ</td>
+		</tr>
+<?
+    $TOTAL=0;
+    while (!$recordSet->EOF){
+        $ID =$recordSet->fields["id"];
+        $quantity = $recordSet->Fields("quantity");
+        if ($recordSet->Fields("grams_rate"))
+        {
+            $quantity/=$recordSet->Fields("grams_rate");
+        }
+        if(in_array($ID,$arr_selected)){
+            $TOTAL+=$amount;
+        }
+		echo "<tr id='tr$ID'>";
+        echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["doc_number"]."&nbsp;</td>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".DateFromSQL($recordSet->fields["doc_date"])."&nbsp;</td>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><a onclick=\"wopen('add_document.php?docid=$ID&did=".$recordSet->fields["type"]."','',screen.availWidth-100,490,true);\"  id='tr$ID' href=#>".$recordSet->fields["doc_type"]."</a>&nbsp;</td>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><img src='".$imgPath."status_".$recordSet->fields["status_id"].".gif' alt='".$recordSet->fields["doc_status"]."' align=absmiddle width=16 height=16>".$recordSet->fields["doc_status"]."&nbsp;</td>";
+		echo "<td  onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["client_name"]."&nbsp;</td>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".number_format($recordSet->Fields("currency_price"),2,".","")."</td>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".number_format($recordSet->Fields("discount"),2,".","")."</td>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".number_format($quantity,$recordSet->Fields("decimals"),".","")."</td>";
+		echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".number_format($recordSet->Fields("price"),2,".","")."</td>";
+        echo "<tr>";
+        $recordSet->MoveNext();
+    }
+?>
+    </table>
+
+<?    if ($recordSet->RecordCount()==0){
+        $nodocs=true;
+        ?>
+            <p><br><p><center><b>לא נמצאו מסמכים מכילים פריט זה</b></td></center>
+        <?
+    }
+?>
+    </div>
+    </td>
+    </tr>
+
+    <tr style='height:1%'>
+    <td align=center>
+     <table width=100% cellpadding=0 cellspacing=0>
+         <tr>
+             <td width=99%>
+             <input type=button value='סגור' onclick='window.close();' class=button style='background-image:url("<?=$imgPath?>back.gif")'>
+             </td>
+         </tr>
+     </table>
+
+    </td>
+    </tr>
+
+    </table>
+
+               
+<?
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

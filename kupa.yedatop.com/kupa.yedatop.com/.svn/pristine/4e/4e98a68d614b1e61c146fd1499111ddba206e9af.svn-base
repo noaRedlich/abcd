@@ -1,0 +1,176 @@
+<?php
+
+
+	$simple=1;
+	$page_subtitle = "משתמשים";
+
+	if ($id && $deposit!=""){
+		$noheader=1;
+	}
+	
+	if (!$mode){
+		include("../stock/include/common.php");
+		if (!loginCheck('User'))exit;
+		global $action, $id, $cur_page, $lang, $conn, $config;
+	}
+
+    if ($userID != 1){
+        die("You have no permissions to access this page");
+    }
+
+	include("$config[template_path]/admin_top.html");
+	
+	$saction="go";
+
+	?>
+
+	<?if(!$mode){?>
+		<script>
+		function PrintReport(){
+			document.getElementById("Query").style.display = "none";
+			window.print();
+			document.getElementById("Query").style.display = "";
+		}
+
+		function openReport1(url){
+			var ss="";
+			s = window.open(url+'&simple=1','','top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+			s.focus();
+		}
+
+		function deposit(id,el){
+			var url = "rep_cheque.php?id="+id+"&deposit="+((el.checked)?1:0);
+			xmlhttp = new ActiveXObject("Microsoft.XMLHTTP")
+		    xmlhttp.open("GET",url,false)
+			xmlhttp.send();
+			if(xmlhttp.ResponseText!="OK"){
+				alert("ישנה בעיה בעדכון נתונים");
+				el.checked=!el.checked;
+			}
+		} 
+		</script>
+		<style>
+		.z {color:gray}
+		.b {font-weight:bold}
+		th {background-color:silver}
+		</style>
+		<body>
+		<table cellpadding=5 border=0 width=100%>
+		<tr>
+		<form name=F method=post>
+		<input type=hidden name=usr value=<?=$usr?>>
+		<?$reporttitle = "משתמשים";?>
+		<td nowrap>
+		<strong style='font-size:12pt'><?=$reporttitle?></strong>
+		</td><td width=99% style='border:inset 1'>
+		
+        רשימה מרוקזת <input type=checkbox name=merukaz <?=$merukaz?"checked":""?>>
+        
+        <input type=submit value='הצג' class=button style='background-image:url(../stock/images/ok.gif)'>
+
+		<?if ($saction=="go" || $saction=="sendreport"){
+			require("../stock/sendreport.php");
+		}?>
+		<input type=hidden name=saction value=go>
+		<input type=hidden name=reportbody value="">
+		<input type=hidden name=sendmode value="">
+		</td>
+		</form>
+		</tr>
+		</table>
+	<?}?>
+	<?
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+
+	//$worksheet->set_column('A:H', 13);
+
+	//$headings = array('חשבונית','תאריך קניה',"מס' שיק",'סכום','תאריך פרעון',"מס' בנק","מס' סניף","מס' חשבון");
+	//$worksheet->write_row('A'.($rrow++), $headings, $heading);
+	
+	
+	echo "<div ><br><table id=REPORTTABLE dir=$dir  width=100% border=1  bordercolor=gray style='border-collapse:collapse'  bgcolor=white cellpadding=3 cellspacing=1>";
+	echo "
+	<tr align=center bgcolor=#efefef>
+	<td>מספר מסוף</td>
+	<td>שם מסוף</td>
+	<td><a href='rep_users.php?sort=time&".queryString("time")."'><u>זמן עדכון</a></td>
+	<td>פעיל</td>
+	<td>רץ <br>    סקריפט</td>
+	</tr>
+
+	";
+	
+
+        if ($sort!="time"){
+		$sql = "select d.mlaitekproenabled, u.username,u.id from userdata d
+        	inner join ".$GO_CONFIG->db_name.".users u on u.username = d.username
+            order by u.username	";
+        }
+        else{
+		$sql = "select  max(updatetime) as maxupdate,d.mlaitekproenabled, u.username,u.id from userdata d
+        	inner join ".$GO_CONFIG->db_name.".users u on u.username = d.username
+        	left outer join listingsStocks s on s.user_id = u.id
+            group by d.mlaitekproenabled, u.username,u.id
+            order by maxupdate, u.username	";
+        }
+
+		$users = $conn->Execute($sql);
+		if ($users === false){log_error($sql);}
+
+		while (!$users->EOF){
+
+            $userid = $users->fields["id"];
+            $numpoints = "";
+            if ($merukaz){
+                $sql = "select count(*) as cnt from listingsStocks
+                 where user_id = $userid $q and status=1 and runscript=1";
+                $stocks = $conn->Execute($sql);
+                $numpoints = "נקודות פעילות: ".intval($stocks->fields["cnt"]);
+		        if ($stocks === false){log_error($sql);}
+            }
+                            
+            $pro = ($users->fields["mlaitekproenabled"])?" (<span style='color:blue'>מלאיטק פרו</span>) ":" ";
+            echo "<tr valign=top>";
+            echo "<td colspan=5 bgcolor=lightyellow><b>".$users->fields["username"]."</b>".$pro." ".$numpoints."</td>";
+			echo "</tr>";
+
+            $order = ($sort!="time")?"TerminalID+0":"updatetime";
+            if ($sort=="time"){
+                    $q = " and runscript = 1 and status = 1 and terminalid <>".$config["MainStock"];
+            }
+            if (!$merukaz){
+                $sql = "select StockName, TerminalID, UpdateTime, Status,RunScript from listingsStocks
+                 where user_id = $userid $q order by $order";
+                $stocks = $conn->Execute($sql);
+		        if ($stocks === false){log_error($sql);}
+                while (!$stocks->EOF){
+                    echo "<tr>
+                        <td>".$stocks->fields["TerminalID"]."</td>
+                        <td>".$stocks->fields["StockName"]."</td>
+                        <td>".$stocks->fields["UpdateTime"]."</td>
+                        <td>".($stocks->fields["Status"]?"<span style='color:green'>כן":"<span style='color:red'>לא")."</td>
+                        <td>".($stocks->fields["RunScript"]?"<span style='color:green'>כן":"<span style='color:red'>לא")."</td>
+                    </tr>";
+                    $stocks->MoveNext();
+                }
+            }
+
+			$users->MoveNext();
+		}
+
+
+	echo "</table></div>";
+
+	}
+	
+	if (!$mode){
+		include("$config[template_path]/admin_bottom.html");
+		$conn->Close(); // close the db connection
+	}
+?>

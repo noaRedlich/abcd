@@ -1,0 +1,327 @@
+<?php 
+//command line interface support
+for($i=0;$i<$argc;$i++)
+{   
+	$argarr = explode("&",$argv[$i]);      
+	foreach($argarr as $pair){                                               
+		$arg = explode("=",$pair);
+		if(strtoupper($arg[0])=="USERID")
+		{
+			$USERID = $arg[1];
+		}
+		if(strtoupper($arg[0])=="action")
+		{
+			$action = $arg[1]; 
+		}
+	}
+}
+
+
+if ($action=="upload")
+{
+	$noauthorization = true;
+}
+ob_start(); 
+require "excelparser.php";
+$simple=1;
+$page_subtitle = "יבוא ויצוא";
+
+include("include/common.php");
+include("include/business_functions.php");
+include("include/importexcel.php");
+include("include/document.php");
+include("include/product.php");
+
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+if ($action!="do" && $action!="upload")
+{
+	ob_end_flush();
+	echo
+	"<pre dir=".$dir.">
+".$lang["xls_zip_upl"]."
+".$lang["format_file"]." EXCEL:
+-------------------
+<b  style=color:red>A</b>: ".$lang["barcode"]."
+B: ".$lang["attr_id"]." 1
+C: ".$lang["attr_value"]." 1
+D: ".$lang["attr_id"]." 2
+E: ".$lang["attr_value"]." 2
+...
+
+";
+	exit;
+}
+ob_end_clean();
+
+print"
+		<head>
+		<meta http-equiv='content-type' content='text/html; charset=Windows-1255'>
+		<style>body{background-color:buttonface}</style>
+		</head>
+		<body><pre dir=".$dir.">";
+$debugMode = true;
+$isZipMode = false; 
+if ($USERID && !$userID) $userID = $USERID;
+
+if ($action)
+{		
+	
+	if ($action=="upload")
+	{
+		$createproducts = true;
+		if (!$USERID)
+		{
+			die("No USERID parameter provided");
+		}
+		$UserData = DBQuery("select * from $TABLE_USERDATA where office_user_id = $USERID");
+		if ($UserData->EOF)
+		{
+			die("User does not exist");
+			mailAdmin("Invalid USERID","Invalid USERID provided - $USERID.");
+		}
+		if ($UserData->fields["sql_database"])
+		{
+			$conn->Disconnect();
+			$conn = ADONewConnection($db_type); 
+			$db_database = $UserData->fields["sql_database"];       
+			$conn->Connect($db_server, $db_user, $db_password, $db_database, true); 
+			if($conn->ErrorMsg())
+			{
+				die("\nDatabase connection error: ".$conn->ErrorMsg());
+			}
+		}
+		
+		$debugMode = false;
+		$isManyFiles = true;
+		$dirname = $GO_CONFIG->file_storage_path.$UserData->fields["UserName"]."/exel_purchase";
+		echo "Directory: $dirname\n";
+		if (!file_exists($dirname))
+		{
+			$old_umask = umask(000);
+			mkdir($dirname,0777);
+			umask($oldumask);
+			echo "Directory created\n";
+		}
+		$d = dir($dirname);
+		while ($entry = $d->read()) 
+		{
+			if (strpos($entry,".xls")>-1)
+			{
+				$excel_files[] = $dirname."/".$entry;
+			}
+		}
+	}
+	else
+	{
+		$excel_file = $_FILES['impfile'];  
+		$excel_files = array();
+		if($excel_file)
+		{
+			
+			if (strpos($excel_file['name'],".zip")>-1)
+			{
+				$isManyFiles = true;
+				$isZipMode = true;
+				echo $lang["zip_processing"]."<br>";flush();
+				$rootpath = $GOCONFIG->root_path;
+				$dirname = $rootpath."modules/stock/tmp/".$userID."/".str_replace(".","_",$excel_file['name']);
+				$old_umask = umask(000);
+				$zipname = $excel_file['tmp_name'];
+				mkdir($dirname,0777);
+				umask($oldumask);
+				$command = "/usr/local/bin/unzip $zipname -d ".$dirname;
+				@exec($command,$res,$x);
+				$d = dir($dirname);
+				while ($entry = $d->read()) 
+				{
+					if (strpos($entry,".xls")>-1)
+					{
+						$excel_files[] = $dirname."/".$entry;
+					}
+				}
+			}
+			else
+			{
+				$excel_files[] = $excel_file['tmp_name'];
+			}
+		}
+		if($excel_file == '') die("<center><b style=color:red>".$lang["sel_fiile"]."");
+	}
+	$res = "";
+	
+	if ($isManyFiles)
+	{
+		echo "Files found: ".count($excel_files)."<br>";flush();
+	}
+	//start processing
+	foreach ($excel_files as $excel_file)
+	{
+		
+		if ($isManyFiles)
+		{
+			echo $lang["file"].":".basename($excel_file)."<br>";flush();
+		}		
+		$fh = @fopen ($excel_file,'rb');
+		if( !$fh ) die("<center><b style=color:red>".$lang["sel_fiile"]."");
+		if( filesize($excel_file)==0 ) die("<center><b style=color:red>".$lang["sel_fiile"]."");
+		
+		$stockid = $stock1;
+
+		$fc = fread( $fh, filesize($excel_file) );
+		@fclose($fh);
+		if( strlen($fc) < filesize($excel_file) )
+			die("<pre dir=ltr>Cannot read file");
+		
+		$exc = new ExcelFileParser;
+		if( $exc->ParseFromFile($excel_file)>0 ) die("This is not an Excel file or file stored in Excel < 5.0");
+		//$res = $exc->ParseFromString($fc);
+		switch ($res) {
+			case 0: break;
+			case 1: die("Can't open file");
+			case 2: die("File too small to be an Excel file");
+			case 3: die("Error reading file header");
+			case 4: die("Error reading file");
+			case 5: die("This is not an Excel file or file stored in Excel < 5.0");
+			case 6: die("File corrupted");
+			case 7: die("No Excel data found in file");
+			case 8: die("Unsupported file version");
+			
+			default:
+				die("Unknown error");
+		}
+		
+		if( count($exc->worksheet['name']) < 1 ) die("No worksheets in Excel file.");
+		
+		$codes = "";
+		if ($debugMode){
+			echo "<script>var scroller=window.setInterval('document.body.scrollTop=document.body.scrollHeight','200');</script>";
+		}				
+		for ($worksheet=0;$worksheet<count($exc->worksheet['name']);$worksheet++){
+			
+			if( $exc->worksheet['unicode'][$worksheet] )
+			{
+				$wname = uc2html($exc->worksheet['name'][$worksheet]);
+			}
+			else
+			{
+				$wname = $exc->worksheet['name'][$worksheet];
+			}
+			
+			
+			print "<span style='color:blue' >גיליון: ". $wname."</span>\n";flush();
+			$ws = $exc->worksheet['data'][$worksheet];
+			
+			if( is_array($ws) && 	 isset($ws['max_row']) &&    isset($ws['max_col']) )
+			{
+				if( $ws['max_col'] < 1 ) {
+					echo("Invalid format.<br>Number of columns is less then 2.");
+					continue;
+				}
+				if( $ws['max_row'] < 0 ){
+					echo("Invalid format.<br>No rows defined in document.");
+					continue;
+				}
+				$data = $ws['cell'];
+				
+				$groupid = array();
+				$cnt = 1;
+				foreach( $data as $i => $row )
+				{ 
+					$barcode = trim(get( $exc, $row[0] ));
+					
+					if (!$barcode)
+					{
+						echo "<span style='color:red' dir=rtl>שורה שגויה: חוסר ברקוד</span>\n";
+						continue;
+					}
+					
+					$sql = "select l.id, grams_rate 
+							from 
+							listingsDB l, $TABLE_UNITS
+							where l.user_id = $userID and 
+							BarCode='".trim($barcode)."' and
+							$TABLE_UNITS.id = unit    
+							";
+					
+					$listingID = "";
+					$rs = DBQuery($sql);
+					if (!$rs->EOF)
+					{
+						$listingID = $rs->fields["id"];
+						$pos = 1;
+						$attrID = trim(get( $exc, $row[$pos] )); 
+						$attrValueID = trim(get( $exc, $row[$pos+1] )); 
+						while ($attrID)
+						{
+							$err = false;
+							$sql = "select id,type from attributes where id = '".addslashes($attrID)."'";
+							$rs=DBQuery($sql);
+							if ($rs->EOF)
+							{
+								echo "<span style='color:blue' dir=".$dir.">$cnt. ".sprintf($lang["err_line_no_attribute"],$attrID)."</span>\n";
+								$err = true;
+							}
+							
+							if (!$err)
+							{
+								if ($rs->Fields("type")=="VLIST")
+								{
+									$sql = "select id from attribute_values where attribute_id = '".addslashes($attrID)."' and id = '".addslashes($attrValueID)."'";
+									$rs=DBQuery($sql);
+									if ($rs->EOF)
+									{
+										echo "<span style='color:blue' dir=".$dir.">$cnt. ".sprintf($lang["err_line_no_attribute_value"],$attrValueID)."</span>\n";
+										$err = true;
+									}		
+								}
+							}			
+							
+							if (!$err)
+							{
+								DBQuery("delete from listing_attributes where listing_id = '".$listingID."' and attribute_id = '".$attrID."'");
+								DBQuery("insert into listing_attributes (listing_id, attribute_id, value) values ('".$listingID."','".$attrID."','".addslashes($attrValueID)."')");
+							}
+							
+							$pos+=2;
+							$attrID = trim(get( $exc, $row[$pos] )); 
+							$attrValueID = trim(get( $exc, $row[$pos+1] )); 
+						}
+						
+						
+						echo "$cnt. ".$lang["item_updated"].": ". $barcode."\n";flush();
+					}
+					else
+					{
+						echo "<span style='color:red'>$cnt. ".$lang["item_not_exists"].": ". $barcode."</span>\n";flush();
+					}
+					
+					$cnt++;		
+				}
+			}
+		}
+		echo "<span style=color:green>".$lang["end_file"]."</span>";
+		if($debugMode){
+			echo "<script>window.clearInterval(scroller);document.body.scrollTop=document.body.scrollHeight;</script>
+					";
+		}
+	}
+	register_shutdown_function("DeleteFiles",$excel_files,$dirname,$isZipMode);
+}
+echo "<span style=color:green>סוף הקובץ</span>";
+function DeleteFiles($excel_files,$dirname,$isZipMode)
+{
+	foreach ($excel_files as $excel_file)
+	{		
+		unlink($excel_file);
+	}
+	if ($dirname && $isZipMode){
+		rmdir($dirname);
+	}
+}
+
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

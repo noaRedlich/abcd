@@ -1,0 +1,2819 @@
+<?php
+if (!$inlineMode)
+{
+	$USERID="";$TERM="";$SFIRA="";
+}
+//command line interface support
+for($i=0;$i<$argc;$i++)
+{   
+    $argarr = explode("&",$argv[$i]);      
+    foreach($argarr as $pair){                                               
+        $arg = explode("=",$pair);
+        if(strtoupper($arg[0])=="USERID")
+        {
+             $USERID = $arg[1];
+        } 
+        if(strtoupper($arg[0])=="TERM")
+        {
+             $TERM = $arg[1];
+        } 
+        if(strtoupper($arg[0])=="SFIRA") 
+        {
+             $SFIRA = $arg[1];
+        }
+    } 
+}
+
+if (!$USERID && !$TERM)
+{
+    die("No USERID or TERM parameter specified! Use: ".basename($PHP_SELF)."?USERID=userid or ".basename($PHP_SELF)."?TERM=terminalid");
+}
+
+$noheader=1;
+session_start();
+
+ini_set("max_execution_time",10000); 
+
+if (!isset($_SESSION["attempts"])){
+	$_SESSION["attempts"] = array();
+}
+
+if (!$inlineMode)
+{	
+	require("include/common.php");
+	require("include/business_functions.php");
+}
+
+require("include/document.php");
+require("include/transexport.php");
+require("include/getrate.php");
+
+require("../shaon/include/functions.php");
+
+if ($refresh){
+
+	echo "<html>
+	<head>
+	<script>
+	function refresh(){
+		window.setTimeout('window.location=window.location.href',$refresh*1000);
+	}
+	</script>
+	</head>
+	<body onload='refresh()'>
+
+	";
+}
+
+$GOCONFIG = new GO_CONFIG();
+$rootdir = $GOCONFIG->transactions_path;
+$dbname = $GOCONFIG->db_name;
+
+$ratesFetched = array();
+
+echo "<pre dir=ltr>";
+if ($SFIRA)
+{
+    echo "\nRunning in stocktaking mode";
+}
+$IgnoreTransErrors=intval($config["IgnoreTransErrors"])==1;
+$IgnoreTransErrors = false;
+echo "\nIgnore TRANS file errors mode is set to ".(($IgnoreTransErrors)?"ON":"OFF");
+echo "\nAdmin email is: ".$config['admin_email'];
+echo "\nAdditional email is: ".$config['admin_email_add'];
+$q = "";
+if ($USERID){
+	$q = " and s.user_id = $USERID ";
+	echo "\nScanning for user #$USERID.";flush();
+}
+if ($TERM){
+	$q = " and s.terminalID = $TERM ";
+	echo "\nScanning for terminal #$TERM.";flush();
+}
+
+$sql = "select  s.UpdateTime, s.UpdateMode, s.ID, s.TerminalID, s.Version, s.TRNVersion, s.lastpludta, s.ForceAllCodes, s.AllowProceedTrans, s.user_id, u.username, 
+	u.id as office_user_id from $TABLE_LISTINGSSTOCKS s, $dbname.users u 
+	where s.user_id = u.id and TerminalID is not null and TerminalID <> '' and TerminalID <>".$config["MainStock"]." and s.Status=1 and s.RunScript=1 $q order by username";
+
+$rs = $conn->Execute($sql);
+if ($rs === false){log_error($sql);}
+
+//log the FTP event
+if ($TERM && !$SFIRA)
+{
+   if (!$rs->Fields("ID"))
+   {
+       die("\nERROR: Terminal $TERM not found or inactive.");
+   }
+   $sql = "insert into $TABLE_TRANSLOG (stock_id, time_stamp, day, is_trans) values (".$rs->Fields("ID").",unix_timestamp(),now(), 1)";
+   $logrs = $conn->Execute($sql);
+   if ($logrs === false){log_error($sql);}
+   $logID = $conn->Insert_ID();
+}
+
+$uname = "";
+if ($rs === false){log_error($sql);}
+echo "<hr>Scanning directory $rootdir";flush();
+if ($rs->EOF){
+	echo "\nNo active terminals found in database.";flush();
+}
+
+while (!$rs->EOF)
+{ 
+
+
+    $updateLastPluDta = false;        
+    $MailUserName = $rs->fields["username"];
+	$lastpludta = ($rs->fields["lastpludta"])?$rs->fields["lastpludta"]:time();
+	$forceallcodes = $rs->fields["ForceAllCodes"];
+    $MailTerminalID = $rs->fields["TerminalID"];
+	$userdir = $rootdir.$rs->fields["username"]; 
+    $inventardir = $userdir ."/inventar";  
+    $inventarbackupdir = $inventardir ."/backup";       
+	$termdir = $userdir."/".$rs->fields["TerminalID"];
+	$backupdir = $termdir ."/backup";   
+	$afaladir = $termdir ."/afala";   
+	if (!file_exists($userdir))
+	{
+		$old_umask = umask(000);
+		mkdir($userdir,0777);
+		umask($oldumask);
+		echo "\nDirectory created: ".$userdir;flush();
+	}
+	if (!file_exists($termdir))
+	{
+		$old_umask = umask(000);
+		mkdir($termdir,0777);
+		umask($oldumask);
+		echo "\nDirectory created: ".$termdir;flush();
+	}
+	if (!file_exists($backupdir))
+	{
+		$old_umask = umask(000);
+		mkdir($backupdir,0777);
+		umask($oldumask);
+		echo "\nDirectory created: ".$backupdir;flush();
+	}
+
+	if (!file_exists($afaladir))
+	{
+		$old_umask = umask(000);
+		mkdir($afaladir,0777);
+		umask($oldumask);
+		echo "\nDirectory created: ".$afaladir;flush();
+	}
+    
+	$updatetime = $rs->fields["UpdateTime"];
+	if (!$updatetime)$updatetime="00:00";
+
+	//get data from user configuration (and create if needed)
+	$sql = "select DontSendUpdatesToKupa,vatfree,FetchRateProider,SendXML,SendMoveIn,SendKupaIn,SfiratMlaiEnabled,AllowProceedTrans,UpdateQtyFromPludata,UpdateMode,WorkMode,ForceAllCodes,lastpludta,
+            sql_database,sql_user, sql_password from  $TABLE_USERDATA where username = '".$rs->fields["username"]."'";
+	$rsu = DBQuery($sql);
+	if ($rsu->EOF)
+    {
+        die("User ".$rs->fields["username"]." is not initialized. Initialize the user by entering Mlaitek Administration or Mlaitek using user account.");
+	}
+	else
+    {
+		$updatemode = ($rs->fields["UpdateMode"]=="UZ")?$rsu->fields["UpdateMode"]:$rs->fields["UpdateMode"];
+		$workmode = $rsu->fields["WorkMode"];
+		$sendXML = $rsu->fields["SendXML"]==1;
+		$dontSendPLU = $rsu->fields["DontSendUpdatesToKupa"];
+		$isVatFree = $rsu->fields["vatfree"]==1; 
+		$sendMoveIn = $rsu->fields["SendMoveIn"];
+		$sendKupaIn = $rsu->fields["SendKupaIn"];
+		$FetchRateProider = $rsu->fields["FetchRateProider"];
+        $allowProceedTrans = $rs->fields["AllowProceedTrans"] == 3 ? $rsu->fields["AllowProceedTrans"] : $rs->fields["AllowProceedTrans"]; 
+		$updateQtyFromPludata = $rsu->fields["UpdateQtyFromPludata"];
+        $sfiratMlaiEnabled = $rsu->fields["SfiratMlaiEnabled"];
+		if (!$updatemode) $updatemode = $defaultUpdateMode;
+		//Update mode is always set to "N" when workmode = "B" (in server mode don't receive updates from terminals
+		//No, we do not do it!
+		//if ($workmode=="B")$updatemode="N";
+        //Re-login for this user
+        if ($rsu->fields["sql_database"])
+        {
+            $conn->Disconnect();
+            //echo "Login as ".$rsu->fields["sql_user"]."@".$rsu->fields["sql_password"];
+            $conn = ADONewConnection($db_type); 
+            $db_database = $rsu->fields["sql_database"];       
+            //$db_user = $UserData->fields["sql_user"];
+            //$db_password = $UserData->fields["sql_password"];
+ 	        $conn->Connect($db_server, $db_user, $db_password, $db_database, true); 
+            if($conn->ErrorMsg())
+            {
+                die("\nDatabase connection error: ".$conn->ErrorMsg());
+            }
+        }
+	}
+
+	if ($FetchRateProider && !isset($ratesFetched[$rs->Fields("user_id")]))
+	{
+		echo "\nFetching currency rates for user ".$rs->fields["username"]." using $FetchRateProider...";
+		eval('$fetcher = new '.$FetchRateProider.'();');
+		$fetcher->userID = $rs->Fields("user_id");
+		$fetcher->GetRates();
+		$ratesFetched[$rs->Fields("user_id")] = true;
+		echo "\nFetching completed, ".$fetcher->rowsFetched." rows fetched";
+	}
+
+    if ($sfiratMlaiEnabled && !file_exists($inventardir))
+	{
+		$old_umask = umask(000);
+		mkdir($inventardir,0777);
+		umask($oldumask);
+		echo "\nDirectory created: ".$inventardir;flush();
+	}
+    if ($sfiratMlaiEnabled && !file_exists($inventarbackupdir))
+	{
+		$old_umask = umask(000);
+		mkdir($inventarbackupdir,0777);
+		umask($oldumask);
+		echo "\nDirectory created: ".$inventarbackupdir;flush();
+	}
+    
+	$ta = explode(":",$updatetime);
+	$updateHour = intval($ta[0]);
+	$updateMinute = intval($ta[1]);
+
+	echo "<hr>Scanning directory: ".$termdir;flush();
+	if ($dontSendPLU)
+	{
+		echo "\nPLU files, OtherPlu, ExpData will NOT be sent to the terminal";flush();
+	}
+	echo "\nTerminal working scheme is set to ".$workmode;flush();
+    echo "\nTerminal kupa software version: ".$rs->fields["Version"];flush();
+    echo "\nTerminal masof software version: ".$rs->fields["TRNVersion"];flush();
+    echo "\nLast synchronization performed at: ".date("d/m/Y H:i:s",$lastpludta);flush();
+
+    
+	//Put file time.dat
+    if (!$SFIRA)
+    {
+	    $timefile = fopen($termdir."/time.dat","w");
+	    if (!$timefile)
+        {
+		    echo "\n<font color=red>ERROR</font> - Cannot create file time.dat";flush();
+	    }
+	    else
+	    {
+		    $a_updatetime = $updatetime[0].$updatetime[1].$updatetime[3].$updatetime[4];
+		    fwrite($timefile,$a_updatetime);
+		    fclose($timefile);
+		    $old_umask = umask(000);
+		    $s = chmod($timefile,0777);
+		    umask($oldumask);
+		    echo "\nTerminal update time is set to ".$updatetime;flush();
+	    }
+    }
+
+	//UpdateTime for creading plu files always get from config!
+	$updatetime = $config['UpdateTime'];
+ 	$ta = explode(":",$updatetime);
+	$updateHour = intval($ta[0]);
+	$updateMinute = intval($ta[1]);
+	echo "\nCommon update time is set to ".$updatetime;flush();
+
+	//put file plucfg
+    if (!$SFIRA)
+    {
+	    $cfgfile = fopen($termdir."/Plucfg.dat","w");
+	    if (!$cfgfile)
+        {
+		    echo "\n<font color=red>ERROR</font> - Cannot create file Plucfg.dat";flush();
+	    }
+	    else
+	    {
+		    fwrite($cfgfile,str_replace("0"," ",$updatemode));
+		    fclose($cfgfile); 
+		    $old_umask = umask(000);
+		    chmod($cfgfile,0777);
+		    umask($oldumask);
+		    echo "\nTerminal update mode is set to ".$updatemode;flush();
+	    }
+    }
+    
+	//process transactions and masof files in directory
+    if (!$SFIRA)
+    {
+        $tranFound = false;
+        $termFound = false;
+        $d = dir($afaladir);
+	    while ($entry = $d->read()) 
+        {
+	       if (
+	   	      preg_match("/^trans([\d]+)$/i",$entry)
+	       || preg_match("/^([\d]+)_TRN$/i",$entry)
+	       || preg_match("/^([\d]+)_CLK$/i",$entry)
+           || preg_match("/^([\d]+)\.brc$/i",$entry)
+	       )
+	       {
+	   		    $filename = $afaladir."/".$entry;
+			    $statfilename=$filename.".stat";
+
+			    //wait for file
+	   		    if (!file_exists($statfilename))
+                {
+				    $attempts=1;
+			    }
+			    else
+                {
+				    $sf=fopen($statfilename,"r"); $attemps = fread($sf,3);fclose($sf);
+			    }
+			    if ($attemps<$numAttempts)
+                {
+				    $attemps++;
+				    $sf=fopen($statfilename,"w"); fwrite($sf,$attemps); fclose($sf);
+				    echo "\nAwaiting file $entry:  ".$attemps." attempt(s) of ".$numAttempts;
+				    continue;
+			    }
+
+			    unlink($statfilename);
+                $backup=false;
+			    if (preg_match("/^trans([\d]+)$/i",$entry)){
+                    $packageID = 0;
+                    //reset failure counter
+                    DBQuery("update $TABLE_LISTINGSSTOCKS set fail_count=0 where user_id =  ".$rs->Fields("user_id")."  and terminalid = '".$rs->Fields("TerminalID")."'");
+
+	   			    $transres = processTransaction($filename,$workmode,$updateQtyFromPludata,$allowProceedTrans);
+                    $tranFound = true;
+                    $backup=true;
+                    //log the FTP event, assume there is only ONE TRANS file per script running session
+                    if ($TERM && $transres && $packageID)
+                    {
+					   if ($sendXML||$sendMoveIn||$sendKupaIn)
+					   {	
+						   echo "\nSending trans to user";flush();
+						   $transExport = new TransExport($packageID);
+						   $transExport->sendXML = $sendXML;
+						   $transExport->sendMoveIn = $sendMoveIn==1;
+						   $transExport->sendMoveInMerukaz = $sendMoveIn==2;
+						   $transExport->sendKupaIn = $transExport->sendKupaInPrm = $sendKupaIn==1;
+						   $transExport->Export(); 	
+						   echo "\nTransaction archived and sent to user.";flush();
+					   }
+                     
+                       $sql = "update $TABLE_TRANSLOG set package_id = $packageID where id = $logID";
+                       $logrs = $conn->Execute($sql);
+                       if ($logrs === false){log_error($sql);}
+                    }
+                }
+			    elseif (preg_match("/^([\d]+)_TRN$/i",$entry)){
+                    $packageID = 0;
+				    $transres = processMasofTransaction($filename,$workmode,$rs->fields["TRNVersion"]);
+                    $termFound = true;
+                    $backup=true;
+                    if ($TERM && $transres && $packageID)
+                    {
+					   if ($sendXML||$sendMoveIn||$sendKupaIn)
+					   {	
+						   echo "\nSending trans to user";flush();
+						   $transExport = new TransExport($packageID);
+						   $transExport->sendXML = $sendXML;
+						   $transExport->sendMoveIn = $sendMoveIn==1;
+						   $transExport->sendMoveInMerukaz = $sendMoveIn==2;
+						   $transExport->sendKupaIn = $transExport->sendKupaInPrm = $sendKupaIn==1;
+						   $transExport->Export(); 
+						   echo "\nTransaction archived and sent to user.";flush();
+					   }
+                       $sql = "update $TABLE_TRANSLOG set package_id = $packageID where id = $logID";
+                       $logrs = $conn->Execute($sql);
+                       if ($logrs === false){log_error($sql);}
+                    }
+                    
+			    }
+			    elseif (preg_match("/^([\d]+)_CLK$/i",$entry)){
+				    processShaon($filename);
+                    $backup=true;
+			    }
+			    elseif (preg_match("/^([\d]*)\.brc$/i",$entry)){
+				    processBRC($filename,$workmode);
+                    $backup = false;
+			    }
+                if ($backup){
+            	    copy($filename,$backupdir."/".basename($filename).date("YmdHis"));
+                } 
+			    unlink($filename);
+	       }
+	    }
+        if (!$tranFound && !$termFound)
+        {
+            $title = "TRANS or TRN file not found.";
+            $message = $title;
+		    mailAdmin($title, $message);
+            //increase failure counter
+            DBQuery("update $TABLE_LISTINGSSTOCKS set fail_count=fail_count+1 where user_id = ".$rs->Fields("user_id")." and terminalid = '".$rs->Fields("TerminalID")."'");
+        }
+    }
+
+    
+	//process codes files in directory
+    if (!$SFIRA)
+    {
+	    $d = dir($afaladir);
+	    while ($entry = $d->read()) 
+        { 
+	       if (preg_match("/^PLUDTA$/",$entry))
+	       {
+			    $today = getdate();
+	   		    $currentTime = mktime($today['hours'],$today['minutes'],$today['seconds'],$today['mon'],$today['mday'],$today['year']);
+			    $updateTime = mktime($updateHour,$updateMinute,0,$today['mon'],$today['mday'],$today['year']);
+
+			    //always process pludta if found (no timeslots)
+	   		    if (
+				    true ||
+				    (($updateTime - $currentTime > (($timeBeforeUpdate+$spareTime)*60)) || ($currentTime - $updateTime > (($timeBeforeUpdate)*60)))
+			       )
+			    {
+
+		   		    $filename = $afaladir."/".$entry;
+				    $statfilename=$filename.".stat";
+
+				    //wait for file
+		   		    if (!file_exists($statfilename)){
+					    $attempts=1;
+				    }
+				    else{
+					    $sf=fopen($statfilename,"r"); $attemps = fread($sf,3);fclose($sf);
+				    }
+				    if ($attemps<$numAttempts){
+					    $attemps++;
+					    $sf=fopen($statfilename,"w"); fwrite($sf,$attemps); fclose($sf);
+					    echo "\nAwaiting file $entry:  ".$attemps." attempt(s) of ".$numAttempts;
+					    continue;
+				    }
+
+				    unlink($statfilename);
+				    copy($filename,$backupdir."/".basename($filename).date("YmdHis"));
+				    //if ($workmode == "A")
+				    //{
+			   	    processCodes($filename,$rs->fields["ID"],$workmode,$updateQtyFromPludata,$lastpludta,$rs->fields["Version"]);
+				    //}
+				    //else{
+				    //	echo "\Ignoring file $entry due to workingMode = 'B' (center), file removed.";
+				    //}
+				    unlink($filename);
+			    }//if time is OK
+	       }//if file is PLUDTA
+	    }//end directories loop
+    }
+    
+    //process Ack.dat files
+	if (!$SFIRA)
+    {
+	    $d = dir($afaladir);
+	    while ($entry = $d->read()) 
+        {
+		   if (preg_match("/^Ack\.dat$/i",$entry))
+	       {
+				$filename = $afaladir."/".$entry;
+				processAsmachta($filename,$rs->fields["ID"]);
+				copy($filename,$backupdir."/".basename($filename).date("YmdHis"));
+				unlink($filename);
+		   }		
+		}
+    } 
+   
+    //process INVENTAR dir (sfirat mlai)
+    if ($sfiratMlaiEnabled)
+    {
+	    $d = dir($inventardir);
+
+	    while ($entry = $d->read()) 
+        {
+           $pattern = ($TERM)?$TERM:"([\d]+)";
+	       if (preg_match("/^PLU".$pattern."$/i",$entry))
+	       {
+               $filename = $inventardir."/".$entry;
+               processSfiraFile($filename,$workmode);
+               copy($filename,$inventarbackupdir."/".basename($filename).date("YmdHis"));
+               unlink($filename);
+           }
+        }    
+    }
+  
+                                                  
+	//prepare Codes for Kupa
+	//check the time
+    if (!$SFIRA)
+    {
+	    $today = getdate();
+	    $currentTime = mktime($today['hours'],$today['minutes'],$today['seconds'],$today['mon'],$today['mday'],$today['year']);
+	    $updateTime = mktime($updateHour,$updateMinute,0,$today['mon'],$today['mday'],$today['year']);
+
+	    // NO: if time 10 mins before update time - prepare the update file
+	    //YES: always create update file
+  	    if (
+		    true ||
+		    (($updateTime - $currentTime <= (($timeBeforeUpdate)*60)) and ($updateTime - $currentTime >= 0))
+	       )
+	    {
+		    $put = 0; 
+            
+            if (!$dontSendPLU)
+            {
+				PutOtherPluFile($termdir,$rs->fields["ID"]);          
+				PutExpDateFile($termdir,$rs->fields["ID"]);          
+			}
+			
+            if ($forceallcodes)
+            {
+				if (!$dontSendPLU)
+				{ 
+					//if ($rs->fields["Version"]==2 && substr($updatemode,0,1)=="N")
+					if (substr($updatemode,0,1)=="N")
+					{
+						$filename = $termdir."/pludta";
+		   				$PLUcreated = PutCodesFile($filename,$rs->fields["ID"],$workmode,"",$lastpludta,$updateQtyFromPludata,$rs->fields["Version"]);
+						if ($PLUcreated)
+						{
+							copy($filename,$backupdir."/".basename($filename).date("YmdHis"));
+						}
+					}
+					else
+					{
+						$filename = $termdir."/pluadd";
+		   				$PLUcreated = PutCodesFile($filename,$rs->fields["ID"],$workmode,"",$lastpludta,$updateQtyFromPludata,$rs->fields["Version"]);
+						if ($PLUcreated)
+						{
+							copy($filename,$backupdir."/".basename($filename).date("YmdHis"));
+							copy($filename,$termdir."/pluupdate");
+						}
+		                
+						$filename = $termdir."/pludel";
+		   				$PLUcreated = PutCodesFile($filename,$rs->fields["ID"],$workmode,"D+",$lastpludta,$updateQtyFromPludata,$rs->fields["Version"]);
+						if ($PLUcreated)
+						{
+							copy($filename,$backupdir."/".basename($filename).date("YmdHis"));
+						} 
+					}
+	                 
+					//reset ForceAllCodes flag for the point
+					$sql = "update $TABLE_LISTINGSSTOCKS set ForceAllCodes = 0 where id = ".$rs->fields["ID"]." and ForceAllCodes = 1";
+					$rsres = $conn->Execute($sql); if ($rsres === false){log_error($sql);}
+					//reset ForceAllCodes flag for the user, if no more points with ForceAllCodes flag left
+					$sql = "update $TABLE_USERDATA u set ForceAllCodes = 0 where ForceAllCodes = 1 and username = '".$rs->fields["username"]."'
+							and not exists(select id from $TABLE_LISTINGSSTOCKS s where s.user_id = u.office_user_id and s.ForceAllCodes=1 and s.status = 1 and s.runscript = 1 and TerminalID is not null and TerminalID <> '' and TerminalID <>".$config["MainStock"]." )";
+					DBQuery($sql);
+
+					$put = 1;
+				}
+
+		    }
+		    else if (!$dontSendPLU)
+            {
+			    $filename = $termdir."/pluadd";
+		   	    $PLUcreated = PutCodesFile($filename,$rs->fields["ID"],$workmode,"A",$lastpludta,$updateQtyFromPludata,$rs->fields["Version"]);
+			    if ($PLUcreated)
+                {
+                    copy($filename,$backupdir."/".basename($filename).date("YmdHis"));
+                }
+
+			    $filename = $termdir."/pluupdate";
+		   	    $PLUcreated = PutCodesFile($filename,$rs->fields["ID"],$workmode,"U",$lastpludta,$updateQtyFromPludata,$rs->fields["Version"]);
+			    if ($PLUcreated)
+                {
+                    copy($filename,$backupdir."/".basename($filename).date("YmdHis"));
+                }
+
+			    $filename = $termdir."/pludel";
+		   	    $PLUcreated = PutCodesFile($filename,$rs->fields["ID"],$workmode,"D",$lastpludta,$updateQtyFromPludata,$rs->fields["Version"]);
+			    if ($PLUcreated)
+                {
+                    copy($filename,$backupdir."/".basename($filename).date("YmdHis"));
+                }
+
+			    $put = 1;
+		    }
+                       
+		    $updateLastPluDta = ($put == 1);
+	    }
+
+	    //if time 30 mins after update time - remove the update files
+	    elseif (
+			    ($updateTime - $currentTime < 0)
+			    and
+			    (abs($updateTime-$currentTime)>30*60)
+			    and
+			    (abs($updateTime-$currentTime)<60*60)
+		       )
+	    {
+		    if (file_exists($termdir."/pludta"))
+		    {
+			    unlink($termdir."/pludta");
+			    @unlink($termdir."/pludta.stat");
+			    echo "\nFile deleted: ".$termdir."/pludta";flush();
+		    }
+		    if (file_exists($termdir."/pluupdate"))
+		    {
+			    unlink($termdir."/pluupdate");
+			    echo "\nFile deleted: ".$termdir."/pluupdate";flush();
+		    }
+		    if (file_exists($termdir."/pluadd"))
+		    {
+			    unlink($termdir."/pluadd");
+			    echo "\nFile deleted: ".$termdir."/pluadd";flush();
+		    }
+		    if (file_exists($termdir."/pludel"))
+		    {
+			    unlink($termdir."/pludel");
+			    echo "\nFile deleted: ".$termdir."/pludel";flush();
+		    }
+	    }
+
+        //reset lastpludta flag for the terminal, if needed
+        if($updateLastPluDta)
+        {
+            echo "\n<hr>Resetting lastpludta time flag for the terminal...";flush();
+            $sql = "update $TABLE_LISTINGSSTOCKS set lastpludta = unix_timestamp() where id = ".$rs->fields["ID"];
+            $rsu = $conn->Execute($sql);
+            if ($rsu === false){log_error($sql);}
+        }
+    }
+
+	//goto next terminal
+	$rs->MoveNext();
+}
+
+
+echo "\nScanning done.";flush();
+
+echo"</pre>";flush();
+
+if (!$inlineMode)
+{
+	include("$GOCONFIG[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+}
+////////////////////////////////////////////////////////////////
+
+function processSfiraFile($infile,$workmode)
+{
+    global $conn,$bytesRead,$userID,$TABLE_UNITS,$TABLE_LISTINGSSTOCKS;
+    $terminalID = substr($infile,strrpos($infile,"PLU")+3);
+    
+    $sql = "SELECT ID,user_ID FROM $TABLE_LISTINGSSTOCKS WHERE status=1 and terminalID = '$terminalID'";
+	$ruid = $conn->Execute($sql);
+	if ($ruid === false){log_error($sql);}
+    if ($ruid->EOF)
+    {
+        echo "\n<font color=red>ERROR</font> - Terminal $terminalID not found or inactive.";flush();
+        return false;
+    }
+    
+	$uid = $userID = $ruid->fields["user_ID"];
+	$stockid = $ruid->fields["ID"];
+
+    $f = fopen($infile,"r");
+	
+    if ($f)
+    {
+        $filelen = filesize($infile);
+        $fname = substr($infile,strrpos($infile,"/")+1);
+        $content = fread($f,$filelen);
+        fclose($f);
+        $numrecords = $filelen/33;
+        echo "<hr>START OF STOCKTAKING FILE $fname, ".($numrecords)." record(s) in file";flush();
+        if ($numrecords!=round($numrecords))
+        {
+            echo "\n<font color=red>ERROR</font> - Incorrect file length.";flush();
+        }
+        else
+        {
+            //creating document
+            $sfiraDoc = new Document("SFIRATMLAI",$stockid);
+            $sfiraDoc->Create();
+            
+            //start processing
+            for ($recordcount=1;$recordcount<=$numrecords;$recordcount++)
+		    {  
+			    $bytesRead = 0;
+                $gramsrate = "";
+                
+                echo "<hr>Processing record #$recordcount";
+                echo "\nQuantity=".($Quantity=getvalue(fetch($content,4)));
+                echo "\nPluCode=".($PluCode=fetch($content,13));
+                echo "\nName=".($Name=decodeFromDOSHeb(fetch($content,16)));
+                if (!$Quantity)$Quantity=0;
+                $PluCode = str_replace(chr(0),"",$PluCode);
+                
+                $sql = "select l.ID,Title, $TABLE_UNITS.grams_rate from listingsDB l, 
+                $TABLE_UNITS 
+			    where  
+                l.barcode = '".addslashes(trim($PluCode))."' 
+                and $TABLE_UNITS.id = unit
+                and l.user_ID = $uid";
+			    $rsu = $conn->Execute($sql);if ($rsu === false){log_error($sql);}
+			    if (!$rsu->EOF)
+                {
+                    //product found
+				    $listingID = $rsu->fields["ID"];
+                    $gramsrate = $rsu->fields["grams_rate"];
+				    echo "\nFound product with code \"".trim($PluCode)."\".";flush();
+				    //update name
+                    if (trim($Name))
+                    {
+					    $sql = "update listingsDB set title='".addslashes(trim($Name))."' where id = $listingID";
+					    $upd_prod = $conn->Execute($sql);if ($upd_prod === false){log_error($sql);}
+                        if ($rsu->Fields("Title")!=addslashes(trim($Name)))
+                        {
+                            $sql = "update listingsDB set titleupdated = unix_timestamp() where id = $listingID";
+					        $upd_prod = $conn->Execute($sql);if ($upd_prod === false){log_error($sql);}
+                        }
+                    }
+
+			    }
+			    else
+			    {
+				    //product not found
+				    //add product
+                    if (!trim($Name))
+                    {
+                        $Name = "פריט ".trim($PluCode);
+                    }
+                    $lastinserted = ($workmode=="A")?"NULL":"unix_timestamp()";
+				    $sql = "INSERT INTO listingsDB (user_ID, Title, barCode, Quantity, creation_date, last_modified, active,lastinserted) 
+                    VALUES ($uid, '".addslashes(trim($Name))."','".addslashes(trim($PluCode))."',$Quantity,now(),unix_timestamp(),'yes',$lastinserted)";
+				    DBQuery($sql);
+				    $listingID = $conn->Insert_ID();
+				    echo "\nAdded item with code \"".trim($PluCode)."\".";flush();
+			    }
+                
+                if ($gramsrate)
+                {
+                    $Quantity*=$gramsrate;
+                }
+                
+                //add to document
+                $sfiraDoc->AddItem($listingID,$Quantity);
+                
+                //update quantity for A mode
+                if ($workmode == "A")
+                {
+				    $sql = "select ID,Quantity from  listingsStocksElements where stockid = $stockid and listingID = $listingID";
+				    $rsu = DBQuery($sql);
+				    if (!$rsu->EOF)
+                    {
+					    $lseID = $rsu->fields["ID"];
+                        $sql = "UPDATE listingsStocksElements set Quantity = $Quantity, LatestSyncQuantity = $Quantity, LatestSyncDate = UNIX_TIMESTAMP() WHERE ID = $lseID";
+				        if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;};
+                    } 
+				    else
+                    {
+					    $sql = "INSERT INTO listingsStocksElements (ListingID, StockID, Quantity, LatestSyncQuantity,LatestSyncDate) VALUES ($listingID, $stockid, $Quantity, $Quantity, UNIX_TIMESTAMP())";
+					    if ($conn->Execute($sql)===false){echo $conn->ErrorMsg()."<br>".$sql;};
+					    $lseID = $conn->Insert_ID();
+					    $stockQty = 0;
+					    $latestSyncQty = 0;
+				    }
+				    
+                } 
+                //update quantity for B mode
+                elseif ($workmode == "B")
+                {
+                    $sql = "update listingsDB set Quantity=$Quantity where id = $listingID ";
+					$upd_prod = $conn->Execute($sql);if ($upd_prod === false){log_error($sql);}
+                } 
+                           
+                //save to history 
+                $pdate = date("Y-m-d");
+				$sql="insert into history (timestamp,datetime,type,listing_id,quantity_from,supplier_id,stock_id_from,stock_id_to,cost,note) values(
+				unix_timestamp(),'$pdate','purchase',$listingID,'".$Quantity."','-1','".$stockid."','".$stockid."','','עדכון מקובץ ספירת מלאי')";
+				$res = $conn->Execute($sql); if ($res === false){log_error($sql);die();}            
+            }
+        }
+    }
+	else
+	{
+		echo "Error reading: ".$infile;flush();
+	}
+}
+
+function processAsmachta($infile,$termID)
+{
+	global $conn,$bytesRead,$TABLE_LISTINGSSTOCKS;
+	$f = fopen($infile,"r");
+	$fname = substr($infile,strrpos($infile,"/")+1);
+	if ($f)
+	{
+		$filelen = filesize($infile);
+		$content = fread($f,$filelen);
+		$recordlen = 18;
+		$numrecords = $filelen/$recordlen;
+		if (round($numrecords)==$numrecords)
+		{
+			echo "<hr>START OF ACKNOWLEDGEMENT FILE $fname, ".($numrecords)." record(s) in file";flush();
+			for ($recordcount=1;$recordcount<=$numrecords;$recordcount++)
+		    {  
+			    $bytesRead = 0;
+				echo "\nTranCode=".($TranCode=fetch($content,9));
+				echo "\nAsmachta=".($Asmachta=fetch($content,9));
+				
+				$jourNum = ltrim(trim(substr($TranCode,0,4))," 0");
+				$tranNum = ltrim(trim(substr($TranCode,4,4))," 0");
+
+				$sql = "select t.id from transactions t, transactionpackages p where 
+						p.id = t.package_id and trannum = '$tranNum' and journalnum = '$jourNum'
+						and p.stock_id = $termID
+					   ";
+				$ackrs = DBQuery($sql);
+				if ($ackrs->EOF)
+				{
+					echo "\n<font color=blue>WARNING</font> - Transaction $TranCode not found";flush();
+				} 	   
+				else
+				{
+					DBQuery("update transactions set AckCode = '".trim($Asmachta)."' where id = ".$ackrs->fields["id"]);
+					echo "\nTransaction $TranCode updated with acknowledgement code $Asmachta.";flush();
+				}
+				
+			}
+			echo "<hr>END OF ACKNOWLEDGMENT FILE $fname";flush();
+			return true;
+		}
+		else
+		{
+			echo "\n<font color=red>ERROR</font> - Invalid file length ($filelen): ".$infile;flush();
+			return false;
+		}
+	}
+	else
+	{
+		echo "\n<font color=red>ERROR</font> - Error reading: ".$infile;flush();
+		return false;
+	}
+}
+
+function processCodes($infile,$termID,$workmode,$updateQtyFromPludata,$lastpludta,$termVersion)
+{
+	global $conn,$bytesRead,$TABLE_LISTINGSSTOCKS;
+	$f = fopen($infile,"r");
+	if ($f){
+		$filelen = filesize($infile);
+		$content = fread($f,$filelen);
+		$recordlen = ($termVersion==2)?49:45;
+		fclose($f);
+		$fname = substr($infile,strrpos($infile,"/")+1);
+
+		$sql = "SELECT ID,user_ID FROM $TABLE_LISTINGSSTOCKS WHERE ID = $termID";
+		$ruid = $conn->Execute($sql);
+		if ($ruid === false){log_error($sql);}
+		$uid = $ruid->fields["user_ID"];
+		$stockid = $ruid->fields["ID"];
+
+        $numrecords = $filelen/$recordlen;
+
+		echo "<hr>START OF CODES FILE $fname, ".($numrecords)." record(s) in file";flush();
+        if ($numrecords!=round($numrecords))
+        {
+            echo "\n<font color=red>ERROR</font> - Incorrect file length. Check \"software version\" setting for this terminal.";flush();
+        }
+        else
+        {
+            for ($recordcount=1;$recordcount<=$numrecords;$recordcount++)
+		    {  
+			    $bytesRead = 0;
+			    echo "<hr>PluCode=".($PluCode=ToPLUCode(fetch($content,8)));
+			    $flags = getvalue(fetch($content,2));
+			    echo "\nIsWeight=".($Flags=getBit($flags,1,1));
+			    echo "\nDeleted=".($Flags=getBit($flags,2,1));
+			    echo "\nDepartment_code=".($Department_code=getvalue(fetch($content,2)));
+			    echo "\nAmount=".($Amount=getvalue(fetch($content,4)));
+			    echo "\nName=".($Name=decodeFromDOSHeb(fetch($content,16)));
+                if($termVersion==2)
+                {
+                    $discountflags = getvalue(fetch($content,2));
+                    //TODO: getBit()
+                    echo "\nDiscountType=".($DiscountType=getBit($discountflags,1,3));
+                    echo "\nOtherPluIndex=".($OtherPluIndex=getBit($discountflags,4,4));
+                    echo "\nDateExpIndex=".($DateExpIndex=getBit($discountflags,8,3));
+                    echo "\nNoGeneralDiscount=".($NoGeneralDiscount=getBit($discountflags,11,1));
+                    echo "\nSpare=".($Spare=getBit($discountflags,12,5));
+                    echo "\nPercentAmountDiscount=".($PercentAmountDiscount=getvalue(fetch($content,2)));
+                }
+			    echo "\nLastDayOfUpdate=".($LastDayOfUpdate=getvalue(fetch($content,1)));
+			    echo "\nLastMonthOfUpdate=".($LastMonthOfUpdate=getvalue(fetch($content,1)));
+			    echo "\nLastYearOfUpdate=".($LastYearOfUpdate=getvalue(fetch($content,2)));
+			    echo "\nStockAmount=".($StockAmount=getvalue(fetch($content,4)));
+			    echo "\nMinimumStk=".($MinimumStk=getvalue(fetch($content,4)));
+			    echo "\nSpare=".($Spare=getvalue(fetch($content,1)));
+			    echo "\nRecord #$recordcount, $bytesRead bytes read: OK";flush();
+
+			    if ($Deleted==1){
+				    $StockAmount = 0;
+			    }
+			    if ($Department_code==0){
+				    $Department_code = "";
+			    }
+			    $Amount = $Amount/100;
+
+			    $psql = "select l.ID,SalePrice from $TABLE_LISTINGSSTOCKS s, listingsDB l
+			    where s.id = $termID and l.BarCode = '".trim($PluCode)."' and l.user_ID = s.user_ID";
+			    $rsu = DBQuery($psql);
+			    if (!$rsu->EOF)
+			    {//product found
+				    $listingID = $rsu->fields["ID"];
+				    $oldPrice = $rsu->fields["SalePrice"];
+				    echo "\nFound product with code \"".trim($PluCode)."\".";flush();
+				    //update name, saleprice, StockMin for A+
+				    if ($workmode == "A" && !$updateQtyFromPludata){
+					    $sql = "update listingsDB set SalePrice='$Amount' where id = $listingID and (priceupdated is null or priceupdated < $lastpludta)";
+					    DBQuery($sql);
+					    
+					    $newPrice = $Amount; 
+						if (floatval($oldPrice)!=floatval($newPrice))
+						{
+							$sql = "insert into history (timestamp,datetime,type,listing_id,saleprice_from,saleprice_to,note,stock_id_from,stock_id_to) values 
+									(unix_timestamp(),now(),'adjustment',$listingID,'".$oldPrice."','".$newPrice."','עדכון מקופה',$termID,$termID)";
+							DBQuery($sql);  
+						}
+					    
+					    $sql = "update listingsDB set StockMin='$MinimumStk' where id = $listingID";
+					    DBQuery($sql);
+					    $sql = "update listingsDB set title='".addslashes(trim($Name))."' where id = $listingID  and (titleupdated is null or titleupdated < $lastpludta)";
+					    DBQuery($sql);
+				    }
+			    }
+			    else
+			    {
+				    //product not found
+				    //add product
+				    if ($Department_code){
+					    $sql = "SELECT ID FROM listingsCategories WHERE CategoryCode = $Department_code AND user_ID = $uid";
+					    $cat = $conn->Execute($sql);
+					    if ($cat === false){log_error($sql);}
+					    $categoryID = $cat->fields["user_ID"];
+				    }
+				    else{
+					    $categoryID="";
+				    }
+
+				    $lastinserted = ($workmode=="A")?"NULL":"unix_timestamp()";
+                    if (!$categoryID)$categoryID=="0";
+				    $sql = "INSERT INTO listingsDB (user_ID, Title, creation_date, last_modified, active,lastinserted,
+                    BarCode,ProductGroup,StockMin,SalePrice)
+                     VALUES
+                     ($uid, '".addslashes(trim($Name))."',now(),unix_timestamp(),'yes',$lastinserted,
+                     '".addslashes(trim($PluCode))."','".addslashes(trim($categoryID))."','$MinimumStk','$Amount')";
+				    DBQuery($sql);
+				    $listingID = $conn->Insert_ID();
+				    echo "\nAdded item with code \"".trim($PluCode)."\".";flush();
+			    }
+
+			    if ($workmode == "A" && $updateQtyFromPludata){
+				    //get existsing quantity (or create zero record if needed)
+				    $sql = "select lse.ID, LatestSyncQuantity, lse.Quantity from $TABLE_LISTINGSSTOCKS s, listingsStocksElements lse, listingsDB l
+				    where s.id = $termID and lse.StockID = s.id and lse.listingID = l.ID and BarCode = '".trim($PluCode)."' and l.user_ID = s.user_ID";
+				    $rsu = $conn->Execute($sql);
+				    if ($rsu === false){log_error($sql);}
+				    if (!$rsu->EOF)
+                    {
+					    $lseID = $rsu->fields["ID"];
+					    $stockQty = $rsu->fields["Quantity"];
+					    $latestSyncQty = $rsu->fields["LatestSyncQuantity"];
+					    $latestSyncDate = $rsu->fields["LatestSyncDate"];
+					    if (!$latestSyncQty){$latestSyncQty=$stockQty;}
+				    }
+				    else
+                    {
+					    $sql = "INSERT INTO listingsStocksElements (ListingID, StockID, Quantity, LatestSyncQuantity,LatestSyncDate) VALUES ($listingID, $termID, 0, 0, UNIX_TIMESTAMP())";
+					    if ($conn->Execute($sql)===false){
+						    echo $conn->ErrorMsg()."<br>".$sql;
+					    };
+					    $lseID = $conn->Insert_ID();
+					    $stockQty = 0;
+					    $latestSyncQty = 0;
+				    }
+
+				    //update the stock quantity on server
+				    $newQuantity = $stockQty + $StockAmount - $latestSyncQty;
+				    $sql = "UPDATE listingsStocksElements set Quantity = $newQuantity, LatestSyncQuantity = $newQuantity, LatestSyncDate = UNIX_TIMESTAMP() WHERE ID = $lseID";
+				    DBQuery($sql);
+
+				    if (floatval($stockQty)!=floatval($newQuantity))
+				    {
+    					$sql = "insert into history (timestamp,datetime,type,listing_id,quantity_from,quantity_to,note,stock_id_from,stock_id_to) values 
+						(unix_timestamp(),now(),'adjustment',$listingID,'".$stockQty."','".$newQuantity."','עדכון מקופה',$termID,$termID)";
+						DBQuery($sql);  
+				    } 
+
+				    //update the price on server
+				    $psql = "select ifnull(se.saleprice,l.saleprice) as SalePrice, ifnull(se.priceupdated,l.priceupdated) as priceupdated from
+				    listingsDB l, listingsStocksElements se where se.listingID = l.id and se.ID = $lseID";
+				    $rsu = DBQuery($psql);
+				    $oldPrice = $rsu->fields["SalePrice"];
+				    if ($rsu->fields["priceupdated"]<$lastpludta)
+				    {
+					    $sql = "update listingsStocksElements set SalePrice = $Amount,priceupdated = unix_timestamp()+120 where id = $lseID";
+					    DBQuery($sql);
+
+						$newPrice = $Amount; 
+						if (floatval($oldPrice)!=floatval($newPrice))
+						{
+							$sql = "insert into history (timestamp,datetime,type,listing_id,saleprice_from,saleprice_to,note,stock_id_from,stock_id_to) values 
+									(unix_timestamp(),now(),'adjustment',$listingID,'".$oldPrice."','".$newPrice."','עדכון מקופה',$termID,$termID)";
+							DBQuery($sql);  
+						}
+					    
+				    }
+				    
+				    
+
+				    //get item cost
+				    $sql = "select cost from listingsDB where id=$listingID ";
+				    $cost = $conn->Execute($sql);
+				    if ($cost === false){log_error($sql);}
+				    $cost = $cost->fields["cost"];
+				    echo "\nUpdated item with code \"".trim($PluCode)."\".";flush();
+			    }
+
+		    }
+
+		    //update latestsyncquantity for all items
+		    if ($workmode == "A" && $updateQtyFromPludata){
+			    $sql = "update listingsStocksElements set latestSyncQuantity=Quantity where stockid = $stockid";
+			    if ($conn->Execute($sql)===false){
+				    echo $conn->ErrorMsg()."<br>".$sql;
+			    };
+			    echo "<hr>Item quantities syncrhronized.";flush();
+		    }
+		    echo "<hr>END OF CODES FILE $fname";flush();
+        }
+	}
+	else
+	{
+		echo "Error reading: ".$infile;flush();
+	}
+}
+
+
+function processBRC($infile,$workmode)
+{
+	global $conn,$rs,$config,$TABLE_LISTINGSSTOCKS;
+	$TerminalID = $rs->fields["TerminalID"];
+	$sql = "SELECT ID,user_ID from $TABLE_LISTINGSSTOCKS where status=1 and TerminalID = '".trim($rs->fields["TerminalID"])."' ";
+	$rss = DBQuery($sql); 
+	if ($rss->EOF){
+		echo "\n<font color=red><font color=red>ERROR</font></font> - terminal $TerminalID not found in database or is inactive";flush();
+	}
+	else{
+		$userid = $rss->fields["user_ID"];
+		$stockid = $rss->fields["ID"];
+    	$f = fopen($infile,"r");
+    	if ($f){
+        	$fname = substr($infile,strrpos($infile,"/")+1);
+			echo "\n<hr>Start processing barcodes file $fname";flush();
+            while ($data = fgetcsv($f, 1000,chr(9))) {
+
+               $barcode = trim($data[0]);
+               $saleprice = trim($data[1]);
+               $quantity = trim($data[2]);
+               $cost = trim($data[3]);
+               $name = trim($data[4]);
+               $manufacturer = trim($data[6]);
+               $numTeur = trim($data[7]);
+               $suppliercode = substr($barcode,0,2);      
+               $categorycode = substr($barcode,5,2);      
+               $description="";
+               if ($numTeur && is_numeric($numTeur))
+               {
+                   for ($i=1;$i<=$numTeur;$i++)
+                   {
+                       $description.=", ".trim($data[7+$i]);
+                   }
+                   if ($description)
+                   {
+                       $description=substr($description,2);
+                   }
+                   if ($manufacturer)
+                   {
+                       $description.=" (".$manufacturer.")";
+                   }
+               }                                                      
+               elseif ($manufacturer)  
+               {
+                    $description = $manufacturer;    
+               }
+               $sql = "select id as listing_id from listingsDB where BarCode = '$barcode' and user_id = $userid";
+               $prod = DBQuery($sql);
+
+               $listingID = $prod->fields["listing_id"];
+
+               $sql = "select id from listingsSuppliers where code = '$suppliercode' and user_id = $userid";
+               $sup = DBQuery($sql);
+               $supplierID = $sup->fields["id"];
+
+               if (!$supplierID)
+               {
+                   echo "\n<font color=red>ERROR</font> - Supplier with code '$suppliercode' not found - product ignored";flush();
+                   continue;
+               }
+               
+               $sql = "select id from listingsCategories where categorycode = '$categorycode' and user_id = $userid";
+               $cat = DBQuery($sql);
+               $categoryID = $cat->fields["id"];
+               
+               if (!$categoryID)
+               {
+               	   echo "\n<font color=blue>WARNING</font> - Category with code '$categorycode' not found.";flush();
+                   $categoryID = "0";
+               }               
+
+               if (!$listingID)
+               {
+    				$sql = "INSERT INTO listingsDB (user_ID, Title, creation_date, last_modified,active,lastinserted,
+                    BarCode,StockMin,Sapak,SalePrice,ProductGroup,
+                    description)
+                     VALUES
+                    ($userid, '".addslashes($name)."',now(),unix_timestamp(),'yes',unix_timestamp(),
+                    '".addslashes($barcode)."','$MinimumStk','$supplierID','$saleprice',$categoryID,
+                    '".addslashes($description)."')";
+    				DBQuery($sql);
+
+                    $listingID = $conn->Insert_ID();
+                    //purchase to mlai
+                    purchaseProduct($listingID,$quantity,$supplierID,$stockid,$cost,0,$workmode,date("d/m/Y"),1,"999999");
+    				echo "\nAdded item with code \"".trim($barcode)."\".";flush();
+               }
+               else
+               {
+                    $sql = "update listingsDB set title = '".addslashes($name)."',description='".addslashes($description)."',lastupdated = unix_timestamp() where id = $listingID";
+    				DBQuery($sql); 
+    				
+    				$psql = "select SalePrice from listingsDB l where id = $listingID";
+					$res = DBQuery($psql);
+					$oldPrice = $res->fields["SalePrice"]; 
+    				
+                    $sql = "update listingsDB set SalePrice = '$saleprice',ProductGroup = '$categoryID' where id = $listingID ";
+    				DBQuery($sql);  
+                    $sql = "update listingsStocksElements set saleprice = null where listingid = $listingID";
+    				DBQuery($sql); 
+                    
+					$newPrice = $saleprice; 
+					if (floatval($oldPrice)!=floatval($newPrice))
+					{
+						$sql = "insert into history (timestamp,datetime,type,listing_id,saleprice_from,saleprice_to,note) values 
+								(unix_timestamp(),now(),'adjustment',$listingID,'".$oldPrice."','".$newPrice."','עדכון מקובץ BRC')";
+						DBQuery($sql);  
+					}
+
+                    //purchase to mlai
+                    //purchaseProduct($listingID,$quantity,$supplierID,$stockid,$cost,0,$workmode,date("d/m/Y"),1,"999999");
+    				echo "\nUpdated item with code \"".trim($barcode)."\".";flush();
+               }
+
+            }
+        }
+        else{
+    		echo "Error opening file $infile";flush();
+        }
+    }
+}
+
+
+function processShaon($infile,$workmode)
+{
+	global $conn,$rs,$TABLE_LISTINGSSTOCKS;
+	$TerminalID = $rs->fields["TerminalID"];
+    $username  = $rs->fields["username"];
+
+	$sql = "SELECT ID,user_ID from $TABLE_LISTINGSSTOCKS where status=1 and TerminalID = '".trim($rs->fields["TerminalID"])."' ";
+	$rss = $conn->Execute($sql);
+	if ($rss === false){log_error($sql);}
+	if ($rss->EOF){
+		echo "\n<font color=red><font color=red>ERROR</font></font> - terminal $TerminalID not found in database or is inactive";flush();
+	}
+	else{
+		$userid = $rss->fields["user_ID"];
+		$stockid = $rss->fields["ID"];
+
+		$f = fopen($infile,"r");
+		if ($f){
+			$fcontent = fread($f,filesize($infile));
+			fclose($f);
+			$fname = substr($infile,strrpos($infile,"/")+1);
+			echo "\n<hr>START OF ATTENDANCE FILE $fname";flush();
+			$starttimestamp = time();
+			$days=explodeByRecords("#",$fcontent);
+			
+			foreach($days as $s){
+				if ($s!=""){
+					$bytesRead = 0;
+					$date = substr($s,0,6);
+					$bytesRead = 0;
+					$isShabbat = ord($date[0]);
+					$date = getvalue(substr($date,1,4));
+					$date = substr($date,0,4)."-".substr($date,4,2)."-".substr($date,6,2);
+					$workers = substr($s,6);
+					$numworkers = strlen($workers)/7;
+					echo "\nDate: $date, records: ".$numworkers;flush();
+
+					for ($k=0;$k<$numworkers;$k++){
+
+						$worker = substr($workers,$k*7);
+						$workernum = getvalue(substr($worker,0,2));
+						$flag = str_pad(decbin(ord(substr($worker,2,1))),8,"0",STR_PAD_LEFT);
+
+                        $sql = "SELECT timestamp from attendance where
+                        user_id =  $userid and day = '$date' and terminal_id = $stockid
+                        and worker_num = '$workernum'
+                        and timestamp != '$starttimestamp'";
+    					$test = $conn->Execute($sql);
+    					if ($test === false){log_error($sql);}
+    					if (!$test->EOF){
+                            $sql = "delete from attendance where
+                               user_id =  $userid and day = '$date' and terminal_id = $stockid
+                               and worker_num = '$workernum' and timestamp != '$starttimestamp'";
+                               $test = $conn->Execute($sql);
+    					       if ($test === false){log_error($sql);}
+                           $sql = "delete from attendance_original where
+                               user_id =  $userid and day = '$date' and terminal_id = $stockid
+                               and worker_num = '$workernum' and timestamp != '$starttimestamp'";
+                               $test = $conn->Execute($sql);
+    					       if ($test === false){log_error($sql);}
+                           echo "\nFound old data for worker $workernum, deleted.";
+    					}
+
+						$closedNormally = substr($flag,0,1);
+						$isTwoDates = substr($flag,1,1);
+
+						$entertime = str_pad(decbin(ord(substr($worker,3,1))),8,"0",STR_PAD_LEFT).str_pad(decbin(ord(substr($worker,4,1))),8,"0",STR_PAD_LEFT);
+						$enterhour = str_pad(bindec(substr($entertime,0,5)),2,"0",STR_PAD_LEFT);
+						$enterminute = str_pad(bindec(substr($entertime,5,6)),2,"0",STR_PAD_LEFT);
+						$entermanual = substr($entertime,11,1);
+						$enterclosedabnormally = substr($entertime,12,1);
+
+						$exittime = str_pad(decbin(ord(substr($worker,5,1))),8,"0",STR_PAD_LEFT).str_pad(decbin(ord(substr($worker,6,1))),8,"0",STR_PAD_LEFT);
+						$exithour = str_pad(bindec(substr($exittime,0,5)),2,"0",STR_PAD_LEFT);
+						$exitminute = str_pad(bindec(substr($exittime,5,6)),2,"0",STR_PAD_LEFT);
+						$exitmanual = substr($exittime,11,1);
+						$exitclosedabnormally = substr($exittime,12,1);
+
+						$entertime = ($enterhour>24)?"NULL":("'$enterhour:$enterminute'");
+						$exittime = ($exithour>24)?"NULL":("'$exithour:$exitminute'");
+						$ok =($entertime!="NULL" && $exittime!="NULL")?1:0;
+
+						$sql = "select ID,HourSalary from workers where user_ID = $userid and workerNum = $workernum";
+						$wid = $conn->Execute($sql);
+						if ($wid === false){log_error($sql);}
+						$workerid = ($wid->fields["ID"])?$wid->fields["ID"]:"NULL";
+						$hourSalary=$wid->fields["HourSalary"];
+
+						//original log
+						$sql="INSERT INTO attendance_original (sabbat, terminal_id, worker_id, worker_num, day, entertime, exittime, recordclosednormally, istwodates, entermanual, enterclosedabnormally, exitmanual, exitclosedabnormally, user_id,timestamp,valid)
+						VALUES ($isShabbat ,$stockid, $workerid, $workernum, '$date', $entertime, $exittime, $closedNormally, $isTwoDates, $entermanual, $enterclosedabnormally, $exitmanual, $exitclosedabnormally, $userid,$starttimestamp,$ok)";
+						$new = $conn->Execute($sql);
+						if ($new === false){log_error($sql);}
+						$newid = $conn->Insert_ID();
+						//optimized
+						$sql="INSERT INTO attendance (id,sabbat,terminal_id, worker_id, worker_num, day, entertime, exittime, recordclosednormally, istwodates, entermanual, enterclosedabnormally, exitmanual, exitclosedabnormally, user_id,timestamp,valid)
+						VALUES ($newid,$isShabbat ,$stockid, $workerid, $workernum, '$date', $entertime, $exittime, $closedNormally, $isTwoDates, $entermanual, $enterclosedabnormally, $exitmanual, $exitclosedabnormally, $userid,$starttimestamp,$ok)";
+                        $new = $conn->Execute($sql);
+						if ($new === false){log_error($sql);}
+						
+                        //try to merge
+						if ($entertime=="NULL" && $exittime!="NULL"){
+							$prevSql = "select id,entertime from attendance where terminal_id=$stockid  and timestamp = $starttimestamp and worker_num = $workernum and user_id =  $userid and day = '$date' and id < $newid and entertime is not null and exittime is null";
+							$prev = $conn->Execute($prevSql);
+							if ($prev === false){log_error($prevSql);}
+							if (!$prev->EOF){
+								$sql = "update attendance set valid=1,merged=1,entertime='".$prev->fields["entertime"]."' where id = $newid";
+								$m = $conn->Execute($sql);
+								if ($m === false){log_error($sql);}
+								$sql = "delete from attendance where id = ".$prev->fields["id"];
+								$m = $conn->Execute($sql);
+								if ($m === false){log_error($sql);}
+								$ok=true;
+							}
+						}
+        				//try to delete invalid if valid found
+						if($entertime=="NULL" || $exittime=="NULL"){    
+							$prevSql = "select id,entertime from attendance where id <> $newid and terminal_id=$stockid and timestamp = $starttimestamp and worker_num = $workernum and user_id =  $userid and day = '$date' and valid=1 and (entertime = $entertime or exittime = $exittime) ";
+                            $prev = $conn->Execute($prevSql);
+							if ($prev === false){log_error($prevSql);}
+							if (!$prev->EOF)
+                            {               
+								$sql = "delete from attendance where id = $newid";
+								$m = $conn->Execute($sql);
+								if ($m === false){log_error($sql);}
+								$ok=false;
+							}
+						}
+
+						if($hourSalary && $ok){
+							calcSalary("","","",$newid,$hourSalary,$username);
+						}
+						echo "\n".$workernum." ".$closedNormally." ".$isTwoDates." ".$enterhour.":".$enterminute." (".$entermanual." ".$enterclosedabnormally.") - ".$exithour.":".$exitminute." (".$exitmanual." ".$exitclosedabnormally.")";
+					}
+				}
+			}
+		}
+	}
+}
+
+
+function processMasofTransaction($infile,$workmode,$trnversion)
+{
+	global $conn,$termdir,$IgnoreTransErrors,$rs,$config,$packageID,$TABLE_LISTINGSSTOCKS;
+    global $isVatFree;
+    
+    $vat = ($isVatFree)?0:$config["VAT"];
+    
+	$TerminalID = $rs->fields["TerminalID"];
+	$f = fopen($infile,"r");
+	if ($f)
+    {
+		$fcontent = fread($f,filesize($infile));
+		fclose($f);
+		$fname = substr($infile,strrpos($infile,"/")+1);
+        if ($trnversion!=0)
+        {
+            //get file version from terminal settings
+            $fileVersion = $trnversion; 
+            $rowLen = ($trnversion==1)?42:48;
+            $numtrans = strlen($fcontent)/$rowLen;
+            if ($numtrans!=round($numtrans))
+            { 
+                echo "\n<font color=red>ERROR</font> - Incorrect file length.";flush();
+                return false;
+            }            
+        }
+        else
+        {
+            //auto determine vile version
+		    $numtrans = strlen($fcontent)/42;
+            if ($numtrans!=round($numtrans))
+            {
+                $numtrans = strlen($fcontent)/48;
+                if ($numtrans!=round($numtrans))
+                { 
+                    echo "\n<font color=red>ERROR</font> - Incorrect file length.";flush();
+                    return false;
+                }
+                else
+                {
+                    $fileVersion = 2;
+                    $rowLen = 48;    
+                }
+            }
+            else
+            {
+                $fileVersion = 1;
+                $rowLen = 42;
+                if ((strlen($fcontent)>0) && (strlen($fcontent) % 48 == 0))
+                {
+			        echo "\n<font color=red><font color=red>ERROR</font></font> - Cannot determine file version";flush();
+                    $title = "Cannot determine TRN file version";
+                    $message = "Cannot determine TRN file version: $fname. Please set proper software version in terminal settings.";
+                    mailAdmin($title, $message);
+                    return false;    
+                }
+            }
+        }
+		echo "<hr>START OF TERMINAL TRANSACTIONS FILE $fname, VERSION $fileVersion, $numtrans TRANSACTION(S) IN FILE";flush();
+
+		$sql = "SELECT ID,user_ID from $TABLE_LISTINGSSTOCKS where status=1 and TerminalID = '".trim($rs->fields["TerminalID"])."' ";
+		$rss = $conn->Execute($sql);
+		if ($rss === false){log_error($sql);}
+		if ($rss->EOF)
+        {
+			echo "\n<font color=red><font color=red>ERROR</font></font> - terminal $TerminalID not found in database or is inactive";flush();
+            return false;
+		}
+		else
+        {
+			$stockid = $rss->fields["ID"];
+			$userid = $rss->fields["user_ID"];
+
+			$byte="";$tranid="";
+			for ($k=34;$k<=41;$k++)$byte.=str_pad(decbin(ord(substr($fcontent,$k,1))),8,"0",STR_PAD_LEFT);
+			for ($k=0;$k<=8*13;$k=$k+4)$tranid.=bindec(substr($byte,$k,4));
+			$day=substr($tranid,7,2);
+			$month=substr($tranid,9,2);
+			$JournalNum = $JournalNumOrig = $day.$month.date("y");
+
+			$sql = "SELECT ID from transactionpackages where stock_id = $stockid AND JournalNum = '$JournalNum' ";
+			$rss = $conn->Execute($sql);
+			if ($rss === false){log_error($sql);}
+			if (!$rss->EOF)
+            {
+                $found = true;
+                $cntjour = 1;
+                while ($found)
+                {
+                    //if such transaction has been already processed, increment the suffix number
+                    $JournalNum =  $JournalNumOrig."0".$cntjour;
+            		$sql = "SELECT ID from transactionpackages where stock_id = $stockid AND JournalNum = '$JournalNum' ";
+            		$rsjour = $conn->Execute($sql);
+            		if ($rsjour === false){log_error($sql);}
+                    $found = !$rsjour->EOF;
+                    if ($found)
+                    {
+                        $cntjour++;
+                    }
+                }
+				echo "\n<font color=blue>WARNING</font> - file has been already processed, new JournalID assigned: $JournalNum";flush();
+			}
+
+			$JDate = date("Y")."-".$month."-".$day;
+			$sql = "
+				INSERT INTO transactionpackages
+				(stock_id, TerminalID, TransVersion, PluVersion, JournalNum, TransCount, JournalDate,  DateTimeStamp,ismasof)
+				VALUES($stockid, '$TerminalID', '1', '1', '$JournalNum', '$numtrans', '$JDate', UNIX_TIMESTAMP(),1) ";
+			if ($conn->Execute($sql)===false){
+				echo $conn->ErrorMsg()."<br>".$sql;
+			}
+
+			$packageid = $packageID = $conn->Insert_ID();
+
+			$TranNum=1;
+            $hasTransactions = false;
+			for ($i = 0; $i<$numtrans; $i++)
+            {
+				$start=$i*$rowLen;
+				$content = substr($fcontent,$start,$rowLen);
+				$bytesRead = 0;
+				//1 byte - minutes and auth code
+				$byte = str_pad(decbin(ord(fetch($content,1))),8,"0",STR_PAD_LEFT);
+				$minutes = bindec(substr($byte,0,6));
+				$AuthorizCode = bindec(substr($byte,6,2));
+				//echo " MIN ".$minutes." AUT ".$AuthorizCode;
+				//2 byte - month and currency
+				$byte = str_pad(decbin(ord(fetch($content,1))),8,"0",STR_PAD_LEFT);
+				$day = bindec(substr($byte,0,5));
+				$currency = bindec(substr($byte,5,3));
+				//echo " DAY ".$day." CUR ".$currency;
+				//3 byte
+				$byte = str_pad(decbin(ord(fetch($content,1))),8,"0",STR_PAD_LEFT);
+				$hour = bindec(substr($byte,0,5));
+				$x=substr($byte,7,1)*5;
+				$lbs3=substr($byte,5,1);
+				$TranCode=$x*10+$lbs3;
+				//echo " HR ".$hour." TC ".$TranCode;
+				//4 byte
+				$byte = str_pad(decbin(ord(fetch($content,1))),8,"0",STR_PAD_LEFT);
+				$month = bindec(substr($byte,0,4));
+				$creditcode = bindec(substr($byte,4,4));
+				//echo " MON ".$month." CC ".$creditcode;
+				//5 byte - year
+				$byte = str_pad(decbin(ord(fetch($content,1))),8,"0",STR_PAD_LEFT);
+				$year = bindec(substr($byte,0,7));
+				$year=2000+$year;
+				//echo " YR ".$year;
+				//6-7 byte - transaction type and card expiration
+				$byte = str_pad(decbin(ord(fetch($content,1))),8,"0",STR_PAD_LEFT);
+				$byte .= str_pad(decbin(ord(fetch($content,1))),8,"0",STR_PAD_LEFT);
+				$x=(substr($byte,0,1)==1)?5:0;
+				$y=bindec(substr($byte,1,2));
+				$trantype=$x*10+$y;
+				$expyear=str_pad(bindec(substr($byte,3,7)),2,"0",STR_PAD_LEFT);;
+				$expmonth=str_pad(bindec(substr($byte,10,6)),2,"0",STR_PAD_LEFT);
+				//echo " TT " . $trantype . " EXPY ".$expyear ." EXPM ".$expmonth;
+				//8-14 byte - authorization number
+				$byte="";
+				for ($k=1;$k<=7;$k++)
+                {
+					$sym=str_pad(ord(fetch($content,1)),2,"0",STR_PAD_LEFT);
+					if ($sym!=32)$byte.=chr($sym);
+				}
+				$AuthorizNo = $byte;
+				//echo " AUTN ".$AuthorizNo;
+				//15-24 byte - card number (BCD)
+				$byte="";$cardnumber="";
+				for ($k=1;$k<=10;$k++)$byte.=str_pad(decbin(ord(fetch($content,1))),8,"0",STR_PAD_LEFT);
+				for ($k=0;$k<=80;$k=$k+4)$cardnumber.=bindec(substr($byte,$k,4));
+				//echo " NUM ".$cardnumber;
+				//25-28 byte - transaction amount or first amount
+				$byte = fetch($content,4);
+				$amount = getvalue($byte)/100;
+				//echo " AMT1 ".$amount;
+				//29-32 byte - next payments amount
+				$byte = fetch($content,4);
+				$amount2 = getvalue($byte)/100;
+				//echo " AMT2 ".$amount2;
+				//33-34 byte - number of payment excl first one, credit company, cc number length
+				$byte = str_pad(decbin(ord(fetch($content,1))),8,"0",STR_PAD_LEFT);
+				$byte .= str_pad(decbin(ord(fetch($content,1))),8,"0",STR_PAD_LEFT);
+				$paymentnum = bindec(substr($byte,0,7));
+				$companytype = bindec(substr($byte,8,2));
+				$numlength = bindec(substr($byte,11,6));
+				//echo " PMT ".$paymentnum ." CMPT ".$companytype. " NLEN ".$numlength;
+				//now we know card number
+				$cardnumber = substr(trim($cardnumber),0,$numlength);
+				$cardnumber = substr(trim($cardnumber),strlen(trim($cardnumber))-4);
+				//echo " CNUM ".$cardnumber;
+				//35-42 bytes - transaction id (bcd)
+				$byte="";$tranid="";
+				for ($k=1;$k<=13;$k++)$byte.=str_pad(decbin(ord(fetch($content,1))),8,"0",STR_PAD_LEFT);
+				for ($k=0;$k<=8*13;$k=$k+4)$tranid.=bindec(substr($byte,$k,4));
+				//echo " TID ".$tranid;
+				$day=substr($tranid,7,2);
+				$month=substr($tranid,9,2);
+				$hour=substr($tranid,11,2);
+				$min=substr($tranid,13,2);
+				$TDate=$year."-".$month."-".$day;
+				$TTime=$hour.":".$min;
+                //43-48 - SHVA authorization (meanwhile not used)
+                if ($fileVersion==2)
+                {
+                    $byte = fetch($content,5);   
+                }
+
+				//add transaction to DB
+				$TranAmount = $amount + ($paymentnum*$amount2);
+				$IsRefund = ($trantype==51||$trantype==53)?1:0;
+
+                $res = DBQuery("select t.id, trandate, TranNum, journalNum from transactions t,transactionpackages p 
+                    where p.id = t.package_id 
+                    and t.user_id = $userid and t.stock_id = $stockid and trandate = '$TDate' 
+                    and trantime = '$TTime' and tranamount = '$TranAmount'");
+                if (!$res->EOF)
+                {
+                    $chnnum = number_format($res->fields["journalNum"]*10000 +  $res->fields["TranNum"],0,"","");
+                    echo "\n<font color=blue>WARNING</font> - Transaction has been already processed (#$chnnum, ".$res->fields["trandate"].", id=".$res->fields["id"].")";flush();
+                }
+                else
+                {
+                    $hasTransactions = true;
+				    $sql = "INSERT INTO transactions
+				    (package_id, stock_id, TranNum, CompCount, PaymntCount, TranDiscount, TranCashDiscount, TranAmount, tChange, TranDate,TranTime, TranAnswer, IsRefund, user_id, vat)
+				    VALUES ('$packageid',$stockid, '$TranNum', '0', '1', '0', '0', '$TranAmount', '0', '$TDate','$TTime', null, '$IsRefund',$userid,'$vat')";
+				    if ($conn->Execute($sql)===false){
+					    echo $conn->ErrorMsg()."<br>".$sql;
+				    }
+
+				    $transid = $conn->Insert_ID();
+
+				    $ExpDate = $expmonth.$expyear;
+				    $CreditTerms = $creditcode+1;
+				    if($amount2 != 0){
+					    $NumPayments = $paymentnum+1;
+				    }
+				    else
+				    {
+					    $NumPayments = 1;
+				    }
+				    $Currency = $currency+1;
+
+				    $sql = "INSERT INTO transactionpayments
+				    (trans_id, PaymID,
+				    CreditCardSum, FirstPayment, OtherPayment, CardNum, ExpDate,
+				    CreditTerms, CompanyNum, NumPayments, TranCode, TranType,
+				    AuthorizCode, Currency, AuthorizNo)
+				    VALUES ('$transid', '5',
+				    '$TranAmount', '$amount', '$amount2', '$cardnumber', '$ExpDate',
+				    '$CreditTerms', '$companytype', '$NumPayments', '$TranCode', '$trantype',
+				    '$AuthorizCode', '$Currency', '$AuthorizNo')";
+				    if ($conn->Execute($sql)===false){
+					    echo $conn->ErrorMsg()."<br>".$sql;
+				    }
+				    echo "\nProcessing transaction ".($i+1).". TranDate=$TDate, Amount=$TranAmount";flush();
+                }
+				$TranNum++;
+
+			}//for
+
+            if (!$hasTransactions)
+            {
+                DBQuery("delete from transactionpackages where id = $packageid");
+                echo "\n<font color=blue>WARNING</font> - no new transactions in the package, package has been deleted.";flush();
+                return false;
+            }
+		}//if
+	}
+    else
+    {
+        return false;
+    }//if
+    //$title = "MASOF TRANS OK.";
+    //$message = $title;
+    //mailAdmin($title, $message);
+    return true;
+}//processMasofTransaction
+
+
+function processTransaction($infile,$workmode,$updateQtyFromPludata,$allowProceedTrans,$checkOnlyMode)
+{
+	global $conn,$bytesRead,$termdir,$IgnoreTransErrors,$MailUserName,$config,$packageID,$TABLE_UNITS,$TABLE_USERDATA,$TABLE_LISTINGSSTOCKS;
+    global $isVatFree;
+    
+    $vat = ($isVatFree)?0:$config["VAT"];
+    				
+    //check the file
+    if (!$IgnoreTransErrors && !$checkOnlyMode && !processTransaction($infile,$workmode,$updateQtyFromPludata,$allowProceedTrans,true))
+    {
+        return false;
+    }
+    
+	$f = fopen($infile,"r");
+	if ($f)
+    {
+		$content = fread($f,filesize($infile));
+		fclose($f);
+		$fname = substr($infile,strrpos($infile,"/")+1);
+
+        if ($checkOnlyMode){
+		    echo "<hr>VERIFICATION OF TRANSACTIONS FILE $fname...";flush();
+        }
+        
+		$bytesRead = 0;
+		//read header     
+        if ($checkOnlyMode){ob_start();}                   
+		echo "<hr>START OF TRANSACTIONS FILE $fname";flush();
+		echo "<hr>HEADER";
+		echo "\nTerminalID=".($TerminalID=fetch($content,8));
+		echo "\nTransVersion=".($TransVersion=getvalue(fetch($content,1)));
+		echo "\nPluVersion=".($PluVersion=getvalue(fetch($content,1)));
+        $isSecondVersion = $TransVersion==2;
+        echo "\nJournalNum=".($JournalNum=$JournalNumOrig=getvalue(fetch($content,2)));
+		echo "\nTransCount=".($TransCount=getvalue(fetch($content,2)));
+		echo "\nJournalDate=".($JournalDate=fetch($content,9));
+		echo "\nJournalTime=".($JournalTime=fetch($content,5));
+		echo "\nJournalQuestion=".($JournalQuestion=fetch($content,20));
+        if ($isSecondVersion)
+        {
+            echo "\nGramsKiloFlag=".($GramsKiloFlag=getvalue(fetch($content,1))); 
+            echo "\nSpare=".($Spare=getvalue(fetch($content,1)));
+        }
+        else
+        {
+		    echo "\nSpare=".($Spare=getvalue(fetch($content,2)));
+        }
+		echo "\nHeader $bytesRead bytes read: OK";flush();
+        if ($checkOnlyMode){ob_end_clean();}                   
+
+        if (!$IgnoreTransErrors) {
+    		//if ($conn->Execute("BEGIN")===false){
+    		//	echo $conn->ErrorMsg()."<br>".$sql;
+    		//}
+        }
+
+        
+		$JournalQuestion = addslashes($JournalQuestion);
+		$sql = "SELECT ID,user_ID from $TABLE_LISTINGSSTOCKS where status=1 and TerminalID = '".trim($TerminalID)."' ";
+		$rs = DBQuery($sql);
+		if ($rs->EOF)
+        {
+            $currentTerm = substr($termdir,strrpos($termdir,"/")+1); 
+            if ($checkOnlyMode)
+            {
+                $message = "Terminal $TerminalID not found in database or is inactive. Terminal $currentTerm is used for journal $JournalNum";
+			    echo "\n<font color=blue>WARNING</font></font> - $message";flush();
+		        $title = "TRANS file warning - terminal not found.";
+			    mailAdmin($title, $message);
+            }
+            $TerminalID = $currentTerm;
+		    $sql = "SELECT ID,user_ID from $TABLE_LISTINGSSTOCKS where status=1 and TerminalID = '".trim($TerminalID)."' ";
+		    $rs = DBQuery($sql);
+        }
+        
+		if (!$rs->EOF)
+        {
+            if (!$checkOnlyMode){
+            	//add package to DB
+            	$stockid = $rs->fields["ID"];
+			    $stockuserid = $rs->fields["user_ID"];
+			    $sql = "SELECT ID from transactionpackages where stock_id = $stockid AND JournalNum = '$JournalNum' ";
+			    $rs = $conn->Execute($sql);
+			    if ($rs === false){log_error($sql);}
+			    if (!$rs->EOF){
+                    if ($allowProceedTrans==1||$allowProceedTrans==2)
+                    {
+                        $found = true;
+                        $cntjour = 1;
+                        while ($found){
+                            //if such transaction has been already processed, increment the suffix number
+                            $JournalNum =  $JournalNumOrig."0".$cntjour;
+            			    $sql = "SELECT ID from transactionpackages where stock_id = $stockid AND JournalNum = '$JournalNum' ";
+            			    $rs = $conn->Execute($sql);
+            			    if ($rs === false){log_error($sql);}
+                            $found = !$rs->EOF;
+                            if ($found){
+                                $cntjour++;
+                            }
+                        }
+				        echo "\n<font color=blue>WARNING</font> - file has been already processed, new JournalID assigned: $JournalNum";flush();
+                        //in case of one-time allowance mode, reset the allowance mode to Restricted
+                        if ($allowProceedTrans==1){
+                            $sql = "update $TABLE_USERDATA set allowProceedTrans=0 where username = '$MailUserName'";
+        			        $rs = $conn->Execute($sql);
+        			        if ($rs === false){log_error($sql);}
+                        }
+                    }
+                    else
+                    {
+				        echo "\n<font color=red>ERROR</font> - file is already processed";flush();
+                        return false;
+                    }
+			    }
+                //die ("***".$JournalNum);
+
+			    $JDate = makedate($JournalDate,$JournalTime);
+
+			    $sql = "
+				    INSERT INTO transactionpackages
+				    (stock_id, TerminalID, TransVersion, PluVersion, JournalNum, TransCount, JournalDate, JournalQuestion, GramsKiloFlag, DateTimeStamp)
+				    VALUES($stockid, '$TerminalID', '$TransVersion', '$PluVersion', '$JournalNum', '$TransCount', '$JDate', '$JournalQuestion', '$GramsKiloFlag', UNIX_TIMESTAMP()) ";
+			    if ($conn->Execute($sql)===false){
+				    echo $conn->ErrorMsg()."<br>".$sql;
+			    }
+
+			    $packageid = $packageID = $conn->Insert_ID();   
+                
+            }    
+
+			//read transactions
+			$continue=true;
+			for ($trans=1;$trans<=$TransCount;$trans++){
+				$bytesRead = 0;
+				if (!$continue)break;
+                if ($checkOnlyMode){ob_start();}                   
+				echo "<hr>TRANSACTION $trans FROM $TransCount";		flush();
+				echo "\nTranNum=".($TranNum=getvalue(fetch($content,2)));
+                if ($checkOnlyMode){ob_end_clean();}                   
+				if ($TranNum!=$trans){
+					if ($IgnoreTransErrors){
+						echo "\n<font color=red>ERROR</font> - TranNum $TranNum is invalid, expected $trans. Transaction is skipped. ";
+                        $title = "TRANS file error.";
+                        $message = "TranNum $TranNum is invalid, expected $trans. Transaction is skipped.";
+				        mailAdmin($title, $message);
+						//try to find next transaction
+						$datepos = strpos($content,$JournalDate,$bytesRead+50);
+						if ($datepos){
+							$content = substr($content,$datepos-20);
+							$bytesRead=0;
+							continue;
+						}
+						else
+						{
+							echo("\nCannot locate next transaction by anchor '$JournalDate' - cannot continue.");
+                            $title = "TRANS file error.";
+                            $message = "Transaction file is corrupted or has ended unexpectedly";
+                            mailAdmin($title, $message);
+							$continue=false;
+						}
+					}
+					else
+					{
+							//if ($conn->Execute("ROLLBACK")===false){
+							//		echo $conn->ErrorMsg()."<br>".$sql;
+							//}
+							echo "\n<font color=red>ERROR</font> - TranNum $TranNum is invalid, expected $trans. Transaction has rolled back. ";
+                            $title = "TRANS file error.";
+                            $message = "Transaction file is corrupted or has ended unexpectedly";
+                            mailAdmin($title, $message);
+							$continue=false;
+                            if ($checkOnlyMode){return false;}
+							break;
+					}
+				}
+                if ($checkOnlyMode){ob_start();}                   
+				echo "\nCompCount=".($CompCount=getvalue(fetch($content,2)));
+				echo "\nPaymntCount=".($PaymntCount=getvalue(fetch($content,2)));
+				echo "\nTranDiscount=".($TranDiscount=getvalue(fetch($content,2)));
+				echo "\nTranCashDiscount=".($TranCashDiscount=getvalue(fetch($content,4)));
+				echo "\nTranAmount=".($TranAmount=getvalue(fetch($content,4)));
+				echo "\nChange=".($Change=getvalue(fetch($content,4)));
+				echo "\nTranDate=".($TranDate=fetch($content,9));
+				echo "\nTranTime=".($TranTime=fetch($content,5));
+				echo "\nTranAnswer=".($TranAnswer=fetch($content,17));
+				echo "\nIsRefund=".($IsRefund=getvalue(fetch($content,1)));
+                if ($isSecondVersion)
+                {
+                    echo "\nIsDebtPayment=".($IsDebtPayment=getvalue(fetch($content,1)));
+                    echo "\nCashierFlag=".($CashierFlag=getvalue(fetch($content,1)));
+                    echo "\nCashierNum=".($CashierNum=getvalue(fetch($content,2)));
+                    echo "\nAmountDiscountType=".($AmountDiscountType=getvalue(fetch($content,1)));
+                    echo "\nClubDealFlag=".($ClubDealFlag=getvalue(fetch($content,1)));
+                    echo "\nCustID=".($CustID=getvalue(fetch($content,2)));
+                    echo "\nAmountDiscountPercent=".($AmountDiscountPercent=getvalue(fetch($content,2)));
+					echo "\nRefundMode=".($RefundMode=getvalue(fetch($content,1)));	
+                    echo "\nSpare=".($Spare=fetch($content,9));
+                }
+                else
+                {
+                    $IsDebtPayment=0;$CashierFlag=0;$CashierNum=0;$AmountDiscountType=0;
+                    $ClubDealFlag=0;$CustID=0;$AmountDiscountPercent=0;
+                }
+				echo "\nTransaction $bytesRead bytes read: OK";flush();
+                if ($checkOnlyMode){ob_end_clean();}                   
+
+				$TranAmount = $TranAmount/100;
+				$TranCashDiscount = $TranCashDiscount/100;
+				$TranDiscount = $TranDiscount/100;
+                $AmountDiscountPercent = $AmountDiscountPercent/100;
+				$Change = $Change/100;
+
+				$TDate = makedate($TranDate,"");
+				$TTime = maketime($TranTime);
+
+				//add transaction to DB
+                if (!$checkOnlyMode){
+				    $sql = "INSERT INTO transactions
+				    (package_id, stock_id, TranNum, CompCount, PaymntCount, TranDiscount, TranCashDiscount, TranAmount, tChange, TranDate,TranTime, TranAnswer, IsRefund, user_id, vat,
+                    IsDebtPayment,CashierFlag,CashierNum,AmountDiscountType,ClubDealFlag,CustID,AmountDiscountPercent,RefundMode)
+				    VALUES ('$packageid',$stockid, '$TranNum', '$CompCount', '$PaymntCount', '$TranDiscount', '$TranCashDiscount', '$TranAmount', '$Change', '$TDate','$TTime', '$TranAnswer', '$IsRefund',$stockuserid,'$vat',
+                    '$IsDebtPayment','$CashierFlag','$CashierNum','$AmountDiscountType','$ClubDealFlag','$CustID','$AmountDiscountPercent','$RefundMode')";
+				    if ($conn->Execute($sql)===false){
+					    echo $conn->ErrorMsg()."<br>".$sql;
+				    }
+
+				    $transid = $conn->Insert_ID();
+                }
+
+				$TotalCompAmount = 0;
+				//read components
+				for ($comp=1;$comp<=$CompCount;$comp++)
+                {
+					$bytesRead = 0;
+                    if ($checkOnlyMode){ob_start();} 
+					echo "<hr>COMPONENT $comp FROM $CompCount OF TRANSACTION $trans";
+					echo "\nCompAmount=".($CompAmount=getvalue(fetch($content,4)));
+					echo "\nCompCashDiscount=".($CompCashDiscount=getvalue(fetch($content,4)));
+					echo "\nCompDiscount=".($CompDiscount=getvalue(fetch($content,2)));
+					echo "\nCodeFlag=".($CodeFlag=getvalue(fetch($content,1)));
+					echo "\nPluCode=".($PluCode=fetch($content,14));
+					echo "\nStockAmount=".($StockAmount=getvalue(fetch($content,4)));
+                    if ($isSecondVersion)
+                    {
+                        echo "\nDiscountType=".($DiscountType=getvalue(fetch($content,1)));
+                        echo "\nSecondDiscFlag=".($SecondDiscFlag=getvalue(fetch($content,1)));
+                        echo "\nSecondFreeFlag=".($SecondFreeFlag=getvalue(fetch($content,1)));
+                        echo "\nOtherDiscountFlag=".($OtherDiscountFlag=getvalue(fetch($content,1)));
+                        echo "\nClubDiscount=".($ClubDiscount=getvalue(fetch($content,1)));
+                        echo "\nAmountPercentDiscount=".($AmountPercentDiscount=getvalue(fetch($content,2)));
+                        echo "\nDepartmentFlag=".($DepartmentFlag=getvalue(fetch($content,1)));
+                        echo "\nDepartmentNum=".($DepartmentNum=getvalue(fetch($content,2)));
+                        echo "\nWeigthFlag=".($WeigthFlag=getvalue(fetch($content,1)));
+                        echo "\nWeightQty=".($WeightQty=getvalue(fetch($content,4)));
+                        echo "\nSpare=".($Spare=getvalue(fetch($content,2)));
+                    }
+                    else
+                    {
+                        $DiscountType=0;$SecondDiscFlag=0;$SecondFreeFlag=0;$OtherDiscountFlag=0;
+                        $ClubDiscount=0;$AmountPercentDiscount=0;$DepartmentFlag=0;$DepartmentNum=0;
+                        $WeigthFlag=0;$WeightQty=0;
+					    echo "\nSpare=".($Spare=getvalue(fetch($content,3)));
+					}
+                    echo "\nComponent $bytesRead bytes read: OK";flush();
+                    if ($checkOnlyMode){ob_end_clean();} 
+
+					$CompAmount = $CompAmount/100;
+                    if ($CompAmount<0){
+                        $CompAmount=abs($CompAmount);
+                        $StockAmount=-1*$StockAmount;
+                    }
+
+					$CompCashDiscount=$CompCashDiscount/100;
+					$CompDiscount=$CompDiscount/100;
+                    $AmountPercentDiscount=$AmountPercentDiscount/100;
+
+					$CompAmountAfterDiscount = $CompAmount;
+					if ($CompCashDiscount!=0){
+						$CompAmountAfterDiscount = $CompAmount - $CompCashDiscount;
+					}
+					elseif ($TranDiscount!=0){
+						$CompAmountAfterDiscount = $CompAmount - ($CompAmount*$CompDiscount/100);
+					}
+
+					$TotalCompAmount += $CompAmountAfterDiscount;
+
+					//add componemt to DB
+                    if (!$checkOnlyMode)
+                    {
+					    $sql = "INSERT INTO transactioncomponents
+					    (trans_id, CompAmount, CompCashDiscount, CompDiscount, CodeFlag, PluCode, StockAmount,
+                        DiscountType,SecondDiscFlag,SecondFreeFlag,OtherDiscountFlag,ClubDiscount,AmountPercentDiscount,
+                        DepartmentFlag,DepartmentNum,WeigthFlag,WeightQty)
+					    VALUES ('$transid', '$CompAmount', '$CompCashDiscount', '$CompDiscount', '$CodeFlag', '$PluCode', '$StockAmount',
+                            '$DiscountType','$SecondDiscFlag','$SecondFreeFlag','$OtherDiscountFlag','$ClubDiscount','$AmountPercentDiscount',
+                            '$DepartmentFlag','$DepartmentNum','$WeigthFlag','$WeightQty')";
+					    if ($conn->Execute($sql)===false){
+						    echo $conn->ErrorMsg()."<br>".$sql;
+					    };
+
+					    $compid = $conn->Insert_ID();
+
+					    //find product ID for component
+					    $ADODB_FETCH_MODE = ADODB_FETCH_ASSOC;
+					    $sql = "SELECT l.ID,grams_rate,l.is_tree from 
+                            listingsDB l, $TABLE_UNITS u
+                            where 
+                            u.id = unit and 
+                            l.barcode = '".trim($PluCode)."' and 
+                            l.user_id = $stockuserid";
+
+					    $rss = DBQuery($sql);
+                        echo $rss->Fields("ID");
+					    if ($rss->EOF)
+                        {
+                            $isTree=false;
+						    //create product
+						    $sql = "INSERT INTO listingsDB (user_ID, Title, creation_date, last_modified, active,lastinserted,BarCode,SalePrice)
+                             VALUES
+						    ($stockuserid, 'פריט ".trim($PluCode)."',now(),unix_timestamp(),'yes',unix_timestamp(),'".addslashes(trim($PluCode))."','$CompAmount')";
+						    DBQuery($sql);
+						    $listingID = $conn->Insert_ID();
+						    echo "\nCreated product with code $PluCode";flush();
+					    }
+					    else
+                        {
+						    $listingID = $rss->Fields("ID");
+                            $isTree = $rss->Fields("is_tree");
+					    }
+					    DBQuery("UPDATE transactioncomponents set listing_id = ".$listingID." where ID = ".$compid);
+
+					    //update quantity
+                        if($rss->fields["grams_rate"] && $StockAmount && !$WeigthFlag)
+                        {
+                            //if StockAmount specified and wightflag is not specified and product is weigth-based, 
+                            //then assume StockAmount is a weight in kilograms or grams
+                            $StockAmount = $StockAmount*(($GramsKiloFlag)?1:1000);   
+                        }
+
+                        $soldquantity = ($WeigthFlag==1)?$WeightQty:$StockAmount;
+                        
+                        if ($isTree)
+                        {
+                            
+                            $childProducts = DBQuery("select t.listing_id, t.quantity, barcode ,
+                            ifnull(lse.saleprice,l.saleprice) as saleprice
+                            from listings_tree t 
+                            left outer join listingsStocksElements lse on lse.stockid = $stockid and lse.listingid = t.listing_id
+                            ,listingsDB l 
+                            where l.id = t.listing_id and master_id = ".$listingID);
+                            while (!$childProducts->EOF)
+                            {
+                                $ChildPluCode = $childProducts->Fields("barcode");
+                                $ChildListingID = $childProducts->Fields("listing_id");
+                                $ChildQty = $childProducts->Fields("quantity")*$StockAmount;
+                                $ChildPrice = $childProducts->Fields("saleprice");
+                                
+                                //insert dummy record into transactioncomponents
+                                $sql = "INSERT INTO transactioncomponents
+					            (trans_id, listing_id, CompAmount, CompCashDiscount, CompDiscount, CodeFlag, PluCode, StockAmount,
+                                DiscountType,SecondDiscFlag,SecondFreeFlag,OtherDiscountFlag,ClubDiscount,AmountPercentDiscount,
+                                DepartmentFlag,DepartmentNum,WeigthFlag,WeightQty,MasterID)
+					            VALUES ('$transid', '$ChildListingID','$ChildPrice', '$CompCashDiscount', '$CompDiscount', '$CodeFlag', '$ChildPluCode', '$ChildQty',
+                                '$DiscountType','$SecondDiscFlag','$SecondFreeFlag','$OtherDiscountFlag','$ClubDiscount','$AmountPercentDiscount',
+                                '$DepartmentFlag','$DepartmentNum','$WeigthFlag','$WeightQty',$compid)";
+                                DBQuery($sql);
+                                
+                                //update quantities of child products
+								if ($RefundMode!=2)	//if not Shovar Achlafa
+								{
+									updateStock($ChildListingID,$stockid,$ChildQty,$IsRefund,$JournalNum,$TranNum,$TDate);
+								}
+                                
+                                $childProducts->MoveNext();
+                            }
+                            DBQuery("update transactioncomponents set IsTree = 1 where id = $compid");
+                            
+                        }
+                        else
+                        {
+							if ($RefundMode!=2)	//if not Shovar Achlafa
+							{
+								//update quantity of product itself
+								$refund = $IsRefund || $RefundMode;
+								updateStock($listingID,$stockid,$soldquantity,$refund,$JournalNum,$TranNum,$TDate);
+							}
+                        }
+                    }
+
+					$rs->Close();
+				}           
+
+				//read payments
+				$continue=true;
+				$totalPayed = 0;
+				for ($pmt=1;$pmt<=$PaymntCount;$pmt++)
+				{
+					if (!$continue)break;
+					$bytesRead = 0;
+                    if ($checkOnlyMode){ob_start();} 
+					echo "<hr>PAYMENT $pmt FROM $PaymntCount OF TRANSACTION $trans";flush();
+					echo "\nID=".($ID=getvalue(fetch($content,1)));
+					echo "\nPaymtID $bytesRead byte read: OK";
+                    if ($checkOnlyMode){ob_end_clean();} 
+					$bytesRead = 0;
+					$CashSum = "";
+					$ChequeSum = "";
+					$FullData = "";
+					$ChequeNumber = "";
+					$PayDate = "";
+					$BankNo = "";
+					$BankDeptNo = "";
+					$BankCntNo = "";
+					$Spare = "";
+					$CouponSum = "";
+					$CouponNumber = "";
+					$FrnCurrSum = "";
+					$TCourse = "";
+					$CurrencyId = "";
+					$IsInShekels = "";
+					$CreditCardSum="";
+					$FirstPayment="";
+					$OtherPayment="";
+					$CardNum="";
+					$ExpDate="";
+					$CreditTerms="";
+					$CompanyNum="";
+					$NumPayments="";
+					$TranCode="";
+					$TranTyp="";
+					$AuthorizCode="";
+					$Currency="";
+					$AuthorizNo="";
+                    $Track2="";
+                    $Track2Len="";
+                    $FileNum="";
+                    $CTransCount="";
+                    $ClubCode="";
+                    $ComReason="";
+                    $CochavAmount="";
+                    $HakafaSum="";
+                    $CustID="";
+					$err=false;
+					switch ($ID)
+                    {
+						case 1:
+                            if ($checkOnlyMode){ob_start();} 
+							echo "\nPAYMENT $pmt DETAILS - CashPayment";
+							echo "\nCashSum=".($CashSum=getvalue(fetch($content,4)));
+                            if ($isSecondVersion)
+                            {
+                                echo "\nSpare=".($Spare=getvalue(fetch($content,2)));
+                            }
+							echo "\nPayment $bytesRead bytes read: OK";
+                            if ($checkOnlyMode){ob_end_clean();} 
+							break;
+						case 2:
+                            if ($checkOnlyMode){ob_start();} 
+							echo "\nPAYMENT $pmt DETAILS - ChequePayment";
+							echo "\nChequeSum=".($ChequeSum=getvalue(fetch($content,4)));
+							echo "\nFullData=".($FullData=getvalue(fetch($content,1)));
+							echo "\nChequeNumber=".($ChequeNumber=fetch($content,8));
+							echo "\nPayDate=".($PayDate=fetch($content,7));
+							echo "\nBankNo=".($BankNo=fetch($content,3));
+							echo "\nBankDeptNo=".($BankDeptNo=fetch($content,4));
+							echo "\nBankCntNo=".($BankCntNo=fetch($content,12));
+                            if ($isSecondVersion)
+                            {
+                                echo "\nSpare=".($Spare=getvalue(fetch($content,3)));
+                            }
+                            else
+                            {
+                                echo "\nSpare=".($Spare=getvalue(fetch($content,1)));
+                            }
+							echo "\nPayment $bytesRead bytes read: OK";
+                            if ($checkOnlyMode){ob_end_clean();} 
+							break;
+						case 3:
+                            if ($checkOnlyMode){ob_start();} 
+							echo "\nPAYMENT $pmt DETAILS - CuponPayment";
+							echo "\nCouponSum=".($CouponSum=getvalue(fetch($content,4)));
+							echo "\nCouponNumber=".($CouponNumber=getvalue(fetch($content,4)));
+                            if ($isSecondVersion)
+                            {
+								echo "\nIsRefundVoucher=".($IsRefundVoucher=getvalue(fetch($content,1)));
+								echo "\nIsChangingVoucher=".($IsChangingVoucher=getvalue(fetch($content,1)));
+                            }
+							echo "\nPayment $bytesRead bytes read: OK";
+                            if ($checkOnlyMode){ob_end_clean();} 
+							break;
+						case 4:
+                            if ($checkOnlyMode){ob_start();} 
+							echo "\nPAYMENT $pmt DETAILS - FrnCurrPayment";
+							echo "\nFrnCurrSum=".($FrnCurrSum=getvalue(fetch($content,4)));
+							echo "\nTCourse=".($TCourse=getvalue(fetch($content,4))/10000);
+							echo "\nCurrencyId=".($CurrencyId=getvalue(fetch($content,2)));
+							echo "\nIsInShekels=".($IsInShekels=getvalue(fetch($content,1)));
+                            if ($isSecondVersion)
+                            {
+                                echo "\nSpare=".($Spare=getvalue(fetch($content,3)));
+                            }
+                            else
+                            {
+                                echo "\nSpare=".($Spare=getvalue(fetch($content,1)));
+                            }
+							echo "\nPayment $bytesRead bytes read: OK";
+                            if ($checkOnlyMode){ob_end_clean();} 
+							break;
+						case 5: 
+						case 8: //isracard gift card
+                            if ($checkOnlyMode){ob_start();} 
+							echo "\nPAYMENT $pmt DETAILS - CreditCardPayment";
+							echo "\nCreditCardSum=".($CreditCardSum=getvalue(fetch($content,4)));
+							echo "\nFirstPayment=".($FirstPayment=getvalue(fetch($content,4)));
+							echo "\nOtherPayment=".($OtherPayment=getvalue(fetch($content,4)));
+							echo "\nCardNum=".($CardNum=fetch($content,20));
+							echo "\nExpDate=".($ExpDate=fetch($content,5));
+							echo "\nCreditTerms=".($CreditTerms=getvalue(fetch($content,1)));
+							echo "\nCompanyNum=".($CompanyNum=getvalue(fetch($content,1)));
+							echo "\nNumPayments=".($NumPayments=getvalue(fetch($content,1)));
+							echo "\nTranCode=".($TranCode=getvalue(fetch($content,1)));
+							echo "\nTranType=".($TranType=getvalue(fetch($content,1)));
+							echo "\nAuthorizCode=".($AuthorizCode=getvalue(fetch($content,1)));
+							echo "\nCurrency=".($Currency=getvalue(fetch($content,1)));
+							echo "\nAuthorizNo=".($AuthorizNo=fetch($content,8));
+                            if ($isSecondVersion)
+                            {
+                                echo "\nTrack2=".($Track2=fetch($content,39)); 
+                                echo "\nTrack2Len=".($Track2Len=getvalue(fetch($content,1)));
+                                echo "\nFileNum=".($FileNum=getvalue(fetch($content,1)));
+                                echo "\nCTransCount=".($CTransCount=getvalue(fetch($content,2)));
+                                echo "\nClubCode=".($ClubCode=getvalue(fetch($content,1)));
+                                echo "\nComReason=".($ComReason=getvalue(fetch($content,1)));
+                                echo "\nCochavAmount=".($CochavAmount=getvalue(fetch($content,4)));
+                                echo "\nSpare=".($Spare=getvalue(fetch($content,2)));
+                            }
+							echo "\nPayment $bytesRead bytes read: OK";
+                            if ($checkOnlyMode){ob_end_clean();} 
+							break;
+                        case 7:    
+                            if ($checkOnlyMode){ob_start();} 
+                            echo "\nPAYMENT $pmt DETAILS - HakafaPayment";
+                            echo "\nHakafaSum=".($HakafaSum=getvalue(fetch($content,4)));
+                            echo "\nCustID=".($CustID=getvalue(fetch($content,2)));
+                            echo "\nSpare=".($Spare=getvalue(fetch($content,2)));
+                            if ($checkOnlyMode){ob_end_clean();} 
+                            break;
+						default:
+							if ($IgnoreTransErrors)
+                            {
+								echo "\n<font color=red>ERROR</font> - UNKNOWN PAYMENT CODE! ($ID). Skipping to next transaction.";
+                                $title = "TRANS file error.";
+                                $message = "Unknown payment code, skipping to next transaction";
+                                mailAdmin($title, $message);
+								//try to find next transaction
+								$datepos = strpos($content,$JournalDate,$bytesRead);
+								if ($datepos)
+                                {
+									$content = substr($content,$datepos-20);
+									//$sfile = fopen($termdir."/test.dat","w");
+									//fwrite($sfile,$content);
+									//fclose($sfile);
+									$bytesRead=0;
+								}
+								else
+								{
+									echo("\nCannot locate next transaction by anchor '$JournalDate' - cannot continue.");
+                                    $title = "TRANS file error.";
+                                    $message = "Transaction file is corrupted or has ended unexpectedly";
+                                    mailAdmin($title, $message);
+									$continue=false;
+								}
+								$err=true;
+							}
+							else
+                            {
+								//if ($conn->Execute("ROLLBACK")===false)
+                                //{
+								//   echo $conn->ErrorMsg()."<br>".$sql;
+								//}
+								echo "\n<font color=red>ERROR</font> - UNKNOWN PAYMENT CODE! ($ID). Transaction has rolled back.";
+                                $title = "TRANS file error.";
+                                $message = "Transaction file is corrupted or has ended unexpectedly";
+                                mailAdmin($title, $message);
+								$continue=false;
+                                if ($checkOnlyMode){return false;}
+								break;
+							}
+							break;
+					} //end switch paymtID
+					flush();
+					if (!$continue)break;
+					//add payment to DB
+					$PDate = makedate1($PayDate);
+
+					if (!$err){
+						$Cnum = ltrim(trim($CardNum),"0");
+						//assign always certain numbers to Isracard - patch
+						/*
+						if ((substr($Cnum,0,4)=="5326" || 
+                             substr($Cnum,0,4)=="5521" ||
+                             substr($Cnum,0,4)=="5189" 
+                            ) && ($CompanyNum==2||$CompanyNum==6))
+                        {
+							$CompanyNum=1;
+						}
+						*/
+						//end patch
+						$CardNum = substr(trim($CardNum),strlen(trim($CardNum))-4);
+						$CashSum = $CashSum/100;
+						$ChequeSum = $ChequeSum/100;
+						$FrnCurrSum = $FrnCurrSum/100;
+						$CreditCardSum = $CreditCardSum/100;
+						$CouponSum = $CouponSum/100;
+                        $HakafaSum = $HakafaSum/100;
+                        $CochavAmount = $CochavAmount/100;
+						$FirstPayment = $FirstPayment/100; 
+						$OtherPayment = $OtherPayment/100;
+
+						$totalPayed += $CashSum+$ChequeSum+$FrnCurrSum+$CreditCardSum+$CouponSum+$HakafaSum;
+
+                        if (!$checkOnlyMode)
+                        {
+						    $sql = "INSERT INTO transactionpayments
+						    (trans_id, PaymID, CashSum, ChequeSum, FullData, ChequeNumber, PayDate, BankNo, BankDeptNo, BankCntNo, CouponSum, CouponNumber, FrnCurrSum, TCourse, CurrencyID, IsInShekels,
+						    CreditCardSum, FirstPayment, OtherPayment, CardNum, ExpDate, CreditTerms, CompanyNum, NumPayments, TranCode, TranType, AuthorizCode, Currency, AuthorizNo,
+                            Track2,Track2Len,FileNum,CTransCount,ClubCode,ComReason,CochavAmount,HakafaSum,CustID,IsRefundVoucher,IsChangingVoucher)
+						    VALUES ('$transid', '$ID', '$CashSum', '$ChequeSum', '$FullData', '$ChequeNumber', '$PDate', '$BankNo', '$BankDeptNo', '$BankCntNo', '$CouponSum', '$CouponNumber', '$FrnCurrSum', '$TCourse', '$CurrencyID', '$IsInShekels',
+						    '$CreditCardSum', '$FirstPayment', '$OtherPayment', '$CardNum', '$ExpDate', '$CreditTerms', '$CompanyNum', '$NumPayments', '$TranCode', '$TranType', '$AuthorizCode', '$Currency', '$AuthorizNo',
+                            '$Track2','$Track2Len','$FileNum','$CTransCount','$ClubCode','$ComReason','$CochavAmount','$HakafaSum','$CustID','$IsRefundVoucher','$IsChangingVoucher')";
+						    if ($conn->Execute($sql)===false){
+							    echo $conn->ErrorMsg()."<br>".$sql;
+						    }
+                        }
+					}
+
+				} //end of loop payuments
+
+				if (!$continue)break;
+				//echo "\nTotalCompAmount=".$TotalCompAmount;
+				$TranAmountAfterDiscount = $TranAmount;
+				$TotalCompAmountAfterDiscount = $TotalCompAmount;
+
+				$chn = str_pad( $JournalNum*10000+$TranNum , 8,"0",PAD_LEFT);
+
+				if ($TranCashDiscount!=0){
+					$TranAmountAfterDiscount = $TranAmount - $TranCashDiscount;
+					$TotalCompAmountAfterDiscount = $TotalCompAmount - $TranCashDiscount;
+				}
+				elseif ($TranDiscount!=0){
+					$TranAmountAfterDiscount = $TranAmount - ($TranAmount*$TranDiscount/100);
+					$TotalCompAmountAfterDiscount = $TotalCompAmount - ($TotalCompAmount*$TranDiscount/100);
+				}
+				if (!$RefundMode && round($totalPayed-$Change,2)!=round($TranAmountAfterDiscount,2)){
+					echo "\n<font color=red>WARNING</font>: Deal $chn, Payment (".($totalPayed*100).") - Change (".($Change*100).") differs from TransactionAmount (".($TranAmountAfterDiscount*100).")! Difference is ".Round(($totalPayed-$Change-$TranAmountAfterDiscount)*100,2);flush();
+					if ($TotalCompAmountAfterDiscount == $totalPayed-$Change){
+                        if ($checkOnlyMode){ob_start();} 
+ 						echo "\nTotal amount of components seems OK (".($TotalCompAmount*100)."); TranAmount has been corrected.";
+                        if ($checkOnlyMode){ob_end_clean();}                        
+                        if (!$checkOnlyMode)
+                        {
+						    $sql = "UPDATE transactions set tranamount = $TotalCompAmount where id = $transid";
+						    if ($conn->Execute($sql)===false){
+							    echo $conn->ErrorMsg()."<br>".$sql;
+						    }
+                        }
+					}
+					else{
+                        if (abs($totalPayed-$Change-$TranAmountAfterDiscount)>2){//raznica bolshe 2 agorot
+							echo "\nCannot correct; message has been mailed to $config[admin_email]";
+							$message = "Date: ".date("d/m/Y H:i");
+							$message .= "\nTerminalID: ".$TerminalID;
+							$message .= "\nFile: ".$infile;
+							$message .= "\nPackage: ".$JournalNum;
+							$message .= "\nTransaction: ".$trans;
+							$message .= "\nERROR: Deal $chn, Payment (".($totalPayed*100).") - Change (".($Change*100).") differs from TransactionAmount (".($TranAmountAfterDiscount*100).")! Difference is ".Round(($totalPayed-$Change-$TranAmountAfterDiscount)*100,2)." Cannot correct!";
+                            $title = "TRANS amount difference.";
+                            mailAdmin($title, $message);
+                        }
+					}
+				}
+
+			} //end of loop transactions
+
+
+            //update latestsyncquantity for all items
+            if (!$checkOnlyMode){ 
+			    if ($workmode == "A" && !$updateQtyFromPludata){
+				    $sql = "update listingsStocksElements set latestSyncQuantity=Quantity where stockid = $stockid";
+				    if ($conn->Execute($sql)===false){
+					    echo $conn->ErrorMsg()."<br>".$sql;
+				    };
+				    echo "\nQuantities synchronized.";flush();
+			    }
+            }
+
+            if (!$IgnoreTransErrors) {
+				//if ($conn->Execute("COMMIT")===false){
+				//	echo $conn->ErrorMsg()."<br>".$sql;
+				//}
+            }
+
+            if ($checkOnlyMode){ob_start();} 
+			echo "<hr>END OF TRANSACTIONS FILE $fname";	flush();
+            if ($checkOnlyMode){ob_end_clean();}             
+            
+            if ($checkOnlyMode){
+			echo "VERIFIED OK";flush();
+            }
+            //$title = "TRANS OK.";
+            //$message = $title;
+            //mailAdmin($title, $message);
+			return true;
+
+	  } // end if terminal not found
+	}
+	else//end of if fopen...
+	{
+		echo "Error reading: ".$infile;flush();
+	}
+	return false;
+}
+
+
+function PutExpDateFile($termdir,$termId)
+{
+    global $conn,$TABLE_LISTINGSSTOCKS;
+    $content="";
+	$sql = "select user_id from $TABLE_LISTINGSSTOCKS where id = $termId";
+	$rss = $conn->Execute($sql);
+	if ($rss === false){log_error($sql);}
+	$userID = $rss->Fields("user_id");
+    $filename = $termdir."/expdate";
+    
+    $sql = "select * from discount_expirations where user_id = $userID order by sortorder";
+    $listings = $conn->Execute($sql);
+    if ($listings === false){log_error($sql);}
+    if (!$listings->EOF)
+    {
+        //put first record (unlimited);
+        $content.=putValue(1,1);
+        $content.=putValue(1,1);
+        $content.=putValue(0,1);
+        $content.=putValue(0,1);
+        $content.=putValue(0,1);     
+        $cnt=1;   
+        while (!$listings->EOF && $cnt<=6)
+        {
+            $unilimited = 0;
+            if ($listings->Fields("expdate") && $listings->Fields("expdate")!="0000-00-00")
+            {
+                $datearr = explode("-",$listings->Fields("expdate"));
+                $year = intval(substr($datearr[0],2,2));
+                $month = intval($datearr[1]);
+                $day = intval($datearr[2]);
+                $active = 1;
+            }
+            else
+            {
+                $active = $day = $month = $year = 0;
+            }
+            $content.=putValue($active,1);
+            $content.=putValue($unilimited,1);
+            $content.=putValue($day,1);
+            $content.=putValue($month,1);
+            $content.=putValue($year,1);
+            $listings->MoveNext();$cnt++;
+        } 
+    }   
+    
+    if ($content)
+    {
+	    $plufile = fopen($filename,"w");
+	    if (!$plufile)
+        {
+		    echo "\n<font color=red>ERROR</font> - Cannot create file $filename";flush();
+	    }
+	    else
+	    {
+		    fwrite($plufile,$content);
+		    fclose($plufile);
+		    $old_umask = umask(000);
+		    chmod($plufile,0777);
+		    umask($oldumask);
+		    echo "<hr>File EXPDATE created, ".filesize($filename)." Bytes OK";flush();
+	    }
+    }
+}
+
+function PutOtherPluFile($termdir,$termId)
+{
+    global $conn,$TABLE_LISTINGSSTOCKS;
+    $content="";
+	$sql = "select user_id from $TABLE_LISTINGSSTOCKS where id = $termId";
+	$rss = $conn->Execute($sql);
+	if ($rss === false){log_error($sql);}
+	$userID = $rss->Fields("user_id");
+    $filename = $termdir."/otherPlu";
+    
+    $sql = "select dl.id, l.barcode from  discount_listing dl 
+    left outer join listingsDB l on l.id = dl.listing_id
+    where dl.user_id = $userID order by sortorder";
+    $listings = $conn->Execute($sql);
+    if ($listings === false){log_error($sql);}
+    if (!$listings->EOF)
+    {
+        while (!$listings->EOF)
+        {
+             $barcode = $listings->Fields("barcode");
+             if ($barcode)
+             {
+                $content.=putValue(1,1);
+                $content.=str_pad(substr($barcode,0,18),18,chr(0),STR_PAD_RIGHT);
+             }
+             else
+             {
+                $content.=putValue(0,1);
+                $content.=str_repeat(chr(0),18);
+             }
+             $listings->MoveNext();
+        } 
+    }   
+    
+    if ($content)
+    {
+	    $plufile = fopen($filename,"w");
+	    if (!$plufile)
+        {
+		    echo "\n<font color=red>ERROR</font> - Cannot create file $filename";flush();
+	    }
+	    else
+	    {
+		    fwrite($plufile,$content);
+		    fclose($plufile);
+		    $old_umask = umask(000);
+		    chmod($plufile,0777);
+		    umask($oldumask);
+		    echo "<hr>File OTHERPLU created, ".filesize($filename)." Bytes OK";flush();
+	    }
+    }
+}
+
+//Fmode: A, U, D, D+, ""
+function PutCodesFile($filename,$termId,$workmode,$fmode,$lastpludta,$updateQtyFromPludata,$termVersion){
+	global $filemode,$conn,$TABLE_LISTINGSSTOCKS;
+	$content = "";
+	$fname = substr($filename,strrpos($filename,"/")+1);
+    $recordlen = ($termVersion==2)?49:45;
+	$sql = "select user_id,pricelist_id,SendExistingOnly from $TABLE_LISTINGSSTOCKS where id = $termId";
+	$rss = DBQuery($sql);
+	$userID = $rss->fields["user_id"];
+    $pricelistID = $rss->fields["pricelist_id"];
+    $sendOnlyExistingStock = $rss->fields["SendExistingOnly"];
+
+	//prepare new items
+
+	$sql = "
+			SELECT
+				l.ID,
+				l.Title,
+                l.discount,
+                l.discount_type,
+                l.is_tree,
+                l.no_general_discount,
+                Unit,
+				BarCode,
+				SalePrice,
+				Quantity,
+				ifnull(c.CategoryCode,0) as CategoryCode,
+				StockMin as MinStock,
+                (case when de.sortorder is null then 0 else de.sortorder+1 end) as DateExpIndex,
+                dl.sortorder as OtherPluIndex
+			FROM
+				listingsDB l
+            LEFT OUTER JOIN listingsCategories c ON c.ID = ProductGroup
+			LEFT OUTER JOIN discount_expirations de ON de.ID = l.discount_expiration_id
+			LEFT OUTER JOIN discount_listing dl ON dl.ID = l.discount_listing_id
+			WHERE
+                BarCode <> '' and
+				l.user_id = $userID ";
+		if (trim($lastpludta) == "")
+        {
+			$lastpludta = 0;
+		}
+        
+        
+		if ($fmode==""){
+			$sql.=	" and l.active = 'yes' ";
+		}
+		elseif ($fmode=="A")
+		{
+			$sql.=	" and l.active = 'yes' and l.lastinserted > $lastpludta ";
+		}
+		elseif ($fmode=="U")
+		{
+			$sql.=	" and l.active = 'yes' and l.lastupdated > $lastpludta ";
+		}
+		elseif ($fmode=="D")
+		{
+			$sql.=	" and l.lastdeleted > $lastpludta ";
+		}
+		elseif ($fmode=="D+")
+		{
+			$sql.=	" and l.active = 'no' ";
+		}
+		//echo ("--".$fmode."---".$sql);
+        $rss = $conn->Execute($sql);
+		if ($rss === false){log_error($sql);}
+
+		$today = getdate();
+
+		$cnt = 0;
+		while (!$rss->EOF)
+		{
+
+			if ($workmode=="A")
+            {
+				$psql = "select Quantity,SalePrice,MinStock from listingsStocksElements where listingid = ".$rss->fields["ID"]." and stockid = $termId";
+				$prss = $conn->Execute($psql);
+				if ($prss === false){log_error($psql);}
+				if (!$prss->EOF){
+					if($prss->fields["SalePrice"]>0) {
+						$rss->fields["SalePrice"] = $prss->fields["SalePrice"];
+					}
+					if($prss->fields["MinStock"]>0) {
+						$rss->fields["MinStock"] = $prss->fields["MinStock"];
+					}
+					$rss->fields["Quantity"] = $prss->fields["Quantity"];
+				}
+				else{
+					$rss->fields["Quantity"] = 0;
+				}
+			}
+			//set quantity to 1 if quantity is negative (by Ilya request 24.03.2005)
+			//if full file and A+
+			if ($fmode=="" && $workmode == "A" && !$updateQtyFromPludata)
+			{
+				if ($rss->fields["Quantity"] < 0)
+				{
+					$rss->fields["Quantity"] = 1;
+				}
+			}
+			
+			if ($rss->fields["Quantity"] == 0 && $sendOnlyExistingStock)
+			{
+				$rss->MoveNext();
+				continue;
+			}
+            
+            //calculate price for compound products
+            if ($rss->Fields("is_tree"))
+            {
+                if ($workmode=="A")
+                {
+                    $sql = "select l.id as listing_id,t.discount,t.quantity,
+                    ifnull(lse.saleprice,l.saleprice)*t.quantity*(100-t.discount)/100 as total 
+                    from listings_tree t
+                    left outer join listingsStocksElements lse on lse.listingid = t.listing_id and lse.stockid = $termId
+					,listingsDB l
+                    where master_id = ".$rss->fields["ID"]." and l.id = t.listing_id ";
+                }
+                else
+                {
+                    $sql = "select l.id as listing_id,t.discount,t.quantity,
+                    l.saleprice*t.quantity*(100-t.discount)/100 as total 
+                    from listings_tree t, listingsDB l
+                    where master_id = ".$rss->fields["ID"]." and l.id = t.listing_id ";
+                }
+                $trRS=DBQuery($sql);
+                $tottree = 0;
+                while (!$trRS->EOF)
+                {
+                    if($pricelistID)
+                    {
+                        //die("--".$trRS->fields["listing_id"]."-".$pricelistID);
+                        $tottree += GetPriceByPricelist($trRS->fields["listing_id"],$pricelistID) * $trRS->fields["quantity"] * (100-$trRS->fields["discount"])/100;
+                    }
+                    else
+                    {
+                        $tottree += $trRS->Fields("total");
+                    }
+                    $trRS->MoveNext();
+                }
+                $rss->fields["SalePrice"] = round($tottree,2);
+            }
+            else               
+            {
+                //calculate price according to terminal pricelist - for simple products
+                if($pricelistID)
+                {
+                    $rss->fields["SalePrice"] = GetPriceByPricelist($rss->fields["ID"],$pricelistID);
+                }
+            }
+            //die($rss->fields["SalePrice"]);
+            
+            if (!preg_match('/^([\d]*)$/',$rss->fields["BarCode"]))
+            {
+	           	echo "\n<font color=blue>WARNING</font> - Non-numeric barcode for item ID=".$rss->fields["ID"]." BarCode=".$rss->fields["BarCode"].", record is skipped.";flush();
+				$rss->MoveNext();
+				continue;
+			}
+			elseif (strlen($rss->fields["BarCode"])>13)
+			{
+				echo "\n<font color=blue>WARNING</font> - Barcode is too long for item ID=".$rss->fields["ID"]." BarCode=".$rss->fields["BarCode"].", record is skipped.";flush();
+				$rss->MoveNext();
+				continue;
+			}
+            
+			//echo "<br>Bar=".$rss->fields["BarCode"]." ID=".$rss->fields["ID"]." Price=".$rss->fields["SalePrice"];
+			//PLUCode 8 
+            $length = strlen($content);
+            $prevcontent = $content;
+			$content.=FromPLUCode($rss->fields["BarCode"],8);
+			//IsWeight,Deleted
+            $isWeight = ($rss->fields["Unit"]==1||$rss->fields["Unit"]==2)?1:0;
+            $deleted = 0;
+            $IsWeightDeletedFlags =  ToBinary($isWeight,1);  
+            $IsWeightDeletedFlags .= ToBinary($deleted,1);  
+            $IsWeightDeletedFlags .= ToBinary(0,14);  //spare 
+		    $content.=putValue(ToDecimal($IsWeightDeletedFlags),2);
+			//Department_code 2
+			$CategoryCode=($rss->fields["CategoryCode"])?$rss->fields["CategoryCode"]:0;
+            $CategoryCode = substr($CategoryCode,0,2);
+			$content.=putValue($CategoryCode,2);
+			//Amount 4
+			$SalePrice=($rss->fields["SalePrice"])?$rss->fields["SalePrice"]:0;
+			$content.=putValue($SalePrice*100,4);
+			//Name 16
+			$content.=decodeToDOSHeb(str_replace("'","",substr($rss->fields["Title"],0,15)),16);
+			if ($termVersion==2)
+            {
+                //Discount BitFlags 2
+                $DiscountType = $rss->Fields("discount_type");
+                $OtherPluIndex = ($DiscountType==3)?($rss->Fields("OtherPluIndex")?$rss->Fields("OtherPluIndex"):0):15;
+                $DateExpIndex  = ($DiscountType!=0)?($rss->Fields("DateExpIndex")?$rss->Fields("DateExpIndex"):0):7;
+                $NoGeneralDiscount = $rss->Fields("no_general_discount");
+                
+                $discountFlags = ToBinary($DiscountType,3);
+                $discountFlags .= ToBinary($OtherPluIndex,4);
+                $discountFlags .= ToBinary($DateExpIndex,3);
+                $discountFlags .= ToBinary($NoGeneralDiscount,1);
+                $discountFlags .= ToBinary(0,5); //spare
+			    $content.=putValue(ToDecimal($discountFlags),2);
+			    //TODO: PercentAmountiscount 2
+                $Discount = ($rss->Fields("discount"))?$rss->Fields("discount"):0;
+                if ($DiscountType!=4)$Discount=$Discount*100;
+			    $content.=putValue(round($Discount),2);
+            }
+			//LastDayOfUpdate 1
+			$content.=putValue($today['mday'],1);
+			//LastMonthOfUpdate 1
+			$content.=putValue($today['mon'],1);
+			//LastYearOfUpdate 2
+			$content.=putValue($today['year'],2);
+			//StockAmount 4
+			$Quantity=$rss->fields["Quantity"];
+			$content.=putValue($Quantity,4);
+			//MinimumStk 4
+			$minStock=($rss->fields["MinStock"])?$rss->fields["MinStock"]:0;
+			$content.=putValue($minStock,4);
+			//Spare 0
+			$content.=putValue(0,1);
+
+			$sql = "UPDATE listingsStocksElements set
+					LatestSyncQuantity = Quantity, LatestSyncDate = UNIX_TIMESTAMP()
+					WHERE ListingID = ".$rss->fields["ID"]." AND StockID = ".$termId;
+			if ($conn->Execute($sql)===false){
+				echo $conn->ErrorMsg()."<br>".$sql;
+			};
+
+            //invalid record length: warn and rollback current record and counter.
+            if(($diff = strlen($content) - $length) != $recordlen){
+            	echo "\n<font color=blue>WARNING</font> - Invalid record length ($diff) for item ID=".$rss->fields["ID"]." BarCode=".$rss->fields["BarCode"].", record is skipped.";flush();
+                $content = $prevcontent;
+                $cnt--;
+            }
+
+			$cnt++;
+			$rss->MoveNext();
+		}
+
+	if ($rss->RecordCount()>0){
+		$plufile = fopen($filename,"w");
+		if (!$plufile)
+        {
+			echo "\n<font color=red>ERROR</font> - Cannot create file $filename";flush();
+		}
+		else
+		{
+			fwrite($plufile,$content);
+			fclose($plufile);
+			$old_umask = umask(000);
+			chmod($plufile,0777);
+			umask($oldumask);
+			echo "<hr>File $fname created: $cnt item(s), ".filesize($filename)." Bytes OK";flush();
+		}
+	}
+	else
+    {
+		echo "<hr>File $fname was not created: no suitable records found";flush();
+        return false;
+	}
+    
+    return true;
+
+}
+
+/////////////////////////////////////////////////////////////////
+
+function updateStock($listingID,$stockid,$soldquantity,$IsRefund,$JournalNum,$TranNum,$TDate)
+{
+    global $conn, $workmode, $updateQtyFromPludata;
+    
+    $sign = ($IsRefund=="1")?"+":"-";
+	if ($workmode == "B") 
+    {
+		$sql = "UPDATE listingsDB set Quantity = Quantity $sign $soldquantity where ID = $listingID ";
+		DBQuery($sql);
+	}
+	elseif ($workmode=="A" && !$updateQtyFromPludata)
+    {
+		$psql = "select id,Quantity from listingsStocksElements where listingID = $listingID and stockID = $stockid";
+		$lse = DBQuery($psql);
+		$oldQuantity = $lse->fields["Quantity"];
+		
+		if ($lse->EOF)
+        {
+			$sql = "INSERT INTO listingsStocksElements (ListingID, StockID, Quantity, LatestSyncQuantity,LatestSyncDate) VALUES
+			($listingID, $stockid, 0, 0, UNIX_TIMESTAMP())";
+			DBQuery($sql);
+		}
+		$sql = "UPDATE listingsStocksElements set LatestSyncDate = unix_timestamp(), LatestSyncQuantity = Quantity $sign $soldquantity, Quantity = Quantity $sign $soldquantity where listingID = $listingID and stockID = $stockid";
+        DBQuery($sql);
+	
+		
+		$lse = DBQuery($psql);
+		$newQuantity = $lse->fields["Quantity"];
+		if (floatval($oldQuantity)!=floatval($newQuantity))
+	    {
+			$chn = str_pad( $JournalNum*10000+$TranNum , 8,"0",PAD_LEFT);
+			$sql = "insert into history (timestamp,datetime,type,listing_id,quantity_from,quantity_to,note,stock_id_from,stock_id_to) values 
+			(unix_timestamp(),'$TDate','adjustment',$listingID,'".$oldQuantity."','".$newQuantity."','מכירת קופה #$chn',$stockid,$stockid)";
+			DBQuery($sql);  
+	    } 
+	    
+	} 
+	
+	
+}
+
+function fetch(&$stream,$numbytes){
+	global $bytesRead;
+	$bytesRead+=$numbytes;
+	$result = substr($stream,0,$numbytes);
+	$stream = substr($stream,$numbytes);
+	return $result;
+}
+
+
+
+function makedate($d,$t){
+	$s =  $d[0].$d[1].$d[2].$d[3]."/".$d[4].$d[5]."/".$d[6].$d[7];
+	if ($t) {
+		$s.=" ".$t[0].$t[1].":".$t[2].$t[3];
+	}
+	return $s;
+}
+
+function maketime($t){
+	$s=$t[0].$t[1].":".$t[2].$t[3];
+	return $s;
+}
+
+
+function makedate1($d){
+	$s =  "20".$d[4].$d[5]."/".$d[2].$d[3]."/".$d[0].$d[1];
+	return $s;
+}
+
+
+
+function mailAdmin($title, $message)
+{
+    global $config,$MailUserName,$MailTerminalID;
+        $title .= " User: $MailUserName, Terminal: $MailTerminalID";
+        echo "\nMailed: $title";
+		mail("$config[admin_email]", $title, $message,"From: $config[admin_email]");
+        if($config["admin_email_add"]){
+        	mail("$config[admin_email_add]", $title, $message,"From: $config[admin_email]");
+        }
+}
+
+function explodeByRecords($delimiter,$s)
+{
+	$s = $s.$delimiter;
+	
+	$arr = array();
+	$len = strlen($s);
+	$record = "";
+	$startRecord = false;
+	for($i=0;$i<$len;$i++)
+	{
+		if ($s[$i]=="#")
+		{
+			if ($record!="" && (strlen($record)+1)%7==0)
+			{
+				$arr[] = $record;
+				$record = "";
+			}
+			elseif ($record!="")
+			{
+				$record .= $s[$i];
+			}
+			$startRecord = true;
+		}
+		elseif ($startRecord)
+		{
+			$record .= $s[$i];
+		}
+	}
+	return $arr;
+}
+
+?>

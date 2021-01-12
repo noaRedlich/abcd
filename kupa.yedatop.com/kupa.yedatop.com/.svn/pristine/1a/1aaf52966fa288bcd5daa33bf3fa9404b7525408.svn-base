@@ -1,0 +1,946 @@
+<?php
+
+    $noheader=1;
+	
+	if ($ajaxagent)
+	{
+		include_once("../../classes/agent.php");
+		$agent->init();  
+	}	
+	
+    //ob_start();
+    
+    $firstday = mktime(0,0,0,date("m"),1,date("Y"));
+
+	$stockmode="pro";
+	include("include/common.php");
+	//$xlsfilename="Pro";
+
+
+	if (!PROVIDER_MODE)
+	{ 
+		if (!loginCheck('User'))exit;
+	}
+		
+		
+	if (!$ajaxagent)
+	{
+		include_once("../../classes/agent.php");
+		$agent->init();
+	}
+		
+	global $action, $id, $cur_page, $lang, $conn, $config;
+
+    if (!PROVIDER_MODE && !$UserData->fields["MlaitekProEnabled"]){
+        echo "Access denied!";                                
+        exit;
+    }   
+    
+
+	
+    if ($client){
+        $sql = "select suppliername,Obligo,OpenCheques from listingsSuppliers where id = '$client'";
+    	$clientrs = DBQuery($sql);
+        $clientName =$clientrs->fields["suppliername"];
+        $Obligo = $clientrs->fields["Obligo"];
+        $OpenChequesLimit = $clientrs->fields["OpenCheques"];
+    }
+ 
+	if (!PROVIDER_MODE)
+	{
+		$allowedstocks = "";
+		$allowedStocksRS = GetStocks(false);
+		while(!$allowedStocksRS->EOF)
+		{
+			$allowedstocks.=",".$allowedStocksRS->fields["ID"];
+			$allowedStocksRS->MoveNext();
+		}
+		if ($allowedstocks=="")
+		{
+			$allowedstocks = "-1";	
+		}
+		else
+		{
+			$allowedstocks = substr($allowedstocks,1);
+		}
+	}
+	
+	//include("$config[template_path]/admin_top.html");
+    //ob_end_clean();
+?>
+<head>
+<?$duration=($UserData->Fields("visual_effects"))?2:0;?>
+<meta http-equiv="Page-Enter" content="BlendTrans(Duration=0.<?=$duration?>)">
+<meta http-equiv="content-type" content="text/html; charset=Windows-1255">
+<link href="/themes/blue-grey/style.css" rel="stylesheet" type="text/css">
+<link href="template/vertical-menu/style.css" rel="stylesheet" type="text/css">
+<script src='/javascript/common.js'></script>
+<body topmargin=0 leftmargin=0 scroll=no>
+
+
+<?
+	// total report
+
+		$q="";
+        $qc="";
+
+
+		if ($tabmode=="DOCS"||!$tabmode)
+		{
+			
+			$docStatusesRS = DBQuery("select * from $TABLE_DOCUMENT_STATUS order by sortorder");
+			
+			$sDateSQL=substr($sDate,6,4)."-".substr($sDate,3,2)."-".substr($sDate,0,2);
+			$eDateSQL=substr($eDate,6,4)."-".substr($eDate,3,2)."-".substr($eDate,0,2);
+			if ($client){
+				$q = " and client_id = $client ";
+			}
+			$qc=$q;
+            
+			if ($sDate){
+				$q.=" and doc_date >= '$sDateSQL' ";
+			}
+			if ($eDate){
+				$q.=" and doc_date <= '$eDateSQL' ";
+			}
+            
+            if ($paydate)
+            {
+                $q.=" and payment_date <= '".DateToSQL($paydate)."' and dt.print_paydate = 'PAY_UNTIL' ";
+            }
+            
+            if ($businessnum){
+                $q = " and (s.businessnum = '".addslashes($businessnum)."' or client_businessnum = '".addslashes($businessnum)."')";
+            }
+            
+
+			if ($barcode){ 
+				$q.= "and exists (select id from document_products where barcode like '".addslashes(str_replace("*","%",$barcode))."' and doc_id = d.id)";
+			}
+			if ($serial){
+				$q.= "and exists (select id from document_serials where serial='".addslashes($serial)."' and doc_id = d.id)";
+			}
+			if ($dstatus){
+				$q.= "and d.doc_status = $dstatus ";
+			}
+			if ($amount){
+				$q .= "and d.amount='".addslashes($amount)."'";
+			}
+                        if ($vatfree)
+                        {
+                            $q.=" and d.vat = 0 ";
+                        }
+
+			if ($cnum){
+				if ($cnum1){
+					$q.= " and doc_number between '".addslashes($cnum)."' and '".addslashes($cnum1)."' ";
+				} 
+				else{
+					$q.=" and doc_number = '".addslashes($cnum)."' ";
+				}
+			}
+			elseif (!$cnum && $cnum1){
+					$q.=" and doc_number < '".addslashes($cnum1)."' ";
+			}
+			if ($asmacta)
+			{
+				$q.=" and d.comment like '".str_replace("*","%",addslashes($asmacta))."'";
+			}
+			if ($dt)
+			{
+				$q.=" and doc_type='$dt' ";
+			}
+            /*
+            else
+            {
+                //don't show SFIRAT MLAI and HAAVARAT PRITIM documents if no document type selected
+                 $q.=" and doc_type not in ('SFIRATMLAI','HAAVARATPRITIM') ";
+            }
+            */
+
+			if (PROVIDER_MODE)
+			{
+                $q .= " and d.doc_status not in ($STATUS_DRAFT) ";  
+				$q .= " and client_id in (select id from listingsSuppliers where username <> '' and username = '".$username."')";
+			
+                $qc .= " and d.doc_status not in ($STATUS_DRAFT) ";  
+				$qc .= " and client_id in (select id from listingsSuppliers where username <> '' and username = '".$username."')";
+			
+			} 
+			else
+			{
+
+				if ($stock)
+				{
+					$q.=" and (stock_id='$stock' or target_stock_id='$stock' or source_stock_id='$stock') ";
+				}
+
+	            
+				$q .= " and doc_type in (select doc_type from $TABLE_PROFILEDOCTYPES where r=1 and profile_id in 
+				(select profile_id from $TABLE_USERPROFILE where r=1 and userid = $officeUserID))";
+				
+				$q .=" and d.user_id = $userID ";
+				$q .=" and (d.stock_id in ($allowedstocks) or stock_id is null or stock_id = 0)";
+				$qc .=" and d.user_id = $userID";
+				
+				$qc.=" and ($officeUserID=$userID or stock_id is null or stock_id = 0 or stock_id in (select stock_id from $TABLE_USERSTOCKS where userid = $officeUserID and r=1)) ";				
+			}
+            
+			if (!$sort)$sort="DateNum";
+			$ascdesc = ($asc)?"":"desc";
+			switch ($sort){
+				case "Date": $sortorder = "doc_date $ascdesc, id $ascdesc";break;
+				case "Number": $sortorder = "doc_number+0 $ascdesc";break;
+                case "Client": $sortorder = "binary SupplierName $ascdesc";break; 
+                case "DocType": $sortorder = "binary  doc_type $ascdesc";break; 
+                case "Status": $sortorder = "binary ds.name $ascdesc";break; 
+                case "Amount": $sortorder = "d.amount+0 $ascdesc";break;
+				case "DateNum": $sortorder = "id desc";break;
+			}
+			
+
+			$sql = "
+				select dt.id as type, d.source_stock_id, d.target_stock_id, d.comment,d.comment1, d.id,
+                doc_number,doc_date, dt.name as doc_type,dt.is_serials,d.closed_by, client_id,
+				client_name, 
+                amount,s.PaymentTypeVerified, ds.name as status, ds.id as status_id, 
+                stock.stockname,
+                sfrom.stockname as sourcestock,
+                sto.stockname as targetstock,
+                (case when dt.allow_draft_print=1  then 1 else ds.printable end) as printable,
+				dt.balance,
+				ifnull(dsc.changeto,ds.changeto) as changeto                                     
+				from documents d
+				left outer join $TABLE_DOC_STATUS_CHANGE dsc on dsc.doc_type_id = d.doc_type and dsc.doc_status = d.doc_status
+				left outer join $TABLE_LISTINGSSTOCKS stock on stock.id = d.stock_id 
+                left outer join $TABLE_LISTINGSSTOCKS sfrom on sfrom.id = d.source_stock_id 
+                left outer join $TABLE_LISTINGSSTOCKS sto on sto.id = d.target_stock_id,
+				$TABLE_DOCUMENT_TYPE dt, 
+				$TABLE_DOCUMENT_STATUS ds, 
+                listingsSuppliers s
+				where d.doc_type = dt.id
+                and ds.id = d.doc_status
+				and s.id = d.client_id
+				$q
+				order by $sortorder
+			";
+			//echo "<!--SQL: $sql-->";
+
+			
+			$sqlsum = "select sum(amount) as amt from documents d, 
+            $TABLE_DOCUMENT_TYPE dt, listingsSuppliers s  
+            where d.user_id = $userID and s.id = d.client_id  and d.doc_type=dt.id $q";
+
+		
+			$sqlItra = "select round(sum(round(amount,2) * (case when dt.balance='+' then 1 else -1 end)),2) as itra
+            from documents d, $TABLE_DOCUMENT_TYPE dt, $TABLE_DOCUMENT_STATUS ds, listingsSuppliers ls where
+			dt.id = d.doc_type and
+            ls.id = d.client_id and 
+		    d.doc_status not in (".$STATUS_DRAFT.") and
+			dt.balance in ('+','-') and
+            ds.id = d.doc_status and 
+            ds.countbalance = 1 
+			$qc";
+            
+            //echo $sqlItra;
+            
+			$sqlCheques = "select sum(dp.amount) as amount from document_payments dp, documents d
+			where d.id = dp.doc_id and d.doc_type in ('KABALA','MASKABALA') and payment_type=0
+			and curdate() < date_add(checkdate,INTERVAL 4 DAY) and
+            doc_status not in ($STATUS_CANCELLED,$STATUS_DRAFT) and 
+            ($officeUserID=$userID or stock_id is null or stock_id = 0 or  stock_id in (select stock_id from $TABLE_USERSTOCKS where userid = $officeUserID and r=1)) and
+			d.user_id = $userID $qc";
+		}
+		else
+		
+		{
+			//***************** TAKBULIM ***************************
+			if ($client){
+				$q .= " and client_id = $client ";
+			}
+			$qc=$q;
+			
+			$q .= " and dt.is_payment=1 ";
+			if ($dt1) 
+			{
+				$q.=" and doc_type='$dt1' ";
+			}
+			if ($chequenum){
+				$q .= "and checknumber='".addslashes($chequenum)."'";
+			}
+			if ($chequeamt){
+				$q .= "and dp.amount='".addslashes($chequeamt)."'";
+			}
+			if ($spDate){
+				$q .= "and checkdate>='".dateToSQL($spDate)."'";
+			}
+			if ($epDate){
+				$q .= "and checkdate<='".dateToSQL($epDate)."'";
+			}
+			if ($banknum){
+				$q .= "and checkbank='".($banknum)."'";
+			}
+			if ($snifnum){
+				$q .= "and checksnif='".($snifnum)."'";
+			}
+			if ($accnum){
+				$q .= "and checkaccount='".($accnum)."'";
+			}
+			if ($kupa){
+				$q .= "and kupa_id='".($kupa)."'";
+			}
+            if ($ptype!=""){
+				$q .= "and payment_type='".($ptype)."'";
+			}
+			if ($outcheques){
+				$q .= " and doc_type = 'TASHLUM' and payment_type=0 ";
+			}
+            
+            //don't show cancelled tashlumims
+            $q.= " and not (doc_type = 'TASHLUM'  and doc_status = $STATUS_CANCELLED) and doc_type <> 'BITULTASHLUM' ";
+            
+            //permissions
+            $q .= " and doc_type in (select doc_type from $TABLE_PROFILEDOCTYPES where r=1 and profile_id in 
+            (select profile_id from $TABLE_USERPROFILE where r=1 and userid = $officeUserID))";
+            
+            $ascdesc = ($asc)?"":"desc";   
+			if (!$sort)
+            {   
+                $sort="DocDate";
+                $ascdesc = "desc";
+                $desc=1;
+            }
+			
+			switch ($sort){
+				case "DocDate": $sortorder = "doc_date $ascdesc, d.id $ascdesc, dp.id ";break;
+                case "Date": $sortorder = "checkdate $ascdesc, dp.id $ascdesc";break;
+				case "Number": $sortorder = "doc_number+0 $ascdesc";break;
+                case "Client": $sortorder = "binary SupplierName $ascdesc";break; 
+                case "PayType": $sortorder = "payment_name $ascdesc";break; 
+                case "ChequeNum": $sortorder = "checknumber+0 $ascdesc";break; 
+                case "Amount": $sortorder = "dp.amount+0 $ascdesc";break;
+                case "Kupa": $sortorder = "binary k.name $ascdesc";break;
+				case "DateNum": $sortorder = "id desc";break;
+			}
+
+			$sql = "
+				select d.doc_number, dt.name as type_name, dp.*,d.comment1 as comment, client_id, doc_date, 
+                client_name, d.doc_type,d.doc_status,
+                dpt.name as payment_name, s.PaymentTypeVerified,
+                ds.printable,
+                k.name as kupaname
+				from document_payments dp
+				left outer join kupot k on k.id = dp.kupa_id
+				, documents d, $TABLE_DOCUMENT_TYPE dt, 
+				listingsSuppliers s, 
+				$TABLE_DOCPAYMENTTYPES dpt,$TABLE_DOCUMENT_STATUS ds
+				where dp.doc_id = d.id and 
+				d.user_id = $userID and 
+				d.doc_type = dt.id and  
+				s.id = d.client_id and 
+				dpt.id = dp.payment_type and
+				ds.id = d.doc_status and 
+				d.stock_id in ($allowedstocks)
+				$q
+				order by $sortorder
+			";
+			//echo $sql."<hr>";
+
+			$sqlsum = "select sum(amount) as amt from ($sql) a ";
+			//echo $sqlsum;
+		
+			$sqlItra = "select sum(amount * (case when dt.balance='+' then 1 else -1 end)) as itra 
+            from documents d, $TABLE_DOCUMENT_TYPE dt, $TABLE_DOCUMENT_STATUS ds, listingsSuppliers ls where
+			dt.id = d.doc_type and
+            ls.id = d.client_id and 
+		    d.doc_status not in (".$STATUS_DRAFT.") and
+			dt.balance in ('+','-') and
+            ds.id = d.doc_status and 
+            ds.countbalance = 1 and
+            ($officeUserID=$userID or stock_id is null or stock_id = 0 or stock_id in (select stock_id from $TABLE_USERSTOCKS where userid = $officeUserID and r=1)) and
+			d.user_id = $userID $qc";
+
+			$sqlCheques = "select sum(dp.amount) as amount 
+                from document_payments dp, documents d, $TABLE_DOCUMENT_STATUS ds 
+				where d.id = dp.doc_id and d.doc_type in ('KABALA','MASKABALA') and payment_type=0 and
+				curdate() < date_add(checkdate,INTERVAL 4 DAY) and
+				ds.id = d.doc_status and
+                ds.countbalance = 1 and
+                doc_status not in ($STATUS_CANCELLED,$STATUS_DRAFT) and  
+                d.user_id = $userID
+				$qc  
+			";
+            
+		}
+
+
+		//echo $sqlCheques;
+		//echo $sql;
+		//$ADODB_FETCH_MODE = ADODB_FETCH_ASSOC;
+		$recordSet = DBQuery($sql);
+		$num_rows = $recordSet->RecordCount();
+
+		$sumRS = DBQuery($sqlsum);
+		$AMT=$sumRS->fields["amt"];
+        //echo ($sqlItra);
+		$itraRS = DBQuery($sqlItra);
+		$ITRA=$itraRS->fields["itra"];
+		
+		if (PROVIDER_MODE)
+		{
+			$ITRA*=-1;
+		}		
+
+		$chequesRS = DBQuery($sqlCheques);
+		$CHEQUES=$chequesRS->fields["amount"];
+
+		// build the string to select a certain number of listings per page
+		if ($showall)$config[listings_per_page]=10000;
+		$limit_str = $cur_page * $config[listings_per_page];
+
+		$recordSet = $conn->SelectLimit($sql, $config[listings_per_page], $limit_str );
+		if ($recordSet === false)
+		{
+			log_error($sql);
+		}
+		$count = 0;
+        $printDisabled = ($recordSet->EOF)?"disabled":"";
+        ?>
+        
+        <table DIR=RTL cellpadding=0 cellspacing=0 width=100% height=100% border=0>
+        
+        <!--start upper row -->
+        <tr style=height:1%>
+        <td bgcolor=buttonface height=32>
+        
+        <table width=100%><tr>
+		<?if (!PROVIDER_MODE){?>		
+			<td>
+				<input type=button value='הדפס' class=button onclick='printList()' <?=$printDisabled?> style='background-image:url(<?=$imgPath?>printer.gif)'>
+			</td>
+			<?
+			if ($tabmode=="DOCS"||!$tabmode){
+				echo "<td width=99% align=center><b>יומן: ";
+				if (!$dt){
+					echo " כל המסמכים. ";
+				}
+				else{
+					$sql="select name from $TABLE_DOCUMENT_TYPE where id = '$dt'";
+					$currentType = DBQuery($sql);
+    				if ($currentType === false) log_error($sql);
+					echo " מסמכים: <b style='color:blue'>".$currentType->fields["name"]."</b>";
+				}
+				if (!$client){
+					echo " כל הלקוחות.";
+				}
+				else{
+					echo " לקוח: <b style='color:blue'>".$clientName."</b>";
+				}
+				echo "</td>";
+			}
+			else{
+
+				if (HasDocumentPermission("HAFKADAHAAVARA","C")){
+					$sql="select count(*) as cnt from document_payments dp, documents d where dp.doc_id = d.id and dp.basket=1 and not (doc_type = 'TASHLUM' and d.doc_status = $STATUS_CANCELLED) and d.user_id= $userID";
+    				$rdis=DBQuery($sql);
+					echo "<td width=1%><input type=button id=HafkadaHaavara ".(($rdis->fields["cnt"]>0 && $kupa)?"":"disabled")." onclick='openHafkada()' value='הפקדה\העברה' value='חפש'  style='background-image:url(".$imgPath."exchange.gif)' class=button></TD>" ;
+     			}
+				echo "<td width=99% ALIGN=CENTER><b>חיפוש תקבולים</b>";
+				echo "</td>";
+			}
+		}
+		else
+		{
+			echo "<td width=99% align=center><b>".$lang["supplier_debts"]."</b></td>";
+		}
+		echo "<td width=1%>";
+		$gs=queryString("cur_page"); //"tabmode=$tabmode&showall=$showall&sort=$sort&sDate=$sDate&eDate=$eDate&cnum=$cnum&cnum1=$cnum1&cname=$cname&only=$only&client=$client&clientName=$clientName";
+        $lang["listings"]="מסמכים";
+        $lang["listing"]="מסמך";
+        next_prev($num_rows, $cur_page, $gs);
+		?>
+		</td>
+		</tr>
+        </table>
+
+		</td>
+		</tr>
+        
+        <!--end upper row -->
+        <tr style='height:1%'><td height=5></td></tr>
+        
+		<tr>
+        <td>
+         
+		<div id=CONTAINER style='border:solid 1 gray;overflow-Y:scroll;overflow-X:auto;position:absolute;width:100%;height:100%'>
+        <?
+
+		$gs="stock=$stock&catid=$catid&deleted=$deleted&title=".urlencode($title)."&BarCode=$BarCode&ProductGroup=$ProductGroup&MisparZar=$MisparZar&MisparSiduri=$MisparSiduri&MisparChalifi=$MisparChalifi&search=$search";
+
+		$page_subtitle = "לקוחות";
+
+
+		?>
+		
+		<?if ($tabmode=="DOCS"||!$tabmode){?>
+		<script>
+		var docStatuses = new Array();
+		<?while (!$docStatusesRS->EOF){?>
+		docStatuses[<?=$docStatusesRS->fields["id"]?>] = "<?=$docStatusesRS->fields["name"]?>";			
+		<?$docStatusesRS->MoveNext();}?>
+		function chStatus(docID, mayChange, changeTo, currStatus, statusName)
+		{
+			var s;
+			var newStatus;
+			if (!mayChange)
+			{
+				alert("אי אפשר לשנות סטטוס של מסמך "+statusName);
+			}
+			else
+			{	
+				var r; var d; var t;
+				chStatuses = changeTo.split(",");
+				var oPopBody = oPopup.document.body;
+				oPopBody.style.backgroundColor = "buttonface";
+				oPopBody.style.border = "solid gray 1px";
+				d = document.getElementById("DOCCHANGEPOPUP");
+				oPopBody.innerHTML = d.innerHTML;
+				oPopBody.onmouseover = function(){parent.frames["LISTING"].inPopup()};
+				t = oPopBody.all.TBLSTTATUS;
+				for(i=t.rows.length-1;i>=1;i--)t.deleteRow(i);
+				rowcnt=0;
+				for(i=0;i<chStatuses.length;i++)
+				{
+					if (chStatuses[i]!=currStatus)
+					{
+						newStatus = chStatuses[i];
+						r = t.rows[0].cloneNode(true);
+						myNewRow = t.insertRow();
+						myNewRow.style.display = "";
+						c = myNewRow.insertCell();
+						c.onmouseover=function(){this.bgColor="darkblue";this.style.color="white"}
+						c.onmouseout=function(){this.bgColor="";this.style.color="black"}
+						c.style.padding="2px";
+						c.style.borderBottom='solid 1 #ccc'; c.style.cursor='hand'; c.style.color="black"; c.style.fontFamily='arial'; c.style.fontSize='9pt'; c.style.fontWeight='bold';
+						c.newStatus = newStatus;
+						c.onclick=function(){parent.frames["LISTING"].changeStatus(docID,this.newStatus)}; 
+						c.align='center';
+						c.innerHTML = docStatuses[chStatuses[i]];
+						rowcnt++;
+					}
+				}
+				inPopup();
+				oPopup.show(window.event.clientX-90, window.event.clientY+10, 100, rowcnt*20+2, document.body);
+			}
+			return;
+		}
+		
+		function changeStatus(docId, newStatus)
+		{
+			oPopup.hide();
+			if (newStatus == <?=$STATUS_CANCELLED?>)
+			{
+		        res = window.showModalDialog("confirmcancel.php?docid="+docId,window,"dialogWidth:500px;dialogHeight:250px;status:no");
+		        if (res!=1)
+				{
+					return false;
+				}
+			}
+			s = agent.call('doc_services.php','ChangeDocStatus','',docId,newStatus,escape(document.F.statusreason.value))
+			if (s == "OK")
+			{
+				window.location = window.location.href;
+			}
+			else
+			{	
+				alert(s);
+			}
+		}
+		
+		function inPopup()
+		{
+			isInPopup=true;
+			window.clearTimeout(pt);
+		}
+
+		
+		function hidePopup()
+		{
+			isInPopup = false;
+			pt = window.setTimeout("if (!isInPopup)oPopup.hide()",1500);
+		}
+		
+		var oPopup = window.createPopup();
+		var isInPopup = false;
+		var pt;
+		
+		</script>
+		
+		<form name="F"><input type="hidden" name="statusreason"></form>
+		<Div id=DOCCHANGEPOPUP style='display:none'>
+            <div style='width:100%;height:100%;overflow-y:auto' dir=rtl>
+			<table id="TBLSTTATUS" width=100% border=0 cellpadding=0 cellspacing=0>
+ 				 	<tr style="display:none"><td height=20
+						onmouseover='this.bgColor="darkblue";this.style.color="white"'
+						onmouseout='this.bgColor="";this.style.color="black"'
+						align=center style='border:none;cursor:hand;color:black;font-family:arial;font-size:9px;font-weight:bold'
+						onclick="alert(1)"></td></tr>
+			</table>
+            </div>
+		</Div>
+				
+		<?}?>
+		
+		<table <?if ($tabmode=="DOCS"||!$tabmode){?> onmouseover="hidePopup()"<?}?> border="0" id=REPORT_TAB cellspacing="0" cellpadding="<?php echo $style[admin_listing_cellpadding] ?>" width="100%" class="form_main">
+		<tr style='position:absolute;top:expression(document.getElementById("CONTAINER").scrollTop);left:0' class=tableHead2 align=center id=HEADER>
+		<?if ($tabmode=="DOCS"||!$tabmode){?>
+		<td class="tableHead2" width=1% height=24 nowrap><a style='color:white'  href='?<?=queryString("sort,asc")?>&sort=Date&asc=<?=($asc)?0:1?>'><u>תאריך</u></td>
+		<td class="tableHead2" width=1% nowrap ><a style='color:white'  href='?<?=queryString("sort,asc")?>&sort=DocType&asc=<?=($asc)?0:1?>'><u>סוג</td>
+		<td class="tableHead2" width=1% nowrap><a style='color:white' href='?<?=queryString("sort,asc")?>&sort=Number&asc=<?=($asc)?0:1?>'><u>מספר</u></td>
+		<?if (!PROVIDER_MODE){?>
+		<td class="tableHead2"nowrap ><a style='color:white'  href='?<?=queryString("sort,asc")?>&sort=Client&asc=<?=($asc)?0:1?>'><u>לקוח \    ספק    </td>
+		<?}?>
+		<td class="tableHead2 " width=1% nowrap><img src='<?=$imgPath?>none.gif' width=75 height=1><br><a style='color:white'  href='?<?=queryString("sort,asc")?>&sort=Amount&asc=<?=($asc)?0:1?>'><u>סכום</td>
+		<td class="tableHead2 none"  >הערות</td>
+		<td class="tableHead2 none"   >אסמכתא</td>
+		<td class="tableHead2 none"  >נקודה</td>
+		<td class="tableHead2 none" width=1%  nowrap><a style='color:white'  href='?<?=queryString("sort,asc")?>&sort=Status&asc=<?=($asc)?0:1?>'><u>סטטוס</td>
+		<td class="tableHead2 none" width=1%  nowrap>פעולות</td>
+		<?}else{
+            $disabled = $kupa?"":"disabled";
+        ?>
+		<td class="tableHead2" height=24 align=center width=1% nowrap><input <?=$disabled?> onclick='selectall(this.checked)' type=checkbox style='margin:0'></td>
+		<td class="tableHead2" width=1% nowrap><a class="tableHead2" style='color:white'  href='?<?=queryString("sort,asc")?>&sort=Date&asc=<?=($asc)?0:1?>'><u>תאריך פרעון</a></td>
+		<td class="tableHead2" width=1% nowrap ><a class="tableHead2" style='color:white'  href='?<?=queryString("sort,asc")?>&sort=DocDate&asc=<?=($asc)?0:1?>'><u>תאריך מסמך</a></td>
+		<td class="tableHead2" nowrap><a class="tableHead2" style='color:white'  href='?<?=queryString("sort,asc")?>&sort=Client&asc=<?=($asc)?0:1?>'><u>שם לקוח/ספק</td>
+		<td class="tableHead2" width=1% nowrap><a class="tableHead2" style='color:white'  href='?<?=queryString("sort,asc")?>&sort=PayType&asc=<?=($asc)?0:1?>'><u>סוג תשלום</td>
+		<td class="tableHead2 " nowrap width=1% ><a class="tableHead2" style='color:white'  href='?<?=queryString("sort,asc")?>&sort=Kupa&asc=<?=($asc)?0:1?>'><u>קופה</td>
+		<td class="tableHead2 " nowrap width=1% ><a class="tableHead2" style='color:white'  href='?<?=queryString("sort,asc")?>&sort=ChequeNum&asc=<?=($asc)?0:1?>'><u>מספר שיק/שובר</td>
+		<td class="tableHead2 none"  width=1% >בנק</td>
+		<td class="tableHead2 none"  width=1%  >סניף</td>
+		<td class="tableHead2 none" width=1%  nowrap>חשבון</td>
+		<td class="tableHead2 none" width=1%  nowrap><a class="tableHead2" style='color:white'  href='?<?=queryString("sort,asc")?>&sort=Amount&asc=<?=($asc)?0:1?>'><u>סכום</td>
+		<?}?>
+		</tr>
+        
+		<tr  class=tableHead2 align=center id=HEADER>
+		<?if ($tabmode=="DOCS"||!$tabmode){?>
+		<td class="tableHead2" width=1% height=24 nowrap><a style='color:white'  href='?<?=queryString("sort,asc")?>&sort=Date&asc=<?=($desc)?1:0?>'><u>תאריך</u></td>
+		<td class="tableHead2" width=1% nowrap >סוג</td>
+		<td class="tableHead2" width=1% nowrap><a style='color:white' href='?<?=queryString("sort,asc")?>&sort=Number&asc=<?=($desc)?1:0?>'><u>מספר</u></td>
+		<?if (!PROVIDER_MODE){?>
+		<td class="tableHead2"nowrap >לקוח \    ספק    </td>
+		<?}?>
+		<td class="tableHead2 " width=1% nowrap><img src='<?=$imgPath?>none.gif' width=75 height=1><br>סכום</td>
+		<td class="tableHead2 none"  >הערות</td>
+		<td class="tableHead2 none"   >אסמכתא</td>
+		<td class="tableHead2 none"  >נקודה</td>
+		<td class="tableHead2 none" width=1%  nowrap>סטטוס</td>
+		<td class="tableHead2 none" width=1%  nowrap>פעולות</td>
+		<?}else{ 
+            $disabled = $kupa?"":"disabled";
+        ?>
+		<td class="tableHead2" height=24 align=center width=1% nowrap><input <?=$disabled?> onclick='selectall(this.checked)' type=checkbox style='margin:0'></td>
+		<td class="tableHead2" width=1% nowrap><a class="tableHead2" style='color:white'  href='?<?=queryString("sort,asc")?>&sort=Date&asc=<?=($asc)?0:1?>'><u>תאריך פרעון</a></td>
+		<td class="tableHead2" width=1% nowrap ><a class="tableHead2" style='color:white'  href='?<?=queryString("sort,asc")?>&sort=DocDate&asc=<?=($asc)?0:1?>'><u>תאריך מסמך</a></td>
+		<td class="tableHead2" nowrap><a class="tableHead2" style='color:white'  href='?<?=queryString("sort,asc")?>&sort=Client&asc=<?=($asc)?0:1?>'><u>שם לקוח/ספק</td>
+		<td class="tableHead2" width=1% nowrap><a class="tableHead2" style='color:white'  href='?<?=queryString("sort,asc")?>&sort=PayType&asc=<?=($asc)?0:1?>'><u>סוג תשלום</td>
+		<td class="tableHead2 " nowrap width=1% ><a class="tableHead2" style='color:white'  href='?<?=queryString("sort,asc")?>&sort=Kupa&asc=<?=($asc)?0:1?>'><u>קופה</td>
+		<td class="tableHead2 " nowrap width=1% ><a class="tableHead2" style='color:white'  href='?<?=queryString("sort,asc")?>&sort=ChequeNum&asc=<?=($asc)?0:1?>'><u>מספר שיק/שובר</td>
+		<td class="tableHead2 none"  width=1% >בנק</td>
+		<td class="tableHead2 none"  width=1%  >סניף</td>
+		<td class="tableHead2 none" width=1%  nowrap>חשבון</td>
+		<td class="tableHead2 none" width=1%  nowrap><a class="tableHead2" style='color:white'  href='?<?=queryString("sort,asc")?>&sort=Amount&asc=<?=($asc)?0:1?>'><u>סכום</td>
+		<?}?>
+		</tr>        
+        
+		<?
+
+		while (!$recordSet->EOF)
+		{
+
+			$ID = $recordSet->fields["id"];
+			$comment = substr($recordSet->fields["comment1"],0,30);
+			if ($comment!=$recordSet->fields["comment1"]){
+				$comment = substr($comment,0,strrpos($comment," "))."...";
+			}
+
+            if ($recordSet->fields["target_stock_id"] && $stock==$recordSet->fields["target_stock_id"])
+            {
+                $numcolor = "red";
+            }
+            else{
+                $numcolor = "";
+            }
+            if ($recordSet->fields["client_id"]==1)
+            {
+                $clientColor="gray";
+            }
+            else
+            {
+                $clientColor = $recordSet->fields["PaymentTypeVerified"]?"black":"blue";
+            }
+            $clientTitle =  str_replace("'","&#39;",$recordSet->fields["client_name"]) . (($recordSet->fields["PaymentTypeVerified"]||!$recordSet->fields["client_name"])?"":"\nאמצעי תשלום אינו מעודכן");
+			if ($tabmode=="DOCS"||!$tabmode)
+			{        
+                $tooltip="";
+
+                if ($recordSet->Fields("sourcestock"))
+                {                                
+                     $tooltip .= "נקודת מקור: ".$recordSet->Fields("sourcestock"); 
+                     $tooltip .= "\nנקודת יעד: ".$recordSet->Fields("targetstock");
+				     $stockName = $recordSet->Fields("targetstock");
+                }
+                elseif ($recordSet->Fields("stockname"))
+                {
+                    $tooltip .= "נקודת מכירה: ".$recordSet->Fields("stockname");
+					$stockName = $recordSet->Fields("stockname");
+                }				
+				
+				if (PROVIDER_MODE)
+				{
+					$clickAction = "printDocument($ID,".$recordSet->fields["printable"].",'".$recordSet->fields["status"]."');";
+				}
+				else{
+					$clickAction = "s=parent.wopen('add_document.php?docid=$ID&did=".$recordSet->fields["type"]."','',screen.availWidth-100,520,true,'no');try{s.focus()}catch(e){}";
+				}
+				
+				$mayChangeStatus = $recordSet->fields["changeto"] && $recordSet->fields["changeto"]!=$recordSet->fields["status_id"] ?"true":"false";
+				
+				echo "<tr style='cursor:hand' onclick=\"$clickAction\"  id='tr$ID'>";
+				echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".DateFromSQL($recordSet->fields["doc_date"])."&nbsp;</td>";
+				echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\" title='".str_replace("'","&#39;",$tooltip)."'>".$recordSet->fields["doc_type"]."&nbsp;</td>";
+				echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><span style='color:$numcolor'>".$recordSet->fields["doc_number"]."</span>&nbsp;</td>";
+				if (!PROVIDER_MODE){
+					echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><div title='$clientTitle' style='color:$clientColor;overflow:hidden;width:100%;height:15'>".format_name($recordSet->fields["client_name"])."&nbsp;</div></td>";
+				}
+				echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><SPAN dir=ltr>".number_format($recordSet->fields["amount"],2)."</span>&nbsp;</td>";
+				echo "<td  onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\" title='".str_replace("'","&#39;",$recordSet->fields["comment1"])."'><div style='overflow:hidden;width:100%;height:15'>".($comment)."&nbsp;</div></td>";
+				echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["comment"]."&nbsp;</td>";
+				echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$stockName."&nbsp;</td>";
+
+				echo "<td nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><img onclick=\"chStatus($ID,$mayChangeStatus,'".$recordSet->fields["changeto"]."','".$recordSet->fields["status_id"]."','".$recordSet->fields["status"]."');event.cancelBubble=true;\" style='cursor:pointer' src='".$imgPath."status_".$recordSet->fields["status_id"].".gif' alt='".$recordSet->fields["status"]."' align=absmiddle width=16 height=16>".(($recordSet->fields["closed_by"])?"<a style='cursor:hand;color:black' title='למסמך סוגר' onclick=\"s=parent.wopen('add_document.php?docid=".$recordSet->fields["closed_by"]."','',screen.availWidth-100,520,true,'no');try{s.focus()}catch(e){};event.cancelBubble=true\" ><u>":"").$recordSet->fields["status"]."</u></a>&nbsp;</td>";
+
+				echo "<td onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" nowrap class=\"row3_$count none\" >";
+				if (!PROVIDER_MODE){				
+				echo"
+				<a onclick=\"event.cancelBubble=true;s=parent.wopen('add_document.php?docid=$ID&did=".$recordSet->fields["type"]."','',screen.availWidth-100,520,true,'no');try{s.focus()}catch(e){};event.cancelBubble=true;\" ><img  style='cursor:hand' align=absmiddle src='".$imgPath."note_view.gif' width=16 height=16 alt='פרטי מסמך' border=0></a>
+				<a onclick=\"event.cancelBubble=true;printDocument($ID,".$recordSet->fields["printable"].",'".$recordSet->fields["status"]."');event.cancelBubble=true;\" ><img  style='cursor:hand' align=absmiddle src='".$imgPath."printer.gif' width=16 height=16 alt='הדפסה' border=0></a>";
+				if ($recordSet->fields["is_serials"]&&HasDocumentPermission($recordSet->fields["type"],"W")){
+					echo "&nbsp;<a onclick=\"event.cancelBubble=true;s=parent.wopen('codes.php?docid=$ID','codes',650,400,true);try{s.focus()}catch(e){};event.cancelBubble=true;\" ><img  style='cursor:hand' src='".$imgPath."barcode.gif' width=14 height=12 align=absmiddle alt='קודים סידוריים' border=0></a>";
+				}
+				}
+				else{
+					echo "<a onclick=\"event.cancelBubble=true;printDocument($ID,".$recordSet->fields["printable"].",'".$recordSet->fields["status"]."');event.cancelBubble=true;\" ><img  style='cursor:hand' align=absmiddle src='".$imgPath."pdf.png' width=16 height=16 alt='הדפסה' border=0></a>";
+
+				}
+				echo "</td>";
+			}
+			else
+			{
+				$ID = $recordSet->fields["id"];
+				$DOCID = $recordSet->fields["doc_id"];
+				$title = $recordSet->fields["type_name"]." #".$recordSet->fields["doc_number"];
+                $checked = $recordSet->fields["basket"]=="1"?" checked":"";
+                $disabled = ($recordSet->fields["doc_type"] != "TASHLUM" && $recordSet->fields["doc_status"] != $STATUS_CANCELLED  && $kupa && HasDocumentPermission("HAFKADAHAAVARA","C"))?"":"disabled";
+                if ($recordSet->fields["comment"]){
+					$title.="\n_____________________________________________________\n".str_replace("'","&#39;",$recordSet->fields["comment"]);
+				}
+				echo "<tr style='cursor:hand' title='".$title."' onclick=\"s=parent.wopen('add_document.php?docid=$DOCID&tabmode=PAYMENTS&did=".$recordSet->fields["type"]."','',screen.availWidth-100,520,true,'no');try{s.focus()}catch(e){}\"  id='tr$ID'>";
+				echo "<td align=center style='padding:1'  style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><input style='cursor:default' type=checkbox $disabled $checked id='$ID' onclick='window.event.cancelBubble=true;selectrow($ID,this.checked);window.event.cancelBubble=true'></td>";
+				echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".(($recordSet->fields["checkdate"]&&$recordSet->fields["checkdate"]!="0000-00-00")?DateFromSQL($recordSet->fields["checkdate"]):"")."&nbsp;</td>";
+				echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".DateFromSQL($recordSet->fields["doc_date"])."&nbsp;</td>";
+				echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><div title='$clientTitle'  style='color:$clientColor;overflow:hidden;width:100%;height:15'>".$recordSet->fields["client_name"]."&nbsp;</div></td>";
+				echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["payment_name"]."&nbsp;</td>";
+				echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["kupaname"]."&nbsp;</td>";
+				echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["checknumber"]."&nbsp;</td>";
+				echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["checkbank"]."&nbsp;</td>";
+				echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["checksnif"]."&nbsp;</td>";
+				echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".$recordSet->fields["checkaccount"]."&nbsp;</td>";
+				echo "<td style='cursor:hand' nowrap onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".number_format($recordSet->fields["Amount"],2)."&nbsp;</td>";
+			}
+
+
+			echo "</tr>\r\n";
+			$recordSet->MoveNext();
+		} // end while
+		
+		?>
+
+		</table>
+		</div>
+
+        <?
+        $msg="מגבלת שיקים פתוחים ללקוח: ".number_format($OpenChequesLimit,2);
+        if ($OpenChequesLimit && $CHEQUES>$OpenChequesLimit){
+            $stl=";color:white;background-color:red";
+        }
+        ?>
+        
+        </tr>
+        
+        <!--bottom  row-->
+        <tr style='height:1%'><td height=5></td></tr>
+        <tr style=height:1%>
+        <td>
+
+        <table width=100% cellspacing=0 cellpadding=1><tr><td bgcolor=buttonface>
+            <table border=0 align=center>
+            <tr>
+              <td><b>
+                   <?if (!PROVIDER_MODE && HasReportPermission("RIKUZ_ITRA")){?>
+                   <a href='javascript:openItra()' title='להציג ריכוז יתרה'><u style=color:black>
+                   <?}?>
+                   יתרה
+                   <?if (HasReportPermission("RIKUZ_ITRA")){?>
+                   </u></a>
+                   <?}?>
+                   : &nbsp;</b></td>
+                <td align=right width=100 dir=ltr style='text-align:center;font-weight:bold;border:inset 1'><?=balance($ITRA)?></td>
+                
+				<?if (!PROVIDER_MODE){?>
+				<td><b>אובליגו: </b></td>
+                <td align=right width=100  dir=ltr style='text-align:center;font-weight:bold;border:inset 1'><?=$Obligo?number_format($Obligo,2):"&nbsp;"?></td>
+                <td><b>
+                    <?if (HasReportPermission("RIKUZ_OPENCHEQUES")){?>
+                    <a href='javascript:openCheques()' title='להציג ריכוז שיקים פתוחים'><u  style=color:black>
+                    <?}?>
+                    שיקים פתוחים
+                    <?if (HasReportPermission("RIKUZ_OPENCHEQUES")){?>
+                    </u></a>
+                    <?}?>
+                    : </b></td>
+                 <td align=right width=100  dir=ltr title="<?=$msg?>" style='cursor:default;text-align:center;font-weight:bold;border:inset 1 <?=$stl?>'>
+                 <?=number_format($CHEQUES,2)?></td>
+                <?}?>
+				<td align=left><b>
+                סה"כ במסמכים:
+                </b>
+                </td>
+                <td align=right width=100  dir=ltr style='text-align:center;font-weight:bold;border:inset 1'><?=number_format($AMT,2)?></td>
+            </tr>
+            </table>
+            
+		</td></tr></table>
+
+		</td></tr></table>
+        
+        </td></tr>
+        <!--end bottom row-->
+    </table>
+		
+	
+
+<script>
+
+
+function showClient(readonly){
+    var url = "client_select.php?simple=1&clients=1&suppliers=1";
+    url=url+"&rnd="+Math.random();
+    var s = parent.wopen(url,"client",600,400,true,"resizable=no");
+}
+
+
+function printDocument(did,printable,status){
+    if (printable)
+    {
+		<?if (!PROVIDER_MODE){?>
+        showModalDialog("printdoc.php?docid="+did,"","dialogWidth:300px;dialogHeight:250px;center:yes;resizable:no;status:no;help:no");
+		<?}else{?>
+		w = 800;
+		h = 600;
+        var sd = showModalDialog("printpdfframe.php?umode=provider&requisites=1&logo=1&rand="+Math.random()+"&docid="+did,"doc","dialogWidth:"+w+"px;dialogHeight:"+h+"px;help:no;");
+		<?}?> 
+    }
+    else
+    {
+        alert(" לא ניתן להדפיס מסמך בסטטוט "+status);
+    }        
+}
+
+function startClient(s,name){
+    document.F.client.value=s;
+    document.F.clientName.value=name;
+    document.F.clientName.style.cursor=(name=="")?"default":"hand";
+}
+
+
+function selectall(checked){
+	var ids="-1";
+	for (i=0;i<document.all.tags("INPUT").length;i++){
+		if (document.all.tags("INPUT")(i).type=="checkbox" && !document.all.tags("INPUT")(i).disabled && document.all.tags("INPUT")(i).id!=null&&document.all.tags("INPUT")(i).id!=""){
+			document.all.tags("INPUT")(i).checked = checked;
+			ids+=","+document.all.tags("INPUT")(i).id;
+		}
+	}
+	if (ids!=""){
+		selectrow(ids,checked);
+	}
+}
+
+function selectrow(ids,checked){
+	document.body.style.cursor="wait";
+	s = "selectpayment.php?id="+ids+"&action="+((checked)?"add":"del")+"&rnd="+Math.random();
+	xmlhttp = new ActiveXObject("Microsoft.XMLHTTP")
+	xmlhttp.open("GET",s,false)
+	xmlhttp.send()
+	s = xmlhttp.ResponseText;
+    if (isNaN(parseInt(s))){
+        alert("ישנה בעיה בעדכון תקבול");
+    }
+    <?if (HasDocumentPermission("HAFKADAHAAVARA","C")){?>
+    document.all.HafkadaHaavara.disabled = (s==""||s=="0");
+    <?}?>
+	document.body.style.cursor="default";
+}
+
+function openHafkada(){
+    s = parent.wopen('hafkada.php?','',screen.availWidth-100,520,true,'no');
+    try{
+        s.focus();
+    }
+    catch(e){
+    }
+
+}
+
+function printList(){
+<?if ($tabmode=="DOCS"||!$tabmode){?>
+    s = parent.wopen("rep_documents.php?<?=queryString()?>","doc_list",800,600,true,'yes');
+<?}else{?>
+    s = parent.wopen("rep_takbul.php?<?=queryString()?>","doc_list",800,600,true,'yes');
+<?}?>
+    try{
+        s.focus();
+    }
+    catch(e){
+    }
+}
+
+function openItra(){
+    s = parent.wopen("rep_itra.php?chov=1&zikui=1&<?=queryString("chov,zikui")?>","itra_list",800,500,true,'yes');
+}
+
+function openCheques(){
+    s = parent.wopen("rep_opencheques.php?<?=queryString("chov,zikui")?>","cheque_list",800,500,true,'yes');
+}
+
+</script>
+
+<?php
+    function format_name($s)
+    {
+        $r = substr($s,0,27);
+        if (strrpos($r," ")===true)
+        {
+            $r = substr($r,0,strrpos($r," "));
+        }
+        if ($r!=$s)
+        {
+            $r.="...";
+        }
+        return $r;
+    }
+
+	$conn->Close(); // close the db connection
+?>

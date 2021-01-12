@@ -1,0 +1,5 @@
+<?php
+echo "Sending mail to $to...<br>";flush();
+mail($to,"test","test","FROM:fax@vcx.co.il\r\n");
+echo "Mail Send to $to<br>";flush();
+?>

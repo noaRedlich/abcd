@@ -1,0 +1,594 @@
+<?php
+$simple=1;
+ob_start();
+if ($ajaxagent)
+{
+	include_once("../../classes/agent.php"); 
+	$agent->init(); 
+}
+
+require("include/common.php");
+require("include/business_functions.php");
+
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+ob_end_clean();
+if (!$ajaxagent)
+{
+	include_once("../../classes/agent.php"); 
+	$agent->init(); 
+}
+if ($delete != "")
+{
+	
+	$sql_delete = make_db_safe($delete); 
+	$test = DBQuery("select id from history where listing_id = $sql_delete");
+	$test2 = DBQuery("select id from listings_tree where listing_id = $sql_delete");
+	$test3 = DBQuery("select id from transactioncomponents where listing_id = $sql_delete"); 
+	$test4 = DBQuery("select id from document_products where listing_id = $sql_delete"); 
+	if ($test->EOF && $test2->EOF && $test3->EOF && $test4->EOF)
+	{                                              
+		// delete a listing
+		$sql = "DELETE FROM listingsDB WHERE ((ID = $sql_delete) AND (user_ID = $userID))";
+		DBQuery($sql);   
+	}
+	else
+	{
+		$cant_delete = true;
+	}
+
+
+}
+?>
+    
+<head>
+<?$duration=($UserData->Fields("visual_effects"))?2:0;?>
+<meta http-equiv="Page-Enter" content="BlendTrans(Duration=0.<?=$duration?>)">
+<meta http-equiv="content-type" content="text/html; charset=Windows-1255">
+<link href="/themes/blue-grey/style.css" rel="stylesheet" type="text/css">
+<link href="template/vertical-menu/style.css" rel="stylesheet" type="text/css">
+<script src='/javascript/common.js'></script>
+<script src="include/productAjax.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js" type="text/javascript"></script>
+<script>
+var delete_error = "<?=$lang["delete_error"]?>";
+function selectall(checked){
+	var ids="-1";
+	for (i=0;i<document.all.tags("INPUT").length;i++){
+		if (document.all.tags("INPUT")(i).type=="checkbox" && document.all.tags("INPUT")(i).id!=null&&document.all.tags("INPUT")(i).id!=""){
+			document.all.tags("INPUT")(i).checked = checked;
+			ids+=","+document.all.tags("INPUT")(i).id;
+		}
+	}
+	if (ids!=""){
+		parent.basket(ids,checked);
+	}
+}
+
+
+</script>
+
+</head>
+    
+<?
+
+$rsStocks = GetStocks(true);
+
+$s='';$q='';$gs='';$where="";
+if ($catid){
+	$where .= " and d.productGroup = $catid";
+}
+if ($sapak){ 
+	$where .= " and sapak = $sapak";
+}
+if ($stock)
+{ 
+	if (!$UserData->fields["ShowProductsEvenNoStock"])
+	{
+		$where .= " and lse.StockID = $stock  and lse.Quantity <> 0 ";
+	}
+	$price =  "ifnull(lse.SalePrice,l.saleprice)";
+} 
+else
+{
+	$price = "l.saleprice";   
+}
+if ($deleted){
+	$where .= " and d.active = 'no'";
+}
+else{
+	$where .= " and d.active in ('yes','yek') ";
+}
+$s = substr($s,0,strlen($s)-1);
+
+
+$sql = "drop table IF EXISTS TEMP_$userID";
+$recordSet = $conn->Execute($sql);
+
+if ($recordSet === false){log_error($sql);}
+
+$sql_select = "create temporary table TEMP_$userID
+SELECT l.ID, l.id as listing_id, title, active, basket, is_tree,
+barcode, description,
+$price as saleprice,
+cost,
+l.quantity,
+sapak as supplier,
+u.grams_rate,u.decimals,
+sum(lse.Quantity) as totalquantity
+FROM listingsDB l
+inner join $TABLE_UNITS u on u.ID=unit
+left outer join listingsStocksElements lse on lse.ListingID = l.ID 
+    and lse.stockid in (select id from $TABLE_LISTINGSSTOCKS where user_id = $userID and status=1)
+";
+$sql_where = " WHERE  l.user_ID = $userID  ";
+
+if ($title){
+	$sql_where .= "  AND Title like '%".trim(str_replace("*","%",dbsafe($title)))."%' ";
+}
+
+if (!$BarCode && !$search)
+{
+	if ($deleted){
+		$sql_where .= " and l.active = 'no' ";
+	}
+	else{
+		$sql_where .= " and l.active in ('yes','yek') ";
+	}
+}
+
+
+reset ($HTTP_GET_VARS);$i=1;
+foreach ($_GET as $ElementIndexValue => $ElementContents) 
+{
+	if ($ElementIndexValue=="catid")
+	{
+		$ElementIndexValue="ProductGroup";
+	}
+	if ($ElementIndexValue == "sortby")
+	{
+		$guidestring_with_sort = "$ElementIndexValue=$ElementContents";
+	}
+	elseif ($ElementIndexValue=="firsttime" || $ElementIndexValue=="subcats" || $ElementIndexValue=="tabmode" || $ElementIndexValue == "before_SalePrice" || $ElementIndexValue == "forcepriceupdate" || $ElementIndexValue == "delete" || $ElementIndexValue == "deleted" || $ElementIndexValue == "inv" || $ElementIndexValue == "stock" || $ElementIndexValue == "search"|| $ElementIndexValue == "nofocus" || $ElementIndexValue == "title" || $ElementIndexValue == "del" || $ElementIndexValue == "cur_page" || $ElementIndexValue == "userid" || $ElementIndexValue == "PHPSESSID")
+	{
+		// do nothing
+	}
+	elseif ($ElementIndexValue == "imagesOnly")
+	{
+		$guidestring .= "$ElementIndexValue=$ElementContents&amp;";
+		$sql_from . " inner join listingsImages im on im.listing_id = l.ID ";
+	}
+	elseif (strpos($ElementIndexValue,"-min") && $ElementContents)
+	{
+		$n = substr($ElementIndexValue,0,strpos($ElementIndexValue,"-"));
+		$sql_where .= " and $n >= $ElementContents ";
+		$i++;
+	}
+	elseif (strpos($ElementIndexValue,"-max") && $ElementContents)
+	{
+		$n = substr($ElementIndexValue,0,strpos($ElementIndexValue,"-"));
+		$sql_where .= " and  $n <= $ElementContents ";
+		$i++;
+	}
+	elseif ($ElementContents)
+	{
+		if (is_array($ElementContents)){
+			while (list($featureValue, $feature_item) = each ($ElementContents))
+			{
+				$guidestring .= "&amp;".($ElementIndexValue)."%5B%5D=".urlencode($feature_item)."&amp;";
+			}
+			$values = "'".implode("','",$ElementContents)."'";
+			$sql_where .= "$ElementIndexValue in (".$values.") ";
+		}
+		else{
+			if (strpos(" ".$ElementContents,"*")>-1)
+			{
+				$sql_where .= " and $ElementIndexValue like '".trim(addslashes(str_replace("*","%",$ElementContents)))."' ";
+			}
+			else
+			{
+				if ($ElementIndexValue=="ProductGroup")
+				{
+					$sql_where .= " and $ElementIndexValue in (".getCategoryIDs($ElementContents,$subcats).") ";
+				}
+				else if ($ElementIndexValue=="SalePrice")
+				{
+					$sql_where .= " and l.SalePrice = ".trim(addslashes($ElementContents))." ";
+				}
+				else if ($ElementIndexValue=="OtherCode")
+				{
+					$sql_where .= " and (MisparZar='".trim(addslashes($ElementContents))."' or MisparSiduri='".trim(addslashes($ElementContents))."'  or MisparChalifi='".trim(addslashes($ElementContents))."')";
+				}
+				else
+				{
+					$sql_where .= " and $ElementIndexValue = '".trim(addslashes($ElementContents))."' ";
+				}
+			}
+		}
+		$i++;
+	}
+}
+
+
+$sql_group = "	group by l.ID ";
+
+if ($stock && !$UserData->fields["ShowProductsEvenNoStock"])
+{
+	$sql_where .= " and lse.StockID = $stock and lse.Quantity <> 0";
+}
+
+$sta=time();
+$sql = $sql_select . $sql_from . $sql_where . $sql_group;
+//echo "<!--SQL:$sql_where-->";
+
+if ($conn->Execute($sql)===false){
+	echo $conn->ErrorMsg()."<br>".$sql;
+};
+
+$end=time();
+
+// this is the main SQL that grabs the listings
+// basic sort by title..
+if ($sortby == ""){
+	$sort_text = "";
+	$order_text = "ORDER BY ID desc";
+	$sql_from= "";
+}
+elseif ($sortby == "bar")
+{
+	$sort_text = "";
+	$order_text = "ORDER BY barcode+0 ASC";
+	$sql_from= "";
+}
+elseif ($sortby == "listingname")
+{
+	$sort_text = "";
+	$order_text = "ORDER BY binary Title ASC";
+	$sql_from= "";
+}
+elseif ($sortby == "agent")
+{
+	$sort_text = "";
+	$order_text = "ORDER BY binary Owner ASC";
+	$sql_from= "";
+}
+elseif ($sortby == "date")
+{
+	$sort_text = "";
+	$order_text = "ORDER BY ID desc";
+	$sql_from= "";
+}
+elseif ($sortby == "price")
+{
+	$order_text = "ORDER BY saleprice+0 ASC";
+}
+elseif ($sortby == "supplier")
+{
+	$order_text = "ORDER BY supplier ASC";
+}
+else
+{
+	$order_text = "ORDER BY $sortby ASC";
+}
+
+$guidestring_with_sort = $guidestring_with_sort.$guidestring;
+
+$sql_select  = "select * from TEMP_$userID l ";
+$sql = $sql_select . $sql_from. $order_text;
+/////////////////// END SEARCH /////////////////
+
+//echo $sql;
+$ADODB_FETCH_MODE = ADODB_FETCH_ASSOC;
+
+$sta=time();
+
+$sqlrows="select count(*) as cnt from TEMP_$userID";
+$recordSet = $conn->Execute($sqlrows);
+
+if ($recordSet === false) log_error($sqlrows);
+$num_rows = $recordSet->fields["cnt"];
+
+// build the string to select a certain number of listings per page
+//$config[listings_per_page]=1;
+$limit_str = $cur_page * $config[listings_per_page];
+
+$recordSet = $conn->SelectLimit($sql, $config[listings_per_page], $limit_str );
+
+$end=time();
+//echo "elapsed:".($end-$sta);
+
+if ($recordSet === false)
+{
+	log_error($sql);
+}
+$count = 0;
+?>
+<body topmargin=0 leftmargin=0 scroll=no >
+<table DIR=<?=$dir?> cellpadding=0 cellspacing=0 width=100% height=100% border=0>
+<form name=F method=get action='listing.php'>
+<input type=hidden name=inv>
+<input type=hidden name=listingid>
+<tr style='height:1%'><td>
+<!--MAIN TABLE-->
+    
+    <table cellpadding=0 cellspacing=0 border=0 width=100% bgcolor=buttonface>
+    <TR>
+		<td width=100% nowrap style='font-size:8pt' height=26 valign=middle>&nbsp;
+		<input type=hidden name=search value=1>
+		<?=$lang["barcode"]?>: 
+		<input size=12 name=BarCode autocomplete=off onchange="document.F.productid.value='';" onblur='closeProductNames()' onkeyup='checkProductByBarcode();' style='border:inset 1;background-color:#efefef;' id=BarCode>
+		<input name="btnBarcode" style='font-size:8pt;background-image:url(<?=$imgPath?>find.gif)' type=button class=button  onclick='document.F.inv.value=1;document.F.submit();' title='<?=$lang["find_by_barcode"]?>'>
+		<input type="hidden" name="productid" >
+		&nbsp;
+		<?=$lang["other_num"]?>: <input size=3 name=OtherCode onkeydown='if(window.event.keyCode==13)btnOthercode.click()' style='width:80px;border:inset 1;background-color:#efefef;' id=BarCode><input name="btnOthercode" style='font-size:8pt;background-image:url(<?=$imgPath?>find.gif)' type=button class=button onclick='document.F.inv.value=1;document.F.submit();' title='<?=$lang["other_num_tooltip"]?>'>
+
+		&nbsp;</td>
+		<td nowrap width=1% align=left>
+            <?
+            $gs=queryString("cur_page");
+            //"stock=$stock&catid=$catid&deleted=$deleted&sortby=$sortby&title=".urlencode($title)."&BarCode=$BarCode&ProductGroup=$ProductGroup&MisparZar=$MisparZar&Sapak=$Sapak&MisparSiduri=$MisparSiduri&MisparChalifi=$MisparChalifi&search=".$_GET["search"];
+            next_prev($num_rows, $cur_page, $gs);
+            ?>
+		</td>
+	</tr>
+    </table>
+
+</td></form>
+</tr>
+<tr style='height:1%'><td height=5></td></tr>
+
+<tr><td>
+
+<div id=CONTAINER  style='border:solid 1 gray;overflow-Y:scroll;overflow-X:none;width:100%;height:100%;position:absolute'>
+<?
+$gs=queryString("sortby,cur_page");
+?>
+<table border="0" id=LISTTABLE cellspacing="0" cellpadding="<?php echo $style[admin_listing_cellpadding] ?>" width="100%" class="form_main">
+<tr id=HEADER class=tableHead2 style='position:absolute;top:expression(document.getElementById("CONTAINER").scrollTop);left:0'   align=center>
+<td class="tableHead2" width=1% ><input type=checkbox onclick='selectall(this.checked)'></td>
+<td class="tableHead2" width=1% nowrap><a class=gridtitlelink href="<?=basename($PHP_SELF)."?sortby=bar&$gs"?>"><?=$lang['barcode']?></a></td>
+<td class="tableHead2" width=25%><a class=gridtitlelink href="<?=basename($PHP_SELF)."?sortby=listingname&$gs"?>"><?=$lang['admin_listings_editor_title']?></a></td>
+<td class="tableHead2"  width=15% nowrap><a class=gridtitlelink href="<?=basename($PHP_SELF)."?sortby=supplier&$gs"?>">ספק</a></td>
+<td class="tableHead2" nowrap><a class=gridtitlelink href="<?=basename($PHP_SELF)."?sortby=price&$gs"?>"><?=$lang['admin_listings_editor_price']?></a></td>
+<?if (HasActionPermission("VIEWCOST")){?>
+<td class="tableHead2" nowrap><?=$lang['admin_listings_editor_revach']?></td>
+<td class="tableHead2" nowrap><?=$lang['admin_listings_editor_alut']?></td>
+<td class="tableHead2" nowrap><?=$lang['admin_listings_editor_revachachuz']?></td>
+<?}?>
+<td class="tableHead2" nowrap><?=$lang['admin_listings_editor_quantity']?></td>
+<td class="tableHead2" nowrap><?=$lang['admin_listings_editor_active']?></td>
+<td class="tableHead2" nowrap><?=$lang['admin_listings_editor_action']?></td>
+</tr>
+
+<tr class=tableHead2 align=center>
+<td class="tableHead2" width=1% ><input type=checkbox ></td>
+<td class="tableHead2" width=1% nowrap><a class=gridtitlelink href="<?=basename($PHP_SELF)."?sortby=bar&$gs"?>"><?=$lang['barcode']?></a></td>
+<td class="tableHead2" width=25%><a class=gridtitlelink href="<?=basename($PHP_SELF)."?sortby=listingname&$gs"?>"><?=$lang['admin_listings_editor_title']?></a></td>
+<td class="tableHead2"  width=15% nowrap><a class=gridtitlelink href="<?=basename($PHP_SELF)."?sortby=supplier&$gs"?>">ספק</a></td>
+<td class="tableHead2" nowrap><a class=gridtitlelink href="<?=basename($PHP_SELF)."?sortby=price&$gs"?>"><?=$lang['admin_listings_editor_price']?></a></td>
+<?if (HasActionPermission("VIEWCOST")){?>
+<td class="tableHead2" nowrap><?=$lang['admin_listings_editor_revach']?></td>
+<td class="tableHead2" nowrap><?=$lang['admin_listings_editor_alut']?></td>
+<td class="tableHead2" nowrap><?=$lang['admin_listings_editor_revachachuz']?></td>
+<?}?>
+<td class="tableHead2" nowrap><?=$lang['admin_listings_editor_quantity']?></td>
+<td class="tableHead2" nowrap><?=$lang['admin_listings_editor_active']?></td>
+<td class="tableHead2" nowrap><?=$lang['admin_listings_editor_action']?></td>
+</tr>
+<?
+while (!$recordSet->EOF)
+{
+
+	// alternate the colors
+	if ($count == 0)
+	{
+		$count = $count +1;
+	}
+	else
+	{
+		$count = 0;
+	}
+
+	$sapakName="";
+	if ($recordSet->fields[supplier]!=""){
+		$sql="select SupplierName from listingsSuppliers where id='".($recordSet->fields[supplier]."'");
+		$sup = $conn->Execute($sql);
+		if ($sup === false)	{log_error($sql);}
+		$sapakName=$sup->fields[SupplierName];
+	}
+
+	//strip slashes so input appears correctly
+	$barcode = make_db_unsafe ($recordSet->fields[barcode]);
+	$description = substr($recordSet->fields["description"],0,500);
+	if ($recordSet->fields["description"]!= $description)
+	{
+		$description.="...";
+	}
+	$title = make_db_unsafe ($recordSet->fields[title]);
+	$saleprice = make_db_unsafe ($recordSet->fields[saleprice]);
+	$cost = make_db_unsafe ($recordSet->fields[cost]);
+	$ID = $recordSet->fields["listing_id"];
+	$pricecolor="black";
+	$pricetitle="";
+	$hasQuantity=true;
+	if ($recordSet->fields["is_tree"])
+	{
+		//calculate tree price
+		if ($stock)
+		{
+			$sql = "select sum(ifnull(lse.saleprice,l.SalePrice)*t.quantity*(100-t.discount)/100) as total,
+            sum(Cost*t.quantity) as cost  
+            from listings_tree t
+            inner join listingsDB l on l.id = t.listing_id 
+            left outer join listingsStocksElements lse on lse.listingid = t.listing_id and lse.stockid = $stock
+            where master_id = $ID";
+		}
+		else             
+		{
+			$sql = "select sum(SalePrice*t.quantity*(100-t.discount)/100) as total ,
+            sum(Cost*t.quantity) as cost
+            from listings_tree t,listingsDB l
+            where l.id = t.listing_id and master_id = $ID ";
+		}
+		$trRS=DBQuery($sql);
+		$saleprice=$trRS->Fields("total");
+		$cost=$trRS->Fields("cost");
+		$pricecolor="blue";
+		$pricetitle="עץ מוצר";
+		$totalquantity = 0;  
+		$hasQuantity = false;
+	}
+	if ($hasQuantity)
+	{
+		if ($workmode=="A")
+		{
+			if ($stock)
+			{
+				$sql = "select sum(quantity) as totalquantity from listingsStocksElements where listingid = $ID and stockid = $stock";
+				$qua = DBQuery($sql);
+				$totalquantity = $qua->fields["totalquantity"];
+			}
+			else
+			{
+				$totalquantity = make_db_unsafe ($recordSet->fields[totalquantity]);
+			}
+		}
+		else{
+			$totalquantity = make_db_unsafe ($recordSet->fields[quantity]);
+		}
+	}
+	$active = make_db_unsafe ($recordSet->fields[active]);
+	$url = ($workmode=="A"&&$hasQuantity)?"quant_listings.php":"index.php";
+	if (!$totalquantity)$totalquantity=0;
+	if ($recordSet->fields["grams_rate"])
+	{
+		$totalquantity/=$recordSet->fields["grams_rate"];
+	}
+	$totalquantity = number_format($totalquantity,$recordSet->Fields("decimals"),".","");
+
+	$basket = $recordSet->Fields("basket");
+	$revach = ""; 
+	$revachachuz = 0;
+	$revach = $saleprice-$cost;
+
+	if ($saleprice){
+		$revachachuz = ($saleprice-$cost)*100/($saleprice);
+		$saleprice=number_format($saleprice,2);
+		$revach = number_format($revach,2);
+		$revachachuz = number_format($revachachuz,2);
+		if ($revachachuz>=0){
+			$revachachuz="<span style=color:green>$revachachuz%</span>";
+		}
+		else{
+			$revachachuz="<span style=color:red>$revachachuz%</span>";
+		}
+	}
+	else{	
+		$revach = "";
+		$revachachuz = "";
+	}
+
+	//get attributes
+	$sql = "select a.name, ifnull(av.name,la.value) as value
+        from listing_attributes la
+        inner join attributes a on la.attribute_id = a.id 
+        left outer join attribute_values av on av.attribute_id = la.attribute_id and la.value = av.id
+        where  listing_id = $ID and la.value <> ''         
+        order by a.sortorder";
+	$attrsRS =DBQuery($sql);
+	$attrs="";
+	while (!$attrsRS->EOF)
+	{
+		$attrs.="\n".$attrsRS->Fields("name").": ". $attrsRS->Fields("value");  
+		$attrsRS->MoveNext();   
+	}
+	if (!$description)$attrs=substr($attrs,1);
+	$description.=$attrs;
+
+	$cost = number_format($cost,2);
+	$checked = ($basket)?"checked":"";	
+	echo "<tr id='tr$ID' >\n";
+	echo "<td onmouseover='tr$ID.className=\"mo\"' style='padding-top:2;padding-bottom:3;' onmouseout='tr$ID.className=\"\"'  valign=\"top\" class=\"row3_$count\" align=center><input type=checkbox $checked id='$ID' onclick='parent.basket($ID,this.checked);window.event.cancelBubble=true'></td>\n";
+	echo "<td onclick='window.event.cancelBubble=true' onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\"><span style='color:$pricecolor' title='$pricetitle'>".splitLongWords($barcode,13)."</span></td>\n";
+	echo "<td title='".str_replace("'","&#39;",$description)."' onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">".(HasActionPermission("VIEWLISTING")||HasActionPermission("EDITLISTING")?"<a  href=\"javascript:parent.wopen('edit_my_listings.php?edit=$ID','edit')\">":"") . ($title?splitLongWords($title):"&lt;פריט ללא שם&gt;") ."</a>&nbsp;</td>\n";
+	echo "<td onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\">$sapakName&nbsp;</td>\n";
+	echo "<td onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" nowrap class=\"row3_$count\" align=right>&nbsp;<span style='color:$pricecolor' title='$pricetitle'>".$saleprice."</span>&nbsp;</td>\n";
+	if (HasActionPermission("VIEWCOST"))
+	{
+		echo "<td onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" nowrap class=\"row3_$count\" align=right><span dir=ltr>&nbsp;".$revach."&nbsp;</td>\n";
+		echo "<td onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" nowrap class=\"row3_$count\" align=right><span dir=ltr>&nbsp;".$cost."&nbsp;</td>\n";
+		echo "<td onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" nowrap class=\"row3_$count\" align=right><span dir=ltr>&nbsp;".$revachachuz."&nbsp;</td>\n";
+	}
+	echo "<td onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' valign=\"top\" class=\"row3_$count\" nowrap align=right>".(HasActionPermission("VIEWLISTING")||HasActionPermission("EDITLISTING")?"<a href=\"javascript:parent.wopen('$url?edit=$ID','edit')\">":"")."<span dir=ltr ".(($totalquantity<0)?"style=color:red":"").">$totalquantity</span></a></td>\n";
+	echo "<td onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' align=center class=\"row3_$count\" valign=\"top\" width=1% nowrap>";
+	if ($active == "no")
+	{
+		echo "<font color=\"red\">$lang[no]</font></b>";
+	}
+	elseif ($active == "yek")
+	{
+		echo "<font color=\"blue\">$lang[inter]</font></b>";
+	}
+	else 
+	{
+		echo "$lang[yes]";
+	}
+	echo "</td>\n";
+	echo "<td bgcolor=#E0DBDC onmouseover='tr$ID.className=\"mo\"' onmouseout='tr$ID.className=\"\"' class=\"row3_$count\" valign=middle width=1% nowrap>";
+	
+	if (HasActionPermission("DELETELISTING"))
+	{
+		echo "<a href=\"".$PHP_SELF."?".queryString("delete")."&delete=$ID". "\" onClick='window.event.cancelBubble=true;return parent.confirmProductDelete(\"".JSEncode($barcode)."\")'><img src=".$imgPath."delete2.png align=absmiddle border=0 alt='$lang[admin_listings_editor_delete_listing]'></a>&nbsp;";
+	}
+	if (HasActionPermission("EDITLISTING")||HasActionPermission("VIEWLISTING")){
+		echo" <a href=\"javascript:parent.wopen('edit_my_listings.php?edit=$ID','edit')\"><img src=".$imgPath."pencil.png width=16 height=16 align=absmiddle border=0 alt='$lang[admin_listings_editor_modify_listing]'></a>";
+	}
+	echo "</td>\n</tr>\r\n\r\n";
+	$recordSet->MoveNext();
+} // end while
+?>
+</table>
+</div>
+</td></tr>
+</table>
+        
+<?if($inv){?>
+<script>
+parent.clearState();
+</script>
+<?}?>
+        
+
+<script>
+
+function Start(){
+    <?if ($cant_delete){?>
+    alert('אי אפשר למחוק פריט זה מכיוון שיש לו הסטוריה');
+    <?}?>
+    <?if (!$nofocus){?> 
+	try{
+		document.getElementById('<?=$OtherCode?"OtherCode":"BarCode"?>').focus();
+	}         
+	catch(e){}
+    <?}?>   
+}
+document.body.onload=Start;
+
+var currentInput = null;
+var prevProductName = ""; 
+var inProc = false; 
+var __autoSubmit = false;
+
+var xmlDoc=new ActiveXObject("Microsoft.XMLDOM");
+
+</script>
+
+
+<select id=productNames onfocus='this.style.backgroundColor="lightyellow"' onkeypress='checkPrNames()' onclick='getProduct()' style='display:none;position:absolute;minWidth:200;top:0;left:0' size=5></select>
+
+
+<?php
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

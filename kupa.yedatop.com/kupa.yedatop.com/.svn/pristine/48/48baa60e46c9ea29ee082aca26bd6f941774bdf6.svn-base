@@ -1,0 +1,322 @@
+<?
+	session_start();
+	
+	$simple=1;
+	$page_subtitle = "מכירות לפי מאפיינים ";
+	$xlsfilename="AttrSales";
+	
+	include("include/common.php");
+    include("include/business_functions.php");	
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+    if (!IsPostBack())
+    {
+        $includevat=true; 
+    }
+        
+	if ($_POST["posted"])
+    {
+	    $onlysold = $_POST["onlysold"];
+        $fromkupa = $_POST["fromkupa"];
+        $fromdocs = $_POST["fromdocs"];
+    }
+	else
+    {                                                                 
+	    $onlysold = $_GET["onlysold"];
+        $fromkupa = $_GET["fromkupa"];
+        $fromdocs = $_GET["fromdocs"];
+    }
+
+	if ($_GET["sDate"] && $saction != "sendreport"){
+		$saction="go";
+	}
+	
+	if (!$sDate){
+		$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+		$sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+		$eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+	}
+
+	$asDate = explode("/",$sDate);
+	$aeDate = explode("/",$eDate);
+	
+	$startdate = mktime(0,0,0,$asDate[1],$asDate[0],$asDate[2]);
+	$enddate = mktime(23,59,59,$aeDate[1],$aeDate[0],$aeDate[2]);
+	$startDay = date("Y/m/d",$startdate);
+	$endDay = date("Y/m/d",$enddate);
+	
+	
+    
+	$stocks = GetStocks(true);
+
+	$suppliers = $conn->Execute("select * from listingsSuppliers where Status=1 and isSupplier=1 and user_id = $userID order by binary SupplierName");
+	if ($suppliers === false){log_error($sql);}    
+                                                   
+	?>
+   <style>
+    .z {color:gray}
+    .s {<?if (HasReportPermission("CHESHBONIT")){?>cursor:hand<?}?>}
+    .b {font-weight:bold;<?if (HasReportPermission("CHESHBONIT")){?>cursor:hand<?}?>}
+    .bt {font-weight:bold;}
+    th {background-color:silver}
+    </style>
+    <script>
+    function showChn(ids){
+        <?if (HasReportPermission("CHESHBONIT")){?>
+	    ids1 = ids.replace(/-1/g,"").replace(/\,/g,"")
+	    if (ids1){
+            document.FF.ids.value = document.getElementById(ids).value
+		    openReport1("blank.htm")
+            document.FF.submit()
+	    }
+        <?}?>
+    }
+
+    function mov(e){
+        <?if (HasReportPermission("CHESHBONIT")){?>
+	    if(e.className=="s"||e.className=="b ") e.style.backgroundColor='yellow';
+        <?}?>
+    }
+    function mou(e){
+        <?if (HasReportPermission("CHESHBONIT")){?>  
+	    e.style.backgroundColor='';
+        <?}?>
+    }
+
+    function openReport1(url){
+	    var ss="";
+	    s = window.open(url,'CHN','top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+	    s.focus();
+    }	
+
+    </script>
+	<script>
+	function PrintReport(){
+		document.getElementById("Query").style.display = "none";
+		window.print();
+		document.getElementById("Query").style.display = "";
+	}
+	</script>
+	<body>
+	<table cellpadding=5 border=0 width=100%>
+	<tr>
+	<form name=F method=post action="<?=$PHP_SELF?>">
+    <input type=hidden name=posted value=1>
+	<input type=hidden name=usr value=<?=$usr?>>
+	<input type=hidden name=rmodule value=<?=$rmodule?>>
+	<td nowrap>
+	<?$reporttitle = "מכירות 
+    <br>
+    לפי מאפיינים ";?>
+	<?if ($usr){$reporttitle.="<br>".$username;}?>
+	<strong style='font-size:12pt'><?=$reporttitle?></strong>
+	</td><td width=99% style='border:inset 1'>
+	<?=$lang["from"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.sDate")
+'>
+ <?=$lang["to"]?> <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.eDate")
+'>
+ 
+	
+	<select name=category>
+	<option value=""><?=$lang["all_cats"]?>
+    <?FillCategoriesList($category);?>
+	</select>
+    
+	
+	<select name=stock>
+	<?FillStockList($stocks,$stock)?>
+	</select>                        
+
+	<select name=supplier>
+	<option value="">כל הספקים
+	<?while(!$suppliers->EOF){?>
+		<option value="<?=$suppliers->fields["ID"]?>" <?=($supplier==$suppliers->fields["ID"])?"selected":""?>><?=$suppliers->fields["SupplierName"]?>
+		<?$suppliers->MoveNext();
+	}?>
+	</select>
+
+	<input type=submit name=gosearch value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top;" >
+    <br>
+		<?=$lang["including_sub_cat"]?> <Input type=checkbox <?=($subcats||!IsPostBack())?"checked":""?> name=subcats>
+	
+    ברקוד <input name=barcode size=8 value="<?=$barcode?>">
+
+	 רק מאפיינים שנמכרו <input type=checkbox name=onlysold value=1 <?=($onlysold==1)?"checked":""?>>
+
+&nbsp;
+      <hr>
+	<?if ($saction=="go" || $saction=="sendreport"){
+		require("sendreport.php");
+	}?>
+	<input type=hidden name=saction value=go>
+	<input type=hidden name=reportbody value="">
+	<input type=hidden name=sendmode value="">
+	</td>
+	</form>
+	</tr>
+	</table>
+	<?	
+	if ($saction=="sendreport")
+    {
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go")
+    {
+
+        $worksheet->set_column('A:C', 20);
+	    $headings = array("מאפייו","פדיון","כמות");
+
+	    $worksheet->write_row('A'.($rrow++), $headings, $heading);
+	    
+	    echo "<div ><table id=REPORTTABLE dir=$dir border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+	    echo "<tr>";
+        echo "<th width=50%>מאפיין</th>";
+        echo "<th width=25%>פדיון</th>";
+        echo "<th width=24%>כמות</th>";
+        
+	    echo "</tr>";
+	    echo "<tr>";
+
+	    echo"</tr>";
+        
+		$q="";
+		if ($category){
+			$q.= " and ProductGroup in (".getCategoryIDs($category,$subcats).") ";
+		}
+        if ($supplier){
+            $q.=" and sapak = $supplier";
+        }
+        if($barcode){
+            $q.=" and barcode = '".addslashes($barcode)."'";
+        }
+        if($stock){
+            $q.=" and stock_id = '".addslashes($stock)."'";
+        }
+        
+        $join = (!$onlysold) ?"left outer":"inner";
+        
+ 		$sql = "
+        select
+            a.id as attribute_id, a.name as attribute_name,
+            av.name as caption, av.id as value
+         	    from
+                attribute_values av
+                inner join attributes a on a.id = av.attribute_id and a.type='VLIST'
+                order by a.sortorder,av.sortorder";
+        
+		    $atr = DBQuery($sql);
+            $totalAmt = 0;
+            $totalQty = 0;
+            $totalCost = 0;
+            $tDecimals=0;
+            $cnt=0;     
+            $attrid=0;
+        
+            while (!$atr->EOF)
+            { 
+                $value = $atr->Fields("value");     
+                $attr = $atr->Fields("attribute_id");  
+                
+                if ($attrid != $atr->Fields("attribute_id"))
+                {
+                    echo "<tr><td colspan=5 bgcolor=#efefef>".$atr->Fields("attribute_name")."</td></tr>";
+                    $attrid =$atr->Fields("attribute_id");
+                    
+                    $worksheet->write("A".$rrow++,$atr->Fields("attribute_name"),$heading); 
+                }
+                
+                
+                $sql = "
+                    select
+           
+                    max(decimals) as decimals,
+                    group_concat(t.id) as ids,
+    	            sum(case when WeigthFlag=1 then WeightQty/grams_rate else StockAmount end)  as StockAmount,
+    	            sum((case
+                        when AmountPercentDiscount <> 0 and (c.DiscountType=1 or SecondDiscFlag=1 or OtherDiscountFlag=1  or ClubDiscount=1)
+                            then CompAmount - (CompAmount*AmountPercentDiscount/100)
+    		            when CompCashDiscount <> 0
+    			            then CompAmount - CompCashDiscount
+    		            when CompDiscount <> 0
+    			            then CompAmount - (CompAmount*CompDiscount/100)
+    		            when TranDiscount <> 0
+    			            then CompAmount - (CompAmount*TranDiscount/100)
+    		            when TranCashDiscount <> 0
+    			            then CompAmount - (CompAmount*(TranCashDiscount*100/TranAmount)/100)
+    		            else CompAmount end) * (case when IsRefund=1  or RefundMode=1 or StockAmount <0 then -1 else 1 end)
+    		            ) as Mahzor
+    	            from            
+                        transactioncomponents c 
+                        inner join transactions t on c.trans_id = t.ID and refundmode<>2 and 
+                        trandate between '".DateToSQL($sDate)."' and '".DateToSQL($eDate)."'  
+                        inner join listingsDB l on l.id = c.listing_id 
+                        inner join $TABLE_UNITS u on l.unit = u.id 
+    	                where istree=0 and listing_id in 
+                        (select listing_id from listing_attributes where value=$value and attribute_id = $attr)
+                        $q
+                        ";
+                
+                $res=DBQuery($sql);
+                
+                $CashTrans= $res->Fields("ids");
+                $tDecimals=($tDecimals<$res->Fields("decimals"))?$res->Fields("decimals"):$tDecimals;
+                
+                if ($onlysold && !$res->Fields("StockAmount"))
+                {
+                    $atr->MoveNext();
+                    continue;
+                }
+                
+                echo "<tr align=right>";
+                echo "<td>".((trim($atr->Fields("caption")))?$atr->Fields("caption"):"פריטים ללא $caption")."</td>";
+		        $ids="";
+		        echo"
+		        <td >&nbsp;".($CashTrans?"<a href='javascript:showChn(\"IDS$cnt\")'>":"").number_format($res->Fields("Mahzor"),2,".","")."&nbsp;</td>
+                <td >&nbsp;".number_format($res->Fields("StockAmount"),$res->Fields("decimals"))."&nbsp;
+                <textarea style='display:none' id=IDS$cnt>$CashTrans</textarea>
+                </td>
+		        ";
+
+		        echo "</tr>"; 
+		        
+		        $b=$body;
+		        $f=$numformat;
+		        $worksheet->write("A".$rrow,$atr->Fields("caption"),$b);
+		        $worksheet->write("B".$rrow,number_format($res->Fields("Mahzor"),2,".",""),$f);
+		        $worksheet->write("C".$rrow,number_format($res->Fields("StockAmount"),2,".",""),$f);
+	        
+		        $rrow++;  $cnt++;
+	            
+                $atr->MoveNext();
+
+	    }
+        
+
+	    echo "</table>";
+	    
+	}
+	
+	$workbook->close();
+	copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+    unlink($fname);
+    
+
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+	
+
+?>
+
+<form name=FF method=post target=CHN action="rep_cheshbonit.php">
+<textarea style='display:none' name=ids></textarea>
+<input type=hidden name=simple value=1>
+<input type=hidden name=usr value="<?=$usr?>">
+<input type=hidden name=rmodule value="<?=$rmodule?>">
+</form>

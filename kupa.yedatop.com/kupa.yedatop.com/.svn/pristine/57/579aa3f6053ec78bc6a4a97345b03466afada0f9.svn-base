@@ -1,0 +1,1684 @@
+<?
+	//	Vision routines are used in this module
+	include "services/BD3VisionRoutines.service";
+
+  	function BD3SQLSelectQuery($sServiceTable = "", $sOrderBlock = "", $sWhereBlock = "")
+	{
+		//	BD3SQLSELECTQUERY function automatic selects query by values
+		//	defined in the module
+		global $sServiceMainTable, $sSQLActions,$userID, $userName,$cid,$sServiceCondition; 
+
+		if($sOrderBlock == "" && $sSQLActions != "") 
+		{ 
+		 	if($sSQLActions[ order ] != "")
+			{
+			 	$sOrderBlock = $sSQLActions[ order ];
+
+				if($sSQLActions[ order_type ] != "")
+				{
+				 	$sOrderBlock .= " ".$sSQLActions[ order_type ];
+				}
+			}
+		} 
+
+		$sWhereBlockStr = "WHERE 1=1";
+
+		if($sWhereBlock != "")
+		{
+
+		 	for($i = 0; $i < sizeof($sWhereBlock); $i++)
+			{
+				$sWhereBlockStr .= " and ".$sWhereBlock[$i];
+
+			}
+		}
+                
+		if ($sServiceCondition)
+		{
+			$sWhereBlockStr.=" and ".$sServiceCondition;
+		}
+	                              
+		if($sServiceTable == "")
+		{
+		 	$sServiceTable = $sServiceMainTable;
+		}
+
+		if($sOrderBlock != "")
+		{
+		 	$sOrderBlock = "ORDER BY ".$sOrderBlock;
+		}                         
+		
+		if (strpos($sServiceTable,"userdata")){
+             $userStr = strpos(" ".$sWhereBlockStr,"WHERE")?" AND UserName = '$userName'":" WHERE UserName = '$userName'";
+		}
+        elseif ($sServiceTable=="persons"||$sServiceTable=="billing"||$sServiceTable=="supplier_attachments"){
+             $userStr = strpos(" ".$sWhereBlockStr,"WHERE")?" AND supplier_id = '$cid'":" WHERE supplier_id = '$cid'";
+        }
+        elseif ($sServiceTable=="billing_products"){
+             $userStr = strpos(" ".$sWhereBlockStr,"WHERE")?" AND billing_id = '$cid'":" WHERE billing_id = '$cid'";
+        }
+        elseif ($sServiceTable=="listings_tree"){
+             $userStr = strpos(" ".$sWhereBlockStr,"WHERE")?" AND master_id = '$cid'":" WHERE master_id = '$cid'";
+        }
+        elseif ($sServiceTable=="attribute_values"){
+             $userStr = strpos(" ".$sWhereBlockStr,"WHERE")?" AND attribute_id = '$cid'":" WHERE attribute_id = '$cid'";
+        }
+		else{
+             $userStr = strpos(" ".$sWhereBlockStr,"WHERE")?" AND user_ID = $userID":" WHERE user_ID = $userID";
+		}                  
+        //echo "SELECT * FROM $sServiceTable $sWhereBlockStr $userStr $sOrderBlock";
+		return @q("SELECT * FROM $sServiceTable $sWhereBlockStr $userStr $sOrderBlock");
+
+	}
+
+
+	function BD3ViewRoutine($rSQLResult)
+	{
+		//	BD3VIEWROUTINE is the main function that makes all routines
+		//	to preview all blocks for the module
+
+	 	global $sViewColoumns, $sServiceLegalName, $sOptions, $sServiceMainTable,$userID,$service,$cid,$GO_CONFIG,$userName, $sSQLActions;
+		global $lang;
+		if(!sizeof($sViewColoumns) || e($rSQLResult))
+		{
+			if($sOptions[create_record] != none)
+			{
+				if($sOptions[create_record] != always)
+				{
+                    /*
+			 		echo "<u>שרות: </u> $sServiceLegalName<br><br>".
+				     	 "<b>אין רשומות כעת.</b><br>\n".
+						 "לחץ <a href=main.php?cid=$cid&service=$service&bd_event=create_record>כאן</a>".
+						 ", כדי ליצור רשומה חדשה.";
+                    **/
+                    echo "<br><b>לא נמצאו רשומות</b><br><br>";
+                   
+				}
+				else
+				{
+				 	echo "There is no data for current service. ".
+						 "User the <b>create record</b> form to add new records.";
+				}
+			}
+
+			return;
+		}
+
+		//	Building view, using Vision service
+		BD3VisionObjects("TABLE|HEAD_ROW");
+			if ($sOptions[multiselection]=="always")
+			{
+				echo "<td width=1%><input type=checkbox value='' onclick=checkAll(this.checked)></td>
+				<script>
+				function checkAll(checked)
+				{
+					els = document.getElementsByTagName('INPUT');
+					for(i=0;i<els.length;i++)
+					{
+						if (els[i].type=='checkbox')els[i].checked = checked;
+					}
+				}
+				</script>
+				";
+			}
+
+		//	Building table header
+		$sTmpColoumns = $sViewColoumns;
+		while(list($k, $v) = each($sTmpColoumns))
+		{
+            if ($v[ hidden ]=="yes")continue;
+            if ($v[ type ]=="hidden")continue;
+			if((is_array($v)?$v[name]:$k) == bd_counter)
+			{
+			 	echo "<td width=50 align=center class=larger>";
+			}
+			else
+			{
+				echo "<td class=larger>&nbsp;";
+			}
+			echo is_array($v) ? $v[ln] : $v;
+
+		 	BD3VisionObject("/COL");
+		}
+
+		//	Checking record controls
+		$nRecordControls = 1;
+
+		if($sOptions[ edit_record ] == none && $sOptions[ delete_record ] == none && $sOptions[ bd_controls ] == "")
+		{
+		 	$nRecordControls = 0;
+		}
+
+		if($nRecordControls)
+		{
+		 	echo "<td align=center class=larger>";
+	 		BD3VisionObjects("/COL|/ROW");
+		}
+
+
+		$bd_counter = 0;
+        $total = array();
+
+		while($fDataArray = f($rSQLResult))
+		{
+		 	echo "<tr bgcolor=".( $bd_counter % 2 ? "#F0F0F0" : "#E8E8E8" )." height=20>\n";
+
+			$bd_counter++;
+			if ($sOptions[ multiselection ]=="always")
+			{
+				BD3VisionObject("COL");
+				echo "<input type=checkbox name='chkrow' value='".$fDataArray["ID"]."'>";
+				BD3VisionObject("/COL");
+			}
+			$sTmpColoumns = $sViewColoumns;
+            $val = 0;
+			while(list($k, $v) = each($sTmpColoumns))
+			{
+                if ($v[ hidden ]=="yes")continue;
+                if ($v[ type ]=="hidden")continue;
+				BD3VisionObject("COL");
+				echo "&nbsp;";
+
+			 	switch($k)
+				{
+				 	case "bd_counter":
+						echo $bd_counter.".";
+						break;
+					default:
+						if(is_array($v))
+						{
+							switch( $v[ type ] )
+							{
+							 	case yes_no:
+									echo !$fDataArray[$k] ? "No" : "Yes";
+									break;
+                                case date:
+                                    echo dateFromSQL($fDataArray[$k]);
+                                    break;
+                                case cross:
+                                    $rCrossRecords = q("SELECT $v[lookup_field] as res FROM $v[cross] where $v[cross_field] = '$fDataArray[$k]' ");
+                                    $out = f($rCrossRecords);
+                                    echo ($out["res"])? $out["res"] : $fDataArray[$v[ifnull]];
+                                    break;
+                                case sql: 
+                                    $s = $v["value"];
+                                    $s = preg_replace("/\[([^]]+)\]/e",'$fDataArray["\\1"]',$s);
+                                    $q = f(q($s));
+                                    echo $val = $q[0];     
+                                    break;
+								case password:
+									echo "&lt;password&gt;";
+									break;
+
+                                case file:
+                                    $targetdir = $GO_CONFIG->file_storage_path.$userName;
+                                    if ($v[targetdir]){
+                                        $targetdir.="/".$v[targetdir];
+                                    }
+                                    $fname =  $targetdir."/".$fDataArray[$k];
+                                    $filename = $fDataArray[$k];
+                                    if (strpos($filename,"___"))
+                                    {
+                                        $farr = explode(".",$filename);
+                                        $farrname = explode("___",$farr[0]);
+                                        $filename = $farrname[0].".".$farr[1];
+                                    }
+                                    echo ($fDataArray[$k])?(" <a target=_blank href='/modules/filesystem/download.php?path=$fname'>$filename</a>"):"";
+
+								case enum:
+									$sTmpOptions = $v[enum];
+
+									while(list($kk, $vv) = each($sTmpOptions))
+									{
+									 	if($kk == $fDataArray[$k])
+										{
+										 	echo $vv;
+										}
+									}
+									break;
+							}
+						}
+						else
+						{
+							if($k == pswd)
+							{
+								echo "&lt;password&gt;";
+							}
+							else
+							{
+								echo $fDataArray[$k];
+							}
+						}
+				}
+				BD3VisionObject("/COL");
+                $total[$k]+=$val;
+			}
+
+			if($nRecordControls)
+			{
+				echo "<td align=center>";
+			}
+
+			//		Edit control
+            global $imgPath;
+            if ($sOptions[email])       
+            {
+                
+                $url = $sOptions[email];
+                echo "<a href='javascript:void(open(\"../$url.php?record_id=".$fDataArray[id]."\",\"\",\"top=200,left=200,width=300,height=250,scrollbars=yes\"))'>".
+				"<img alt='עדכון' src='".$imgPath."email.gif' border=0></a>\n";
+            }
+			if($sOptions[ edit_record ] != none)
+			{
+				 if (!$fDataArray[id]){
+			 		$fDataArray[id]=$fDataArray[ID];
+				}
+                if ($cid){
+				    echo "<a href='javascript:void(window.open(\"main.php?cid=$cid&service=$service&bd_event=edit_record&record_id=$fDataArray[id]\",\"sendwindow\",\"width=400,height=450,left=\"+(window.screenLeft+20)+\",top=\"+(window.screenTop-10)))'>".
+					 "<img alt='עדכון' src='".$imgPath."edit.gif' border=0></a>\n";
+                }
+                else
+                {
+				    echo "<a href=main.php?cid=$cid&service=$service&bd_event=edit_record&record_id=$fDataArray[id]>".
+					 "<img alt='עדכון' src='".$imgPath."edit.gif' border=0></a>\n";
+                }
+			}
+
+			//		Delete control
+			if($sOptions[ delete_record ] != none)
+			{
+				$sPromtStr = "";
+
+				if($sOptions[ delete_record ] == promt)
+				{
+					if($sOptions[ delete_record_promt ] == "")
+					{
+					 	$sPromtStr = "Do you really want to delete this record?";
+					}
+					else
+					{
+						$sPromtStr = $sOptions[ delete_record_promt ];
+					}
+
+					$sPromtStr = " OnClick=\"return window.confirm('$sPromtStr');\"";
+				}
+
+				echo "<a href=# onclick='javascript:if (confirm(\"למחוק רשומה?\"))location=\"main.php?cid=$cid&service=$service&bd_event=delete_record&record_id=$fDataArray[id]$sPromtStr\"'>".
+					 "<img border=0 alt='מחק' src='".$imgPath."delete.gif'></a>\n";
+			}
+
+			//	Custom controls
+			if( ($sOptions[ bd_controls ] != ""))
+			{
+				$sTmpControls = $sOptions[ bd_controls ];
+
+				while(list($kk, $vv) = each($sTmpControls))
+				{
+				 	echo "&nbsp;<font color=0>[ <a href=".($vv[ type ] == service ? "main.php?cid=$cid&service=$vv[href]&" : "$vv[link_to]?").
+						 ( ($vv[ param ] != "" && $vv[param_name] != "") ? "$vv[param_name]=".$fDataArray[ $vv[param] ] : "" ).">".
+						 "<font color=0>$vv[ln]</a> ]\n";
+				}
+			}
+
+			if($nRecordControls)
+			{
+				BD3VisionObject("/COL");
+			}
+
+			BD3VisionObject("/ROW");
+		}
+        
+        if($sSQLActions["sum"])
+        {
+		    BD3VisionObject("ROW");
+            reset($sTmpColoumns);
+            $i=1;
+            while(list($k, $v) = each($sTmpColoumns)) 
+            {
+				    BD3VisionObject("COL");
+                    if ($i==1)
+                    {
+                        echo "&nbsp;<b>סה\"כ<b>";
+                    }
+                    if (strpos(" ".$sSQLActions["sum"],$k))
+                    {
+                        echo "&nbsp;<b>". number_format($total[$k],2)."<b>";
+                    }
+				    BD3VisionObject("/COL");
+                    $i++;
+            }
+		    BD3VisionObject("/ROW");
+        }
+
+		BD3VisionObject("/TABLE");
+		if ($sOptions[multioperation])
+		{	
+			$oper = $sOptions[multioperation];
+
+			echo "<br><input class=button onclick='doAction(\"$oper\")' type=button value='"."איפוס מלאי"."'>";
+			echo "
+			<script>
+			function doAction(pagename)
+			{
+				var ids = '';
+				els = document.getElementsByName('chkrow');
+				for(i=0;i<els.length;i++)
+				{
+					if (els[i].checked)
+					{
+						ids +=','+els[i].value;
+					}
+				}
+				if (ids!='')
+				{
+					ids = ids.substr(1);
+					if (confirm('"."לבצע פעולה עבור רשומות מסומנות?"."'))
+					{
+						opener.wopen('../'+pagename+'.php?ids='+ids,pagename,300,150,true);
+					}
+				}
+				else
+				{
+					alert('"."יש לסמן רשומות"."');
+				}
+			}
+			</script>
+			";
+		}
+		//if ($sServiceMainTable!="userdata"){
+		//	echo "<table width=100%><td class=larger><br>רשומות: $bd_counter מתוך ".(nr(q("select id from $sServiceMainTable where user_ID = $userID")))."</td></table>";
+		//}
+        echo "<br>";
+	}
+
+	function BD3HandleEvents()
+	{
+	 	global $bd_event, $bd_event_type, $sOptions, $fModulePermissions, $sReloadParent;
+
+		//	Checking depencies
+		//
+		//	For example, if modules developer turned action "delete_record" off
+		//	We cannot execute this event. Just changing its global value and
+		//	returning default.
+
+
+		if($sOptions[ edit_record ] == none && $bd_event == edit_record)
+		{
+		 	$bd_event = "";
+		}
+
+		if($sOptions[ delete_record ] == none && $bd_event == delete_record)
+		{
+		 	$bd_event = "";
+		}
+
+		switch($bd_event)
+		{
+		 	case create_record:
+				if(!BD3CheckPermissions(w))
+					break;
+
+				BD3Event_OnCreate();
+				$bd_event_type = modal;
+				break;
+
+			case search:
+				if(!BD3CheckPermissions(r))
+					break;
+
+				BD3Event_OnSearch();
+				$bd_event_type = modal;
+				break;
+
+			case link_to:
+				if(!BD3CheckPermissions(a))
+					break;
+
+				BD3Event_OnLinkTo();
+				$bd_event_type = modal;
+				break;
+
+			case search_data:
+				if(!BD3CheckPermissions(r))
+					break;
+
+				BD3Event_OnProcessSearching();
+				$bd_event_type = modal;
+				break;
+
+			case new_record:
+				if(!BD3CheckPermissions(w))
+					break;
+
+				if(BD3Event_CheckInputDataSream(insert))
+				{
+					BD3Event_OnNewRecord();
+                    if ($sReloadParent==""||$sReloadParent=="Yes")
+                    {
+					    echo "<script>try{opener.location=opener.location.href.replace('#','')}catch(e){};</script>";
+                    }   
+				}
+				break;
+
+			case edit_record:
+				if(!BD3CheckPermissions(w))
+					break;
+
+				BD3Event_OnEdit();
+				$bd_event_type = $sOptions[edit_record] != "always" ? modal : "";
+				break;
+
+			case update_record:
+				if(!BD3CheckPermissions(w))
+					break;
+
+				if(BD3Event_CheckInputDataSream(update))
+				{
+					BD3Event_OnUpdateRecord();
+                    if ($sReloadParent==""||$sReloadParent=="Yes")
+                    {
+					    echo "<script>try{opener.location=opener.location.href.replace('#','')}catch(e){};</script>";
+                    }
+				}
+				break;
+
+			case delete_record:
+				if(!BD3CheckPermissions(d))
+					break;
+
+				BD3Event_OnDeleteRecord();
+				break;
+
+			default:
+				return "view";
+		}
+
+		return $bd_event_type == modal ? "" : view;
+	}
+
+	function BD3View()
+	{
+		global $sOptions, $rmodule,$bd_event, $bd_event_type, $cid, $record_id;
+		BD3SetupPermissionsOnControls();
+		if(BD3HandleEvents() == view && $sOptions[view] != none)
+		{
+		 	$sOptions[view] = always;
+		}
+
+		if($sOptions[control_panel] != "unvisible" && !($cid && $bd_event_type=="modal") && !$_POST["apply"])
+		{
+		 	BD3VisionControlPanel();
+		}
+
+		if($bd_event_type != modal)
+		{
+
+			if($sOptions[create_record] == always && $bd_event != create_record && $sOptions[search] == always && $bd_event != "search")
+			{
+
+				echo "<table cellspacing=2 cellpadding=2>";
+				BD3VisionObject("ROW");
+				echo "<td valign=top>";
+				BD3Event_OnCreate();
+
+				echo "</td>";
+				echo "<td valign=top>";
+
+				BD3Event_OnSearch();
+
+				echo "</td>";
+
+				BD3VisionObjects("/ROW|/TABLE");
+			}
+			else
+			{
+				if($sOptions[create_record] == always && $bd_event != create_record)
+				{
+					BD3Event_OnCreate();
+				}
+
+				if($sOptions[search] == always && $bd_event != search && $bd_event != update_record && $bd_event != new_record)
+				{
+					BD3Event_OnSearch();
+				}
+			}
+
+			if($sOptions[edit_record] == always && $bd_event != edit_record)
+			{
+			 	BD3Event_OnEdit();
+			}
+            elseif ($_POST["apply"]){
+			 	BD3Event_OnEdit();
+            }
+            else{
+    			if($sOptions[view] == always)
+    			{
+    				if (!$rmodule){
+    			 		BD3ViewRoutine(BD3SQLSelectQuery());
+    				}
+    				else{
+    					echo"<script>window.close()</script>";
+    				}
+    			}
+            }
+		}
+	}
+
+	function BD3Event_OnCreate()
+	{
+
+	 	global $sEditColoumns, $sTabs, $rmodule,$sServiceLegalName, $sEditType,$service,$cid;
+		global $record_id, $sServiceMainTable, $sOptions, $userID, $userName, $GO_CONFIG;
+        global $activeTab;
+        $activeTab="";
+		echo "<table border=0 width=100% cellspacing=0 cellpadding=1 bgcolor=999999><td>\n".
+			 "<table border=0 width=100% cellspacing=4 cellpadding=4 bgcolor=EFEFEF><td align=right class=larger>";
+
+		if($sEditType == update)
+		{
+	 		echo "עדכון רשומה:<br>";
+
+			if($sOptions[ type ] != master_detail)
+			{
+				$fRecord = f(q("SELECT * FROM $sServiceMainTable WHERE id='$record_id'"));
+			}
+			else
+			{
+				$sGlobalStr = "global \$$sOptions[master_field];";
+				eval($sGlobalStr);
+				$sGlobalStr = "\$sTmp = \$$sOptions[master_field];";
+				eval($sGlobalStr);
+
+				$sTmpCol = $sEditColoumns;
+				$sMasterItem = "";
+
+				while(list($k, $v) = each($sTmpCol))
+				{
+					if($v[ type ] == cross && $sOptions[ master_field ] == $v[ name ])
+					{
+						$sMasterItem = $v;
+						break;
+					}
+				}
+
+				//	Cheking if the record in the master table exists
+				//	If no.. then continue
+
+//				$rMaster = q("SELECT $sMasterItem[cross_field] FROM $sMasterItem[cross] WHERE $sMasterItem[cross_field]='$sTmp'");
+				$userStr = " AND user_ID = $userID";
+				$fRecord = f(q("SELECT * FROM $sServiceMainTable WHERE $sMasterItem[name]='$sTmp' $userStr "));
+				if($fRecord == "" && $sTmp == "")
+				{
+					//	My be master field is not selected, but data exists
+					if($sMasterItem != "")
+					{	
+						$userStr = " WHERE user_ID = $userID";
+						$fMaster = f(q("SELECT id FROM $sMasterItem[cross] $userStr ORDER BY $sMasterItem[lookup_field] LIMIT 1"));
+
+						if($fMaster[ id ] != "")
+						{
+							$userStr = " AND user_ID = $userID";
+							$fRecord = f(q("SELECT * FROM $sServiceMainTable WHERE $sOptions[master_field]='$fMaster[id]' $userStr "));
+						}
+					}
+
+				}
+			}
+		}
+		else
+		{
+	 		echo "רשוםה חדשה<br>";
+		}
+
+		echo "<br>";
+        if (count($sTabs)){
+            echo "<table width=100% border=0 cellspacing=0 cellpadding=5 ><tr>";
+            foreach($sTabs as $tIndex=>$tTab){
+                $disabled = ($record_id||$tTab["disableoncreate"]!="Yes")?"":"disabled";
+                echo "<td  nowrap $disabled onclick='changeTab($tIndex)' id=TAB tabIndex=".$tIndex." class='".(($activeTab=="")?"sactiveTab":"sinactiveTab")."'>".$tTab[name]."</td>";
+                if ($activeTab=="") $activeTab=$tIndex;
+            }
+            echo "<td class=emptyTab width=90%>&nbsp;</td></tr><tr><td width=100% class=tabContent colspan=".(count($sTabs)+1)."><div style='width:100%;height:100%;overflow:auto;'>";
+        }
+		//	Drawing form
+		$sTmpColoumns = $sEditColoumns;
+
+		BD3VisionObject("CTABLE");
+        echo '                          
+        <script language="JavaScript" src="include/calendar/Calendar1-901.js"></script>
+        <LINK REL="stylesheet" TYPE="text/css" HREF="include/calendar/Calendar.css">
+        <script>
+        function ShowCalendar(id)
+        {
+            show_calendar(id,null,null,"DD/MM/YYYY","POPUP","InlineX="+(event.screenX-window.screenLeft)+";Title=Date;Width=135;Height=200;InlineY="+(event.screenY-window.screenTop+10)+";Fix=No;WeekStart=0;Weekends=56;AllowWeekends=Yes;ShortNames=Yes");
+        }
+        </script>';
+        global $cid;
+		echo "<form  enctype='multipart/form-data' action='main.php?cid=$cid&service=$service&bd_event=".($sEditType == update ? "update_record&record_id=$record_id" : new_record)."' method=post name=inf>\n";
+
+		//	Common fields fetching ... not for X modules
+
+		while(list($k, $v) = each($sTmpColoumns))
+		{
+            $s = $v["displaywhen"]; 
+            if ($s)
+            {  
+                $s = preg_replace("/\[([^]]+)\]/e",'$fRecord["\\1"]',$s); 
+                if ($s != $v["displaywhat"])
+                {
+                    continue;
+                }
+            }
+            
+			if($v[type] != password && $v[type] != cross_child && $v[type] != link && $v[type] != special_link)
+			{
+                global $tIndex;
+                $tIndex=$v["tab"];
+				BD3VisionObjects("TROW");
+                echo "<td width=1% nowrap>"; 
+                $sarr = explode("|","$v[ln]");
+				echo $sarr[0];
+                if (trim($sarr[0]))echo ":";
+                if ($sarr[1])echo "<br><i>".$sarr[1]."</i>";
+				BD3VisionObjects("/COL|COLC");
+			}
+
+			$fRecord[$v[name]] = stripslashes($fRecord[$v[name]]);
+			switch($v[type])
+			{
+			 	case yes_no:
+					echo "<select name=$v[name]>\n".
+					     "<option value=0".( $sEditType == update ? ($fRecord[$v[name]] == 0 ? " selected":"") : (($v[defaultvalue]!="Yes"&&$v[defaultvalue]!="1")?" selected":"")).">No\n".
+					     "<option value=1".( $sEditType == update ? ($fRecord[$v[name]] == 1 ? " selected":"") : (($v[defaultvalue]=="Yes"||$v[defaultvalue]=="1"||$_GET[$v[name]])?" selected":"")).">Yes\n".
+					     "</select>";
+					break;
+
+				case enum:
+    
+					echo "<select name=$v[name]>\n";
+
+					$sTmpOptions = $v[enum];
+
+					while(list($kk, $vv) = each($sTmpOptions))
+					{
+					 	echo "<option value='$kk'".($fRecord[$v[name]] == $kk ? " selected" : "").">$vv\n";
+					}
+
+					echo "</select>\n";
+					break;
+
+				case link:
+					echo "<tr><td colspan=2 height=20 align=center>\n".
+						 "[ <a href=$v[source]>$v[ln]</a> ]".
+						 "<td></tr>\n";
+					break;
+
+				case special_link:
+					$sSource = "";
+
+					if($v[ param ] == log_user)
+					{
+						$sSource = "main.php?cid=$cid&service=$service&bd_event=link_to&source=";
+						if(!is_array($sMasterItem))
+						{
+							break;
+						}
+
+						$fSource = f(q("SELECT $sMasterItem[lookup_field] FROM $sMasterItem[cross] WHERE $sMasterItem[cross_field]='".$fRecord[$sMasterItem[name]]."'"));
+						$sSource .= $fSource[$sMasterItem[lookup_field]];
+						$sSource .= "&action=user_log";
+					}
+
+					echo "<tr><td colspan=2 height=20 align=center>\n".
+						 "[ <a href=$sSource>$v[ln]</a> ]".
+						 "<td></tr>\n";
+					break;
+
+				case password:
+					if($sEditType == update)
+					{
+						BD3VisionObjects("ROW|COLC");
+						echo "New ".strtolower($v[ln]).":";
+						BD3VisionObjects("/COL|COLC");
+						echo "<input type=password size=25 name='new_$v[name]'>\n";
+						BD3VisionObjects("/COL|/ROW|ROW|COLC");
+						echo "Confirmation:";
+						BD3VisionObjects("/COL|COLC");
+						echo "<input type=password size=25 name='cnew_$v[name]'>\n";
+						BD3VisionObjects("/COL|/ROW");
+					}
+					else
+					{
+						BD3VisionObjects("ROW|COLC");
+						echo "$v[ln]:";
+						BD3VisionObjects("/COL|COLC");
+						echo "<input type=password size=25 name=$v[name]>\n";
+						BD3VisionObjects("/COL|/ROW|ROW|COLC");
+						echo "Confirmation:";
+						BD3VisionObjects("/COL|COLC");
+						echo "<input type=password size=25 name=c_$v[name]>\n";
+						BD3VisionObjects("/COL|/ROW");
+					}
+					break;
+
+				case string:
+					echo "<input type=text size=25 name=$v[name]".($sEditType == update ? " value='".htmlspecialchars($fRecord[$v[name]],ENT_QUOTES)."'" : "").">\n";
+					break;
+                
+                case hidden:
+					echo "<input type=hidden  name=$v[name] value='".htmlspecialchars($v[value],ENT_QUOTES)."'>\n";
+					break;
+
+                case "date":
+                    $datevalue = dateFromSQL($fRecord[$v[name]]);
+                    if ($datevalue=="00/00/0000"||$datevalue=="//")$datevalue="";
+                    echo "<input type=text size=25 name=$v[name]".($sEditType == update ? " value='".$datevalue."'" : "").">\n";
+                    echo "<img align=absmiddle style='cursor:hand' src='".$imgPath."calendar.gif' onclick='ShowCalendar(\"inf.$v[name]\")'>";
+                    break;
+
+				case text:
+					echo "<textarea rows=".(($v[rows])?$v[rows]:5)." style='width:100%' name=$v[name]>".($sEditType == update ? $fRecord[$v[name]] : "")."</textarea>\n";
+					break;
+
+                case file:
+                    echo "<input type=file name=$v[name]>";
+                    $targetdir = $GO_CONFIG->file_storage_path.$userName;
+                    if ($v[targetdir]){
+                        $targetdir.="/".$v[targetdir];
+                    }
+                    $fname =  $targetdir."/".$fRecord[$v[name]];
+                    $filename = $fRecord[$v[name]];
+                    if (strpos($filename,"___"))
+                    {
+                        $farr = explode(".",$filename);
+                        $farrname = explode("___",$farr[0]);
+                        $filename = $farrname[0].".".$farr[1];
+                    }
+                    echo ($sEditType == update) ? (($fRecord[$v[name]])?(" <input type=hidden name=$v[name]_ex value=".$fRecord[$v[name]]."><input type=checkbox name=$v[name]_del> מחק<br><a target=_blank href='/modules/filesystem/download.php?path=$fname'>$filename</a>"):"") : "";
+                    break;
+
+                case cross_parent:
+                    if ($record_id){
+                        echo "<iframe width=100% style='height:".($v[height]?$v[height]:205)."' src='main.php?cid=".$record_id."&service=".$v[service]."'></iframe>";
+                        //echo "<input type=button value='$v[ln]' onclick='window.open(\"main.php?cid=".$record_id."&service=".$v[service]."\",\"$record_id\",\"width=500,top=\"+(window.screenTop+15)+\",left=\"+(window.screenLeft+15)+\",height=450\")'>";
+                    }
+                    else{
+                        echo "[יש לשמור רשומה חדשה כדי לערוך שדה זה]";
+                    }
+                    break;
+                case cross_more:
+                    $sCrossValues = $v;
+                    eval("global \$$sCrossValues[name];");
+                    eval("\$sSelectedItem=\$fRecord[$v[name]];");
+                    $s= "SELECT $sCrossValues[lookup_field],$sCrossValues[cross_field] FROM $sCrossValues[cross] where $sCrossValues[cross_field]='$sSelectedItem' ";
+					$rCrossRecords = q($s);
+					$rCrossRecords = f($rCrossRecords);
+                    echo "<input type=hidden name='$sCrossValues[name]' id='$sCrossValues[name]' ".($sEditType == update ? " value='".htmlspecialchars($rCrossRecords[$sCrossValues[cross_field]],ENT_QUOTES)."'" : "").">";
+                    echo "<input readonly type=text size=25 name='vis_$sCrossValues[name]' id='vis_$sCrossValues[name]' ".($sEditType == update ? " value='".htmlspecialchars($rCrossRecords[$sCrossValues[lookup_field]],ENT_QUOTES)."'" : "").">\n";
+                    echo "<input type=button onclick='dosearch_$sCrossValues[name]()' title='חפש' class=button style='width:22;background-image:url(".$imgPath."find.gif)'>";
+                    echo "
+                    <script>
+                    function dosearch_$sCrossValues[name]()
+                    {
+                        s=showModalDialog('$sCrossValues[url]',window,'dialogWidth:$sCrossValues[dialogwidth]px;dialogHeight:$sCrossValues[dialogheight]px;status:no');
+                        if (typeof(s)!='undefined' && s!=''){
+                            s = s.split('~')
+                            document.all.vis_$sCrossValues[name].value=s[2];
+                            document.all.$sCrossValues[name].value=s[1];
+                        }
+                        
+                    }
+                    </script>
+                    
+                    ";
+                    break;    
+                case cross:
+					$sCrossValues = $v;
+					echo "<input type=hidden name=bd_xstream value=1>\n";
+
+                    eval("global \$$sCrossValues[name];");
+                    eval("\$sSelectedItem=\$fRecord[$v[name]];");
+                    if ($cid && ($v[name]=="supplier_id"||$v[name]=="master_id")){
+                        $userStr = " where ID=$cid";
+                    }
+                    else{
+                        $userStr = " where status=1 ";
+                        if (strtolower($sCrossValues[nouserid])!="yes")
+                        {
+                            $userStr.=" and user_ID = $userID ";
+                        }
+                    }
+                    if (!$sCrossValues[condition])$sCrossValues[condition]="1=1";
+					$rCrossRecords = q("SELECT * FROM $sCrossValues[cross] $userStr AND $sCrossValues[condition] ORDER BY $sCrossValues[lookup_field]");
+                    echo "<select  name='$sCrossValues[name]' onsChange=\"window.location.href='main.php?cid=$cid&service=$service&".($bd_event != "" ? "bd_event=$bd_event&" : "")."uid='+document.inf.".$sCrossValues[name].".value;\">\n";
+
+					$bd_flag = 0;
+                    if ($sCrossValues[mandatory]!="yes" && $sCrossValues[mandatory]!="true"){
+                        echo "<option value=''>";
+                    }
+ 					if ($sCrossValues["cross"]=="listingsCategories")
+					{
+						FillCategoriesList($sSelectedItem);
+					}
+					else
+					{
+						while($fCrossRecord = f($rCrossRecords))
+						{
+							/*
+							if(!$bd_flag && $sSelectedItem == "")
+							{
+								eval("global \$$sCrossValues[name];");
+								eval("\$$sCrossValues[name]=".($fCrossRecord[ $sCrossValues[ cross_field ] ]).";");
+								eval("\$sSelectedItem=\$$sCrossValues[name];");
+							}
+							*/
+
+							$bd_flag = 1;
+
+						echo "<option value='".($fCrossRecord[ $sCrossValues[ cross_field ] ])."'".((($cid&&$fCrossRecord[ $sCrossValues[ cross_field ] ]==$cid)||($sSelectedItem == $fCrossRecord[ $sCrossValues[ cross_field ] ])) ? " selected" : "").">".($fCrossRecord[ $sCrossValues[ lookup_field ] ])."\n";
+						}
+
+					}
+					echo "</select>\n";
+					break;
+
+				case cross_child:
+					$sCross = $v;
+
+					BD3VisionObjects("/COL|/ROW|ROW");
+					echo "<td colspan=2>\n".
+					     "<table border=0 cellspacing=1 cellpadding=1 width=100%>".
+					     "<tr bgcolor=C0C0C0 height=23><td class=larger>&nbsp;$sCross[ln]</td>";
+
+					$sTmpValues = $sCross[ edit_fields ];
+
+					while(list($kk, $vv) = each($sTmpValues))
+					{
+					 	echo "<td align=center width=100 class=larger>&nbsp;$vv[ln]&nbsp;</td>";
+					}
+
+					$rCrossResults = q("SELECT * FROM $sCross[cross] ORDER BY $sCross[lookup_field]");
+					$bd_counter = 0;
+
+					while($fCrossResult = f($rCrossResults))
+					{
+						$bd_counter++;
+						$cl = $bd_counter % 2 ? "EFEFEF" : "E8E8E8";
+						echo "<tr height=20 bgcolor=$cl>\n".
+						     "<td nowrap>&nbsp;".($fCrossResult[ $sCross[ lookup_field ] ])."&nbsp;</td>\n";
+
+						$sTmpValues = $sCross[ edit_fields ];
+
+						while(list($kk, $vv) = each($sTmpValues))
+						{
+						 	echo "<td align=center>\n";
+
+							eval("\$sMasterCrossValue=\$$sCross[master_field];");
+
+							$fMainCrossResult = f(q("SELECT * FROM $sServiceMainTable WHERE $sCross[name]='".($fCrossResult[ $sCross[ cross_field ] ])."' and $sCross[master_field]='$sMasterCrossValue'"));
+
+							switch($vv[ type ])
+							{
+							 	case check_yes_no:
+
+									echo "&nbsp;<input type=checkbox value='1' name='$vv[name]_".$fCrossResult[$sCross[cross_field]]."'".( ($fMainCrossResult[ $vv[ name ] ] == "" || $fMainCrossResult[ $vv[ name ] ] == 1) ? " checked" : "").">&nbsp;\n";
+
+									break;
+							}
+
+							echo "</td>\n";
+						}
+
+						echo "</tr>\n";
+					}
+
+					echo "</tr>\n";
+					echo "</table>\n";
+
+
+					BD3VisionObjects("/COL|/ROW");
+
+					break;
+			}
+
+			if($v[type] != password && $v[type] != cross_child && $v[type] != link && $v[type] != special_link)
+			{
+				BD3VisionObjects("/COL|/ROW");
+			}
+		}
+
+		BD3VisionObjects("ROW|COL|/COL|COLC");
+		BD3VisionObject("/TABLE");
+        if (count($sTabs)){
+            		echo    "</div></td></table>";
+        }
+		echo "<br><input type=hidden name=rmodule value='".$rmodule."'>
+        <input type=hidden name=apply>
+        <input type=button class=btnok onclick='document.inf.apply.value=1;document.inf.submit()' value=' שמור '>
+        <input type=submit class=btnok1 value=' שמור וחזור '>
+        \n";
+
+		BD3VisionObjects("/COL|ROW");
+
+		echo "</form>";
+
+		echo    "</td></table>";
+
+        echo "</td></table>".
+				"<br>\n";
+	}
+
+	function BD3Event_OnNewRecord()
+	{
+		global $sEditColoumns, $sServiceMainTable,$userID,$GO_CONFIG,$userName, $cid,$record_id;
+
+		//	Now making all input variables .. as global! ;)
+
+		$sTmpColoumns = $sEditColoumns;
+		$sGlobalStr = "global ";
+
+		while(list($k, $v) = each($sTmpColoumns))
+		{
+		 	$sGlobalStr .= "\$".$v[name].",";
+		}
+
+		$sGlobalStr[ strlen($sGlobalStr) - 1 ] = ";";
+
+		eval($sGlobalStr);
+
+		$sSQLInsertColoumns = "";
+		$sSQLInsertValues = "";
+
+		$sTmpColoumns = $sEditColoumns;
+
+		while(list($k, $v) = each($sTmpColoumns))
+		{
+			$sSQLInsertColoumns .= $v[name].",";
+
+			if($v[type] == password)
+			{
+				eval("\$$v[name]=sysCrypt(\$$v[name]);");
+			}
+            if($v[type] == date)
+            {
+                eval("\$$v[name]=dateToSQL(\$$v[name]);");
+            }
+
+            if($v[type] == file){
+                global $fname,$exname;
+                $fname = $_FILES[$v[name]][name];
+                $ext = substr($fname,strpos($fname,".")+1);
+                $chkname = $v[name]."_del";
+                $exname = $v[name]."_ex";
+                $targetdir = $GO_CONFIG->file_storage_path.$userName;
+                if ($v[targetdir]){
+                    $targetdir.="/".$v[targetdir];
+                }
+                if ($_POST[$chkname]){
+                    //delete
+                    eval("\$$v[name]='';");
+                    $target = $targetdir ."/". $_POST[$exname];
+                    unlink($target);
+                }
+                elseif($fname){
+                    if ($v[allowedtypes] && strpos(",".strtoupper($v[allowedtypes]).",", ",".strtoupper($ext).",")){
+                        //upload new file
+                        if ($v[targetfilename]){
+                           $fname = $v[targetfilename].".".$ext;
+                        }
+                        else{
+                            $fname = str_replace(".","___".date("YmdHis").".",$fname);
+                        }
+                        if (file_exists($targetdir)){
+                            $res=true;
+                        }
+                        else{
+                            $old_umask = umask(000);
+                            $res = mkdir("$targetdir",0777);
+                            umask($oldumask);
+                        }
+                        if ($res){
+                            eval("\$$v[name]='$fname';");
+                            $target = $targetdir."/".$fname;
+                            move_uploaded_file($_FILES[$v[name]][tmp_name],$target);
+                        }
+                        else{
+                            echo "<b style=font-size:10pt;color:red>ישנה בעיה - אי אפשר ליצור סיפרית משתמש</b>";
+                            if ($cid)die("<br><br><center><input type=button onclick=window.close() value='סגור')></center>");
+                            eval("\$$v[name]='$_POST[$exname]';");
+                        }
+                    }
+                    else{
+                       //file extension not allowed
+                       echo "<b style=font-size:10pt;color:red>ישנה בעיה - יש לעלות רק קבצים מסוגים הבאים: ".$v[allowedtypes]."</b>";
+                       if ($cid)die("<br><br><center><input type=button onclick=window.close() value='סגור')></center>");
+                       eval("\$$v[name]='$_POST[$exname]';");
+                    }
+                }
+                else{
+                    //do nothing
+                    eval("\$$v[name]='$_POST[$exname]';");
+                }
+            }
+
+			eval("\$sSQLInsertValues .= \"'\$$v[name]',\";");
+		}
+
+		$sSQLInsertColoumns .= "user_ID)";
+		$sSQLInsertValues.= "'$userID')";
+		$sSQLInsertStr = "INSERT INTO $sServiceMainTable($sSQLInsertColoumns VALUES($sSQLInsertValues";
+
+		q($sSQLInsertStr);
+		
+
+		$fRec = f(q("SELECT LAST_INSERT_ID() AS id FROM $sServiceMainTable"));
+		sysLogUserEvent(on_create, "(table $sServiceMainTable, id: $fRec[id])");
+        $record_id = $fRec[id];
+        if ($_GET["cid"]||$_POST["cid"]){
+            if (!$_POST["apply"]){
+                        echo "<script>window.opener.location.reload();window.close()</script>";
+                        die();
+            }
+            else{
+                        echo "<script>window.opener.location.reload()</script>";
+            }
+        }
+	}
+
+	function BD3Event_OnDeleteRecord()
+	{
+		global $record_id, $sServiceMainTable;
+
+		sysLogUserEvent(on_delete, "(table $sServiceMainTable, id: $record_id)");
+		q("DELETE FROM $sServiceMainTable WHERE id='$record_id'");
+	}
+
+	function BD3Event_OnSearch()
+	{
+		global $sSQLActions, $sViewColoumns,$cid,$service,$userID;
+
+		echo "<table border=0 cellspacing=0 cellpadding=1 bgcolor=999999><td>\n".
+			 "<table border=0 cellspacing=0 cellpadding=4 bgcolor=EFEFEF><td align=right class=larger>".
+			 "<b>חיפוש רשומות</b><br>";
+
+		BD3VisionObject("TABLE");
+		echo "<form action='main.php?cid=$cid&service=$service&bd_event=search_data' method=post>";
+		BD3VisionObject("ROW");
+		echo "<td align=right>";
+		$sFields = array();
+		if(ereg_replace(",","",$sSQLActions[ search_by ]) == $sSQLActions[ search_by ])
+		{
+		 	$sFields[ $sSQLActions[ search_by ] ] = is_array($sViewColoumns[ $sSQLActions[ search_by ] ]) ? $sViewColoumns[ $sSQLActions[ search_by ] ][ ln ] : $sViewColoumns[ $sSQLActions[ search_by ] ];
+		}
+		else
+		{
+			$sTmp = $sSQLActions[ search_by ];           
+		 	$sTmpFields = split(",", $sTmp);
+            $sqls=array();
+			while(list($k, $v) = each($sTmpFields))
+			{
+                $karr=explode(":",$v);
+                $v=$karr[0];
+                $sqls[$v]=$karr[1];
+				$sFields[$v] = is_array($sViewColoumns[ $v ]) ? $sViewColoumns[ $v ][ ln ] : $sViewColoumns[ $v ];
+			    
+            }
+		}
+
+		//echo "<select name=search_key>\n";
+        echo "<table border=0 cellpadding=0 cellspacing=0><tr><td><table border=0 cellpadding=0><tr>";
+		while(list($k, $v) = each($sFields))
+		{
+            $ssql=$sqls[$k];
+            if (substr($k,0,1)=="!")
+            {
+                echo "<td></tr></table></td><tr><td><table><tr>";
+            }
+            else{
+			    echo "<td align=left>$v</td><td>";
+                switch ($sViewColoumns[$k][type])
+                {
+                    case "yes_no":
+                        echo "<input type=checkbox name=search_keys[$k] value=1>";
+                        break;
+                    case "yes_no_select":
+                        echo "<select name=search_keys[$k]>
+                            <option value=''>
+                            <option value=0>No
+                            <option value=1>Yes
+                        </select>";
+                        break;
+                    case "cross":     
+                    //print_r($sViewColoumns[$k]);
+                    //die();
+                        $userStr = " where status=1 and user_ID = $userID";
+                        //echo "SELECT * FROM ".$sViewColoumns[$k][cross]." $userStr ORDER BY ".$sViewColoumns[$k][lookup_field]; 
+					    $rCrossRecords = q("SELECT * FROM ".$sViewColoumns[$k][cross]." $userStr ORDER BY ".$sViewColoumns[$k][lookup_field]);
+                        echo "<select  name=search_keys[$k] >\n";
+
+					    $bd_flag = 0;
+                        echo "<option value=''>";
+
+					    while($fCrossRecord = f($rCrossRecords))
+					    {
+                            $bd_flag = 1;
+                            echo "<option value='".($fCrossRecord[ $sViewColoumns[$k][cross_field] ])."'>".($fCrossRecord[ $sViewColoumns[$k][lookup_field] ])."\n";
+					    }
+
+					    echo "</select>\n";
+					    break;                    
+                        
+                    default:
+                        echo "<input size=10 name=search_keys[$k]>";
+                        echo "<input type=hidden name=search_sql[$k] value=\"".$ssql."\">";
+                        break;                
+                }
+                echo "</td>";
+            }
+		}
+        echo "</tr></table></td></tr></table>";
+		//echo "</select>\n";
+
+		//BD3VisionObjects("/COL|/ROW|ROW");
+
+		echo "<td class=larger>";
+		//echo "מילה לחיפוש:</td><td align=right><input type=text size=25 name=search_keys>";
+
+		//BD3VisionObjects("/COL|/ROW");
+
+		echo "<td align=right colspan=2 valign=bottom>";
+		echo "<input type=submit class=btnFind value='חפש'>&nbsp;";
+
+		BD3VisionObjects("/COL|/ROW");
+		echo "</form>";
+		BD3VisionObject("/TABLE");
+
+		echo    "</td></table></td></table>".
+				"<br>\n";
+	}
+
+	function BD3Event_OnEdit()
+	{
+		global $sEditType,$rmodule, $sServiceMainTable, $record_id,$cid;
+
+		$sEditType = update;
+		BD3Event_OnCreate();
+
+		$sWhereBlock[] = "id='$record_id'";
+		if(!$rmodule && !$cid){
+		    BD3ViewRoutine(BD3SQLSelectQuery($sServiceMainTable, "", $sWhereBlock));
+		}
+
+		$sEditType = "";
+	}
+
+	function BD3Event_OnUpdateRecord()
+	{
+		global $sServiceMainTable,$sReloadParent, $record_id, $sEditColoumns, $bd_xstream, $sOptions, $GO_CONFIG, $userName, $cid;
+
+		$sTmpColoumns = $sEditColoumns;
+		$sGlobalStr = "global ";
+
+		while(list($k, $v) = each($sTmpColoumns))
+		{
+			if($v[ type ] != link && $v[ type ] != special_link)
+			{
+
+		 		$sGlobalStr .= "\$".$v[name].",";
+			 	if($v[ type ] == cross_child)
+				{
+			 		$rCrossResults = q("SELECT * FROM $v[cross]");
+	       			while($fCrossResult = f($rCrossResults))
+					{
+					 	$sTmpValues = $v[ edit_fields ];
+						while(list($kk, $vv) = each($sTmpValues))
+						{
+						 	$sGlobalStr .= "\$".$vv[ name ]."_".$fCrossResult[ $v[ cross_field ] ].",";
+						}	//	WHILE 2
+					}		//	WHILE 1
+				}			//	IF
+			}				// 	IF
+		}
+
+
+		$sGlobalStr[ strlen($sGlobalStr) - 1 ] = ";";
+
+		eval($sGlobalStr);
+		$sTmpColoumns = $sEditColoumns;
+
+		while(list($k, $v) = each($sTmpColoumns))
+		{
+			if($v[type] == password)
+			{
+			 	eval("global \$new_$v[name];");
+				eval("\$$v[name]=sysCrypt(\$new_$v[name]);");
+				eval("if(\$new_$v[name] == \"\"){\$$v[name]=$record_id;\$v[name]=\"record_id\";}");
+			}
+            if($v[type] == date)
+            {
+                eval("global \$new_$v[name];");
+                eval("\$$v[name]=dateToSQL(\$$v[name]);");
+            }
+            if($v[type] == file){
+                global $fname,$exname;
+                $fname = $_FILES[$v[name]][name];
+                $ext = substr($fname,strpos($fname,".")+1);
+                $chkname = $v[name]."_del";
+                $exname = $v[name]."_ex";
+                $targetdir = $GO_CONFIG->file_storage_path.$userName;
+                if ($v[targetdir]){
+                    $targetdir.="/".$v[targetdir];
+                }
+                if ($_POST[$chkname]){
+                    //delete
+                    eval("\$$v[name]='';");
+                    $target = $targetdir ."/". $_POST[$exname];
+                    unlink($target);
+                }
+                elseif($fname){
+                    if ($v[allowedtypes] && strpos(",".strtoupper($v[allowedtypes]).",", ",".strtoupper($ext).",")){
+                        //upload new file
+                        if ($v[targetfilename]){
+                           $fname = $v[targetfilename].".".$ext;
+                        }
+                        else{
+                            $fname = str_replace(".","___".date("YmdHis").".",$fname);
+                        }
+                        if (file_exists($targetdir)){
+                            $res=true;
+                        }
+                        else{
+                            $old_umask = umask(000);
+                    	    $res = mkdir("$targetdir",0777);
+                            umask($oldumask);
+                        }
+                        if ($res){
+                            eval("\$$v[name]='$fname';");
+                            $target = $targetdir."/".$fname;
+                            move_uploaded_file($_FILES[$v[name]][tmp_name],$target);
+                        }
+                        else{
+                            echo "<b style=font-size:10pt;color:red>ישנה בעיה - אי אפשר ליצור סיפרית משתמש</b>";
+                            if ($cid)die("<br><br><center><input type=button onclick=window.close() value='סגור')></center>");
+                            eval("\$$v[name]='$_POST[$exname]';");
+                        }
+                    }
+                    else{
+                       //file extension not allowed
+                       echo "<b style=font-size:10pt;color:red>ישנה בעיה - יש לעלות רק קבצים מסוגים הבאים: ".$v[allowedtypes]."</b>";
+                       if ($cid)die("<br><br><center><input type=button onclick=window.close() value='סגור')></center>");
+                       eval("\$$v[name]='$_POST[$exname]';");
+                    }
+                }
+                else{
+                    //do nothing
+                    eval("\$$v[name]='$_POST[$exname]';");
+                }
+
+            }
+			if($v[type] == cross_child)
+			{
+
+			 	$rCrossResults = q("SELECT * FROM $v[cross]");
+
+       			while($fCrossResult = f($rCrossResults))
+				{
+				 	$sTmpValues = $v[ edit_fields ];
+
+					$sUpdate = "";
+					$sValues = "";
+					$sItems = "";
+
+					eval("\$sCrossResult = f(q(\"SELECT ID FROM $sServiceMainTable WHERE $v[name]='".( $fCrossResult[ $v[ cross_field ] ] )."' AND $v[master_field]='\$$v[master_field]'\"));");
+
+					while(list($kk, $vv) = each($sTmpValues))
+					{
+						eval("\$sCurrVal=\$".$vv[name]."_".$fCrossResult[$v[cross_field]].";");
+
+						eval("\$sCross1=\$vv[name];");
+						eval("\$sCross2=".($vv[type]==check_yes_no?"(int)":"")."\$sCurrVal;");
+
+						if($sCrossResult[id] == "")
+						{
+							$sItems .= "$sCross1,";
+							$sValues .= "'$sCross2',";
+
+						}
+						else
+						{
+							$sItems .= "$sCross1='$sCross2',";
+						}
+
+					}
+
+					if($sCrossResult[ id ] == "")
+					{
+						$sItems[ strlen($sItems) - 1 ] = ")";
+						$sValues[ strlen($sValues) - 1 ] = ")";
+					 	$sUpdate = "INSERT INTO $sServiceMainTable($v[master_field],$v[name],$sItems VALUES('\$$v[master_field]','".( $fCrossResult[ $v[cross_field] ] )."',$sValues";
+					}
+					else
+					{
+						$sItems[ strlen($sItems) - 1 ] = " ";
+						$sUpdate = "UPDATE $sServiceMainTable SET $sItems WHERE $v[master_field]='\$$v[master_field]' AND $v[name]='".( $fCrossResult[ $v[cross_field] ] )."'";
+					}
+
+					eval("q(\"$sUpdate\");");
+
+	
+				}
+			}
+			else
+			{
+
+				if($sOptions[ type ] == master_detail)
+				{
+					//	SQL query for single item
+					$sTmp = "\$rTmp = q(\"SELECT $v[name] FROM $sServiceMainTable WHERE $sOptions[master_field]='\$$sOptions[master_field]'\");";
+					eval($sTmp);
+
+					if(e($rTmp))
+					{
+						$sUpdateStr = "q(\"INSERT INTO $sServiceMainTable ($v[name]) VALUES(\$$v[name])\");";
+					}
+					else
+					{
+						$sUpdateStr = "q(\"UPDATE $sServiceMainTable SET $v[name]='\$$v[name]' WHERE $sOptions[master_field]='\$$sOptions[master_field]'\");";
+					}
+
+					eval($sUpdateStr);
+				}
+				else
+				{
+					$sUpdateStr = "q(\"UPDATE $sServiceMainTable SET $v[name]='\$$v[name]' WHERE id='$record_id'\");";
+                    eval($sUpdateStr);
+				}
+			}
+
+		}
+
+		//	Log on edit user event
+		if($record_id == "")
+		{
+			$fRec = f(q("SELECT LAST_INSERT_ID() AS id FROM $sServiceMainTable"));
+			$record_id = $fRec[id];
+		}
+		sysLogUserEvent(on_edit, "(table $sServiceMainTable, id: $record_id)");
+        if ($_GET["cid"]||$_POST["cid"])
+        {
+            if (!$_POST["apply"]){
+                        echo "<script>window.opener.location.reload();window.close()</script>";
+                        die();
+            }
+            else{
+                echo "<script>window.opener.location.reload()</script>";
+            }
+        }
+    }
+
+	function BD3Event_OnProcessSearching()
+	{
+	  	global $sServiceMainTable, $search_keys, $search_key, $sEditColoumns, $search_sql;
+        //print_r($search_keys);
+
+		$sKeys = "";
+		$sTmpColoumns = $sEditColoumns;
+		$nFound = 0;
+		$sItem = "";
+
+        $sWhereBlock = "";
+		while(list($k, $v) = each($sTmpColoumns))
+		{            
+			if(array_key_exists ($v[ name ],$search_keys))
+			{
+			 	$nFound = 1;
+				$sItem = $v;
+				if ($nFound)
+                {
+		                switch($sItem[ type ])
+		                {
+		 	                case yes_no:
+				                $sKeys = strtoupper($search_keys[$v[ name ]]);
+
+				                if($sKeys == "1" || $sKeys == "ְִ" || $sKeys == "YES")
+				                {
+				 	                $sKeys = 1;
+				                }
+				                else
+				                {
+				 	                $sKeys = 0;
+				                }
+
+                                $sWhereBlock[] = "$sItem[name] = '$sKeys'";
+				                break;
+                            
+                            case cross:
+				                $sKeys = $search_keys[$v[ name ]];
+                                if ($sKeys){
+                                    $sWhereBlock[] = "$sItem[name] = '$sKeys'";
+                                }
+				                break;
+
+			                case string: case date: case hidden:
+
+				                $sKeys = $search_keys[$v[ name ]];
+                                if ($search_sql[$v[ name ]])
+                                {
+                                    $s = str_replace("{0}",$sKeys,$search_sql[$v[ name ]]);
+                                    $sWhereBlock[] = (stripslashes($s));
+                                }
+                                else
+                                {
+                                $sWhereBlock[] = "$sItem[name] like '%$sKeys%'";
+                                }
+
+				                //$sTmpStr = ereg_replace("\+", " ", $search_keys);
+				                //$sTmpStr = ereg_replace("\|", " ", $search_keys);
+
+				                //$sKeys = split(" ", $sTmpStr);
+
+				                break;
+		                }
+
+                        /*
+		                if(is_array($sKeys))
+		                {
+			                for($i = 0; $i < sizeof($sKeys) ; $i++)
+			                {
+			 	                $sWhereBlock[ $i ] = "$sItem[name] like '%".$sKeys[$i]."%' ";
+
+				                if($i != sizeof($sKeys) - 1)
+				                {
+				 	                $sWhereBlock[ $i ] .= "or ";
+				                }
+			                }
+		                }
+		                else
+		                {
+		                }
+                        */
+                
+                }
+                
+                
+			}
+		}
+
+		if(!$nFound)
+		{
+		 	return;
+		}
+
+
+        //print_r( $sWhereBlock);
+        //die();
+		sysLogUserEvent(on_search, "(table $sServiceMainTable, keywords: $sItem[ln]='$search_keys')");
+        BD3ViewRoutine(BD3SQLSelectQuery($sServiceMainTable, "", $sWhereBlock));
+	}
+
+	function BD3Event_CheckInputDataSream($sEditType)
+	{
+		global $sEditColoumns, $bd_event, $HTTP_POST_VARS;
+
+		$sTmpColoumns = $sEditColoumns;
+
+		while(list($k, $v) = each($sTmpColoumns))
+		{
+			if($v[type] == password)
+			{
+			 	//	checking password confirmation
+				//	password must not be empty.
+
+				$sSecondPStr = ( $sEditType == update ) ? "cnew_".$v[name] : "c_".$v[name];
+				$sFirstPStr = ( $sEditType == update ) ? "new_".$v[name] : $v[name];
+
+				$sGlobalStr = "global \$$sFirstPStr, \$$sSecondPStr;";
+
+				eval($sGlobalStr);
+
+				$sFirstName = $sFirstPStr;
+				$sSecondName = $sSecondPStr;
+
+				eval("\$sFirstPStr=\$$sFirstPStr;");
+				eval("\$sSecondPStr=\$$sSecondPStr;");
+
+				if($sFirstPStr != $sSecondPStr || ($sEditType == insert && ($sFirstPStr == "" || $sSecondPStr == "")))
+				{
+					$bd_event = $sEditType == update ? edit_record : create_record;
+
+					echo "<span class=big><font color=FFCC00>Error</font>:".$v[ln]." and its confirmation must be edinty!</span><br><br>";
+					BD3HandleEvents();
+
+					return 0;
+				}
+			}
+		}
+
+	 	return 1;
+	}
+
+	function BD3CheckPermissions($sAction)
+	{
+		//	r - Read
+		//	w - Create, Edit
+		//	d - Delete
+		//	a - Additional
+
+		if($sAction != r && $sAction != w && $sAction != d && $sAction != a)
+		{
+			return 0;
+		}
+
+		if($sAction == a)
+		{
+			$sAction = adds;
+		}
+
+		global $fModulePermissions;
+		return (int)$fModulePermissions[ $sAction ];
+
+	}  //  BD3CheckPermissions
+
+	function BD3SetupPermissionsOnControls()
+	{
+		global $fModulePermissions, $sOptions;
+
+		//	Read permission
+		if(!$fModulePermissions[ r ])
+		{
+			$sOptions[ search ] = none;
+			$sOptions[ main_view ] = none;
+			$sOptions[ view ] = none;
+			$sOptions[ control_panel ] = unvisible;
+		}
+
+		//	Write permission
+		if(!$fModulePermissions[ w ])
+		{
+			$sOptions[ edit_record ] = none;
+			$sOptions[ create_record ] = none;
+		}
+
+		//	Delete permission
+		if(!$fModulePermissions[ d ])
+		{
+			$sOptions[ delete_record ] = none;
+			$sOptions[ delete_record_promt ] = none;
+		}
+
+		//	On Additional controls permission
+		if(!$fModulePermissions[ adds ])
+		{
+			$sOptions[ bd_controls ] = "";
+		}
+
+	}  //  BD3SetupPermissionsOnControls
+
+	function BD3Event_OnLinkTo()
+	{
+		global $source, $action, $lparam;
+
+		$sSource = "";
+		switch($action)
+		{
+			case user_log:
+				$sSource = sysGetLogFilenameForUser($source);
+				break;
+		}
+
+		if($lparam == delete)
+		{
+			@unlink($sSource);
+		}
+
+
+		echo "<table border=0 cellspacing=0 cellpadding=1 bgcolor=999999 width=100%><td>\n";
+		BD3VisionObjects("RTABLE|ROW|SCOL|LTABLE|ROW|COL");
+		echo "<pre>\n";
+
+		$pHandle = @fopen($sSource, "rt");
+		if(!$pHandle)
+		{
+			echo $lparam == delete ? "Requiest file was deleted!" : "Request file is not found!";
+		}
+		else
+		{
+			$sContent = fread($pHandle, filesize($sSource));
+			$sContent = ereg_replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", $sContent);
+
+			echo $sContent;
+
+			fclose($pHandle);
+		}
+
+		echo "</pre>\n";
+		BD3VisionObjects("/COL|/ROW|/TABLE|/COL|/ROW|/TABLE");
+		echo "</td></table><br>\n";
+
+	}  //  BD3Event_OnLinkTo
+
+        // dd/mm/yyyy -> YYYY-MM-DD
+        function dateToSQL($date){
+            return substr($date,6,4) ."-".substr($date,3,2)."-".substr($date,0,2);
+            }
+
+            // YYYY-MM-DD -> dd/mm/yyyy
+            function dateFromSQL($date){
+                return substr($date,8,2) ."/".substr($date,5,2)."/".substr($date,0,4);
+                }
+				
+function FillCategoriesList($selected,$parent_id=0,$level=0)
+{
+	global $userID;
+	if ($level)$bullet = "»";
+	$cats = q("select * from listingsCategories where user_ID = $userID and Status=1 and ifnull(parent_id,0) = $parent_id order by SortOrder, binary CategoryName");
+	while($cat = f($cats))
+	{ 
+		?>
+		<option style='font-family:arial' value="<?=$cat["ID"]?>" <?=($selected==$cat["ID"])?"selected":""?>><?=str_repeat("&nbsp;&nbsp;&nbsp;",$level).$bullet.$cat["CategoryName"]?>
+		<?
+		FillCategoriesList($selected,$cat["ID"],$level+1);
+	}
+}				
+
+?>

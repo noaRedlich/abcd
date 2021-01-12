@@ -1,0 +1,13 @@
+<?
+  	switch($action)
+	{
+	 	case "logout":
+				sysLogUserEvent(on_logout);
+		        setcookie("bd3Auth");
+				setcookie("bd3AuthDT");
+				header("Location: index.php");
+			break;
+
+		default:
+	}
+?>

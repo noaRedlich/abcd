@@ -1,0 +1,178 @@
+<?php
+
+$simple=1;
+global $action, $id, $lang, $conn, $config;
+$rowIndexToRecalc = -1;
+
+
+$page_subtitle = "הדפסת מסמך";
+
+include("include/common.php");
+
+if(!loginCheck('User'))exit;
+
+include("$config[template_path]/admin_top.html");
+$ismultiple = strpos($docid,",")>0;
+
+$docid =$_GET["docid"];
+$sql = "select d.*,s.supplierName as agent_name, dt.name as DocTypeName,
+		c.supplierName as client_name, is_payment, 
+		c.PostAdress, c.Phone, c.Fax, c.BusinessNum, 
+		(case when client_id = 1 and ifnull(client_email,'')<>'' then client_email else c.Email end) as Email,
+		p.name as PersonName, p.cellular as PersonPhone,
+		dtc.default_print_copy,st.print_format
+		from documents d
+		inner join $TABLE_LISTINGSSTOCKS st on st.id = d.stock_id
+		left outer join persons p on p.id = d.person
+		left outer join document_type_counters dtc on dtc.user_id = $userID and dtc.doc_type_id = d.doc_type
+		left outer join listingsSuppliers s on s.id = d.agent_id,$TABLE_DOCUMENT_TYPE dt, listingsSuppliers c
+		where 
+		d.client_id = c.id and
+		dt.id = doc_type and d.id in ($docid)";
+$document = DBQuery($sql);
+
+$printFormat = $document->fields["print_format"];
+
+$sql = "select id from documents where closed_by in (".$docid.") limit 1";
+$closeddocument = DBQuery($sql);
+$closeddocs = $closeddocument->RowCount() > 0;
+
+$sql= "select id from document_products where doc_id in (".$docid.") and sourcedocproductid is not null limit 1" ;
+$trs = DBQuery($sql);
+$sourceproductexists = $trs->RowCount() > 0;
+$did = $document->fields["doc_type"];
+    ?>
+	<script src="include/functions.js"></script>
+    <form name=F>
+	<?if ($UserData->fields["PrintImmediately"] && $cashbox){?>
+	<p align="center">
+	<br/>
+	<br/><br/><br/><br/>
+	<b style="font-size:16pt;color:green">הדפסה מתבצעת כעת...</b>
+	</p>
+	<?}?>
+    <table align=center width=100% <?=($UserData->fields["PrintImmediately"] && $cashbox)?"style='display:none'":""?>>
+    <tr>
+        <?if($document->fields["client_id"]){?>
+        <td><input type=checkbox <?=$printFormat==1?"disabled":""?> name=printItra checked></td>
+        <td>להדפיס יתרה ושיקים פתוחים של הלקוח</td>
+        <?}else{?>
+        <td colspan=2><input type=hidden name=printItra></td>
+        <?}?>
+        <td rowspan=3 valign=top style='padding-top:10px'><img src='<?=$imgPath?>printer1.gif'></td>
+    </tr>
+
+    <tr>
+        <td><input type=checkbox <?=$printFormat==1?"disabled":""?> <?=$_COOKIE["printRequisites"]=="1"?"checked":($_COOKIE["printRequisites"]=="2"?"":"checked")?> name=printRequisites onclick="SetCookie('printRequisites',this.checked?'1':'2',cookieDefaultExpTime)"></td><td>להדפיס פרטי עסק</td> 
+    </tr>
+    <tr>
+        <td><input type=checkbox <?=$printFormat==1?"disabled":""?> <?=$_COOKIE["printLogo"]=="1"?"checked":($_COOKIE["printRequisites"]=="2"?"":"checked")?>  name=printLogo onclick="SetCookie('printLogo',this.checked?'1':'2',cookieDefaultExpTime)"></td><td>להדפיס לוגו</td> 
+    </tr>
+	
+    <tr <?if ($did!="HAAVARATPRITIM"){?>style="display:none"<?}?>> 
+        <td><input type=checkbox <?=$printFormat==1?"disabled":""?> name=hidePrices></td><td>להסתיר מחירים</td>
+    </tr>
+    <tr>
+        <td>
+            <input type=checkbox <?=$printFormat==1?"disabled":""?> onclick='setMode()' name=short <?=($closeddocs)?"":"disabled"?>>
+        </td>
+        <td>
+            הדפסה מקובצת  
+            <select name=shortmode>
+                <option value=1>רק כותרות
+                <?if($sourceproductexists){?>
+                <option value=2>כותרות ופריטים
+                <?}?>
+            </select>
+        </td>
+    </tr>
+
+
+    <?if (!$ismultiple){?>
+    <tr>
+        <td></td><td>מספר עותקים <select name=numcopy style='margin-right:11px'>
+        <option value=1 <?=($document->fields["default_print_copy"]==1)?"selected":""?>>1
+        <option value=2 <?=($document->fields["default_print_copy"]==2)?"selected":""?>>2
+        <option value=3 <?=($document->fields["default_print_copy"]==3)?"selected":""?>>3
+        <option value=4 <?=($document->fields["default_print_copy"]==4)?"selected":""?>>4
+        <option value=5 <?=($document->fields["default_print_copy"]==5)?"selected":""?>>5
+        <select></td>
+    </tr>
+    <?}else{?>
+    <input type=hidden name=numcopy value=1>
+    <?}?>
+
+    <tr>
+    <td colspan=3 align=center><br>
+    <?if (!$ismultiple && !$document->fields["Email"] && $document->fields["client_id"]){?>
+    <center style='color:red'>לא מוגדר דואר אלקטרוני של הלקוח</center>
+    <?}else{?>
+    <br>
+    <?}?>
+    <hr>
+	
+    <input type=button id="btnPrint"  value='הדפס' onclick='printDoc();window.close()' class=button style='background-image:url(<?=$imgPath?>ok.gif)'>
+    <?if (!$ismultiple && $document->fields["client_id"]){?>
+    <input type=button  value='שלח ללקוח' onclick='mailDoc();window.close()' <?=(!$document->fields["Email"])?"disabled":""?> class=button style='background-image:url(<?=$imgPath?>ok.gif)'>
+    <?}?>
+    <input type=button  value='סגור' onclick=window.close()  class=button style='background-image:url(<?=$imgPath?>back.gif)'>
+    </td>
+    </table>
+    <input type=hidden name=do>
+    </form>
+
+    <script> 
+    <?if ($printFormat==1 || $printFormat==2){?>
+	function printDoc(fastprint)
+	{
+		if (typeof(fastprint)=="undefined")fastprint=0;
+		w = 200; h = 180;
+        var sd = showModalDialog("printhtmldoc.php?format=<?=$printFormat?>&fastprint="+fastprint+"&rand=<?=rand()?>&docid=<?=$docid?>&itra="+((document.F.printItra.checked)?1:0)+"&logo="+((document.F.printLogo.checked)?1:0)+"&requisites="+((document.F.printRequisites.checked)?1:0)+"&hidePrice="+((document.F.hidePrices.checked)?1:0)+"&shortmode="+document.F.shortmode.value+"&numcopy="+document.F.numcopy.value,"doc","dialogWidth:"+w+"px;dialogHeight:"+h+"px;help:no;");
+        window.returnValue=1;
+    }  
+    
+	<?}else{?>	
+    function printDoc()
+	{
+		var sd = window.open("printpdfframe.php?rand=<?=rand()?>&docid=<?=$docid?>&itra="+((document.F.printItra.checked)?1:0)+"&hidePrices="+((document.F.hidePrices.checked)?1:0)+"&requisites="+((document.F.printRequisites.checked)?1:0)+"&logo="+((document.F.printLogo.checked)?1:0)+"&shortmode="+document.F.shortmode.value+"&numcopy="+document.F.numcopy.value,"doc","width=800, height=600, menubar=0, toolbar=0, status=0, resizable=0");
+        window.returnValue=1;
+    }
+	<?}?>
+
+    function mailDoc(){
+        var sd = showModalDialog("printpdfframe.php?mail=1&docid=<?=$docid?>&itra="+((document.F.printItra.checked)?1:0)+"&hidePrices="+((document.F.hidePrices.checked)?1:0)+"&requisites="+((document.F.printRequisites.checked)?1:0)+"&logo="+((document.F.printLogo.checked)?1:0)+"&shortmode="+document.F.shortmode.value+"&numcopy="+document.F.numcopy.value,"doc","dialogWidth:200px;dialogHeight:180px;help:no");
+        window.returnValue=1;
+    }
+    
+    function setMode()
+    {
+        if (document.F.short.checked)
+        {
+            document.F.shortmode.disabled = false;
+            document.F.shortmode.selectedIndex = 0;
+        }
+        else
+        {    
+            document.F.shortmode.disabled = true;
+            document.F.shortmode.selectedIndex = -1;
+        }
+    }
+    
+    setMode();
+    <?if ($cashbox){?>
+    function OnLoad()
+    {
+		<?if ($UserData->fields["PrintImmediately"]){?>
+		printDoc();window.close();
+		<?}else{?>
+		document.all.btnPrint.focus();
+		<?}?>
+    }  
+    document.body.onload=OnLoad;
+	<?}?> 
+    </script>
+<?
+
+include("$config[template_path]/admin_bottom.html");
+
+ ?>

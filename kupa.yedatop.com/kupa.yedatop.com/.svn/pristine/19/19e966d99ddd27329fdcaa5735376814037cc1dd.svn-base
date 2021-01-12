@@ -1,0 +1,155 @@
+<?
+	session_start();
+
+	$simple=1;
+	$page_subtitle = "ביטול קניה";
+
+	include("include/common.php");
+    include("include/business_functions.php");
+    include("include/document.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+    if ($saction=="go")
+    {
+    	$sql = "
+    	select
+        saleprice as price,
+        p.id,
+        p.stock_id,
+        p.supplier_id,
+        p.listing_id,
+        barcode,p.doc_id,
+        l.cost as current_cost,
+        p.quantity, cost_before_disc, total_discount, chn_num,
+    	final_cost, title from 
+        purchases p, listingsDB l
+        where
+    	p.listing_id = l.ID and purchase_date='$sDate' and group_id = $gid
+    	and p.supplier_id = $sid
+    	and (p.chn_num = '$chn' ".(($chn=="")?" or p.chn_num is null":"")." )
+    	and l.user_id = $userID
+    	order by barcode
+    	";
+    	//echo $sql;
+
+    	$purchases = $conn->Execute($sql);
+    	if ($purchases === false){log_error($sql);}
+        
+        
+        //create document kniya with negative amount
+        $TOTAL=0;
+        $docid="";
+      
+        if ($UserData->fields["MlaitekProEnabled"] && $purchases->fields["doc_id"])
+        {
+             
+            $doc = new Document("ECHZERLESAPAK",$purchases->fields["stock_id"],$purchases->fields["supplier_id"]);
+            $doc->asmachta = ($purchases->fields["chn_num"])?$purchases->fields["chn_num"]:"";
+            $doc->comment = "ביטול קניה";
+            $doc->Create($STATUS_CLOSED); 
+            $docid = $doc->id;
+            
+            //close teudat kniya
+            DBQuery("update documents set doc_status = $STATUS_CANCELLED, closed_by = $docid where id = ".$purchases->fields["doc_id"]);
+        }
+
+        
+        $i=0;
+    	while (!$purchases->EOF)
+        {
+
+            $purchasequantity = $purchases->fields["quantity"];
+            $pid= $purchases->fields["listing_id"];
+            $stock = $purchases->fields["stock_id"];
+            $purchasecost = $purchases->fields["final_cost"];
+            $purchaseid =  $purchases->fields["id"];
+            $client =  $purchases->fields["supplier_id"];
+            $currentCost = $purchases->fields["current_cost"];
+            $TOTAL+=($purchasecost*$purchasequantity);
+
+            //get current quantity
+            $sql = "select sum(quantity) as quantity from listingsStocksElements where listingid = $pid";
+            $quantRS = $conn->Execute($sql);
+    	    if ($quantRS === false){log_error($sql);}
+            $currentQuantity = $quantRS->fields["quantity"];
+
+            //recalculate amount
+            //A = ( (A+)*(K+) - a*k ) / ( (K+) - k )
+            if ($UserData->Fields("RecalcCostOnPurchase")==1)
+            { 
+                $restoredCost = ( $currentQuantity * $currentCost - $purchasequantity * $purchasecost ) / ($currentQuantity - $purchasequantity);
+                $restoredCost = round($restoredCost,2);
+                DBQuery("update listingsDB set Cost = '$restoredCost' where id = $pid ");
+            }
+            else
+            {
+                $restoredCost = $currentCost;
+            }
+
+            //decrease amount on stock
+            $pdate = date("Y-m-d");
+            sellProduct($pid,$purchasequantity,$client,$stock,$workmode,$pdate,$restoredCost,'bitulknia');
+
+            //create document_product record
+            if ($UserData->fields["MlaitekProEnabled"] && $docid)
+            {  
+                $saleprice = $purchasecost/(1+$config["VAT"]/100);
+                $doc->AddItem($pid,$purchasequantity,$saleprice);                                                              
+             }
+            //end create document_product record
+            
+            //mark purchase as deleted
+            $sql = "update purchases set deleted = 1 where id = ".$purchaseid;
+            $rs = $conn->Execute($sql);
+    	    if ($rs === false){log_error($sql);}
+
+            $i++;
+       		$purchases->MoveNext();
+    	}
+        
+        echo "<script>window.opener.document.F.submit();window.location='cancel_purchase.php?saction=success'</script>";
+        exit();
+    }
+
+    if($saction=="success"){
+    ?>
+        <center>
+        <br>
+        <b>
+        פעולה הסתיימה בהצלחה
+        </b>
+        <br>
+        <br>
+        <hr>
+        <input type=button onclick='window.close()' class=button value='סגור' style='background-image:url(<?=$imgPath?>back.gif)'>
+        </center>
+    <?
+        exit();
+    }
+
+    ?>
+    <form method=post>
+    <center>
+    <br>
+    <b>
+    האם ברצונך לבטל קניה
+    <?if ($chn){?>
+    מס' <?=$chn?>
+    <?}?>?
+    </b>
+    <br>
+    <br>
+    <hr>
+    <input type=hidden name=saction value='go'>
+    <input type=submit class=button value='אישור'  style='background-image:url(<?=$imgPath?>ok.gif)'>
+    <input type=button onclick='window.close()' class=button value='סגור' style='background-image:url(<?=$imgPath?>back.gif)'>
+    </center>
+    </form>
+    <?
+
+
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

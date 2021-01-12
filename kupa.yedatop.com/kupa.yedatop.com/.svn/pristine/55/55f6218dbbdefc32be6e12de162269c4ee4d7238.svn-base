@@ -1,0 +1,100 @@
+<?php
+if ($search){
+	 setcookie("savedsearch",$_SERVER["QUERY_STRING"]);
+}
+$page_subtitle = "חיפוש פריטים";
+include("include/common.php");
+if (!loginCheck('User'))exit;
+include("$config[template_path]/admin_top.html");
+?>
+<?if ($search){?>
+<script>
+window.opener.listing("","<?=$_SERVER["QUERY_STRING"]?>");
+window.opener.clearState();
+close();
+</script>
+<?}?>
+<table border="0" cellspacing="<?php echo $style[admin_listing_cellspacing] ?>" cellpadding="<?php echo $style[admin_listing_cellpadding] ?>" width="100%" class="form_main">
+	<tr>
+		<td valign="top">
+		<table bgcolor=buttonface width=100% border=0><tr><td>
+			<h3>חיפוש לקוחות</h3>
+			</td>
+			</tr></table>
+				<form name="listingsearch" method="get">
+					<table border=0 width=100% align=center>
+
+                        <tr>
+                            <td  align=left width=50%>שם:</td>
+                            <td width=50%><input size=12 name=ClientName></td>
+                        </tr>
+                        <tr>
+                            <td  align=left>מס' עסק / ת.ז. איש קשר:</td>
+                            <td><input size=12 name=BusinessNum></td>
+                        </tr>
+                        <tr>
+                            <td  align=left>קבוצה:</td>
+                            <td>
+                                <select name=catid>
+                                    <option value="">
+                                    <?
+                                    $groups = DBQuery("select * from clientgroups where user_id = $userID and status=1 order by sortorder, binary groupname");
+                                    while (!$groups->EOF)
+                                    {
+                                        echo "<option value=".$groups->Fields("ID").">".$groups->Fields("GroupName");
+                                        $groups->MoveNext();
+                                    }
+                                    ?> 
+                                </select>
+                            </td>
+                        </tr>  
+                        <tr>
+                            <td align=left>תנאי תשלום מעודכן:</td>
+                            <td>
+                                <select name=tnai>
+                                    <option></option>
+                                    <option value=0>לא</option>
+                                    <option value=1>כן</option>
+                                </select>
+                            </td>
+                        </tr>
+                        
+                        <tr>
+                            <td valign=top  align=left>סוג:</td>
+                            <td>
+                                <table cellpading=0 cellspacing=0>
+                                    <tr>
+                                    <td><input type=checkbox value=1 checked name=isClient> לקוח </td>
+                                    <td><input type=checkbox value=1 checked name=isSupplier> ספק </td>
+                                    </tr> 
+<?/*
+                           <tr>
+                           <td><input type=checkbox value=1 name=isAgent> סוכן</td> 
+                           <td><input type=checkbox value=1 name=isWorker> עובד</td>
+                           </tr>
+									*/?>
+                                </table>
+                            </td>
+                        </tr>
+						<tr>
+							<td align="center" colspan="2">
+							<hr>
+								<input type=hidden name=search value=1>
+								<input type="submit" class=button style='background-image:url(<?=$imgPath?>view.gif)' value='חפש'>
+								<input type="button" Onclick='window.close()' class=button style='background-image:url(<?=$imgPath?>back.gif)' value='סגור'>
+							</td>
+						</tr>
+					</table>
+				</form>
+
+		</td>
+	</tr>
+</table>
+<script>
+document.listingsearch.ClientName.focus();
+</script>
+
+<?php
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+?>

@@ -1,0 +1,16 @@
+<?php
+
+$noheader=1;
+require("include/common.php");
+require("include/business_functions.php");
+require("include/document.php");
+require("include/transexport.php");
+$GOCONFIG = new GO_CONFIG();
+$rootdir = $GOCONFIG->transactions_path;
+$dbname = $GOCONFIG->db_name;
+
+$transExport = new TransExport($packageID);
+$transExport->Export(); 
+
+echo "Done";
+?>

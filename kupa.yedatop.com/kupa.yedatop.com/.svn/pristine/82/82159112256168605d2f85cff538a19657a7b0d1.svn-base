@@ -1,0 +1,316 @@
+body, html
+{
+    overflow: hidden !important;
+    margin: 0px !important;
+}
+.disabledbutton
+{
+    filter: progid:DXImageTransform.Microsoft.Alpha(opacity=40);
+}
+.readonly
+{
+    color: blue;
+    font-weight: bold;
+    background-color: buttonface;
+    border: solid 1 #A5ACB2;
+}
+.readonlyerror
+{
+    color: red;
+    font-weight: bold;
+    background-color: buttonface;
+    border: solid 1 #A5ACB2;
+}
+fieldset
+{
+    border: inset 1;
+    padding: 5;
+}
+.inputOK
+{
+    background-image: url(<?=$imgPath?>approve.gif);
+    background-repeat: no-repeat;
+    background-position: center left;
+    padding-left: 20px;
+}
+.big
+{
+    font-size: 13px;
+    font-weight: bold;
+}
+select.big,input.big
+
+{
+    font-size: 13px;
+    font-weight: bold;
+}
+
+
+.frame
+{
+    border: inset 1;
+    padding: 5px;
+}
+.bigtotal
+{
+    font-size: 34px;
+    font-weight: 900;
+    color: blue;
+}
+.number
+{
+    direction: ltr;
+    text-align: right;
+}
+.total
+{
+    font-size: 20;
+    color: blue;
+    font-weight: bold;
+}
+.totallabel
+{
+    text-align: left;
+    font-size: 16;
+    font-weight: bold;
+}
+.bigtotallabel
+{
+    font-size: 24px;
+    font-weight: 900;
+    color: black;
+}
+.clientlink
+{
+    font-size: 24px;
+    font-weight: 900;
+    color: darkblue !important;
+    text-decoration: underline;
+    cursor: pointer;
+    background-image: url(<?=$imgPath?>edit.gif);
+    background-position: left center;
+    background-repeat: no-repeat;
+    padding-left: 20px;
+    display: inline-block;
+}
+.bigtotallabelnis
+{
+    font-size: 24px;
+    font-weight: 900;
+    color: blue;
+}
+body
+{
+    margin: 0;
+    padding: 0;
+}
+.clickable
+{
+    cursor: hand;
+}
+.selectedTableRow input
+{
+    background-color: lightblue;
+    border: solid 1 #A5ACB2;
+    height: 22;
+}
+
+.selectedTableRow .sreadonly
+{
+    background-color: buttonface;
+}
+.bigbutton
+{
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    border: outset 3;
+    background-color: buttonface;
+    font-size: 22px;
+    font-weight: bold;
+    color: green;
+    cursor: hand;
+}
+
+.topbutton
+{
+    margin: 0px;
+    height: 60px;
+}
+
+.button
+{
+    padding: 5 10;
+    font-weight: bold;
+    background-position: 3px center;
+}
+#paymenttable .bigbutton
+{
+    text-align: center;
+    width: 100%;
+    height: 80px;
+    border: outset 3;
+    background-color: buttonface;
+    font-size: 22px;
+    font-weight: bold;
+    color: brown;
+    cursor: hand;
+}
+#modetable .bigbutton
+{
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    border: outset 3;
+    background-color: buttonface;
+    font-size: 22px;
+    font-weight: bold;
+    color: green;
+    cursor: hand;
+}
+.popupdiv
+{
+    z-order: 1000;
+    bottom: 1;
+    padding: 5;
+    border: solid 5 darkmagenta;
+    background-color: lightyellow;
+    display: none;
+    position: absolute;
+    left: 100;
+}
+.errordiv
+{
+    z-order: 1000;
+    bottom: 1;
+    padding: 5;
+    border: solid 5 yellow;
+    background-color: red;
+    display: none;
+    position: absolute;
+    left: 100;
+}
+
+.shadow
+{
+    filter: alpha(opacity=30);
+    display: none;
+    background-color: black;
+    position: absolute;
+    z-order: 500;
+}
+.modelabel
+{
+    color: red;
+    font-size: 24;
+    font-weight: 900;
+    padding: 0px 5px;
+}
+#modetable .activebutton
+{
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    border: inset 3;
+    background-color: efefef;
+    font-size: 16pt;
+    font-weight: 900;
+    color: green;
+    cursor: hand;
+}
+#topay
+{
+    color: red;
+}
+.discountbutton
+{
+    text-align: center;
+    width: 100%;
+    height: 40;
+    border: outset 3;
+    background-color: buttonface;
+    font-size: 12pt;
+    font-weight: bold;
+    color: darkblue;
+    cursor: hand;
+}
+.discount
+{
+    width: 100%;
+    font-size: 14pt;
+    font-weight: bold;
+    color: blue;
+    text-align: center;
+}
+tr.trdiscount input
+{
+    background: color:#ececec !important;
+}
+#productsTable input
+{
+    height: 30px;
+    font-size: 16pt !important;
+    font-weight: bold !important;
+}
+.closechn
+{
+    width: 250px;
+    height: 50px;
+}
+.delbutton
+{
+    cursor: pointer;
+    height: 30px;
+    padding-top: 5px;
+    border: outset 2;
+    text-align: center;
+}
+.btnopen
+{
+    height: 60px;
+}
+
+.shaon
+{
+    width: 60px;
+    height: 60px;
+}
+.cell50
+{
+    height: 50px;
+    padding: 2px;
+}
+.cell40
+{
+    height: 40px;
+    padding: 2px;
+}
+.closeservices
+{
+    color: black;
+    width: 120px;
+    height: 40px;
+}
+
+.btnmodeok
+{
+    padding: 10px;
+    margin-left: 3px;
+    height:60px;
+}
+.btn35
+{
+    text-align: right;
+    padding-right: 35;
+}
+
+
+th.barcode
+{
+    width:180px;
+}
+
+th.title
+{
+    width:200px;
+}

@@ -1,0 +1,121 @@
+<?
+	$config = array();
+	global $config;
+
+
+	///////////////////////////////////////////////////
+	// SITE INFORMATION
+	// make sure this info is accurate
+	$config['version'] = '1.0.7'; //Do Not Modify
+	// Your site's web address (don't forget the http://) - leave off the trailing slash
+	$config['baseurl'] = $GO_CONFIG->protocol.$GO_CONFIG->hostname.'/modules/stock';
+	// The actual location of openlistings on the machine -- leave off the trailing slash
+	// Windows users need to use double slashes eg. c:\\www\\open-realty
+	$config['basepath'] = $GO_CONFIG->root_path.'modules/stock';
+	$config['admin_name'] = 'Andrew Shaikevich'; // Your name -- all email will come from this name
+
+	$config['admin_email'] = 'info@netcity.co.il'; // all email which is sent from the site will come from this address
+	$config['admin_faxmail'] = "rfq@netcity.co.il";
+
+	$config['VAT'] = 17;
+	$config['UpdateTime'] = "10:15";
+	$config["IgnoreTransErrors"]=0;
+	$config['MainStock'] = "999999"; 
+	
+	$config['TaxRegistrationNumber'] = "115301";
+	$config['TaxRegistrationProgramName'] = "מלאיטק פרו";
+	$config['TaxRegistrationProgramAuthor'] = "VCX Technologies Ltd";
+	$config['TaxRegistrationBusinessNumber'] = "513553362";
+	
+	$config['site_title'] = 'Open-Realty '.$config['version']; // Site title
+	$config['company_name'] = 'Open-Realty Real Estate, Inc.'; // Company Name used on Legal Page.
+	$config['company_location'] = 'OPEN SOURCE SOLUTION TO REAL ESTATE LISTINGS'; // Company Location for header. E.g. "of Susquehanna County, Pennsylvania"
+	$config['company_logo'] = '/images/title.jpg'; //Location of company logo.
+	
+	///////////////////////////////////////////
+	//EXPORT OPTIONS
+	///////////////////////////////////////////
+	$config['export'] = 1; //Export to Baraholka? (1/0)
+	$config['export_path']='http://localhost:8083/heb/import.php'; //path to remote script
+	$config['export_expiration']='15'; //remote ad expiration in days
+	$config['export_password']='Hs3b8'; //should be set to remote database password
+	$config['export_ad_type']='1'; //remote ad type: 0-free, 1-commercial, 2-VIP
+	//remote categories mapping
+	//only the listings within the array will be exported!!!
+	//mask is drisha~eska~category~type (note: from right to left in hebrew! ייי - is a mask (any value)
+	$config['export_categories'] = array(
+		"ייי~ייי~ייי~חנות"=>72,
+		"ייי~ייי~ייי~משרד"=>72,
+		"ייי~ייי~עסקים~ייי"=>56,
+		"ייי~ייי~מגרשים~ייי"=>57,
+		"ייי~מכירה~מגורים~ייי"=>24,
+		"ייי~השכרה~מגורים~ייי"=>25
+	);
+	
+
+	///////////////////////////////////////////////////
+	// TEMPLATE DATA
+	//$config[template_path] = $config[basepath].'/template/generic'; // leave off the trailing slashes
+	//$config[template_url] = $config[baseurl].'/template/generic'; // leave off the trailing slashes
+	$config['template_path'] = $config['basepath'].'/template/vertical-menu'; // leave off the trailing slashes
+	$config['template_url'] = $config['baseurl'].'/template/vertical-menu'; // leave off the trailing slashes
+
+	///////////////////////////////////////////////////
+	// DISPLAY SETTINGS
+	$config['listings_per_page'] = 15; //number of listings to show on one page:
+	$config['add_linefeeds'] = 'yes'; // convert returns to line feeds? yes or no
+	$config['strip_html'] = 'yes'; // Should HTML be stripped out of listings? yes or no
+	$config['allowed_html_tags'] ='<a><b><i><u><br>'; // which html tags can a person input?
+	$config['money_sign'] = '$'; // default is dollars, but it could be "&#163;" for pounds or "&#128;" for euros
+	$config['show_no_photo'] = 'no'; // if a listing doesn't have a photo, should it use the /images/nophoto.gif instead?
+	$config['number_format_style'] = '1'; // support for international numbering format. See the documentation for details
+
+
+
+	///////////////////////////////////////////////////
+	// LISTING EXPIRATION SETTINGS
+	$config['use_expiration'] = 'no'; // should the system use expiration? yes or no
+	$config['days_until_listings_expire'] = '365'; // listings should be active for this number of days
+
+
+	///////////////////////////////////////////////////
+	// USER SETTINGS
+	$config['allow_user_signup'] = 'yes'; // can users sign up through the web site? yes or no
+	$config['user_default_admin'] = 'no'; // are new users admins by default?  yes or no
+	// I recommend that you leave the following entries marked "no"... unless there's a particular
+	// reason you want new users to be able to do administrative tasks by default...
+	$config['user_default_feature'] = 'no'; // can new users feature listings by default? yes or no
+	$config['user_default_moderate'] = 'no'; // can new users moderate listings by default? yes or no
+	$config['user_default_logview'] = 'no'; // can new users view logs by default? yes or no
+	$config['user_default_editForms'] = 'no'; // can new users edit forms by default? yes or no
+	$config['user_default_canChangeExpirations'] = 'yes'; // can users change the expiration dates of their listings? yes or no
+
+	///////////////////////////////////////////////////
+	// RENTAL SEARCH SETTINGS
+	$config['rental_step'] = '20';
+	$config['max_rental_price'] = '100';
+	$config['min_rental_price'] = '800';
+	
+	///////////////////////////////////////////////////
+	// MODERATION SETTINGS
+	$config['moderate_listings'] = 'no'; // should listings require moderator approval to be "live?" yes or no
+	$config['email_notification_of_new_listings'] = 'yes'; // should the site admin receive an email notification if someone adds a listing? yes or no
+
+
+    /////////////////////////////////////////////////
+	//STOCK SETTINGS
+	//////////////////////////////////////////////////
+	
+	$defaultUpdateMode = "N"; //U   update, N - none, A - all (file PLUDTA from kupa)
+	$defaultWorkMode = "A"; //Schemas A - main kupa, B - main server
+	$defaultIsracardMode = 2; //2 zikui or 4 zikui
+	$filemode = 0777;
+	$timeBeforeUpdate = 10; //in minutes
+	$spareTime = 3; //in minutes
+	$plufilename = "PLUDTA";
+	
+	$numAttempts = 0;
+	
+	///////////////////////////////////////////////////
+    
+?>

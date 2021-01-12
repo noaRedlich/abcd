@@ -1,0 +1,96 @@
+<div id=Query style='padding:3px 0px'>
+<input type=button value=" <?=$lang["print"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>printrep.gif);background-repeat:no-repeat;background-position:left top" onclick='PrintReport()'>&nbsp;
+<input type=button value=" <?=$lang["sendmail"]?> " style="width:160;cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>email.gif);background-repeat:no-repeat;background-position:left top" onclick='sendReport(1)'>
+<input type=button value=" <?=$lang["sendfax"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>fax.gif);background-repeat:no-repeat;background-position:left top" onclick='sendReport(2)'>
+<?if ($xlsfilename){?>
+<input type=button value=" Excel " style="cursor:hand;padding:0 0 0 10;background:url(images/excel.gif);background-repeat:no-repeat;background-position:left top" onclick='location="../../tmp/<?=$xlsfilename?>_<?=$userID?>.xls"'>
+<?}?>
+<script>
+
+function sendReport(mode){
+
+	address = (mode==1)?"<?=$usermail?>":"<?=$userfax?>";
+	
+	if (!address){
+		if (mode==1){
+			alert("<?=$lang["no_mail"]?>");
+		}
+		else{
+			alert("<?=$lang["no_fax"]?>");
+		}	
+	}
+	else{
+		document.F.saction.value = "sendreport";
+		document.F.sendmode.value = mode;
+		document.F.reportbody.value = document.getElementById("REPORTTABLE").outerHTML;
+		document.F.submit();
+	}
+}
+
+</script>
+</div>
+
+<?
+	$fname = tempnam("../../tmp",$xlsfilename.".xls");
+	$workbook = new writeexcel_workbook($fname);
+	$workbook->set_tempdir('../../tmp');
+	$worksheet = $workbook->addworksheet($xlsfilename);
+	$header  = $workbook->addformat(array(
+                                        bold    => 1,
+                                        color   => 'blue',
+										font 	=> "Arial Hebrew",
+										size	=> 18,
+										align  => 'left',
+                                        ));
+	$heading  = $workbook->addformat(array(
+                                        bold    => 1,
+                                        color   => 'blue',
+										font 	=> "Arial Hebrew",
+										valign  => 'top',
+										align	=> 'center',
+										border	=> 1
+                                        ));
+	$body  = $workbook->addformat(array(
+                                        bold    => 0,
+										font 	=> "Arial Hebrew",
+										valign  => 'top',
+										border	=> 1,
+										num_format  =>  '#######################0',
+                                        ));
+	$bodyred  = $workbook->addformat(array(
+                                        bold    => 0,
+										font 	=> "Arial Hebrew",
+										valign  => 'top',
+										color	=> "red",
+										border	=> 1,
+										num_format  =>  '#######################0',
+                                        ));
+	$numformat  = $workbook->addformat(array(
+										num_format  =>  '0.00',
+										bold    => 0,
+										font 	=> "Arial Hebrew",
+										valign  => 'top',
+										border	=> 1
+                                        ));
+	$numformatb  = $workbook->addformat(array(
+										num_format  =>  '0.00',
+										bold    => 1,
+										font 	=> "Arial Hebrew",
+										valign  => 'top',
+										border	=> 1
+                                        ));
+	$numformatred  = $workbook->addformat(array(
+										num_format  =>  '############0.00',
+										bold    => 0,
+										color	=> "red",
+										font 	=> "Arial Hebrew",
+										valign  => 'top',
+										border	=> 1
+                                        ));
+	$heading->set_text_wrap();
+	$body->set_text_wrap();
+	$worksheet->hide_gridlines(2);
+	
+	$worksheet->write("A1",$page_subtitle,$header);
+	$rrow=3;
+?>

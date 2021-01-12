@@ -1,0 +1,75 @@
+<?php
+/*////////////////////////////////////////////////////////////////////////////////
+//																				//
+// Author: Merijn Schering <mschering@hilckmanngroep.com>						//
+// Version: 1.0 Release date: 14 March 2003										//
+//																				//
+////////////////////////////////////////////////////////////////////////////////*/
+
+class GO_LANGUAGE
+{
+	var $language;
+	var $language_path;
+	var $default_language;
+
+	function GO_LANGUAGE()
+	{
+		global $GO_CONFIG;
+		$this->language_path = $GO_CONFIG->root_path.$GO_CONFIG->language_path.'/';
+		$this->language = $GO_CONFIG->language;
+		$this->default_language = $GO_CONFIG->language;
+
+		global $GO_LANGUAGE_NAME;
+		if (!isset($GO_LANGUAGE_NAME) || $GO_LANGUAGE_NAME == '')
+		{
+			require($this->language_path.'languages.inc');
+
+			global $HTTP_ACCEPT_LANGUAGE;
+			if (isset($language[$HTTP_ACCEPT_LANGUAGE]))
+			{
+				$GO_LANGUAGE_NAME = $language[$HTTP_ACCEPT_LANGUAGE];
+			}
+		}
+		$this->set_language($GO_LANGUAGE_NAME);
+	}
+
+	function set_language($language)
+	{
+		if ($language != '' && file_exists($this->language_path.$language))
+		{
+			$this->language = $language;
+		}
+
+		SetCookie("GO_LANGUAGE_NAME",$this->language,time()+3600*24*365,"/","",0);
+	}
+
+	function get_language_file($module_id)
+	{
+		global $GO_CONFIG;
+		$file = $this->language_path.$this->language.$GO_CONFIG->slash.$module_id.'.'.$this->language.'.inc';
+
+		if (file_exists($file))
+		{
+			return $file;
+		}else
+		{
+			return $this->language_path.$this->default_language.$GO_CONFIG->slash.$module_id.'.'.$this->default_language.'.inc';
+		}
+	}
+
+	function get_languages()
+	{
+		$lang_dir=opendir($this->language_path);
+		while ($file=readdir($lang_dir))
+		{
+			//Couldn't get is_file to work right so i worked around
+			if (is_dir($this->language_path.$file) && $file != "." && $file != "..")
+			{
+				$languages[] = $file;
+			}
+		}
+		closedir($lang_dir);
+		return $languages;
+	}
+}
+?>

@@ -1,0 +1,322 @@
+<?
+	session_start();
+	
+	$simple=1;
+	$page_subtitle = "תנועות מלאי ";
+	$xlsfilename = "stock_movement_item";
+	include("include/common.php");
+	if (!loginCheck('User'))exit;
+	global $action, $id, $cur_page, $lang, $conn, $config;
+	include("$config[template_path]/admin_top.html");
+
+	if ($_GET["sDate"] && $saction != "sendreport"){
+		$saction="go";
+	}
+
+	
+	if (!$sDate){
+		$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+		$sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+		$eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+	}
+	
+	$asDate = explode("/",$sDate);
+	$aeDate = explode("/",$eDate);
+	
+	$startdate = mktime(0,0,0,$asDate[1],$asDate[0],$asDate[2]);
+	$enddate = mktime(23,59,59,$aeDate[1],$aeDate[0],$aeDate[2]);
+	$startDay = date("Y/m/d",$startdate);
+	$endDay = date("Y/m/d",$enddate);
+	
+	?>
+	<style>
+	.z {color:gray}
+	.b {font-weight:bold}
+	th {background-color:silver}
+	</style>
+	<script>
+	
+	function PrintReport(){
+		document.getElementById("Query").style.display = "none";
+		window.print();
+		document.getElementById("Query").style.display = "";
+	}
+	
+	function validate(){
+		if (!document.F.onlychanged.checked && document.F.barcode.value==""){
+			alert('יש להזין ברקוד או לסמן \"כל הפרטים שהשתנו\"');
+			return false;
+		}
+		return true;
+	}
+	</script>
+	<style>
+	.mo{background-color:lightYellow}
+	</style>
+	<body>
+	<table cellpadding=5 border=0 width=100%>
+	<tr>
+	<form name=F method=post onsubmit='return validate()' action="<?=$PHP_SELF?>">
+	<input type=hidden name=usr value=<?=$usr?>>
+	<input type=hidden name=rmodule value=<?=$rmodule?>>
+	
+	<td nowrap>
+	<?$reporttitle = $lang["report_stock_movement"]." ".$sDate;?>
+	<?if ($usr){$reporttitle.="<br>".$username;}?>
+	<strong style='font-size:12pt'><?=$reporttitle?></strong>
+	</td><td width=99% style='border:inset 1'>
+	
+	<!--
+	<?=$lang["from"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+	<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.sDate")'>
+ 	<?=$lang["to"]?> <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+	<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("F.eDate")'>
+	-->
+	<input type=hidden name=sDate value="<?=$sDate?>">
+	<input type=hidden name=eDate value="<?=$eDate?>">
+	ברקוד <input size=10 name=barcode value="<?=$barcode?>">
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+	<input type=checkbox name=onlychanged <?=($onlychanged)?"checked":""?>> כל הפרטים שהשתנו
+	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+	
+	<input type=submit value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(<?=$imgPath?>refresh.gif);background-repeat:no-repeat;background-position:left top"  >
+	
+	<?if ($saction=="go" || $saction=="sendreport"){
+		require("sendreport.php");
+	}?>
+	<input type=hidden name=saction value=go>
+	<input type=hidden name=reportbody value="">
+	<input type=hidden name=sendmode value="">
+
+	</td>
+	</form>
+	</tr>
+	</table>
+	<?	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+	
+		if (!$sort){	
+			$q=" ";
+			if ($sDate){
+				$q.=" and day = '".dateToSQL($sDate)."'";
+			}
+			
+			/*if ($eDate){
+				$q.=" and day <= '".dateToSQL($eDate)."'";
+			}*/
+			
+			if ($barcode){
+				$ch = " and field_value = '".trim(addslashes($barcode))."' ";
+			}
+			elseif ($onlychanged){
+				$ch = " and (latestsyncquantity  <> newQuantity) ";// or ServerQuantity<>0 or PluDtaQuantity<>0
+			}
+ 
+			$sql = "
+			SELECT l.id, title, e.field_value AS BarCode, Cost, latestsyncquantity AS AmountMorning, 
+			latestsyncquantity * Cost AS AmountMorningTotal, 
+			PluDtaQuantity - latestsyncquantity AS KupaAmount, 
+			(PluDtaQuantity - latestsyncquantity) * Cost AS KupaAmountTotal, 
+			ServerQuantity - latestsyncquantity AS ServerAmount, 
+			(ServerQuantity - latestsyncquantity) * Cost AS ServerAmountTotal, 
+			newQuantity AS AmountEvening, newQuantity * Cost AS AmountEveningTotal
+			FROM listingsDB l, listingsDBElements e, stockhistory h
+			WHERE e.listing_id = l.id
+			AND e.field_name = 'BarCode'
+			AND h.listing_id = l.id
+			$q
+			AND l.user_id = $userID
+			$ch
+			"; 			
+			//die($sql);
+		
+			$products = $conn->Execute($sql);
+			if ($products === false){log_error($sql);}
+		
+			$report = array();
+			
+			while (!$products->EOF){
+				
+				$sql = "select sum(stockamount) as SoldAmount
+				from transactioncomponents c,transactions t  
+				where t.id = c.trans_id and trandate = '".dateToSQL($sDate)."'
+				and user_id = $userID and listing_id = ".$products->fields["id"];
+				//die ($sql."<br>");
+				$tran = $conn->Execute($sql);
+				if ($tran === false){log_error($sql);}
+				$SoldAmount = $tran->fields["SoldAmount"];
+				$SoldAmountTotal = $SoldAmount*$products->fields["Cost"];
+
+				
+				$report[] = array(
+						"BarCode" => $products->fields["BarCode"],
+						"Title" => $products->fields["title"],
+						"AmountMorning" => $products->fields["AmountMorning"],
+						"AmountMorningTotal" => $products->fields["AmountMorningTotal"],
+						"SoldAmount" => $SoldAmount,
+						"SoldAmountTotal" => $SoldAmountTotal,
+						"KupaAmount" => $products->fields["KupaAmount"]+$SoldAmount,
+						"KupaAmountTotal" => $products->fields["KupaAmountTotal"]+$SoldAmountTotal,
+						"ServerAmount" => $products->fields["ServerAmount"],
+						"ServerAmountTotal" => $products->fields["ServerAmountTotal"],
+						"AmountEvening" => $products->fields["AmountEvening"],
+						"AmountEveningTotal" => $products->fields["AmountEveningTotal"]
+				);
+			
+	 			$products->MoveNext();
+			}
+			
+			$_SESSION["REPORT"] = $report;
+		
+		}
+		else{ 
+	
+			//Sort Mode
+		
+			$report = $_SESSION["REPORT"];
+			$report = aSortBySecondIndex($report,$sort,$desc);
+		}
+		//Output
+		
+		$TAchuzRevachMemutza = 0;
+		$TMahzor = 0;
+		$TRevachAgol = 0;
+		$cnt=0;
+	
+		$url = $_SELF."?saction=go&usr=$usr&rmodule=$rmodule&sDate=$sDate&eDate=$eDate&onlychanged=$onlychanged&desc=".((!$desc)?1:0);
+		
+		$worksheet->set_column('A:D', 15);
+		$worksheet->set_column('E:N', 12);
+		
+		$headings = array('ברקוד','שם פריט','יתרת בוקר','נמכר','הכנסה\הורדה דרך קופה','הכנסה\הורדה דרך מחשב','יתרת ערב');
+		$worksheet->write_row('A'.($rrow++), $headings, $heading);
+		;
+		
+		echo "<div ><table id=REPORTTABLE dir=$dir  border=1 bgcolor=white width=100% bordercolor=black style='border-collapse:collapse' cellpadding=2>";
+		echo "
+		<tr valign=top>
+		<th width=10%><a href='$url&sort=Barcode'>ברקוד</a></th>
+		<th width=20%><a href='$url&sort=Title'>שם פריט</a></th>
+		<th ><a href='$url&sort=AmountMorning'>יתרת בוקר</a></th>
+		<th ><a href='$url&sort=AmountMorningTotal'>יתרת בוקר ש\"ח</a></th>
+		<th ><a href='$url&sort=SoldAmount'>נמכר</a></th>
+		<th ><a href='$url&sort=SoldAmountTotal'>נמכר ש\"ח</a></th>";
+		if ($updateQtyFromPludata){
+			echo "<th ><a href='$url&sort=KupaAmount'>הכנסה\הורדה דרך קופה</a></th>
+			<th ><a href='$url&sort=KupaAmountTotal'>הכנסה\הורדה דרך קופה ש\"ח</a></th>";
+		}
+		echo "<th ><a href='$url&sort=ServerAmount'>הכנסה\הורדה דרך מחשב</a></th>
+		<th ><a href='$url&sort=ServerAmountTotal'>הכנסה\הורדה דרך מחשב ש\"ח</a></th>
+		<th ><a href='$url&sort=AmountEvening'>יתרת ערב</a></th>
+		<th ><a href='$url&sort=AmountEveningTotal'>יתרת ערב ש\"ח</a></th>
+		</tr>
+		";
+		
+		foreach ($report as $row){
+			$AmountMorningTotal+=$row["AmountMorningTotal"];	
+			$SoldAmountTotal+=$row["SoldAmountTotal"];			
+			$KupaAmountTotal+=$row["KupaAmountTotal"];			
+			$ServerAmountTotal+=$row["ServerAmountTotal"];			
+			$AmountEveningTotal+=$row["AmountEveningTotal"];			
+		
+			if ($updateQtyFromPludata){
+				if ($row["AmountMorning"]-$row["SoldAmount"]+$row["KupaAmount"]+$row["ServerAmount"] != $row["AmountEvening"]){
+					$style=" style='color:red' ";
+				}
+				else {	
+					$style="";
+				}
+			}
+			else{
+				if ($row["AmountMorning"]-$row["SoldAmount"]+$row["ServerAmount"] != $row["AmountEvening"]){
+					$style=" style='color:red' ";
+				}
+				else {	
+					$style="";
+				}
+			}
+			
+			echo "
+			<tr valign=top $style>
+			<td >".$row["BarCode"]."</td>
+			<td >".$row["Title"]."</td>
+			<td ><span dir=ltr>".number_format($row["AmountMorning"],0)."</span></td>
+			<td ><span dir=ltr>".number_format($row["AmountMorningTotal"],2)."</span></td>
+			<td ><span dir=ltr>".number_format($row["SoldAmount"],0)."</span></td>
+			<td ><span dir=ltr>".number_format($row["SoldAmountTotal"],2)."</span></td>";
+			if ($updateQtyFromPludata){
+				echo "<td ><span dir=ltr>".number_format($row["KupaAmount"],0)."</span></td>
+				<td ><span dir=ltr>".number_format($row["KupaAmountTotal"],2)."</span></td>";
+			}
+			echo "<td ><span dir=ltr>".number_format($row["ServerAmount"],0)."</span></td>
+			<td ><span dir=ltr>".number_format($row["ServerAmountTotal"],2)."</span></td>
+			<td ><span dir=ltr>".number_format($row["AmountEvening"],0)."</span></td>
+			<td ><span dir=ltr>".number_format($row["AmountEveningTotal"],2)."</span></td>
+			</tr>
+		
+			";	
+			
+			$b=$body;
+			$r=$bodyr;
+			$f=$numformat;
+			$worksheet->write("A".($rrow),$row["BarCode"],$b);
+			$worksheet->write("B".($rrow)," ".$row["Title"],$r);
+			$worksheet->write("C".($rrow),$row["AmountMorning"],$f);
+			$worksheet->write("D".($rrow),$row["SoldAmount"],$f);
+			$worksheet->write("E".($rrow),$row["KupaAmount"],$f);
+			$worksheet->write("F".($rrow),$row["ServerAmount"],$f);
+			$worksheet->write("G".($rrow),$row["AmountEvening"],$f);
+			$rrow++;
+			
+		}
+			
+		echo
+		"
+		<tr>
+			<td colspan=2><b>סה\"כ</b></td>
+			<td></td>
+			<td ><span dir=ltr><b>".number_format($AmountMorningTotal,2)."</b></span></td>
+			<td></td>
+			<td ><span dir=ltr><b>".number_format($SoldAmountTotal,2)."</b></span></td>
+			<td></td>";
+			if ($updateQtyFromPludata){
+				echo "<td ><span dir=ltr><b>".number_format($KupaAmountTotal,2)."</b></span></td>
+				<td></td>";
+			}
+			echo"<td ><span dir=ltr><b>".number_format($ServerAmountTotal,2)."</b></span></td>
+			<td></td>
+			<td ><span dir=ltr><b>".number_format($AmountEveningTotal,2)."</b></span></td>
+		</tr>
+		";
+
+		$workbook->close();
+		copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+        unlink($fname);
+	}
+	
+	include("$config[template_path]/admin_bottom.html");
+	$conn->Close(); // close the db connection
+	
+	
+	function aSortBySecondIndex($multiArray, $secondIndex,$rew = false) {
+		while (list($firstIndex, ) = each($multiArray))
+		$indexMap[$firstIndex] = $multiArray[$firstIndex][$secondIndex];
+		if (!$rew)
+			asort($indexMap);
+		else 	
+			arsort($indexMap);
+		while (list($firstIndex, ) = each($indexMap))
+		if (is_numeric($firstIndex))
+		$sortedArray[] = $multiArray[$firstIndex];
+		else $sortedArray[$firstIndex] = $multiArray[$firstIndex];
+	return $sortedArray;
+
+
+}
+?>

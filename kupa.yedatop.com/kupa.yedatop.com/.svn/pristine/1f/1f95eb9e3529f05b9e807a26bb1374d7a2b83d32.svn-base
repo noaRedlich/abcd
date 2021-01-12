@@ -1,0 +1,133 @@
+<?
+if ($GO_SECURITY->accountIsDisabled())
+{                                 
+    echo "<center><br><br><b style='color:red'>".$login_disabled."</center>";
+    die();
+}                                   
+?>
+
+<input type="hidden" name="task" value="login" />
+<br />
+<br />
+<?if (false){?>
+<center>
+<b style='color:blue'>
+שלום רב!
+<br>
+המערכת עובדת כרגיל עם חוסר מיסמכים עבור תאריך 19/12/05
+<br>המידע מקופות רושמות ומסופים שמורה ומגובה ויופיע בתוכנה 
+ <br>
+עד 22/12/05 בבוקר.
+<br>אם היו לכם פעולות ידנייות (ללא דרך קופה) בתאריך 19/12/05 נא ליפנות
+<br>לתמיכה ולאשר שיחזור מידע.
+ טל. 072-2125588
+</b>
+</center>
+<br>
+<?}?>
+
+<table cellspacing="2" border="0" cellpadding="1" valign="center" align="center">
+<tr>
+        <td colspan="2">
+        <h3><?php echo $login_text; ?></h3>
+        <br />
+		<?php if (isset($feedback)) echo $feedback; ?>
+		</td>
+</tr>
+
+<tr>
+        <td align="right" nowrap>
+        <?php echo $login_language; ?>:&nbsp;
+        </td>
+        <td>
+		<?php
+		$languages = $GO_LANGUAGE->get_languages();
+		$dropbox = new dropbox();
+		$dropbox->add_arrays($languages, $languages);
+		$dropbox->print_dropbox("SET_LANGUAGE", $GO_LANGUAGE->language, ' style=width:150px onchange="javascript:set_language(this)"');
+		?>
+        </td>
+
+</tr>
+
+
+<tr>
+        <td align="right" nowrap>
+        <?php echo $login_username; ?>:&nbsp;
+        </td>
+        <td>
+        <input type="text" dir=ltr class="textbox" name="username" value="" size="30" style=width:150px />
+        </td>
+
+</tr>
+<tr>
+        <td align="right" nowrap>
+        <?php echo $login_password; ?>:&nbsp;
+        </td>
+
+        <td>
+        <input class="textbox" dir=ltr  type="password" name="password" value=""  style=width:150px size="30" />
+        </td>
+</tr>
+<?
+		if ($GO_CONFIG->require_businessnum){?>
+<tr>
+        <td align="right" nowrap>
+        <?php echo $login_businessnum; ?>:&nbsp;
+        </td>
+
+        <td>
+        <input class="textbox" dir=ltr name="businessnum" value=""  style=width:150px size="30" />
+        </td>
+</tr>		
+		
+<?		}
+?>
+
+
+        <td colspan="2">
+        <br />
+        <input type="checkbox" name="remind" value="true" /><?php echo $login_remind; ?>
+        </td>
+</tr>
+
+<tr>
+        <td colspan="2" align="center">
+        <br />
+        <?php
+        $button = new button($cmdLogin, 'javascript:document.forms[0].submit();',100);
+        ?>
+		<br /><br />
+        <?php
+		if ($GO_CONFIG->allow_registration){
+	        $button = new button($cmdJoin, 'javascript:location=\'users/register.php\';',250,'style="font-weight:bold"');
+		}
+        ?>
+
+                <div>
+		<a class=Underline href='users/forgot.php'><?php echo $forgot_password;?></a>
+		</div>
+
+		
+        </td>
+</tr>
+</table>
+
+
+<div style="text-align:center">
+<br>
+<!--
+<a href="javascript:void(window.open('https://fincibfx.com/lvs/netcity/en/livezilla.php','','width=590,height=550,left=0,top=0,resizable=yes,menubar=no,location=no,status=yes,scrollbars=yes'))">
+<img src="https://fincibfx.com/lvs/netcity/en/image.php?id=03" width="141" height="81" border="0" alt="LiveZilla Live Help"></a>
+<noscript><div><a href="https://fincibfx.com/lvs/netcity/en/livezilla.php" target="_blank">Start Live Help Chat</a></div></noscript><div id="livezilla_tracking" style="display:none"></div><script type="text/javascript">var script = document.createElement("script");script.type="text/javascript";var src = "https://fincibfx.com/lvs/netcity/en/server.php?request=track&output=jcrpt&nse="+Math.random();setTimeout("script.src=src;document.getElementById('livezilla_tracking').appendChild(script)",1);</script>
+-->
+</div>
+
+<?if(isset($HTTP_SERVER_VARS["HTTPS"])){?>
+<br>
+<center>
+<img align=absmiddle src='<?=$GO_CONFIG->theme_path?>/blue-grey/images/secure.gif'>&nbsp;
+<?=$login_security?> <?=$GO_CONFIG->admin_phone?>.
+</center>
+<?}?>
+

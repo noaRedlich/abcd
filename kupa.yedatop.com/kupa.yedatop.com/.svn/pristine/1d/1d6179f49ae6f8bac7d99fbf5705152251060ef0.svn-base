@@ -1,0 +1,34 @@
+<xml>
+	<main_table>dt_members</main_table>
+	<name>Members</name>
+	<options>
+		<opt name="create_record" type="always"></opt>
+		<opt name="search" type="sometimes"></opt>
+		<opt name="main_view" type="always"></opt>
+	</options>
+	<view>
+		<vcol name="id">#</vcol>
+		<vcol name="login">Login</vcol>
+		<vcol name="name">Name</vcol>
+		<vcol name="gender">Gender</vcol>
+	</view>
+	<edit>
+		<ecol name="login" type="string">Login</ecol>
+		<ecol name="pswd" type="string">Password</ecol>
+		<ecol name="email" type="string">Email</ecol>
+		<ecol name="name" type="string">Name</ecol>
+  		<ecol name="gender" type="enum">Gender
+			<enum val="Male">Male</enum>
+			<enum val="Female">Female</enum>
+        </ecol>
+  		<ecol name="looking_for" type="enum">Looking for
+			<enum val="Male">Male</enum>
+			<enum val="Female">Female</enum>
+		</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="id"></opt>
+		<opt name="search_by" type="name"></opt>
+		<opt name="search_by" type="email"></opt>
+	</sql_actions>
+</xml>

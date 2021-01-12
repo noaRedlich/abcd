@@ -1,0 +1,383 @@
+<?php
+$page_subtitle = "הסטוריה";
+include("include/common.php");
+if (!loginCheck('User'))exit;
+global $action, $id, $cur_page, $lang, $conn, $config;
+include("$config[template_path]/admin_top.html");
+
+
+if ($edit){
+	$sql_edit = make_db_safe($edit);
+	// first, grab the listings's main info
+	$sql = "SELECT l.ID, decimals,grams_rate, title, notes, last_modified, featured, active, expiration, SalePrice
+			FROM listingsDB l , $TABLE_UNITS u
+			WHERE l.ID = $sql_edit AND l.user_ID = '$userID' and unit = u.id";
+	$ADODB_FETCH_MODE = ADODB_FETCH_ASSOC;
+	$recordSet = DBQuery($sql);
+	$decimals = $recordSet->fields["decimals"];
+	
+	$num_records = $recordSet->RecordCount();
+	if ($num_records == 0)
+	{
+		die("$lang[priv_failure]");
+	}
+	while (!$recordSet->EOF)
+	{
+		// collect up the main DB's various fields
+		$listing_ID = make_db_unsafe ($recordSet->fields[ID]);
+		$edit_title = make_db_unsafe ($recordSet->fields[title]);
+		$SalePrice = make_db_unsafe ($recordSet->fields[SalePrice]);
+		$recordSet->MoveNext();
+	} // end while
+}
+
+	$page_subtitle = "הסטוריית שינוים של פריט ".$edit_title;
+	$xlsfilename="ItemHistory".$edit;
+
+
+if (!$sDate){
+	$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+	$sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+	$eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+}
+
+if ($edit != "")
+{
+	// now, display all that stuff
+		?>
+<script>
+function printList(){
+	s = window.open('print.php?simple=1','print','top=50,left=100,height=300,width=700,resizable=yes,scrollbars=yes');
+    s.focus();
+}
+</script>
+		<table width=100% height=480 cellpadding=0 cellspacing=0>
+		
+		<TR><TD align=center>
+		<?include("productmenu.php")?>
+		</td></td>
+		<TR><TD align=center style='padding:5px'><b>
+	<?
+	if ($action="update_listing"){
+		if ($pass_the_form == "No")
+		{
+			// if we're not going to pass it, tell that they forgot to fill in one of the fields
+			echo "<p style=color:red>$lang[required_fields_not_filled]</p>";
+		}
+		if ($message == "success")
+		{
+			echo "<p style=color:green>$lang[admin_listings_editor_listing_number] $edit $lang[has_been_updated] </p>";
+			log_action ("$lang[log_updated_listing] $edit");
+		} // end if
+		else
+		{
+			//echo "<p style=color:red>$lang[alert_site_admin]</p>";
+		}
+	}
+				?>
+		</TD></TR>
+		<form name="update_listing" action="<?php echo "$PHP_SELF";?>" method="post">
+		<tr><td>
+			<table border="0" width=100% cellspacing="<?php echo $style[form_cellspacing] ?>" cellpadding="<?php echo $style[form_cellpadding] ?>" width="100%" class="form_main">
+				<tr><td >
+				
+				<?=$lang["from"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+				<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("update_listing.sDate")'>
+				<?=$lang["to"]?> <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+				<img align=absmiddle style="cursor:hand" src='<?=$imgPath?>calendar.gif' onclick='ShowCalendar("update_listing.eDate")'>
+
+
+	<?
+	$rs = GetStocks(true);
+				?>
+				<?=$lang['in_point']?>
+				<select name=stock >
+	<?
+	FillStockList($rs,$stock);
+				?>
+				</select>
+				<input type=submit value="הצג">
+				<br>
+				סוג ארוע:
+				<select name="type">
+					<option value="">כל הסגים</option>
+					<option value="movement" <?=$type=="movement"?"selected":""?>>תזוזה</option>
+					<option value="adjustment_2" <?=$type=="adjustment_2"?"selected":""?>>שינוי מחיר</option>
+					<option value="cost" <?=$type=="cost"?"selected":""?>>שינוי עלות</option>					
+					<option value="adjustment_1" <?=$type=="adjustment_1"?"selected":""?>>שינוי כמות</option>
+					<option value="purchase_1" <?=$type=="purchase_1"?"selected":""?>>קנייה</option>
+					<option value="knisa" <?=$type=="knisa"?"selected":""?>>כניסה למלאי</option>
+					<option value="purchase_2" <?=$type=="purchase_2"?"selected":""?>>ספירת מלאי</option>
+					<option value="zikuipurchase" <?=$type=="zikuipurchase"?"selected":""?>>זיכוי קנייה</option>
+					<option value="bitulknia" <?=$type=="bitulknia"?"selected":""?>>ביטול קנייה</option>
+					<option value="sell" <?=$type=="sell"?"selected":""?>>מכירה</option>
+
+				</select>
+				&nbsp;
+				
+				מיון:
+				<select name="order">
+					<option value="desc" <?=$order=="desc"?"selected":""?>>מארוע אחרון למעלה</option>
+					<option value="asc" <?=$order=="asc"?"selected":""?>>מארוע רישון למעלה</option>
+				</select>
+				
+				<hr>
+				<style>#Query{display:none}</style>
+				<input type="button" value="הדפס" onclick="printList()">
+				<?$excelonly=true;$excelmode=true;require("sendreport.php");?>
+	<?
+	if (HasReportPermission("PRITIM")){
+		echo "<input style='width:90px;' type=button value='דו\"ח פריט'  onclick='wopen(\"/modules/stock/rep_stockhistory.php?explain=1&listingid=$edit&start=1\",\"stock\",750,500,true)'  >";
+	}
+                    ?>
+                </td>
+                </tr>
+			</table>		 
+		</td></tr>
+		
+		<?
+			$worksheet->set_column('A:A', 20);
+			$worksheet->set_column('B:B', 12);
+			$worksheet->set_column('C:C', 80);
+			$worksheet->set_column('D:E', 20);
+			$headings = array();
+			$headings[] = $lang[date];
+
+		?>
+		
+		<tr style='height:99%'><td>
+			<div style='overflow-Y:auto;width:100%;height:100%;border:inset 1'>
+			<table id="REPORT_TAB" border="1" cellspacing="<?php echo $style[form_cellspacing] ?>" cellpadding="<?php echo $style[form_cellpadding] ?>" width="100%" class="form_main">
+				<input type="hidden" name="simple" value="<?=$simple?>">
+				<input type="hidden" name="edit" value="<?php echo $edit ?>">
+				<tr class="printonly">
+					<td colspan="4">
+					<b><?=$edit_title?></b>
+					</td>
+				</tr>
+				<tr align=center>
+					<td width=1% nowrap><b><?=$lang[date]?></td>
+					<td width=1% nowrap><b>
+					<?
+							switch($type)
+							{
+								case "adjustment_2":
+									echo "מחיר";
+									$headings[] = "מחיר";
+									break;
+								case "adjustment_1":
+									echo "כמות";
+									$headings[] = "כמות";
+									break;
+								case "cost":
+									echo "עלות";
+									$headings[] = "עלות";
+									break;	
+									default:
+								$headings[] = "";
+							}
+					?>	
+					</b>				
+					</td>
+					<td width="99%"><b><?=$lang[action]?></td>
+					<td width="1%"><b>כמות <nobr>בנקודת יעד</nobr></b></td>
+					<td width="1%"><b>כמות סה"כ</b></td>
+				</tr>
+	<?
+	$headings[] = $lang[action];
+	$headings[] = "כמות בנקודת יעד";
+	$headings[] = "כמות סה\"כ";
+	$worksheet->write_row('A'.($rrow++), $headings, $heading);
+
+
+	$q = "";
+	if ($stock){
+		$q .= " and (stock_id_from = $stock or stock_id_to = $stock) ";
+	}
+	if ($sDate)
+	{
+		$q .= " and datetime >= '".DateToSQL($sDate)."' ";
+	}
+	if ($eDate)
+	{
+		$q .= " and datetime <= '".DateToSQL($eDate)." 23:59:59' ";
+	}
+	if ($type)
+	{
+		$art = explode("_",$type);
+		$t = $art[0];
+		$modifier = $art[1];
+		$q.=" and h.type='$t'";
+		
+		if ($modifier){
+			switch($type)
+			{
+				case "adjustment_1":
+					$q.=" and quantity_from <> quantity_to ";
+					break;
+				case "adjustment_2":
+					$q.=" and saleprice_from <> saleprice_to ";
+					break;
+				case "purchase_1":
+					$q.=" and supplier_id <> -1";
+					break;
+				case "purchase_2":
+					$q.=" and supplier_id = -1";
+					break;
+			}
+		}
+	}
+	$sql = " select h.*,
+			s.suppliername as Supplier,  
+			u.abbreviation, u.grams_rate,
+			stockfrom.StockName as stockfrom, 
+			stockto.StockName as stockto
+			from history h
+			inner join listingsDB l  on l.id = h.listing_id 
+			inner join $TABLE_UNITS u on u.id = l.unit
+			left outer join listingsSuppliers s on s.id = h.supplier_id
+			left outer join $TABLE_LISTINGSSTOCKS stockfrom on stockfrom.ID = stock_id_from
+			left outer join $TABLE_LISTINGSSTOCKS stockto on stockto.ID = stock_id_to
+			where h.listing_id = $edit 
+			$q 
+			order by h.id $order";
+	$rs = $conn->Execute($sql);
+	if ($rs === false)
+	{
+		log_error($sql);
+	}
+	$tq=0;
+	while (!$rs->EOF){
+		if ($rs->Fields("grams_rate"))
+		{
+			$rs->fields["quantity_from"]/=$rs->Fields("grams_rate");
+			$rs->fields["quantity_to"]/=$rs->Fields("grams_rate");
+		}
+		echo "<tr>"; 
+		if (substr($rs->fields["datetime"],11)=="00:00:00")
+		{
+			$time = date("H:i",$rs->fields["timestamp"]);
+		}
+		else
+		{
+			$time=substr($rs->fields["datetime"],11,5);
+		}
+		$to = "";
+		switch($type)
+		{
+			case "adjustment_2":
+				$to = number_format($rs->fields["saleprice_to"],2);
+				break;
+			case "adjustment_1":
+				$to = number_format($rs->fields["quantity_to"],$decimals);
+				break;
+			case "cost":
+				$to = number_format($rs->fields["cost"],2);
+				break;	
+		}
+		echo "<td nowrap valign=top align=center>".str_replace(" ","<br>",dateFromSQL($rs->fields["datetime"]))." ".$time."</td>";
+		echo "<td nowrap valign=top>$to</td>";
+		echo "<td valign=top>";
+		$note = "";
+		switch ($rs->fields["type"]){
+			case "movement": 
+				$note .=  "הוזז ".number_format($rs->fields["quantity_from"],$decimals,",","")." מ".$rs->fields["stockfrom"]." ל".$rs->fields["stockto"].". ";
+				break;
+			case "adjustment":
+				if ($rs->fields["quantity_from"]!=$rs->fields["quantity_to"]){
+					$qfrom = ($rs->fields["quantity_from"])?$rs->fields["quantity_from"]:0;
+					$qto = ($rs->fields["quantity_to"])?$rs->fields["quantity_to"]:0;
+					$note .= "הכמות השתנתה מ-".number_format($qfrom,$decimals,",","")." ל-".number_format($qto,$decimals,",","")." ".$rs->fields["abbreviation"].".";;
+				}
+				if ($rs->fields["saleprice_from"]!=$rs->fields["saleprice_to"]){
+					$rs->fields["saleprice_from"] = ($rs->fields["saleprice_from"])?$rs->fields["saleprice_from"]:$SalePrice;
+					$rs->fields["saleprice_to"] = ($rs->fields["saleprice_to"])?$rs->fields["saleprice_to"]:$SalePrice;
+					$note .="המחיר השתנה מ-".number_format($rs->fields["saleprice_from"],2)." ל-".number_format($rs->fields["saleprice_to"],2).". ";
+				} 
+				if ($rs->fields["stockfrom"])
+				{ 
+					$note .= "ב".$rs->fields["stockfrom"].". ";
+				}
+				break;	
+			case "purchase";
+				if ($rs->fields["supplier_id"]!=-1){
+					$note.= "קניה ל".$rs->fields["stockto"]." מ-".$rs->fields["Supplier"]. ".";
+					$note.= "<div class=note>מחיר קניה = ".number_format($rs->fields["cost"],2).". כמות = ".number_format($rs->fields["quantity_from"],$decimals,",","")." ".$rs->fields["abbreviation"].".</note>";
+				}
+				else{
+					$note.=  "ספירת מלאי ב".$rs->fields["stockto"].". ";
+					$note.=  "<div class=note>כמות = ".number_format( $rs->fields["quantity_from"],$decimals,",","")." ".$rs->fields["abbreviation"].". ";
+					if ($rs->fields["cost_from"]!=""&&$rs->fields["prev_cost"]!=$rs->fields["cost"])
+					{
+						$note.=  "העלות השתנתה מ-".number_format($rs->fields["cost_from"],2)." ל- ".number_format($rs->fields["cost"],2).". ";
+					}
+					$note.="</div>";
+				}
+				break;
+			case "knisa":
+				$note.=  "כניסה למלאי ב".$rs->fields["stockto"].". ";
+				$note.=  "<div class=note>כמות = ".number_format( $rs->fields["quantity_from"],$decimals,",","")." ".$rs->fields["abbreviation"].". </div>";
+				break;
+			case "zikuipurchase";
+				$note.=  "זיכוי קניה ל".$rs->fields["stockto"]." מ-".$rs->fields["Supplier"]. ".";
+				$note.=  "<div class=note>מחיר קניה = ".number_format($rs->fields["cost"],2).". כמות = ".number_format( $rs->fields["quantity_from"],$decimals,",","")." ".$rs->fields["abbreviation"].".</div>";
+				break;    
+			case "bitulknia";
+				$note.=  "ביטול קניה ל".$rs->fields["stockto"]." מ-".$rs->fields["Supplier"]. ".";
+				$note.=  "<div class=note>מחיר קניה = ".number_format($rs->fields["cost"],2).". כמות = ".number_format( $rs->fields["quantity_from"],$decimals,",","")." ".$rs->fields["abbreviation"].".</div>";
+				break;
+			case "sell";
+				$note.=  "מכירה מ".$rs->fields["stockto"]." ל-".$rs->fields["Supplier"]. ".";
+				$note.=  "<div class=note>מחיר מכירה = ".number_format($rs->fields["cost"],2).". כמות = ".number_format($rs->fields["quantity_from"],$decimals,",","")." ".$rs->fields["abbreviation"].".</div>";
+				break;
+			case "cost";
+				if ($rs->fields["cost_from"]!="")
+				{
+					$note.=  "העלות השתנתה מ-".number_format($rs->fields["cost_from"],2)." ל- ".number_format($rs->fields["cost"],2).". ";
+				}
+				else{
+					$note.=  "העלות השתנתה ל- ".number_format($rs->fields["cost"],2).". ";
+				}
+				break;
+		}
+		if ($rs->fields["note"]){
+			$note.=  "<div class=note> ".$rs->fields["note"]."</div>";
+		}
+		echo $note;
+		echo "</td>";
+		echo "<td>".($rs->fields["stock_quantity"]==""||($stock && $rs->fields["stock_id_to"]!=$stock)?"":number_format($rs->fields["stock_quantity"],$decimals,",",""))."&nbsp;</td>";
+		echo "<td>".($rs->fields["total_quantity"]==""?"":number_format($rs->fields["total_quantity"],$decimals,",",""))."&nbsp;</td>";
+		
+		
+		$b=$body; 
+		$f=$numformat;
+		$worksheet->write("A".$rrow,$rs->fields["datetime"],$b);
+		$worksheet->write("B".$rrow,$to,$f);
+		$worksheet->write("C".$rrow,strip_tags($note),$f);	
+		$worksheet->write("D".$rrow,($rs->fields["stock_quantity"]==""||($stock && $rs->fields["stock_id_to"]!=$stock)?"":number_format($rs->fields["stock_quantity"],$decimals,"","")),$f);	
+		$worksheet->write("E".$rrow,($rs->fields["total_quantity"]==""?"":number_format($rs->fields["total_quantity"],$decimals,",","")),$f);	
+		echo "</tr>";	
+		$rs->MoveNext();
+		$rrow++;
+	}
+				?>
+			</table>
+			</div>	
+		</td></tr>
+
+		</form>
+	</table>
+	<?php
+	$workbook->close();
+	copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+	unlink($fname);
+
+
+} // end if $edit != ""
+?>
+
+
+<?php
+include("$config[template_path]/admin_bottom.html");
+$conn->Close(); // close the db connection
+?>

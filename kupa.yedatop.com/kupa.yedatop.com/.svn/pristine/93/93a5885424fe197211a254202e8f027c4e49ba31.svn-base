@@ -1,0 +1,21 @@
+<xml>
+	<main_table>dt_reasons</main_table>
+	<name>Decline reasons</name>
+	<options>
+		<opt name="create_record" type="sometimes"></opt>
+		<opt name="search" type="sometimes"></opt>
+		<opt name="main_view" type="always"></opt>
+	</options>
+	<view>
+		<vcol name="bd_counter">#</vcol>
+		<vcol name="name">Eng</vcol>
+	</view>
+	<edit>
+		<ecol name="name" type="string">Name</ecol>
+		<ecol name="reason" type="text">Reason</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="name"></opt>
+		<opt name="search_by" type="name"></opt>
+	</sql_actions>
+</xml>

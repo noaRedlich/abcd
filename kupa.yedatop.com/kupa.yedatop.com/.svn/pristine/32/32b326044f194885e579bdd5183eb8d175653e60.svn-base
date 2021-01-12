@@ -1,0 +1,819 @@
+<?
+
+function getCategoryIDs($category,$subcats)
+{
+	global $userID;
+	$s = $category;
+	if ($subcats)
+	{
+		$catrs = DBQuery("select id from listingsCategories where user_id = $userID and parent_id = $category");
+		while (!$catrs->EOF)
+		{
+			$s.= ",".getCategoryIDs($catrs->Fields("id"),$subcats);
+			$catrs->MoveNext();
+		}
+	}
+	return $s; 
+} 
+
+
+
+
+function GetMovements($listingid, $stockid, $sDate, $eDate, $StartQuantity,$gramsrate){
+	global $conn;
+	
+	$result = array();
+	if ($stockid)
+	{
+		$q = " and stock_id = $stockid ";
+	}
+	
+	//get itra atchalatit
+	if ($StartQuantity.""=="")
+	{
+		$sql =  "select day, sum(quantity) as quantity from stocksnapshot where listing_id = $listingid
+				and day <= '".$sDate."' $q group by day order by day desc limit 1";
+		//echo $sql;
+		
+		$startQuantityRS = $conn->Execute($sql);
+		if ($startQuantityRS === false){log_error($sql);}
+		$result["StartQuantity"] = $startQuantityRS->fields["quantity"];
+		$startDate = $startQuantityRS->fields["day"];
+	}
+	else
+	{
+		$startDate =  $sDate;
+		$result["StartQuantity"] = $StartQuantity;
+	}
+	
+	//echo $sDate." ".$eDate." ".$startDate."<hr>";
+	
+	//get kniyot
+	$sql = "select sum(quantity) as quantity, group_concat(id)  as ids from purchases where
+			listing_id = $listingid and doc_id is null and deleted=0 and from_unixtime(timestamp) between '$startDate' and '$eDate' $q";
+	
+	$kniyotRS = $conn->Execute($sql);
+	if ($kniyotRS === false){log_error($sql);}
+	$result["PurchasesMlai"] = $kniyotRS->fields["quantity"];
+	$result["PurchasesDocs"] = ($kniyotRS->fields["ids"])?$kniyotRS->fields["ids"]:-1;
+	
+	//echo $sql." --".$result["PurchasesMlai"]."--<hr>";
+	
+	//get kniyot mlaitek-pro
+	$sql = "select sum(quantity) as quantity,group_concat(d.id) as docids
+			from document_products dp, documents d where
+			dp.doc_id = d.id and
+			dp.listing_id = $listingid and from_unixtime(created) between '$startDate' and '$eDate' $q
+			and doc_type = 'KNIYA' 
+			and not exists (select id from documents where doc_type='KNISALEMLAI' and closed_by = d.id)";
+	
+	//echo "<hr>".$sql;
+	
+	$kniyotRS = $conn->Execute($sql);
+	if ($kniyotRS === false){log_error($sql);}
+	$result["PurchasesPro"] = $kniyotRS->fields["quantity"];
+	$result["PurchaseProDocs"] = ($kniyotRS->fields["docids"])?$kniyotRS->fields["docids"]:-1;
+	
+	//echo $sql." --".$result["PurchasesPro"]."--<hr>";
+	//mechirot mlaitek
+	if (!$gramsrate)$gramsrate=1;
+	$sql = "select sum((case when weigthFlag=1 then weightQty else StockAmount*$gramsrate end) * (case when IsRefund=1  or RefundMode=1 then -1 else 1 end)) as quantity from transactioncomponents c, transactions t
+			where listing_id = $listingid and c.trans_id = t.id and refundmode<>2 and DATE_ADD(trandate,INTERVAL 1 SECOND) between '$startDate' and '$eDate' $q";
+	
+	//echo $sql;
+	$rs = $conn->Execute($sql);
+	if ($rs === false){log_error($sql);}
+	$result["MechirotMlai"] = $rs->fields["quantity"];
+	//echo "***".$result["MechirotMlai"]."***";
+	
+	//mechirot mlaitek-pro
+	$sql = "select sum(quantity * (case when doc_type='MASZIKUI' then -1 else 1 end)) as quantity
+			,group_concat(d.id) as docids
+			from document_products dp, documents d where
+			dp.doc_id = d.id and
+			dp.listing_id = $listingid and from_unixtime(created)  between '$startDate' and '$eDate'
+			and doc_type in ('CHESHBONIT','MASKABALA','MASZIKUI','CHESHBONITPINKAS','MASKABALAPINKAS')
+			and not exists (select id from documents where doc_type='MISHLOACH' and closed_by = d.id) $q ";
+	
+	$kniyotRS = $conn->Execute($sql);
+	if ($kniyotRS === false){log_error($sql);}
+	$result["MechirotPro"] = $kniyotRS->fields["quantity"];
+	$result["MechirotProDocs"] = ($kniyotRS->fields["docids"])?$kniyotRS->fields["docids"]:-1;
+	
+	//Knisa aheret
+	$sql = "select sum(quantity) as quantity,group_concat(d.id) as docids
+			from document_products dp, documents d where
+			dp.doc_id = d.id and
+			dp.listing_id = $listingid and from_unixtime(created) between '$startDate' and '$eDate'
+			and doc_type = 'KNISALEMLAI' $q ";
+	
+	$kniyotRS = $conn->Execute($sql);
+	if ($kniyotRS === false){log_error($sql);}
+	$result["KnisaAcheret"] = $kniyotRS->fields["quantity"];
+	$result["KnisaAcheretDocs"] = ($kniyotRS->fields["docids"])?$kniyotRS->fields["docids"]:-1;
+	
+	//Yetsia aheret
+	$sql = "select sum(quantity) as quantity,group_concat(d.id) as docids
+			from document_products dp, documents d where
+			dp.doc_id = d.id and
+			dp.listing_id = $listingid and from_unixtime(created) between '$startDate' and '$eDate'
+			and doc_type = 'MISHLOACH' $q ";
+	
+	$kniyotRS = $conn->Execute($sql);
+	if ($kniyotRS === false){log_error($sql);}
+	$result["YetsiaAcheret"] = $kniyotRS->fields["quantity"];
+	$result["YetsiaAcheretDocs"] = ($kniyotRS->fields["docids"])?$kniyotRS->fields["docids"]:-1;
+	
+	//SfiratMlai
+	$sql = "select sum(quantity_change) as quantity,group_concat(d.id) as docids
+			from document_products dp, documents d where
+			dp.doc_id = d.id and
+			dp.listing_id = $listingid and from_unixtime(created) between '$startDate' and '$eDate'
+			and doc_type = 'SFIRATMLAI' $q ";
+	echo "<!--SQL: $sql -->";
+	
+	$kniyotRS = $conn->Execute($sql);
+	if ($kniyotRS === false){log_error($sql);}
+	$result["SfiratMlai"] = $kniyotRS->fields["quantity"];
+	$result["SfiratMlaiDocs"] = ($kniyotRS->fields["docids"])?$kniyotRS->fields["docids"]:-1;
+	
+	$result["EndQuantity"] =
+		(int)$result["StartQuantity"] + (int)$result["PurchasesMlai"] + (int)$result["PurchasesPro"]
+		- (int)$result["MechirotMlai"] - (int)$result["MechirotPro"]
+		+ (int)$result["KnisaAcheret"]
+		- (int)$result["YetsiaAcheret"]
+		+ (int)$result["SfiratMlai"];
+	
+	
+	return $result;
+	
+}
+
+
+function GetMovementsBack($listingid, $stockid, $sDate, $eDate, $EndQuantity,$gramsrate){
+	global $conn,$STATUS_DRAFT,$STATUS_CANCELLED,$userID,$TABLE_LISTINGSSTOCKS;
+	
+	$result = array();
+	if ($stockid)
+	{
+		$q = " and stock_id = $stockid ";
+		$qq = " and stockid = $stockid ";  
+	}
+	
+	//get itra atchalatit
+	if ($EndQuantity.""=="")
+	{
+		$sql =  "select day, sum(quantity) as quantity from stocksnapshot where listing_id = $listingid
+				and from_unixtime(timestamp) >= '".$eDate." 23:59:59' $q group by day order by day limit 1";
+		//echo $sql;
+		
+		$startQuantityRS = DBQuery($sql);
+		
+		if ($startQuantityRS->EOF)
+		{           
+			$sql = "select curdate() as day, sum(quantity) as quantity from listingsStocksElements where 
+					listingid = $listingid and stockid in (select id from $TABLE_LISTINGSSTOCKS where user_id = $userID and status=1) $qq"; 
+			$startQuantityRS =  DBQuery($sql);    
+		}
+		
+		$result["EndQuantity"] = $startQuantityRS->fields["quantity"];
+		$endDate = $startQuantityRS->fields["day"];
+	}
+	else
+	{
+		$endDate = $eDate;
+		$result["EndQuantity"] = $EndQuantity;
+	}
+	
+	echo "<!--EQ: ".$result["EndQuantity"]."-->";
+	//echo $sDate." ".$eDate." ".$startDate."<hr>";
+	
+	//get kniyot
+	$sql = "select sum(quantity) as quantity, group_concat(id)  as ids from purchases where
+			listing_id = $listingid and doc_id is null and deleted=0 and from_unixtime(timestamp) 
+			between '$sDate' and '$endDate' $q";
+	
+	$kniyotRS = $conn->Execute($sql);
+	if ($kniyotRS === false){log_error($sql);}
+	$result["PurchasesMlai"] = $kniyotRS->fields["quantity"];
+	$result["PurchasesDocs"] = ($kniyotRS->fields["ids"])?$kniyotRS->fields["ids"]:-1;
+	
+	//echo $sql." --".$result["PurchasesMlai"]."--<hr>";
+	
+	//get kniyot mlaitek-pro
+	$sql = "select sum(quantity) as quantity,group_concat(d.id) as docids
+			from document_products dp, documents d where
+			dp.doc_id = d.id and
+			dp.listing_id = $listingid and (case when  doc_type = 'KNIYA' and stock_date is not null and stock_date <> doc_date  and stock_date <> '0000-00-00' then stock_date else from_unixtime(created) end) between '$sDate' and '$endDate' $q
+			and doc_type = 'KNIYA'
+			and doc_status not in ($STATUS_DRAFT,$STATUS_CANCELLED) 
+			and not exists (select id from documents where doc_type='KNISALEMLAI' and closed_by = d.id)";
+	
+	//echo "<hr>".$sql;
+	
+	$kniyotRS = $conn->Execute($sql);
+	if ($kniyotRS === false){log_error($sql);}
+	$result["PurchasesPro"] = $kniyotRS->fields["quantity"];
+	$result["PurchaseProDocs"] = ($kniyotRS->fields["docids"])?$kniyotRS->fields["docids"]:-1;
+	
+	//echo $sql." --".$result["PurchasesPro"]."--<hr>";
+	//mechirot mlaitek
+	if (!$gramsrate)$gramsrate=1;
+	$sql = "select sum((case when weigthFlag=1 then weightQty else StockAmount*$gramsrate end) * (case when IsRefund or RefundMode then -1 else 1 end)) as quantity from transactioncomponents c, transactions t
+			where listing_id = $listingid and c.trans_id = t.id and DATE_ADD(trandate,INTERVAL 1 SECOND) 
+			between '$sDate' and '$endDate' and refundmode<>2 $q";
+	
+	//echo "<!--$sql-->";
+	$rs = $conn->Execute($sql);
+	if ($rs === false){log_error($sql);}
+	$result["MechirotMlai"] = $rs->fields["quantity"];
+	//echo "<!--***".$result["MechirotMlai"]."***-->";
+	
+	//mechirot mlaitek-pro
+	$sql = "select sum(quantity * (case when doc_type='MASZIKUI' then -1 else 1 end)) as quantity
+			,group_concat(d.id) as docids
+			from document_products dp, documents d where
+			dp.doc_id = d.id and
+			dp.listing_id = $listingid and from_unixtime(created)  between '$sDate' and '$endDate' 
+			and doc_type in ('CHESHBONIT','MASKABALA','MASZIKUI','CHESHBONITPINKAS','MASKABALAPINKAS') 
+			and not exists (select id from documents where doc_type='MISHLOACH' and closed_by = d.id) $q ";
+	
+	$kniyotRS = $conn->Execute($sql);
+	if ($kniyotRS === false){log_error($sql);}
+	$result["MechirotPro"] = $kniyotRS->fields["quantity"];
+	$result["MechirotProDocs"] = ($kniyotRS->fields["docids"])?$kniyotRS->fields["docids"]:-1;
+	
+	//Knisa aheret
+	$sql = "select sum(quantity) as quantity,group_concat(d.id) as docids
+			from document_products dp, documents d where
+			dp.doc_id = d.id and
+			from_unixtime(created) between '$sDate' and '$endDate' 
+			and ((dp.listing_id = $listingid and doc_type = 'KNISALEMLAI') 
+			or (dp.factory_listing_id = $listingid and doc_type = 'YETZIAMIIZUR')
+			or (dp.listing_id = $listingid and visible=0 and doc_type = 'KNISALEIZUR') 
+			)
+			$q ";
+	
+	$kniyotRS = $conn->Execute($sql);
+	if ($kniyotRS === false){log_error($sql);}
+	$result["KnisaAcheret"] = $kniyotRS->fields["quantity"];
+	$result["KnisaAcheretDocs"] = ($kniyotRS->fields["docids"])?$kniyotRS->fields["docids"]:-1;
+	
+	//Yetsia aheret
+	$sql = "select sum(quantity) as quantity,group_concat(d.id) as docids
+			from document_products dp, documents d where
+			dp.doc_id = d.id and
+			dp.listing_id = $listingid and from_unixtime(created) between '$sDate' and '$endDate' 
+			and (doc_type = 'MISHLOACH' or doc_type = 'YETZIAMIIZUR' or (doc_type = 'KNISALEIZUR' and visible=1))      
+			$q ";
+	
+	$kniyotRS = $conn->Execute($sql);
+	if ($kniyotRS === false){log_error($sql);}
+	$result["YetsiaAcheret"] = $kniyotRS->fields["quantity"];
+	$result["YetsiaAcheretDocs"] = ($kniyotRS->fields["docids"])?$kniyotRS->fields["docids"]:-1;
+	
+	//SfiratMlai
+	$sql = "select sum(quantity_change) as quantity,group_concat(d.id) as docids
+			from document_products dp, documents d where
+			dp.doc_id = d.id and
+			dp.listing_id = $listingid and from_unixtime(created) between '$sDate' and '$endDate' 
+			and doc_type = 'SFIRATMLAI' $q ";
+	//echo "<!--SQL: $sql -->"; 
+	
+	$kniyotRS = $conn->Execute($sql);
+	if ($kniyotRS === false){log_error($sql);}
+	$result["SfiratMlai"] = $kniyotRS->fields["quantity"];
+	$result["SfiratMlaiDocs"] = ($kniyotRS->fields["docids"])?$kniyotRS->fields["docids"]:-1;
+	
+	$result["StartQuantity"] =
+		(int)$result["EndQuantity"] - (int)$result["PurchasesMlai"] - (int)$result["PurchasesPro"]
+		+ (int)$result["MechirotMlai"] + (int)$result["MechirotPro"]
+		- (int)$result["KnisaAcheret"]
+		+ (int)$result["YetsiaAcheret"]
+		- (int)$result["SfiratMlai"];
+	
+	return $result;
+	
+}
+
+function moveProduct($pid,$quantity,$sourcestock,$targetstock,$note)
+{
+	$sql = "select ID from listingsStocksElements where StockID = '". $targetstock."' and ListingID = '".$pid."'";
+	$rs = DBQuery($sql);
+	if (!$rs->EOF){
+		$sql = "update listingsStocksElements set Quantity=ifnull(Quantity,0)+(".$quantity.") where StockID = '". $targetstock."' and ListingID = '".$pid."'";
+	}
+	else{
+		$sql = "insert into listingsStocksElements (Quantity,SalePrice,StockID,ListingID) values('".$quantity."',null,'". $targetstock."','".$pid."')";
+	}
+	DBQuery($sql);
+	
+	$sql = "update listingsStocksElements set Quantity=ifnull(Quantity,0)-(".$quantity.") where StockID = '". $sourcestock."' and ListingID = '".$pid."'";
+	DBQuery($sql);
+	
+	//save in history
+	$sql = "insert into history (timestamp,datetime,type,listing_id,note,stock_id_from,stock_id_to,quantity_from,quantity_to) values
+			(unix_timestamp(),now(),'movement',$pid,'".dbsafe($note)."',$sourcestock,$targetstock,".$quantity.",".$quantity.")";
+	DBQuery($sql);
+	
+	
+}
+
+function purchaseProduct($pid,$quantity,$supplier,$stock,$price,$discount,$workmode,$purdate,$addvat,$cheshbonit,$groupid,$documentid,$logProductHistory=true)
+{ 
+	global $conn, $userID,$config,$TABLE_LISTINGSSTOCKS,$UserData;
+	
+	$updateAlut = true;
+	if ($documentid)
+	{
+		$rsd = DBQuery("select doc_type from documents where id = $documentid");
+		$doctype = $rsd->fields["doc_type"];
+		$historytype = $doctype=="KNISALEMLAI"?"knisa":"purchase";
+		$rsd1 = DBQuery("select doc_type from documents where closed_by = $documentid");
+		$closedDocType = $rsd1->fields["doc_type"];
+		if ($closedDocType=="MISHLOACH"  || $doctype == "MASZIKUI" || $doctype == "ECHZERMELAKOACH")
+		{
+			$updateAlut = false;
+		}
+	}
+	else
+	{
+		$historytype = "purchase";
+	}
+	
+	$quantity = floatval($quantity);
+	//get previous purchase date
+	$sql = "select purchase_date from purchases where listing_id = $pid order by id desc limit 1";
+	$pcost = $conn->Execute($sql);
+	if ($pcost === false){log_error($sql);die();}
+	if (!$pcost->EOF)
+	{
+		$prev_date = $pcost->fields["purchase_date"];
+	}
+	else 
+	{
+		$prev_date = "";
+	}
+	
+	//get previous cost
+	$sql = "select Cost from listingsDB where id = $pid ";
+	$pcost1 = DBQuery($sql);
+	$prev_cost = $pcost1->fields["Cost"];
+	
+	//get amount of product
+	if ($workmode == "A")
+	{
+		$sql = "select sum(Quantity) as Quantity from listingsStocksElements e, $TABLE_LISTINGSSTOCKS s where listingid = $pid and
+				e.stockid = s.id and s.status=1";
+	}
+	else
+	{
+		$sql = "select Quantity from listingsDB where id = $pid";
+	}
+	$pquant = $conn->Execute($sql);
+	if ($pquant === false){log_error($sql);die();}
+	$prev_quantity = $pquant->fields["Quantity"];
+	
+	
+	//calculate new cost
+	
+	$discount = (!floatval($discount))?0:floatval($discount);
+	$final_price = $price - ($price*$discount/100);
+	if ($addvat)
+	{
+		$final_price = $final_price + ($final_price*$config["VAT"]/100);
+	}
+	
+	if ($updateAlut)
+	{
+		if ($supplier==-1 || $UserData->Fields("RecalcCostOnPurchase")==0)
+		{
+			$new_cost = $prev_cost;
+		}
+		//use alut kniay as alut parit
+		elseif($supplier!=-1 && $UserData->Fields("RecalcCostOnPurchase")==2)
+		{
+			$new_cost = $final_price;
+		}
+		//calculate average alut parit
+		elseif($supplier!=-1 && $UserData->Fields("RecalcCostOnPurchase")==1)
+		{
+			
+			if (!$prev_quantity && !$quantity)
+			{
+				$new_cost = $final_price;
+			}
+			else  
+			{
+				if ($prev_quantity+$quantity > 0)
+				{
+					$new_cost = (($prev_quantity * $prev_cost) + ($quantity*$final_price))  / ($prev_quantity+$quantity );
+				}
+				else
+				{
+					$new_cost = $prev_cost;
+				}
+			}
+		}
+	}
+	else
+	{
+		$new_cost = $prev_cost;
+	}
+	
+	//propagate previous data to all period until current date of purchase
+	
+	$pdatearr = explode("/",$purdate);
+	$pdate = $pdatearr[2]."-".$pdatearr[1]."-".$pdatearr[0];
+	
+	if ($prev_date!=""&&$prev_date!="0000-00-00")
+	{
+		$prevdatearr = explode("-",$prev_date);
+		$prevdate = mktime(0,0,0,$prevdatearr[1],$prevdatearr[2],$prevdatearr[0]);
+		$sdate = strtotime("+1 day",$prevdate);
+		$currdate = mktime(0,0,0,$pdatearr[1],$pdatearr[0],$pdatearr[2]);
+		
+		while ($sdate < $currdate)
+		{
+			$sqldate = date("Y-m-d",$sdate);
+			$sql = "INSERT INTO purchases (vat, listing_id, purchase_date,cost) VALUES
+					(".$config["VAT"].", $pid, '$sqldate','$prev_cost')";
+			$res = $conn->Execute($sql); if ($res === false){log_error($sql);die();}
+			$sdate = strtotime("+1 day",$sdate);
+		}
+	}
+	
+	//insert new cost
+	
+	if (!$groupid)$groupid=0;
+	$docid = ($documentid>0)?"'$documentid'":"null";
+	$sql = "INSERT INTO purchases
+			(vat, timestamp, chn_num, listing_id, quantity, supplier_id, cost_before_disc, total_discount, final_cost, purchase_date,cost, group_id,stock_id,doc_id)
+			VALUES (".$config["VAT"].",unix_timestamp(), '$cheshbonit', $pid, '$quantity','$supplier', '$price', '$discount', '$final_price', '$pdate','$new_cost','$groupid','$stock',$docid)";
+	$res = $conn->Execute($sql); if ($res === false){log_error($sql);die();}
+	
+	//increase amount on stock
+	$stockid="";
+	if ($workmode=="B")
+	{
+		$sql = "update listingsDB set Quantity = ifnull(Quantity,0) + $quantity where id = $pid ";
+		$sqln = "select id as stockid from $TABLE_LISTINGSSTOCKS where terminalid='".$config["MainStock"]."' and user_Id = $userID";
+		$rsu = $conn->Execute($sqln); if ($rsu === false){log_error($sqln);die();}
+		$stockid = $rsu->fields["stockid"]; 
+	}
+	else
+	{
+		$stockid = $stock;
+		$sql = "select id as lseid from listingsStocksElements where stockID = $stock and listingid = $pid";
+		$rsu = $conn->Execute($sql); if ($rsu === false){log_error($sql);die();}
+		if (!$rsu->EOF){
+			$sql = "update listingsStocksElements set quantity = ifnull(quantity,0) + '$quantity' where id = ".$rsu->fields["lseid"];
+		}
+		else
+		{ 
+			$sql = "insert into listingsStocksElements (ListingID,stockID,Quantity) values( $pid, $stock, '$quantity')";
+		}
+	}
+	$res = $conn->Execute($sql); if ($res === false){log_error($sql);die();}
+	
+	//update current cost of product
+	if ($UserData->Fields("RecalcCostOnPurchase")!=0)
+	{
+		DBQuery("update listingsDB set Cost = '".round($new_cost,2)."' where id = $pid ");
+	}
+	
+	
+	//save to history
+	if ($logProductHistory)
+	{
+		$sql="insert into history (timestamp,datetime,type,listing_id,quantity_from,supplier_id,stock_id_from,stock_id_to,cost_from,cost) values(
+				unix_timestamp(),'$pdate','$historytype',$pid,'$quantity','$supplier','$stockid','$stockid','$prev_cost','$final_price')";
+		$res = $conn->Execute($sql); if ($res === false){log_error($sql);die();}
+	}
+	
+	//update snapshot retroactively
+	if (strtotime($pdate) < mktime(0,0,0,date("m"),date("d"),date("Y")))
+	{
+		$sql = "update stocksnapshot set quantity = ifnull(quantity,0) + $quantity where listing_id = $pid and timestamp > ".strtotime(dateToSQL($purdate))." and stock_id = ".$stock;
+		DBQuery($sql);
+		
+		//create missing snapshots
+		$sql = "select distinct day, timestamp from stocksnapshot where  listing_id = $pid and timestamp > ".strtotime(dateToSQL($purdate))." and stock_id <> ".$stock;
+		$days = DBQuery($sql);
+		while (!$days->EOF)
+		{
+			$test = DBQuery("select id from stocksnapshot where  listing_id = $pid and stock_id = $stock and day = '".$days->fields["day"]."'");
+			if ($test->EOF)
+			{
+				$sql = "insert into stocksnapshot (`Listing_ID`, `Stock_ID`, `Quantity`, `day`, `timestamp`)
+						values ($pid,$stock,$quantity,'".$days->fields["day"]."','".$days->fields["timestamp"]."')";
+				DBQuery($sql);
+			}
+			$days->MoveNext();
+		}
+	} 
+}
+
+function sellProduct($pid,$quantity,$client,$stock,$workmode,$pdate,$price,$mode,$cheshbonit,$groupid,$discount,$documentid)
+{
+	global $conn, $userID,$config,$TABLE_LISTINGSSTOCKS;
+	
+	if (!$mode)$mode = "sell";
+	$quantity = floatval($quantity);
+	
+	//decrease amount on stock
+	$stockid="";
+	if ($stock)
+	{
+		if ($workmode=="B")
+		{
+			$sql = "update listingsDB set Quantity = ifnull(Quantity,0) - $quantity where id = $pid ";
+			$sqln = "select id as stockid from $TABLE_LISTINGSSTOCKS where terminalid='".$config["MainStock"]."' and user_Id = $userID";
+			$rsu = $conn->Execute($sqln); if ($rsu === false){log_error($sqln);die();}
+			$stockid = $rsu->fields["stockid"];
+		}
+		else
+		{
+			$stockid = $stock;
+			$sql = "select id as lseid from listingsStocksElements where stockID = $stock and listingid = $pid";
+			$rsu = $conn->Execute($sql); if ($rsu === false){log_error($sql);die();}
+			if (!$rsu->EOF){
+				$sql = "update listingsStocksElements set quantity = ifnull(quantity,0) - $quantity where id = ".$rsu->fields["lseid"];
+			}
+			else{
+				$sql = "insert into listingsStocksElements (ListingID,stockID,Quantity) values($pid,$stock,-".$quantity.")";
+			}
+		}
+		$res = $conn->Execute($sql); if ($res === false){log_error($sql);die();}
+		
+		
+		if ($mode=="zikuipurchase")
+		{
+			$discount = (!floatval($discount))?0:floatval($discount);
+			$final_price = $price - ($price*$discount/100);
+			if ($addvat){
+				$final_price = $final_price + ($final_price*$config["VAT"]/100);
+			}
+			$sql = "INSERT INTO purchases
+					(vat, timestamp, chn_num, listing_id, quantity, supplier_id, cost_before_disc, total_discount, final_cost, purchase_date,cost, group_id,stock_id,doc_id)
+					VALUES (".$config["VAT"].",unix_timestamp(), '$cheshbonit', $pid, '-$quantity','$client', '$price', '$discount', '$final_price', '$pdate','$new_cost','$groupid','$stock',null)";
+			$res = $conn->Execute($sql); if ($res === false){log_error($sql);die();}
+		}
+		
+		//save to history
+		if ($documentid){
+			$rsd = DBQuery("select doc_type from documents where id = $documentid");
+			$historytype = $rsd->fields["doc_type"]=="BITULKNIYA"?"bitulknia":"sell";
+		}
+		else{
+			$historytype = $mode;
+		}
+		
+		$sql="insert into history (timestamp,datetime,type,listing_id,quantity_from,supplier_id,stock_id_from,stock_id_to,cost) values(
+				unix_timestamp(),'$pdate','$historytype',$pid,'$quantity','$client','$stockid','$stockid','$price')";
+		$res = $conn->Execute($sql); if ($res === false){log_error($sql);die();}
+		
+		//update snapshot retroactively
+		if (strtotime($pdate) < mktime(0,0,0,date("m"),date("d"),date("Y")))
+		{
+			
+			$sql = "update stocksnapshot set quantity = ifnull(quantity,0) - $quantity where listing_id = $pid and timestamp > ".strtotime($pdate)." and stock_id = ".$stock;
+			DBQuery($sql);
+			//create missing snapshots
+			$sql = "select distinct day, timestamp from stocksnapshot where  listing_id = $pid and timestamp > ".strtotime($pdate)." and stock_id <> ".$stock;
+			$days = DBQuery($sql);
+			while (!$days->EOF)
+			{
+				$test = DBQuery("select id from stocksnapshot where  listing_id = $pid and stock_id = $stock and day = '".$days->fields["day"]."'");
+				if ($test->EOF)
+				{
+					$sql = "insert into stocksnapshot (`Listing_ID`, `Stock_ID`, `Quantity`, `day`, `timestamp`)
+							values ($pid,$stock,-".$quantity.",'".$days->fields["day"]."','".$days->fields["timestamp"]."')";
+					DBQuery($sql);
+				}
+				$days->MoveNext();
+			}
+		} 
+		
+		
+	}
+	
+	
+	
+}
+
+
+function setDocNumber($did){
+	//set doc number
+	global  $conn,$userID,$notset;
+	$notset=false;
+	$sql = "select doc_number from documents where user_id = $userID and doc_type='$did' order by doc_number desc limit 1";
+	$docnum = $conn->Execute($sql);
+	if ($docnum === false){log_error($sql);}
+	if (!$docnum->EOF)
+	{
+		$docnum = ($docnum->fields["doc_number"])+1;
+	}
+	else{
+		$sql="select id,counter from document_type_counters where user_id = $userID and doc_type_id='$did' ";
+		$start = $conn->Execute($sql);
+		if ($start === false){log_error($sql);}
+		$docnum = ($start->fields["counter"]);
+		if (!$docnum){
+			$docnum=1;
+			$notset=true;
+			$counterid=$start->fields["id"];
+		}
+	}
+	return $docnum;
+}
+
+function InitializeUserCurrency($userID){
+	global $conn;
+	$sql = "insert  into  `currencies`
+			(`name`, `code`, `course`, `course_date`, `updated`, `is_default`, `user_id`, `status`, `SortOrder`)
+			select `name`, `code`, `course`, `course_date`, `updated`, `is_default`, $userID, `status`, `SortOrder`
+			from `currencies` d where user_id = 0
+			and not exists
+			(select id from currencies where user_id = $userID and code=d.code)";
+	$currency = $conn->Execute($sql);
+	if ($currency === false) {log_error($sql);}
+	$sql = "select id,course from currencies where user_id = $userID and code = 'NIS'";
+	$currency = $conn->Execute($sql);
+	if ($currency === false) {log_error($sql);}
+	return $currency->fields["id"];
+}
+
+
+function GetPriceByPricelist($productid,$priceList)
+{
+	global $conn,$userID;
+	
+	$rs = DBQuery("select * from pricelists where id = $priceList");
+	
+	if ($rs->EOF)
+	{
+		//no mechiron found, deleted?
+		$productrs = DBQuery("select saleprice from listingsDB where id = $productid");
+		return $productrs->Fields("saleprice"); 
+	}	
+	
+	if ($rs->Fields("basemetric")=="PRICELIST")
+	{
+		return  CalcPriceByPriceList(GetPriceByPricelist($productid,$rs->Fields("base_pricelist_id")),$productid,$priceList);
+	}
+	else
+	{
+		$productrs = DBQuery("select ".$rs->Fields("basemetric")." as price from listingsDB where id = $productid");
+		$price =  $productrs->Fields("price");
+		return CalcPriceByPriceList($price,$productid,$priceList);
+	}
+}
+
+function CalcPriceByPriceList($price,$productid,$priceList)
+{
+	global $conn,$userID;
+	$rs = DBQuery("select * from pricelists where id = $priceList");
+	$listprice = $price;
+	$productspecific = DBQuery("select * from listingsPrice where pricelist_id = $priceList and listing_id = $productid");
+	
+	if ($productspecific->Fields("mode")==2)
+	{
+		$listprice =  $productspecific->Fields("saleprice");    
+		$percent=0;
+	}
+	elseif ($productspecific->Fields("mode")==1)
+	{
+		$percent = $productspecific->Fields("percent");
+	}
+	else
+	{
+		$percent = $rs->Fields("percent");
+	}                                            
+	
+	if ($percent)
+	{      
+		$listprice = $price  *  $percent/100;
+	}
+	return round($listprice,$rs->Fields("roundprice"));  
+	
+}
+
+
+function UpdateQuantity($listingID,$stockid,$delta)
+{
+	global $conn,$workmode,$userID;
+	//update quantity for A mode 
+	if ($workmode == "A")
+	{
+		$sql = "select ID,quantity from  listingsStocksElements where stockid = $stockid and listingID = $listingID";  
+		$rsu = DBQuery($sql);
+		if (!$rsu->EOF)
+		{
+			$lseID = $rsu->fields["ID"];
+			$Quantity = $rsu->fields["quantity"]+$delta;     
+			$sql = "UPDATE listingsStocksElements set Quantity = $Quantity, LatestSyncQuantity = $Quantity, LatestSyncDate = UNIX_TIMESTAMP() WHERE ID = $lseID";
+		}
+		else
+		{
+			$Quantity = $delta;
+			$sql = "INSERT INTO listingsStocksElements (ListingID, StockID, Quantity, LatestSyncQuantity,LatestSyncDate) VALUES ($listingID, $stockid, $Quantity, $Quantity, UNIX_TIMESTAMP())";
+		}
+		DBQuery($sql);  
+	} 
+	//update quantity for B mode
+	elseif ($workmode == "B")
+	{
+		$sql = "update listingsDB set Quantity=$Quantity where id = $listingID ";
+		DBQuery($sql);
+	} 
+}
+
+function SendGatewayPayment($cdata)
+{
+	global $gatewayResponse,$gatewayComment,$gatewayProof,$stock,$docnum,$TABLE_LISTINGSSTOCKS,$edescr;
+	
+	$strockRS = DBQuery("select GatewayCode from $TABLE_LISTINGSSTOCKS where id = $stock");
+	$payments = $cdata[1];
+	
+	$STOREID = $strockRS->fields["GatewayCode"];
+	$STORDERID = $docnum;	
+	$ORDERAMT = $cdata[0];
+	$ORDERCURR = "NIS";
+	$LANGUAGE = "HE";
+	$CARDNUMBER = $cdata[3]; 
+	$CARDEXPMONTH =  $cdata[4];
+	$CARDEXPYEAR = $cdata[5];
+	$CARDCVV = $cdata[14];
+	$TRACK2 = $cdata[18];
+	$CARDPAYTYPE =  $cdata[2];
+	$CARDPAYMENTSNUM = (($cred_type==8||$cred_type==9)?($payments-1):$payments);
+	$CLIENTNAME = trim($cdata[8]." ".$cdata[9]);
+	$CLIENTPHONE = $cdata[11]; 
+	$CLIENTPASSPORT = $cdata[10]; 
+	$TESTMODE = 0; 
+	
+	
+	$postdata  = "RESPONSETYPE=XML&STOREID=$STOREID&STORDERID=$STORDERID&ORDERAMT=$ORDERAMT&ORDERCURR=$ORDERCURR&LANGUAGE=$LANGUAGE&";
+	$postdata .= "CARDNUMBER=$CARDNUMBER&CARDEXPMONTH=$CARDEXPMONTH&CARDEXPYEAR=$CARDEXPYEAR&CARDCVV=$CARDCVV&CARDPAYTYPE=$CARDPAYTYPE&";
+	$postdata .= "CARDPAYMENTSNUM=$CARDPAYMENTSNUM&CLIENTNAME=$CLIENTNAME&CLIENTPHONE=$CLIENTPHONE&CLIENTPASSPORT=$CLIENTPASSPORT&";
+	$postdata .= "TRACK2=$TRACK2&TESTMODE=$TESTMODE";
+	
+	if (function_exists("curl_init"))
+	{
+		$ch = curl_init(); 
+		curl_setopt($ch, CURLOPT_URL,"https://profit.prf.co.il/gateway/pay.php");
+		//curl_setopt($ch, CURLOPT_URL,"http://localhost:8087/gateway/pay.php");
+		curl_setopt($ch, CURLOPT_POST, 1);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER,1); 
+		curl_setopt($ch, CURLOPT_CONNECTTIMEOUT,20); 
+		curl_setopt($ch, CURLOPT_TIMEOUT,60); 
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $postdata);
+		$res = curl_exec ($ch);
+		$err = curl_errno($ch)." ".curl_error($ch);
+		curl_close ($ch); 
+		
+	}
+	else 
+	{
+		$gatewayResponse = $lang["gateway_error"];
+		return false;
+	}
+	
+	//echo (htmlentities($res)."*");
+	
+	if (!$res)
+	{
+		$gatewayResponse = $lang["gateway_err_code"].$err;
+		return false;
+	}	
+	
+	//echo $res;
+	
+	$doc = DomDocument::loadXML($res);
+	if (!$doc)
+	{
+		$gatewayResponse = $lang["gateway_err_code"];
+		return false;
+	}
+	
+	$isOK = $doc->documentElement->nodeName=="SUCCESS";
+	
+	if ($isOK)
+	{
+		$gatewayProof = $doc->getElementsByTagName("DOCREFNUM")->item(0)->nodeValue;
+		$gatewayResponse = 0;
+		$gatewayComment = iconv("utf-8","windows-1255",$doc->getElementsByTagName("COMMENT")->item(0)->nodeValue);
+	}
+	else
+	{
+		$gatewayResponse = $doc->getElementsByTagName("ERRORCODE")->item(0)->nodeValue." ";
+		$gatewayResponse .= iconv("utf-8","windows-1255",$doc->getElementsByTagName("ERROR")->item(0)->nodeValue);
+	}
+	
+	return $isOK;
+	
+}
+
+?>

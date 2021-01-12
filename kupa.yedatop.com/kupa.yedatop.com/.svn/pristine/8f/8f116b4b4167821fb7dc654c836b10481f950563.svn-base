@@ -1,0 +1,15 @@
+<?php
+$strWelcomeTo = "Welcome to ";
+$strUseMenu = "Use the menu or click on the fast links below to start using ";
+$click_to_login = "Click here to login.";
+$login_text = "Enter your username and password to login";
+$login_username = "Username";
+$login_password = "Password"; 
+$login_businessnum = "Identity";
+$login_missing_field = "You didn't fill out your username or password.";
+$login_bad_login = "Wrong username or password or your account has expired.";
+$login_remind = "Keep me logged in till I press the logout button.";
+$login_language = 'Language';
+$login_security = 'The site is protected by 128bit SSL. For questions call ';
+$login_disabled = 'Account is disabled. Try again in 15 minutes.';
+?>

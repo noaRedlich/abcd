@@ -1,0 +1,29 @@
+<xml>
+	<main_table>userdata</main_table>
+	<name>הגדרות משתמשים</name>
+	<options>
+		<opt name="create_record" type="none"></opt>
+		<opt name="search" type="always"></opt>
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="UserName" >שם משתמש</vcol>
+	</view>
+	<edit>
+		<ecol name="WorkingHoursPerDay" type="string"> מספר שעות העבודה הרגילות ביום חול</ecol>
+		<ecol name="WorkingHoursFriday" type="string"> מספר שעות העבודה הרגילות בימי שישי וערבי חג</ecol>
+		<ecol name="AddHoursPercentage1" type="string"> שכר שעות נוספות ראשונות (%)</ecol>
+		<ecol name="NumAddHours" type="string"> מספר שעות נוספות ראשונות</ecol>
+		<ecol name="AddHoursPercentage2" type="string"> שכר שעות נוספות אחרי השעות הראשונות (%)</ecol>
+		<ecol name="HolidayPercentage" type="string"> שכר חגים ושבתות (%)</ecol>
+		HolidayPercentage
+		<ecol name="email" type="string">E-mail</ecol>
+		<ecol name="faxmail" type="string">Fax mail</ecol>
+		
+	</edit>
+	<sql_actions>
+		<opt name="order" val="UserName"></opt>
+		<opt name="search_by" type="UserName"></opt>
+	</sql_actions>
+</xml>
