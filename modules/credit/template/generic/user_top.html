@@ -1,0 +1,56 @@
+<?php $start_time = microtime() ?>
+<html>
+
+	<head>
+		<meta http-equiv="content-type" content="text/html;charset=iso-8859-1">
+		<title><?php echo "$config[site_title]" ?></title>
+		<link rel=stylesheet href="<?php echo $config[template_url] ?>/style.css" type="text/css">
+	</head>
+
+	<body bgcolor="white">
+		<center>
+			<?php
+			if ($printer_friendly != "yes")
+				{
+			?>
+			<table border="0" cellspacing="0" cellpadding="2" width="590">
+				<tr>
+					<td>
+												
+						<div align="left">
+							<h2><?php echo "$config[site_title]"; ?></h2>
+
+							<hr size="1">
+						</div>
+						<div align="right" class="small">
+							<a href="user_signup.php"><?php echo "$lang[menu_new_user_account]"; ?></a> | <a href="admin/index.php"><?php echo "$lang[menu_user_login]"; ?></a> | <a href="./listingsearch.php"><?php echo "$lang[menu_user_browse_listings]"; ?></a> | <a href="view_users.php"><?php echo $lang[view_agents] ?></a> | <a href="listing_browse.php"><?php echo $lang[search_listings] ?></a> | <a href="./index.php"><?php echo "$lang[menu_home]"; ?></a></div>
+					</td>
+				</tr>
+			</table>
+			<p>
+			<?php
+				} // end if ($printer_friendly != "yes")
+			else
+				{
+			?>
+			<table border="0" cellspacing="0" cellpadding="2" width="590">
+				<tr>
+					<td>
+												
+						<div align="left">
+							<h2><?php echo "$config[site_title]"; ?></h2>
+
+							<hr size="1">
+						</div>
+						<div align="center" class="small">
+						printer friendly page -- <a href="<?php echo $PHP_SELF."?listingID=$listingID"; ?>">return to normal view</a>
+					</td>
+				</tr>
+			</table>
+			<?php
+				} // end printer friendly page layout
+			?>
+			
+			<table width="590" border="0" cellspacing="3" cellpadding="3">
+				<tr>
+					<td width="590" valign="top">

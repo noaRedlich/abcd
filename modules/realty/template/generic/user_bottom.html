@@ -1,0 +1,44 @@
+				</td>
+				</tr>
+				</table>
+				
+				<?php
+					if ($printer_friendly != "yes")
+					{
+				?>
+				<P>
+					<hr size="1" width="590">
+
+					
+					
+					<table border="0" cellspacing="0" cellpadding="2" width="590" align="center">
+						<tr>
+							<td valign="top" align="left"><p class="small" align="left">powered by Open-Realty<br><a href="http://open-realty.org" target="author">Open-Realty.org</a><br>
+								Forest City, pa<br>
+								<br>
+								</p>
+							</td>
+							
+							<td>
+								©2002 Open-Realty&nbsp; All Rights Reserved<br>
+								Use of this website and information available from it is subject<br>
+								to our <a href="legal.php">Legal Notice and Disclaimer</a></b></p>
+								<p>&nbsp;</p>
+							</td>
+						</tr>
+					</table>
+					
+		</center>
+	</body>
+	<?php
+		} // end if ($printer_friendly != "yes")
+	?>
+</html>
+
+
+<?
+$end_time = microtime();
+$render_time = $end_time - $start_time;
+echo "<!-- This page was generated in $render_time microseconds -->";
+
+?>

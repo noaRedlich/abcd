@@ -1,0 +1,38 @@
+<xml>
+	<main_table>webDate_bd_users</main_table>
+	<name>System users</name>
+	<options>
+		<opt name="search" type="always"></opt>
+		<opt name="main_view" type="always"></opt>
+		<opt name="bd_controls">
+			<optd type="service" href="users_access" param="id" param_name="uid">Access</optd>
+		</opt>
+		<opt name="delete_record" type="promt" promt="Please, confirm to delete user from the system."></opt>
+	</options>
+	<view>
+		<vcol name="bd_counter">#</vcol>
+		<vcol name="login">Username</vcol>
+		<vcol name="admin_rights" type="yes_no">Administrator rights</vcol>
+		<vcol name="status" type="enum">User's status
+			<enum val="0">Normal</enum>
+			<enum val="1">Access denied</enum>
+			<enum val="2">Change password</enum>
+		</vcol>
+	</view>
+	<edit>
+		<ecol name="login" type="string">Username</ecol>
+		<ecol name="pswd" type="password">Password</ecol>
+		<ecol name="admin_rights" type="yes_no">User has administrator rights</ecol>
+		<ecol name="log_user" type="yes_no">Log user events</ecol>
+		<ecol name="status" type="enum">User's status
+			<enum val="0">Normal</enum>
+			<enum val="1">Access denied</enum>
+			<enum val="2">Change password</enum>
+		</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="login"></opt>
+		<opt name="search_by" val="status,admin_rights"></opt>
+	</sql_actions>
+</xml>
+

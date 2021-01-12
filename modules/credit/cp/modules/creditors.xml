@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xml>
+	<main_table>creditors</main_table>
+	<name>#club_members#</name>
+	<options>
+		<opt name="create_record" type="sometimes"></opt>
+		<opt name="search" type="sometimes"></opt>
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="CreditorNum" >#client_num#</vcol>
+		<vcol name="CreditorName">#client_name#</vcol>
+		<vcol name="HomePhone">#phone#</vcol>
+		<vcol name="TeudatZehut">#identification#</vcol>
+		<vcol name="status" type="yes_no">#admin_listings_editor_active</vcol>
+	</view>
+	<edit>
+		<ecol name="CreditorNum" type="string">#client_num#</ecol>
+		<ecol name="CreditorName"  type="string">#client_name#</ecol>
+		<ecol name="TeudatZehut" type="string">#identification#</ecol>
+		<ecol name="Birthday" type="date">#birthday#</ecol>
+		<ecol name="Address"  type="string">#address#</ecol>
+		<ecol name="HomePhone" type="string">#home_phone#</ecol>
+		<ecol name="CellPhone"  type="string">#strCellular#</ecol>
+		<ecol name="status" type="yes_no">#admin_listings_editor_active#</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="CreditorNum"></opt>
+		<opt name="search_by" val="CreditorNum,CreditorName"></opt>
+	</sql_actions>
+</xml>

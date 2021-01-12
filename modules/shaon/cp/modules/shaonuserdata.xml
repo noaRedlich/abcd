@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xml>
+	<main_table>userdata</main_table>
+	<name>#users_pref#</name>
+	<options>
+		<opt name="create_record" type="none"></opt>
+		<opt name="search" type="none"></opt>
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="UserName" >#username#</vcol>
+	</view>
+	<edit>
+		<ecol name="WorkingHoursPerDay" type="string">#normal_working_hours_on_weekdays#</ecol>
+		<ecol name="WorkingHoursFriday" type="string">#normal_working_hours_on_fridays_and_holiday_eves#</ecol>
+		<ecol name="AddHoursPercentage1" type="string">#first_overtime_hours_salary#</ecol>
+		<ecol name="NumAddHours" type="string">#number_of_overtime_hours_first#</ecol>
+		<ecol name="AddHoursPercentage2" type="string">#overtime_pay_after_the_first_hours#</ecol>
+		<ecol name="HolidayPercentage" type="string">#salary_holidays_and_weekends#</ecol>
+		<ecol name="HolidayEndTime" type="string">#beginning_saturday_hhmm#</ecol>
+		<ecol name="HolidayEndPercentage" type="string">#salary_saturday#</ecol>
+		<ecol name="email" type="string">#user_email#</ecol>
+		<ecol name="faxmail" type="string">#fax_mail#</ecol>
+			<!--sk 24/02/2016 user whith no vat-->
+		<ecol name="free_vat" type="yes_no">פטור מעמ</ecol>
+		<ecol name="ShowDaysReport" type="yes_no">הצג דוח נוכחות עפ ימים</ecol>
+		
+		<!--sk 19/01/16 print settings-->
+		<ecol name="printDate" type="yes_no">הדפס תאריך</ecol>
+		<ecol name="printDay" type="yes_no">הדפס יום בשבוע</ecol>
+		<ecol name="printEntry" type="yes_no">הדפס כניסה</ecol>
+		<ecol name="printExit" type="yes_no">הדפס יציאה</ecol>
+		<ecol name="printRegularHours" type="yes_no">הדפס שעות רגילות</ecol>
+		<ecol name="printOvertime" type="yes_no">הדפס שעות נוספות</ecol>
+		<ecol name="printPayHour" type="yes_no">הדפס שכר שעה</ecol>
+		<ecol name="printTotalHours" type="yes_no">הדפס סהכ שעות</ecol>
+		<ecol name="printPayForAddHour" type="yes_no">הדפס שכר שעות נוספות</ecol>
+		<ecol name="printPayForRegHour" type="yes_no">הדפס שכר שעות רגילות</ecol>
+		<ecol name="printTotalIncome" type="yes_no">הדפס סהכ שכר</ecol>
+		
+		<!--sk 20/01/16 print report for all workers-->
+		<ecol name="printWorkerName" type="yes_no">הדפס שם עובד</ecol>
+		<ecol name="printWorkerNum" type="yes_no">הדפס מספר עובד</ecol>
+		<ecol name="printPayForHours" type="yes_no">הדפס שכר לפי שעות</ecol>
+		<ecol name="printTotalDays" type="yes_no">הדפס מספר ימי עבודה</ecol>
+		
+	</edit>
+	<sql_actions>
+		<opt name="order" val="UserName"></opt>
+		<opt name="search_by" type="UserName"></opt>
+	</sql_actions>
+</xml>

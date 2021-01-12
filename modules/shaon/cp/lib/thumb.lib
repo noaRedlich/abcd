@@ -1,0 +1,489 @@
+<?php
+/***************************************************************************
+ *                            functions_thumbs.php
+ *                            -------------------
+ *   begin                : Sat, Jul 27, 2002
+ *   copyright            : (C) 2002 Meik Sievertsen
+ *   email                : acyd.burn@gmx.de
+ *
+ *   $Id: functions_thumbs.php,v 1.22 2003/02/23 11:36:25 acydburn Exp $
+ *
+ *
+ ***************************************************************************/
+
+/***************************************************************************
+ *
+ *   This program is free software; you can redistribute it and/or modify
+ *   it under the terms of the GNU General Public License as published by
+ *   the Free Software Foundation; either version 2 of the License, or
+ *   (at your option) any later version.
+ *
+ *
+ ***************************************************************************/
+
+//
+// All Attachment Functions needed to create Thumbnails
+//
+
+
+$imagick = '';
+
+//
+// Calculate the needed size for Thumbnail
+//
+function get_img_size_format($width, $height)
+{
+  global $thumbnail_size;
+	// Change these two values to define the Thumbnail Size
+	$max_width = $thumbnail_size;
+	$max_height = $thumbnail_size;
+	
+	if ($width > $max_width)
+	{
+		$tag_height = ($max_width / $width) * $height;
+		$tag_width = $max_width;
+		
+		if ($tag_height > $max_height) 
+		{
+			$tag_width = ($max_height / $tag_height) * $tag_width;
+			$tag_height = $max_height;
+		}
+	} 
+	else if ($height > $max_height) 
+	{
+		$tag_width = ($max_height / $height) * $width;
+		$tag_height = $max_height;
+
+		if ($tag_width > $max_width) 
+		{
+			$tag_height = ($max_width / $tag_width) * $tag_height;
+			$tag_width = $max_width;
+		}
+	} 
+	else 
+	{
+		$tag_width = $width;
+		$tag_height = $height;
+	}
+
+	$tag_width = round($tag_width);
+	$tag_height = round($tag_height);
+        
+	return array(
+		$tag_width,
+		$tag_height
+	);
+}
+
+//
+// Check if imagick is present
+//
+function is_imagick() 
+{
+	global $imagick, $attach_config;
+
+	if ($attach_config['img_imagick'] != '')
+	{
+		$imagick = $attach_config['img_imagick'];
+		return (TRUE);
+	}
+	else
+	{
+		return (FALSE);
+	}
+}
+
+function get_supported_image_types()
+{
+	$types = array();
+	if (extension_loaded('gd'))
+	{
+
+		if (function_exists('imagegif'))
+		{
+			$types[] = '1';
+		}
+		if (function_exists('imagejpeg'))
+		{
+			$types[] = '2';
+		}
+		if (function_exists('imagepng'))
+		{
+			$types[] = '3';
+		}
+    }
+
+	return ($types);
+}
+
+	function create_thumbnail ($input_file_name, $input_file_path) 
+	{ 
+		// makes a thumbnail using the GD library 
+		global  $thumbnail_size;
+
+		$quality = 100; // jpeg quality -- the lower the num, the smaller the file size 
+
+		// first, grab the dimensions of the pic 
+		$imagedata = GetImageSize("$input_file_path/$input_file_name"); 
+		$imagewidth = $imagedata[0]; 
+		$imageheight = $imagedata[1]; 
+		$imagetype = $imagedata[2]; 
+		// type definitions 
+		// 1 = GIF, 2 = JPG, 3 = PNG, 4 = SWF, 5 = PSD, 6 = BMP 
+		// 7 = TIFF(intel byte order), 8 = TIFF(motorola byte order) 
+		// 9 = JPC, 10 = JP2, 11 = JPX 
+		$thumb_name = $input_file_name; //by default 
+
+		// the GD library, which this uses, can only resize JPG and PNG 
+		if ($imagetype == 2) 
+		{ 
+			// it's a JPG 
+			// figure out the ratio to which it should be shrunk, if at all 
+			$shrinkage = 1; 
+			if ($imagewidth > $imageheight){ 
+				if ($imagewidth > $thumbnail_size) 
+				{ 
+					$shrinkage = $thumbnail_size/$imagewidth; 
+				} 
+				$dest_height = $shrinkage * $imageheight; 
+				$dest_width = $thumbnail_size; 
+			}
+			else{
+				if ($imageheight > $thumbnail_size) 
+				{ 
+					$shrinkage = $thumbnail_size/$imageheight; 
+				} 
+				$dest_width = $shrinkage * $imagewidth; 
+				$dest_height = $thumbnail_size; 
+			}
+
+			$src_img = imagecreatefromjpeg("$input_file_path/$input_file_name"); 
+
+			///* old function 
+			//GD Lib is Version 2 or > 
+			//$dst_img = imagecreatetruecolor($dest_width,$dest_height); 
+			//imagecopyresampled($dst_img, $src_img, 0, 0, 0, 0, $dest_width,$dest_height, $imagewidth, $imageheight); 
+			//GD Lib is Version <2 
+			$dst_img = imagecreate($dest_width,$dest_height); 
+			imagecopyresized($dst_img, $src_img, 0, 0, 0, 0, $dest_width,$dest_height, $imagewidth, $imageheight); 
+			@chmod($dst_img,"0777");
+			//New Function checks to see if GD2 functions are available for higher quality thumbnails 
+			if (function_exists("imageCreateTrueColor")) 
+			{ 
+				if ( !@($dst_img = imageCreateTrueColor($dest_width, $dest_height)) ) 
+				{ 
+				$dst_img = imageCreate($dest_width, $dest_height); 
+				} 
+				else 
+				{ 
+					$dst_img = imageCreateTrueColor($dest_width, $dest_height); 
+				} 
+			} 
+			//copy the original image info into the new image with new dimensions 
+			//checking to see which function is available 
+			if (function_exists("imageCopyResampled")) 
+			{ 
+				if (!@ImageCopyResampled($dst_img, $src_img, 0, 0, 0, 0, $dest_width, $dest_height, $imagewidth, $imageheight)) 
+				{ 
+					ImageCopyResized($dst_img, $src_img, 0, 0, 0, 0, $dest_width, $dest_height, $imagewidth, $imageheight); 
+				} 
+				else 
+				{ 
+					ImageCopyResized($dst_img, $src_img, 0, 0, 0, 0, $dest_width, $dest_height, $imagewidth, $imageheight); 
+				} 
+				@chmod($dst_img,"0777");
+			} 
+			$thumb_name = "thumb-"."$input_file_name"; 
+			imagejpeg($dst_img, "$input_file_path/$thumb_name", $quality); 
+			imagedestroy($src_img); 
+			imagedestroy($dst_img); 
+		} // end if $imagetype == 2 
+		elseif ($imagetype == 3) 
+		{ 
+			// it's a PNG 
+			// figure out the ratio to which it should be shrunk, if at all 
+			$shrinkage = 1; 
+			if ($imagewidth > $imageheight){ 
+				if ($imagewidth > $thumbnail_size) 
+				{ 
+					$shrinkage = $thumbnail_size/$imagewidth; 
+				} 
+				$dest_height = $shrinkage * $imageheight; 
+				$dest_width = $thumbnail_size; 
+			}
+			else{
+				if ($imageheight > $thumbnail_size) 
+				{ 
+					$shrinkage = $thumbnail_size/$imageheight; 
+				} 
+				$dest_width = $shrinkage * $imagewidth; 
+				$dest_height = $thumbnail_size; 
+			}
+
+			$src_img = imagecreatefrompng("$input_file_path/$input_file_name"); 
+			$dst_img = imagecreate($dest_width,$dest_height); 
+			imagecopyresized($dst_img, $src_img, 0, 0, 0, 0, $dest_width,$dest_height, $imagewidth, $imageheight); 
+			@chmod($dst_img,"0777");
+			$thumb_name = "thumb_"."$input_file_name"; 
+			imagepng($dst_img, "$input_file_path/$thumb_name"); 
+			imagedestroy($src_img); 
+			imagedestroy($dst_img); 
+		} // end if $imagetype == 3 
+
+
+		return $thumb_name; 
+	} // end function make_thumb 
+
+//
+// Get Image Dimensions
+//
+function image_getdimension($file)
+{
+
+	$size = @getimagesize($file);
+
+	if ( ($size[0] != 0) || ($size[1] != 0) )
+	{
+		return ($size);
+	}
+
+	// Try to get the Dimension manually, depending on the mimetype
+	$fp = @fopen($file, 'rb');
+	if (!$fp)
+	{
+		return ($size);
+	}
+	
+	$error = FALSE;
+
+	//
+	// BMP - IMAGE
+	//
+	$tmp_str = fread($fp, 2);
+	if ($tmp_str == 'BM')
+	{
+		$length = read_longint($fp);
+
+		if ($length <= 6)
+		{
+			$error = TRUE;
+		}
+
+		if (!$error)
+		{
+			$i = read_longint($fp); 
+			if ( $i != 0)
+			{		  
+				$error = TRUE;
+			}
+		}
+
+		if (!$error)
+		{
+			$i = read_longint($fp);
+
+			if ( ($i != 0x3E) && ($i != 0x76) && ($i != 0x436) && ($i != 0x36) )
+			{
+				$error = TRUE;
+			}
+		}
+
+		if (!$error)
+		{
+			$tmp_str = fread($fp, 4); 
+			$width = read_longint($fp); 
+			$height = read_longint($fp);
+
+			if ( ($width > 3000) || ($height > 3000) )
+			{
+				$error = TRUE;
+			}
+		}
+	}
+	else
+	{
+		$error = TRUE;
+	}
+
+	if (!$error)
+	{
+		fclose($fp);
+		return array(
+			$width,
+			$height,
+			'6'
+		);
+	}
+	
+	$error = FALSE;
+	fclose($fp);
+
+	//
+	// GIF - IMAGE
+	//
+	$fp = @fopen($file, 'rb');
+
+	$tmp_str = fread($fp, 3);
+	
+	if ($tmp_str == 'GIF')
+	{
+		$tmp_str = fread($fp, 3);
+		$width = read_word($fp);
+		$height = read_word($fp);
+
+		$info_byte = fread($fp, 1);
+		$info_byte = ord($info_byte);
+		if ( (($info_byte & 0x80) != 0x80) && (($info_byte & 0x80) != 0) )
+		{
+			$error = TRUE;
+		}
+		
+		if (!$error)
+		{
+			if (($info_byte & 8) != 0)
+			{
+				$error = TRUE;
+			}
+
+		}
+	}
+	else
+	{
+		$error = TRUE;
+	}
+
+	if (!$error)
+	{
+		fclose($fp);
+		return array(
+			$width,
+			$height,
+			'1'
+		);
+	}
+	
+	$error = FALSE;
+	fclose($fp);
+
+	//
+	// JPG - IMAGE
+	//
+	$fp = @fopen($file, 'rb');
+
+	$tmp_str = fread($fp, 4);
+	$w1 = read_word($fp);
+	if (intval($w1) < 16)
+	{
+		$error = TRUE;
+	}
+	
+	if (!$error)
+	{
+		$tmp_str = fread($fp, 4);
+		if ($tmp_str == 'JFIF')
+		{
+			$o_byte = fread($fp, 1);
+			if (intval($o_byte) != 0)
+			{
+				$error = TRUE;
+			}
+
+			if (!$error)
+			{
+				$str = fread($fp, 2);
+				$b = read_byte($fp);
+
+				if ( ( $b != 0) && ($b != 1) && ($b != 2) )
+				{		  
+					$error = TRUE;
+				}
+			}
+
+			if (!$error)
+			{
+				$width = read_word($fp);
+				$height = read_word($fp);
+
+				if ( ($width <= 0) || ($height <= 0) )
+				{
+					$error = TRUE;
+				}
+			}
+		}
+	}
+	else
+	{
+		$error = TRUE;
+	}
+
+	if (!$error)
+	{
+		fclose($fp);
+		return array(
+			$width,
+			$height,
+			'2'
+		);
+	}
+	
+	$error = FALSE;
+	fclose($fp);
+
+	//
+	// PCX - IMAGE
+	//
+	$fp = @fopen($file, 'rb');
+
+	$tmp_str = fread($fp, 3);
+	
+	if ( ((ord($tmp_str[0]) == 10)) && ( (ord($tmp_str[1]) == 0) || (ord($tmp_str[1]) == 2) || (ord($tmp_str[1]) == 3) || (ord($tmp_str[1]) == 4) || (ord($tmp_str[1]) == 5) ) && (	(ord($tmp_str[2]) == 1) ) )
+	{
+		$b = fread($fp, 1);
+
+		if ( (ord($b) != 1) && (ord($b) != 2) && (ord($b) != 4) && (ord($b) != 8) && (ord($b) != 24) )
+		{
+			$error = TRUE;
+		}
+
+		if (!$error)
+		{
+			$xmin = read_word($fp);
+			$ymin = read_word($fp);
+			$xmax = read_word($fp);
+			$ymax = read_word($fp);
+			$tmp_str = fread($fp, 52);
+	  
+			$b = fread($fp, 1);
+			if ($b != 0)
+			{
+				$error = TRUE;
+			}
+		}
+
+		if (!$error)
+		{
+			$width = $xmax - $xmin + 1;
+			$height = $ymax - $ymin + 1;
+		}
+	}
+	else
+	{
+		$error = TRUE;
+	}
+
+	if (!$error)
+	{
+		fclose($fp);
+		return array(
+			$width,
+			$height,
+			'7'
+		);
+	}
+	
+	fclose($fp);
+	return ($size);
+}
+
+
+?>

@@ -1,0 +1,32 @@
+<?
+	//	This module sets module security and launching BD3ENTRYPOINT function
+	//	to load module functionality ...
+
+	//	Now loading parser mechanism
+
+	if($sLoadModuleRoutineType == common)
+	{
+		include $sModuleFullPath;
+
+		if(function_exists(BD3EntryPoint_interface))
+		{
+			@BD3EntryPoint_interface();
+		}
+	}
+
+	if($sLoadModuleRoutineType == xml)
+	{
+		include "lib/mod_xml_translator.lib";
+
+		//	Parsing & executing module
+
+		$pParser = new CModXMLParser($sModuleFullPath);
+		$pTranslator = new CModXMLTranslator($pParser->mxmlGetBTree());
+
+		@eval($pTranslator->sCode);
+		$sCode = 'function BD3EntryPoint_interface(){ BD3View(); }';
+		@eval($sCode);
+
+		BD3EntryPoint_interface();
+	}
+?>

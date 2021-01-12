@@ -1,0 +1,86 @@
+<?php
+	global $config, $lang;
+?>
+	<link rel=stylesheet href="<?php echo $config[template_url] ?>/style.css" type="text/css">
+	
+	<script type="text/javascript">
+		<!-- // Nannette Thacker http://www.shiningstar.net
+		function confirmDelete()
+		{
+		var agree=confirm("<?php echo $lang[are_you_sure_you_want_to_delete] ?>");
+		if (agree)
+			return true ;
+		else
+			return false ;
+		}
+		function confirmUserDelete()
+		{
+		var agree=confirm("<?php echo $lang[delete_user] ?>");
+		if (agree)
+			return true ;
+		else
+			return false ;
+		}
+		// -->
+	</script>
+	
+
+			<table border="0" cellspacing="0" cellpadding="2" width="750">
+				<tr>
+					<td>
+												
+						
+							<?php
+							global $lang;
+							if ($admin_privs == "yes" || $editForms == "yes")
+							{
+								// if the user has either admin or edit forms privs
+								echo "$lang[admin_menu_regular_options] | ";
+							} // end if
+							?>
+							<a href="add_listing.php"><img src=<?=$GO_THEME->image_url?>buttons/new_folder.gif align=absmiddle hspace=3 border=0 ><?php echo "$lang[admin_menu_add_a_listing]"; ?></a> 
+							<a href="edit_my_listings.php"><img src=<?=$GO_THEME->image_url?>buttons/addressbook_big.gif hspace=3 align=absmiddle border=0 ><?php echo "$lang[admin_menu_edit_my_edit_my_listings]"; ?></a>
+							<a href="listingsearch.php"><img src=<?=$GO_THEME->image_url?>buttons/1.gif hspace=3 align=absmiddle border=0 ><?php echo "$lang[admin_menu_edit_search]"; ?></a>
+							<a href="listing_browse.php?sortby=date"><img src=<?=$GO_THEME->image_url?>buttons/listview.gif hspace=3 align=absmiddle border=0 ><?php echo "$lang[menu_user_new_listings]"; ?></a>
+							<a href="listing_browse.php?sortby=date&userid=0"><img src=<?=$GO_THEME->image_url?>buttons/groups.gif hspace=3 align=absmiddle border=0 ><?php echo "$lang[menu_user_pniot]"; ?></a>
+							<a href="realtycontracts_view.php"><img src=<?=$GO_THEME->image_url?>buttons/filters.gif hspace=3 align=absmiddle border=0 ><?php echo "$lang[admin_menu_edit_contracts]"; ?></a>
+						<? if($GO_SECURITY->has_admin_permission($GO_SECURITY->user_id)){?>
+							<a href="template_editor.php"><img hspace=5 src=<?=$GO_THEME->image_url?>buttons/add_contact.gif hspace=3 align=absmiddle border=0 ><?php echo "$lang[admin_menu_edit_listings_template]"; ?></a>
+							<?}?>
+						
+						
+						<?php
+						// admin options
+						global $editForms, $viewLogs, $admin_privs;
+						if ($editForms == "yes")
+						{
+							// if the user can edit forms
+							echo "<div align=\"right\" class=\"small\">$lang[admin_menu_form_editor_options] | <a href=\"user_form_editor.php\">$lang[admin_menu_edit_user_form]</a> | <a href=\"template_editor.php\">$lang[admin_menu_edit_listings_template]</a></div>";
+						} // end if
+						
+						if ($admin_privs == "yes")
+						{
+							// if the user has admin privs
+							echo "<div align=\"right\" class=\"small\">$lang[admin_menu_admin_options] | <a href=\"user_edit.php\">$lang[admin_menu_edit_users]</a> | <a href=\"listings_edit.php\">$lang[admin_menu_edit_listings]</a> | <a href=\"add_user.php\">$lang[user_editor_new]</a>";
+						} // end if
+						
+						if ($admin_privs == "yes" AND $config[moderate_listings] == "yes")
+						{
+							// if the user has admin privs and moderation is turned on
+							echo " | <a href=\"moderation_queue.php\">$lang[admin_listings_moderation_queue]</a>";
+						}
+						
+						if ($viewLogs == "yes")
+						{
+							echo " | <a href=\"log_view.php\">$lang[log_view_activity_logs]</a>";
+						} // end if
+						
+						?>
+				
+				</td>
+				</tr>
+			</table>
+			<p>
+			<table width="750" border="0" cellspacing="3" cellpadding="3">
+				<tr>
+					<td width="100%" valign="top">

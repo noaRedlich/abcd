@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<language>
+    <search>חפוש</search>
+    <add>להוסיף</add>
+    <cancel>ביטול</cancel>
+    <reset>לאפס</reset>
+    <createCard>להוסיף כרטיס</createCard>
+    <cardId>ID</cardId>
+    <balanceCurrent>יתרה</balanceCurrent>
+    <dateCreate>תאריך הייצור</dateCreate>
+    <charge>לטעון</charge>
+    <paid>נפרע</paid>
+    <date>תאריך</date>
+    <platform>פלטפורמה</platform>
+    <balance>יתרה</balance>
+    <id>ID</id>
+</language>

@@ -1,0 +1,46 @@
+	<div class="popup  pop_add_client poptype1 mainarea2" ng-controller="Client" style="display: none">
+		<h2>כרטיס לקוח/ה חדש/ה</h2>
+		<div class="container_pop an" style="background: none;border:none;">
+			
+			<div class="part">
+			<label>מספר לקוח/ה*</label>
+			<input type="text" id="a_c_num"  class="fixed" value="{{prefers_list['pr_currnumcust']}}"/>
+			<label>שם פרטי ומשפחה*</label>
+			<input type="text" id="a_c_name"/>
+			<label>*ע.מ. / ת.ז.</label>
+			<input type="tel" id="a_c_tz"/>
+			<label>תאריך לידה</label>
+			<input type="date" id="a_c_birthdate" name="date_birth"/>
+			</div>
+			<div class="part">
+			<label>כתובת</label>
+			<input type="text" id="a_c_address"/>
+			<label>מספר טלפון</label>
+			<input type="tel" id="a_c_phone"/>
+			<label>*מספר נייד</label>
+			<input type="tel" id="a_c_cellphone"/>
+			<label>דואר אלקטרוני</label>
+			<input type="text" id="a_c_mail"/>
+			</div>
+			<div class="part">
+			<label>קבוצה / מועדון לקוחות</label>				
+			<select id="a_c_group" class="advanced_input toclean" ng-model="pr_group"   ng-change="change_group(pr_group)" ng-options="GroupName.GroupName for GroupName in  clientgroups track by GroupName.ID"></select> 			
+			
+			
+			<label>הנחה קבועה</label>
+			<input type="text" id="a_c_discount" class="fixed" value="{{pr_discount}}" disabled="disabled"/>
+			<label>מכירה בהקפה</label>
+			<!--<input type="text" id="a_c_hakafa"/>-->
+			<div class="switchtoggle" >
+						<input type="text" id="a_c_hakafa"/>
+						<span class="{{a_c_hakafa}} a_c_hakafa" ng-click="set_stat('a_c_hakafa')">{{a_c_hakafa| uppercase}}</span>
+					</div>
+			<label>אובליגו</label>
+			<input type="tel" id="a_c_obligo"/>
+			
+			<input class="mybtn btngray leftbottom  " type="button" value="ביטול" onclick='$(".wrap" ).click();$(".pop_add_client input[type=tel],.pop_add_client input[type=date],.pop_add_client input[type=text]:not(.fixed)").val("");'>
+			<input class="mybtn btngreen leftbottom2  " type="button" value="שמירה" ng-click="save_client();">
+			</div>
+			
+		</div>
+	</div>

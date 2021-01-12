@@ -1,0 +1,17 @@
+<div class="popup pop_peulot  pop_alert" style="z-index: 9999999;margin-left: 25%;height: 200px;top: 103px;">
+		<!--<img src="images/box_small.png" class="img_wrap"/>	-->	
+		<div class="container_pop an">
+		<h2 class="relative">הודעה</h2>
+		<h2 id="message"></h2>
+		<input type="button" class="mybtn btnorange " style="position: absolute;right: 60%;bottom: 6%;" value="אישור" ng-click="call_alert_cancel()">
+		<input type="button" class="mybtn btngray " style="position: absolute;right: 30%;bottom: 6%;" value="ביטול"   ng-click="cancel_func()" onclick='$(".pop_alert").css({"display":"none"});$(".pop_alert").css("z-index","1");$("#search_prod").focus();$(".loading").hide();'>
+		</div>
+	</div>	
+<div class="popup pop_peulot  pop_alert_sett" style="z-index: 9999999;margin-left: 25%;height: 200px;top: 103px;">
+		<!--<img src="images/box_small.png" class="img_wrap"/>	-->	
+		<div class="container_pop an">
+		<h2 class="relative">הודעה</h2>
+		<h2 id="message2"></h2>
+		<input type="button" class="mybtn btnorange " style="position: absolute;right: 42%;bottom: 6%;" value="אישור" ng-click="call_alert_cancel_sett()">
+		</div>
+	</div>	

@@ -1,0 +1,29 @@
+<?
+	global $current_plugin;
+?>
+
+<table border=0 cellspacing=6 cellpadding=6>
+<td>
+
+<table width="200" border="0" cellspacing="1" cellpadding="1" bgcolor="#666666">
+  <tr>
+    <td>
+      <table width="100%" border="0" cellspacing="3" cellpadding="3" bgcolor="#FFFFFF">
+        <tr>
+          <td><b>PLUG-IN CONFIGUTATOR:</b></td>
+        </tr>
+        <tr>
+          <td>If you want to configure options of this plug-in click the button
+            below<br><br>
+            <div align=center>
+              <input type="button" value="Configure plug-in" onClick="window.location.href='main.php?<? echo "plugin=plugin_configurator&plugin_name=$current_plugin"; ?>'">
+            </div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+
+</td>
+</table>

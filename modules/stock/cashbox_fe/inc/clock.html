@@ -1,0 +1,60 @@
+<div class="popup pop_peulot  pop_clock" style="left:25%;" ng-controller="WorkerController as WorkerC">
+		<!--<img src="images/box_small.png" class="img_wrap"/>	-->	
+		<div class="container_pop an" >
+		<h2 class="relative">שעון נוכחות</h2>
+		<h2 name="clock" id="clock"> <!-- {{datet | date:'HH:mm:ss'}} --> </h2> <!--03/04/2016 get current time from the server for popup Time clock -->
+		<h3>עובדות במשמרת:</h3>
+		<table class="" style="margin: 0 auto;margin-top: 2px;width: 50%;border: #D8D8D8;border-style: solid;" >	
+				<tr>
+					<th>מספר עובד/ת</th>
+					<th>שם עובד/ת</th>					
+				</tr>											
+				<tr  ng-repeat="worker1 in filtered=(workerslist | filter: { is_clock: 1 } )"  style="cursor: pointer">
+					<td>{{worker1.WorkerNum}}</td>
+					<td>{{worker1.SupplierName}}</td>
+				<tr>
+			</table>
+		<div name="clock_display">
+			<h2 class="big_text">העבר כרטיס עובד/ת</h2>
+			<h2 class="small_text">או הקלד ידנית:</h2>
+			<br>
+			<!--<div angucomplete-alt id="worker_search" onfocusout="$('#num_worker2').focus()" placeholder="חיפוש עובד" pause="100" selected-object="selectedWorker" local-data="workerslist" search-fields="WorkerNum,SupplierName" 
+										title-field="WorkerNum,SupplierName"  minlength="1" input-class="form-control form-control-small  my_search_auto text" match-class="highlight" >
+			</div>-->
+		<div style="margin: 0 auto;width: 50%">
+			<input class="text" type="text" name="search_w" style="float: right;width:49%"/>
+			<input type="button" class="mybtn btnblue" style="  float: left;width:49%" ng-click="search_w()" value="חפש"/>
+			<table class="workers_tb akafa_client_tb cl_search w_table" style="  margin-top: 20px;width: 100%;" >	
+				<tr>
+					<th>מספר עובד/ת</th>
+					<th>שם עובד/ת</th>					
+				</tr>											
+				<tr  ng-repeat="worker in searchw| limitTo:4" ng-click="choose_worker(worker.WorkerNum)" style="cursor: pointer">
+					<td>{{worker.WorkerNum}}</td>
+					<td>{{worker.WorkerName}}</td>
+				<tr>
+			</table>
+		</div>
+			
+	<br>
+	<input class="mybtn btnblue " style="width: 148px;" type="button" value="כניסה" ng-click="start_work();">			
+			<input class="mybtn btnorange " style="width: 148px;" ng-click="end_work();"  type="button" value="יציאה">
+			
+	<!--<div angucomplete-alt id="worker_search"  placeholder="חיפוש עובד" pause="100" selected-object="selectedWorker" local-data="workerslist" search-fields="WorkerNum,SupplierName" title-field="WorkerNum,SupplierName"  minlength="1" input-class="form-control form-control-small  my_search_auto" match-class="highlight" >
+	</div>-->
+
+	<div id="worker_details" class="worker_details" style="margin-top:10px;font-size:120%">
+		
+	</div>
+	
+			<input type="hidden" id="num_worker"/>			
+			</div>
+			<div name="clock_display2"></div>
+  			<input type="text" id="num_worker2" style="color: transparent;border: transparent;outline: transparent;">
+  			<!--sk 03/01/16 numworker-->
+  			<textarea id="num_worker3" style="width:250px;height: 80px;color: transparent;border: transparent;outline: transparent;overflow: hidden"></textarea>	
+			<input class="mybtn btnlightgray rightbottom" onclick="$( '.wrap' ).click();" type="button" value="ביטול">
+			
+			
+		</div>
+	</div>	

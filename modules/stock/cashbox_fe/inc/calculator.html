@@ -1,0 +1,50 @@
+<div class="rightcenter calc_area" style="">
+  			<form name="Calc">
+		<table style="width:100%" border="0" cellpadding="0" cellspacing="0">
+		<tbody><tr>
+		<td class="input_result" style="height: 143.8px;">
+		<input type="text" name="Input" style="width:98%;padding-right:2%;color:#42494f;height:92%">
+		<br>
+		</td>
+		</tr>
+		<tr>
+		<td>
+		<table class="inner_calc" style="direction: ltr;" border="0" cellpadding="0" cellspacing="0">
+			<tbody><tr>
+				
+				<td style="height: 143.8px;"><input type="button" name="one" value="  1  " onclick="Calc.Input.value += '1'">  </td>
+				<td style="height: 143.8px;"><input type="button" name="two" value="  2  " onclick="Calc.Input.value += '2'">  </td>
+				<td style="height: 143.8px;"><input type="button" name="three" value="  3  " onclick="Calc.Input.value += '3'">  </td>
+				<td style="height: 143.8px;"><input type="button" class="math" name="plus" value="  +  " onclick="Calc.Input.value += ' + '"></td>
+				<td style="height: 143.8px;"><input type="button" class="math" name="clear" onclick="Calc.Input.value = ''" style="background:url('images/erase.png')no-repeat 51% 50% #e6e9ee!important"></td>				
+			</tr>
+			<tr>
+			
+		<td rowspan="1" style="height: 143.8px;"><input type="button" name="four" value="  4  " onclick="Calc.Input.value += '4'"></td>
+		<td rowspan="1" style="height: 143.8px;"><input type="button" name="five" value="  5  " onclick="Calc.Input.value += '5'">  </td>
+		<td rowspan="1" style="height: 143.8px;"><input type="button" name="six" value="  6  " onclick="Calc.Input.value += '6'">  </td>
+		<td rowspan="1" style="height: 143.8px;"><input type="button" class="math" name="times" value="  x  " onclick="Calc.Input.value += ' * '"></td>
+		<td rowspan="3" style="position: relative; height: 143.8px;"><div name="DoIt" class="result" onclick="Calc.Input.value = eval(Calc.Input.value);" ng-click="cash_prod.add_new_cart()"><i class="fa fa-check-circle"></i></div>
+			<div name="DoIt" class="result2 display" onclick="Calc.Input.value = eval(Calc.Input.value);anacha_doit();tip_doit();"><i class="fa fa-check-circle"></i></div>
+		</td>
+			</tr>
+			<tr>
+		<td style="height: 143.8px;"><input type="button" name="seven" value="  7  " onclick="Calc.Input.value += '7'"></td>
+		<td style="height: 143.8px;"><input type="button" name="eight" value="  8  " onclick="Calc.Input.value += '8'">  </td>
+		<td style="height: 143.8px;"><input type="button" name="nine" value="  9  " onclick="Calc.Input.value += '9'">  </td>
+		<td style="height: 143.8px;"><input type="button" class="math" name="weight" value="משקל" onclick=""></td>
+			</tr>
+			<tr>
+		<td style="height: 143.8px;"><input type="button" name="dot" value="  .  " onclick="Calc.Input.value += '.'"></td>
+		<td style="height: 143.8px;"><input type="button" name="zero" value="  0  " onclick="Calc.Input.value += '0'">  </td>
+		<td style="height: 143.8px;"><input type="button" name="zerozero" value="  00  " onclick="Calc.Input.value += '00'"></td>
+		<!-- <td><INPUT TYPE="button" NAME="DoIt"  VALUE="  =  " OnClick="Calc.Input.value = eval(Calc.Input.value)"></td> -->
+			<td style="height: 143.8px;"><input type="button" name="add_category" value="הוסף למחלקה" onclick=""></td>
+		<!--<td style="height: 143.8px;"><input type="button" class="math" name="div" value="  %  " onclick="Calc.Input.value += ' % '"></td>-->
+			</tr>
+		</tbody></table>
+		</td>
+		</tr>
+		</tbody></table>
+		</form>
+  </div>

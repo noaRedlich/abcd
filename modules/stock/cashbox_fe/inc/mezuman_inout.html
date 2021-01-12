@@ -1,0 +1,37 @@
+<div class="popup pop_peulot  mezuman_inout" style="left:25%;" ng-controller="WorkerController as WorkerC">
+		<!--<img src="images/box_small.png" class="img_wrap"/>	-->	
+		<div class="container_pop an" ng-controller="MezumanInOutController" >
+			<h2 class="relative">הכנסת\הוצאת מזומן לקופה</h2>
+			<div name="mezuman_display">
+				<h3 class="big_text">העבר כרטיס עובד</h3>
+				<h3 class="small_text">או הקלד ידנית:</h3>
+				<br>
+					<div style="margin: 0 auto;width: 50%">
+						<input class="text" type="text" name="search_w" style="float: right;width:49%"/>
+						<input type="button" class="mybtn btnblue" style="  float: left;width:49%" ng-click="search_w()" value="חפש"/>
+						<table class="workers_tb akafa_client_tb cl_search w_table" style="  margin-top: 20px;width: 100%;" >	
+							<tr>
+								<th>מספר עובד</th>
+								<th>שם עובד</th>					
+							</tr>											
+							<tr  ng-repeat="worker in searchw| limitTo:4" ng-click="choose_worker(worker.WorkerNum)" style="cursor: pointer">
+								<td>{{worker.WorkerNum}}</td>
+								<td>{{worker.WorkerName}}</td>
+							<tr>
+						</table>
+					</div>			
+				<br>
+				<p class="" style="font-size: 200%;margin-top: 20px;margin-bottom: 10px;">הכנס סכום</p>
+				<input type="tel" class="text mezuman_inout" style="width: 92%;background: white;border: 1px solid #cfd2d9;height: 37px;">	
+				<br>
+				<input class="mybtn btnblue " style="width: 148px;" type="button" value="הכנסה" ng-click="mezuman_in();">			
+				<input class="mybtn btnorange " style="width: 148px;" ng-click="mezuman_out();"  type="button" value="הוצאה">		
+				<div id="worker_details" class="worker_details" style="margin-top:10px;font-size:120%">				
+				</div>
+				<input type="hidden" id="num_worker"/>			
+			</div>
+			<div name="mezuman_display2"></div>
+			<input type="text" id="num_worker2" style="color: transparent;border: transparent;outline: transparent;">
+			<input class="mybtn btnlightgray rightbottom" onclick="$( '.wrap' ).click();" type="button" value="ביטול">
+		</div>
+</div>	

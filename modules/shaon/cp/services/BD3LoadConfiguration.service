@@ -1,0 +1,5 @@
+<?
+	$pParser = new CModXMLParser($smartway_dir."conf/conf.xml");
+	$pTranslator = new CModXMLCTTranslator($pParser->mxmlGetBTree(), 0);
+	$pTranslator->mxtGetTreeAsVariables();
+?>

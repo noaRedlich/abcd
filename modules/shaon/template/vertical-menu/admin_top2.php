@@ -1,0 +1,2 @@
+<input type="button" onclick="window.close()" class="exitback" value="חזרה" style="float:left;height: 34px!important;width:100px;margin-top: -7px;">
+<p style="    margin-left: 20px;float:left" class="toreserver"> YedaTop © כל הזכויות שמורות ידעטופ טכנולוגיות </p><p class="telres"></p>

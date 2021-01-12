@@ -1,0 +1,25 @@
+<?
+	plugActivatePlugin($current_plugin);
+
+	switch($sPlugInLoadingStatus)
+	{
+	 	case access_granted:
+			include $sPlugInFullPath;
+			break;
+
+		case access_denied:
+			sysLogUserEvent(on_error, "Plug-in has disabled flag but user tried to run it: $current_plugin");
+			include "services/BD3PluginAccessDenied.service";
+			break;
+
+	 	case plugin_not_found:
+			sysLogUserEvent(on_error, "Plug-in is not found in server: $current_plugin");
+			@include "services/BD3PluginNotFound.service";
+			break;
+
+	 	case plugin_unknown_configuration:
+			sysLogUserEvent(on_error, "Options.xml configuration file is damaged or unknown parameters entered: $current_plugin");
+			@include "services/BD3PluginUnknownConfiguration.service";
+			break;
+	}
+?>

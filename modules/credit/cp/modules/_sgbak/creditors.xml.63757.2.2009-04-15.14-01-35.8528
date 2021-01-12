@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="windows-1255"?>
+<xml>
+	<main_table>creditors</main_table>
+	<name>חברי מועדון</name>
+	<options>
+		<opt name="create_record" type="sometimes"></opt>
+		<opt name="search" type="sometimes"></opt>
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="CreditorNum" >מספר לקוח</vcol>
+		<vcol name="CreditorName">שם לקוח</vcol>
+		<vcol name="HomePhone">טלפון</vcol>
+		<vcol name="TeudatZehut">ת.ז.</vcol>
+		<vcol name="status" type="yes_no">פעיל</vcol>
+	</view>
+	<edit>
+		<ecol name="CreditorNum" type="string">מספר לקוח</ecol>
+		<ecol name="CreditorName"  type="string">שם לקוח</ecol>
+		<ecol name="TeudatZehut" type="string">ת.ז.</ecol>
+		<ecol name="Birthday" type="date">תאריך לידה (dd/mm/yyyy)</ecol>
+		<ecol name="Address"  type="string">כתובת</ecol>
+		<ecol name="HomePhone" type="string">טלפון בבית</ecol>
+		<ecol name="CellPhone"  type="string">טלפון נייד</ecol>
+		<ecol name="status" type="yes_no">פעיל</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="CreditorNum"></opt>
+		<opt name="search_by" val="CreditorNum,CreditorName"></opt>
+	</sql_actions>
+</xml>

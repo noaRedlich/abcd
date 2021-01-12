@@ -1,0 +1,149 @@
+<?php
+	$start_time = microtime()
+?>
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+
+	<head>
+		<meta http-equiv="content-type" content="text/html;charset=iso-8859-1">
+		<title><?php echo "$config[site_title]" ?></title>
+		<link rel=stylesheet href="<?php echo $config[template_url] ?>/style.css" type="text/css">
+	</head>
+
+<?php
+	if ($printer_friendly != "yes")
+	{
+?>
+		<body>
+				<table width="100%" cellpadding="0" cellspacing="0" border="0">
+					<tr>
+						<td>
+							<p align="right">
+
+							<b><font color="#ffffff" size=1>
+
+							<script  TYPE="text/javascript">
+							<!-- Begin
+							var days=new Array(7);
+							days[1]="Monday";
+							days[2]="Tuesday";
+							days[3]="Wednesday";
+							days[4]="Thursday";
+							days[5]="Friday";
+							days[6]="Saturday";
+							days[0]="Sunday";
+							var months=new Array(13);
+							months[1]="January";
+							months[2]="February";
+							months[3]="March";
+							months[4]="April";
+							months[5]="May";
+							months[6]="June";
+							months[7]="July";
+							months[8]="August";
+							months[9]="September";
+							months[10]="October";
+							months[11]="November";
+							months[12]="December";
+							var time=new Date();
+							var ldays=days[time.getDay()];
+							var lmonth=months[time.getMonth() + 1];
+							var date=time.getDate();
+							var year=time.getYear();
+							if (year < 2000)
+							year = year + 1900;
+							document.write(ldays + "," + " " + lmonth + " " + date + "," + " " + year);
+							// End
+							// -->
+							</script>
+
+
+							</font><font>&nbsp;&nbsp;&nbsp;</font></b>
+						</td>
+					</tr>
+					<tr>
+						<td>
+							<table width="100%" cellpadding="0" cellspacing="0" border="0" STYLE="background-image: url('<?php echo $config[template_url] ?>/images/top1bg.jpg');">
+							<tr>
+								<td>
+									<img border="0" src="<?php echo $config[template_url] ?>/images/title.jpg" width="400" height="100" alt="<?php $config[site_title] ?>">
+								</td>
+								<td width="100%">
+									<p align="right">&nbsp;</p>
+								</td>
+							</tr>
+							<tr>
+								<td class="color2_layout" colspan="2">
+									<p align="right"><b><font color="#42557b" size=1><?php echo "$config[company_location]" ?></font><font>&nbsp;&nbsp;&nbsp;</font></b>
+								</td>
+							</tr>
+
+							<tr>
+								<td class = "form_main" colspan="2">
+									&nbsp;
+								</td>
+							</tr>
+							</table>
+						</td>
+					</tr>
+				</table>
+			<table width="100%" cellpadding="0" cellspacing="0" border="0">
+			<tr>
+				<td>
+					<table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: collapse; border-color:#111111;" class = "form_main">
+						<tr>
+
+							<td valign="TOP">
+								<br>
+								<?php
+									include("$config[template_path]/menu.php");
+								?>
+
+								<br>
+								&nbsp;
+							</td>
+							<td STYLE="background-image: url('<?php echo $config[template_url] ?>/images/linebg.gif');" valign="TOP">
+								<img src="<?php echo $config[template_url] ?>/images/linebg.gif" width="33" height="2" alt="">
+							</td>
+							<td valign="TOP">
+								<!--
+								Actual content area starts here. The tables below are for
+								structuring
+								the content area and adding that 'welcome to yoursite.com'
+								image. These
+								tables also keep the content area at a fixed-width.
+								-->
+							</td>
+							<td width="100%" valign="top">
+								<table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse; border-width: 0; border-color=#111111;" width="90%" id="AutoNumber1">
+									<tr>
+										<td width="100%" style="border-style: none; border-width: medium; font-family:arial, helvetica; font-size:11px; color:#c3c3c3; line-height:20px">&nbsp;
+										</td>
+									</tr>
+									<tr>
+										<td width="100%" style="border-style: none; border-width: medium; font-family:arial, helvetica; font-size:11px; color:#c3c3c3; line-height:20px">
+	<?php
+		} // end if ($printer_friendly != "yes")
+		else
+		{
+	?>
+			<table border="0" cellspacing="0" cellpadding="2" width="590">
+				<tr>
+					<td>
+
+						<div align="left">
+							<h2><?php echo "$config[site_title]"; ?></h2>
+
+							<hr size="1">
+						</div>
+						<div align="center" class="small">
+						printer friendly page -- <a href="<?php echo $PHP_SELF."?listingID=$listingID"; ?>">return to normal view</a>
+					</td>
+				</tr>
+			</table>
+	<?php
+		} // end printer friendly page layout
+	?>
+	<table width="590" border="0" cellspacing="3" cellpadding="3">
+		<tr>
+			<td width="590" valign="top">

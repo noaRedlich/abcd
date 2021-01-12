@@ -1,0 +1,42 @@
+<?
+	function plugGetPluginsList()
+	{
+		return sysListDir("plug-ins/");
+	}  //  plugGetPluginsList
+
+	function plugActivatePlugin($sPlugInName)
+	{
+		global $sPlugInLegalName, $sPlugInLoadingStatus;
+		global $sPlugInFullPath, $xsCFile, $sPluginFullDir;
+
+		$pParser = new CModXMLParser("plug-ins/$sPlugInName/options.xml");
+		$pTranslator = new CModXMLCTTranslator($pParser->mxmlGetBTree());
+		@eval($pTranslator->sCode);
+
+		if($xsName == "")
+		{
+			$sPlugInLoadingStatus = plugin_unknown_configuration;
+		}
+		else
+		{
+			if($xsDisabled)
+			{
+				$sPlugInLoadingStatus = access_denied;
+				return;
+			}
+
+			$sPlugInFullDir = "plug-ins/$sPlugInName/";
+			$sPlugInFullPath = $sPlugInFullDir."index.php";
+			if((@$pFile = @fopen($sPlugInFullPath, "r")))
+			{
+				fclose($pFile);
+				$sPlugInLoadingStatus = access_granted;
+			}
+			else
+			{
+				$sPlugInLoadingStatus = plugin_not_found;
+			}
+		}
+
+	}  //  plugActivatePlugin
+?>

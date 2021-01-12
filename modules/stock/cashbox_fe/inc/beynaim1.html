@@ -1,0 +1,158 @@
+	<div class="popup  pop_beynaim mainarea2" ng-controller="BeynaimController" style="display: none;">
+		<div class="container_pop" style="background: none;border:none;" ng-controller="PaymentController">
+		<p class="b_tit1"><span>{{stockname}}</span><span>ע.מ. {{details_list['tz']}}</span><span>{{details_list['address']}}</span><span>{{details_list['name']}}</span><span>טל: {{details_list['tel']}}</span></p>
+		<p class="b_tit2"><span>דוח X {{kupa_num}}</span><span>מספר סרט: {{}}</span><span>{{datet}}</span></p>
+			<div class="half right">
+				<div class="half right">
+					<p class="int">{{start_cash}}</p>
+					<p class="tit_int">סה"כ דמי מחזור</p>
+					<p class="int">{{(finalltash2['numprod_hova']|number:3)*1}}</p>
+					<p class="tit_int">פריטים שחויבו</p>
+					<p class="int">{{mezumanin}}</p>
+					<p class="tit_int">סה"כ הוספת מזומן לקופה</p>
+					
+				</div>
+				<div class="half left">		
+					<p class="int">{{finalltash['opendrawer']}}</p>
+					<p class="tit_int">מס' פתיחות מגירה</p>
+					<!--<p class="tit_int" style="display:none">פריטים שנמכרו</p>-->
+					<p class="int" >{{(finalltash2['numprod_zchut']|number:3)*1}}</p>
+					<p class="tit_int" >פריטים שזוכו</p>
+					<p class="int">{{mezumanout}}</p>
+					<p class="tit_int">סה"כ הוצאת מזומן מהקופה</p>
+				</div>
+				<div class="tash1" style = "padding-top: 60%;font-size: 80%;">
+					<div class="half right clear">
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">סה"כ חייב מע"מ</span><span class="left">{{finalltash2['cash']*1+finalltash2['credit']*1+finalltash2['cheque']*1+finalltash2['shovar']*1-finalltash2['free_vat']-(17/117)*(finalltash2['cash']*1+finalltash2['credit']*1+finalltash2['cheque']*1+finalltash2['shovar']*1-finalltash2['free_vat'])|fix2}}</span></p>
+							<p class="tash_but"><span class="right">חיובים:{{finalltash2['cash1']['hova']*1+finalltash2['credit1']['hova']*1+finalltash2['cheque1']['hova']*1+finalltash2['shovar1']['hova']*1-finalltash2['free_vat1']['hova']-(17/117)*(finalltash2['cash1']['hova']*1+finalltash2['credit1']['hova']*1+finalltash2['cheque1']['hova']*1+finalltash2['shovar1']['hova']*1-finalltash2['free_vat1']['hova'])|fix2}}</span><span class="left">זיכויים: {{finalltash2['cash1']['zicuy']*1+finalltash2['credit1']['zicuy']*1+finalltash2['cheque1']['zicuy']*1+finalltash2['shovar1']['zicuy']*1-finalltash2['free_vat1']['zicuy']-(17/117)*(finalltash2['cash1']['zicuy']*1+finalltash2['credit1']['zicuy']*1+finalltash2['cheque1']['zicuy']*1+finalltash2['shovar1']['zicuy']*1-finalltash2['free_vat1']['zicuy'])|fix2}}</span></p>
+							
+							
+						</div>
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">סה"כ פטור מע"מ</span><span class="left">{{finalltash2['free_vat']}}</span></p>
+							<p class="tash_but"><span class="right">חיובים:{{finalltash2['free_vat1']['hova']}}</span><span class="left">זיכויים: {{finalltash2['free_vat1']['zicuy']}}</span></p>
+						</div>
+						
+						
+					</div>
+					<div class="half left">
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">סה"כ מע"מ</span><span class="left">{{(17/117)*(finalltash2['cash']*1+finalltash2['credit']*1+finalltash2['cheque']*1+finalltash2['shovar']*1-finalltash2['free_vat'])|fix2}}</span></p>
+							<p class="tash_but"><span class="right">חיובים:{{(17/117)*(finalltash2['cash1']['hova']*1+finalltash2['credit1']['hova']*1+finalltash2['cheque1']['hova']*1+finalltash2['shovar1']['hova']*1-finalltash2['free_vat1']['hova'])|fix2}}</span><span class="left">זיכויים: {{(17/117)*(finalltash2['cash1']['zicuy']*1+finalltash2['credit1']['zicuy']*1+finalltash2['cheque1']['zicuy']*1+finalltash2['shovar1']['zicuy']*1-finalltash2['free_vat1']['zicuy'])|fix2}}</span></p>
+						</div>
+						
+						
+					</div>
+				</div>
+			</div>
+			<div class="half left littlefont">
+				<div class="tash_tabs" style="border-bottom: 6px solid rgb(85,193,231)">
+					<div class="half right tashtab1 active_tash" style="position: relative" onclick="set_tash_tab()">
+						<p class="intbig">{{finalltash2['cash']*1+finalltash2['credit']*1+finalltash2['cheque']*1+finalltash2['shovar']*1|fix2}}</p>
+						<p style="font-size: 150%;">תקבולים</p>
+						<i class="fa fa-angle-down" ></i>
+					</div>
+					<div class="half left tashtab2" onclick="set_tash_tab()">
+						<p  class="intbig">{{finalltash2['credit']}}</p>
+						<p style="font-size: 150%;">אשראי</p>
+						<i class="fa  fa-angle-left" ></i>
+					</div>
+					<div class="clear"></div>
+				</div>
+				<div class="tash1">
+					<div class="half right clear">
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">מזומן</span><span class="left">{{finalltash2['cash']}}</span></p>
+							<p class="tash_but"><span class="right">חיובים:{{finalltash2['cash1']['hova']}}</span><span class="left">זיכויים: {{finalltash2['cash1']['zicuy']}}</span></p>
+							
+							
+						</div>
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">אשראי</span><span class="left">{{finalltash2['credit']}}</span></p>
+							<p class="tash_but"><span class="right">חיובים:{{finalltash2['credit1']['hova']}}</span><span class="left">זיכויים: {{finalltash2['credit1']['zicuy']}}</span></p>
+						</div>
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">המחאה</span><span class="left">{{finalltash2['cheque']}}</span></p>
+							<p class="tash_but"><span class="right">חיובים:{{finalltash2['cheque1']['hova']}}</span><span class="left">זיכויים: {{finalltash2['cheque1']['zicuy']}}</span></p>
+						</div>
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">שובר</span><span class="left">{{finalltash2['shovar']}}</span></p>
+							<p class="tash_but"><span class="right">חיובים:{{finalltash2['shovar1']['hova']}}</span><span class="left">זיכויים: {{finalltash2['shovar1']['zicuy']}}</span></p>
+						</div>
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">נקודות</span><span class="left">{{finalltash2['points']}}</span></p>
+							<p class="tash_but"><span class="right">חיובים:{{finalltash2['points1']['hova']}}</span><span class="left">זיכויים: {{finalltash2['points1']['zicuy']}}</span></p>
+						</div>
+					</div>
+					<div class="half left">
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">שובר זיכוי</span><span class="left">{{finalltash2['shovarzicuy']}}</span></p>
+							<p class="tash_but"><span class="right">חיובים:{{finalltash2['shovarzicuy1']['hova']}}</span><span class="left">זיכויים: {{finalltash2['shovarzicuy1']['zicuy']}}</span></p>
+						</div>
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">תשלום חוב בהקפה</span><span class="left">{{finalltash2['akafadebt']['general']}}</span></p>
+							<p class="tash_but"><span class="right">מזומן:{{finalltash2['akafadebt']['cash']}}</span><span class="left">אשראי: {{finalltash2['akafadebt']['credit']}}</span></p>
+							<p class="tash_but1"><span class="right">המחאה:{{finalltash2['akafadebt']['cheque']}}</span><span class="left">כרטיס מתנה: {{finalltash2['akafadebt']['prepaid']}}</span></p>
+							
+						</div>
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">טעינת כרטיס נטען</span><span class="left">{{finalltash2['prepaiddebt']['cash']*1+finalltash2['prepaiddebt']['cheque']*1+finalltash2['prepaiddebt']['akafa']*1+finalltash2['prepaiddebt']['credit']*1}}</span></p>
+							<p class="tash_but"><span class="right">מזומן:{{finalltash2['prepaiddebt']['cash']}}</span><span class="left">אשראי: {{finalltash2['prepaiddebt']['akafa']}}</span></p>
+
+                        	<p class="tash_but1"><span class="right">המחאה:{{finalltash2['prepaiddebt']['cheque']}}</span><span class="left">הקפה: {{finalltash2['prepaiddebt']['credit']}}</span></p>
+						</div>
+						<div class="tash_div" >
+                    	<!--<?=$lang["hakafa"]?>-->
+                        <p class="tash_top"><span class="right">תשלום  בהקפה</span><span class="left">{{finalltash2['akafa']}}</span></p>
+                        <p class="tash_but"></p>
+                    </div>
+                    <div class="tash_div">
+                    	<!--<?=$lang["gift_card"]?>-->
+                        <p class="tash_top" ><span class="right">תשלום בכרטיס נטען</span><span class="left">{{finalltash2['prepaid']}}</span></p>
+                        <p style="border-bottom: 1px solid gray"></p>
+                    </div>
+						
+					</div>
+				</div>
+				
+			<div class="ashray1 display">
+					<div class="half right clear">
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">ישראכרט</span><span class="left">{{finalltash2['credit2']['ISRACARD']['DEBIT']-finalltash2['credit2']['ISRACARD']['CREDIT']|fix2}}</span></p>
+							<p class="tash_but"><span class="right">חיובים:{{finalltash2['credit2']['ISRACARD']['DEBIT']}}</span><span class="left">זיכויים: {{finalltash2['credit2']['ISRACARD']['CREDIT']}}</span></p>						
+						</div>
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">ויזה</span><span class="left">{{finalltash2['credit2']['VISA_CAL']['DEBIT']-finalltash2['credit2']['VISA_CAL']['CREDIT']}}</span></p>
+							<p class="tash_but"><span class="right">חיובים:{{finalltash2['credit2']['VISA_CAL']['DEBIT']}}</span><span class="left">זיכויים: {{finalltash2['credit2']['VISA_CAL']['CREDIT']}}</span></p>
+						</div>
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">דיינרס</span><span class="left">{{finalltash2['credit2']['DINERS']['DEBIT']-finalltash2['credit2']['DINERS']['CREDIT']}}</span></p>
+							<p class="tash_but"><span class="right">חיובים:{{finalltash2['credit2']['DINERS']['DEBIT']}}</span><span class="left">זיכויים: {{finalltash2['credit2']['DINERS']['CREDIT']}}</span></p>
+						</div>
+					</div>
+					<div class="half left">
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">א. אקספרס</span><span class="left">{{finalltash2['credit2']['AMEX']['DEBIT']-finalltash2['credit2']['AMEX']['CREDIT']}}</span></p>
+							<p class="tash_but"><span class="right">חיובים:{{finalltash2['credit2']['AMEX']['DEBIT']}}</span><span class="left">זיכויים: {{finalltash2['credit2']['AMEX']['CREDIT']}}</span></p>
+						</div>
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">גיי סי בי</span><span class="left">{{finalltash2['credit2']['JCB']['DEBIT']-finalltash2['credit2']['JCB']['CREDIT']}}</span></p>
+							<p class="tash_but"><span class="right">חיובים:{{finalltash2['credit2']['JCB']['DEBIT']}}</span><span class="left">זיכויים: {{finalltash2['credit2']['JCB']['CREDIT']}}</span></p>
+						</div>
+						<div class="tash_div">
+							<p class="tash_top"><span class="right">לאומי קארד</span><span class="left">{{finalltash2['credit2']['LEUMICARD']['DEBIT']-finalltash2['credit2']['LEUMICARD']['CREDIT']}}</span></p>
+							<p class="tash_but"><span class="right">חיובים:{{finalltash2['credit2']['LEUMICARD']['DEBIT']}}</span><span class="left">זיכויים: {{finalltash2['credit2']['LEUMICARD']['CREDIT']}}</span></p>
+						</div>
+					</div>
+				</div>
+				
+			</div>
+
+			<input class="mybtn btngreen  leftbottom  " type="button" value="יציאה" onclick="$( '.wrap' ).click();">
+						<input class=" mybtn btnblue  leftbottom2 hideclose " type="button" value="הדפס"   ng-click="print()">
+
+			<!--<input class="closebb mybtn btnblue  rightbottom  " type="button" value="סגירת קופה"   ng-click="end_kupa();cashc.call_clean();">-->
+			<input class="closebb mybtn btnblue  rightbottom  " type="button" value="סגירת קופה"    ng-click="close_k(); ">
+		</div>
+	</div>

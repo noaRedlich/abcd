@@ -1,0 +1,95 @@
+<style type="text/css" media="screen">
+	.pop_peulot.keyboard{
+		width:96%;
+	}
+	.keyboard_tbl tr{
+		height:72px;
+	}
+	.keyboard_tbl input{
+		height:100%;
+		width: 100%;
+	}
+	.keyboard_tbl{
+		 border-collapse: separate;
+    border-spacing: 12px;
+	}
+	.keyboard_tbl td.special input.erase{
+		  background: url('images/erase.png')no-repeat 51% 50% #e6e9ee!important;
+	}
+	.keyboard_tbl .result{
+		position: absolute!important;
+		height: 97%;
+		width:100%;
+	}
+	.keyboard_tbl td input{
+		font-size: 255%;
+	  border: 1px solid #cacfd5;
+	  padding: 0px;
+    color: rgb(67,74,84);
+    border-radius: 3px;
+    background: white;
+	}
+	.keyboard_tbl td.special input{
+		background: #e6e9ee!important;
+	}
+	.popup.keyboard .container_pop{
+		height:auto!important;
+		position: absolute;
+ 		bottom: 2%;
+	}
+</style>
+<div class="popup pop_peulot  keyboard" style="display:none" >
+			
+		<div class="container_pop">
+  		<div class="rightcenter calc_area"   >
+  			<div class="rightcenter calc_area" style="">
+  			<div class="frm">
+
+
+		
+		
+		<table class="inner_calc" style="direction: ltr;" border="0" cellpadding="0" cellspacing="0" >
+			<tbody>
+				<tr><input type="text" value="" name="Input" style="width:98%;padding-right:2%;color:#42494f;height:92%"></tr>
+				<tr>
+				
+				<td style="height: 143.8px;"><input type="button" name="one" value="  1  " onclick="$('input[name=Input]').val($('input[name=Input]').val()+'1')">  </td>
+				<td style="height: 143.8px;"><input type="button" name="two" value="  2  " onclick="$('input[name=Input]').val($('input[name=Input]').val()+'2')">  </td>
+				<td style="height: 143.8px;"><input type="button" name="three" value="  3  " onclick="$('input[name=Input]').val($('input[name=Input]').val()+'3')">  </td>
+				<td style="height: 143.8px;"><input type="button" class="math" name="plus" value="  +  "onclick="$('input[name=Input]').val($('input[name=Input]').val()+'+')"></td>
+				<td style="height: 143.8px;"><input type="button" class="math" name="clear" onclick="$('input[name=Input]').val('')" style="background:url('images/erase.png')no-repeat 51% 50% #e6e9ee!important"></td>				
+			</tr>
+			<tr>
+			
+		<td rowspan="1" style="height: 143.8px;"><input type="button" name="four" value="  4  " onclick="$('input[name=Input]').val($('input[name=Input]').val()+'4')"></td>
+		<td rowspan="1" style="height: 143.8px;"><input type="button" name="five" value="  5  " onclick="$('input[name=Input]').val($('input[name=Input]').val()+'5')">  </td>
+		<td rowspan="1" style="height: 143.8px;"><input type="button" name="six" value="  6  "onclick="$('input[name=Input]').val($('input[name=Input]').val()+'6')">  </td>
+		<td rowspan="1" style="height: 143.8px;"><input type="button" class="math" name="minus" value="  -  " onclick="$('input[name=Input]').val($('input[name=Input]').val()+'-')"></td>
+		<td rowspan="3" style="position: relative; height: 143.8px;"><div name="DoIt" class="result"  ><i class="fa fa-check-circle"></i></div>
+			<div name="DoIt" class="result2 display" onclick="Calc.Input.value = eval(Calc.Input.value);anacha_doit();tip_doit();"><i class="fa fa-check-circle"></i></div>
+		</td>
+			</tr>
+			<tr>
+		<td style="height: 143.8px;"><input type="button" name="seven" value="  7  " onclick="$('input[name=Input]').val($('input[name=Input]').val()+'7')"></td>
+		<td style="height: 143.8px;"><input type="button" name="eight" value="  8  " onclick="$('input[name=Input]').val($('input[name=Input]').val()+'8')">  </td>
+		<td style="height: 143.8px;"><input type="button" name="nine" value="  9  " onclick="$('input[name=Input]').val($('input[name=Input]').val()+'9')">  </td>
+		<td style="height: 143.8px;"><input type="button" class="math" name="times" value="  x  " onclick="$('input[name=Input]').val($('input[name=Input]').val()+'*')"></td>
+			</tr>
+			<tr>
+		<td style="height: 143.8px;"><input type="button" name="dot" value="  .  " onclick="$('input[name=Input]').val($('input[name=Input]').val()+'.')"></td>
+		<td style="height: 143.8px;"><input type="button" name="zero" value="  0  " onclick="$('input[name=Input]').val($('input[name=Input]').val()+'0')">  </td>
+		<td style="height: 143.8px;"><input type="button" name="zerozero" value="  00  " onclick="$('input[name=Input]').val($('input[name=Input]').val()+'00')"></td>
+		<!-- <td><INPUT TYPE="button" NAME="DoIt"  VALUE="  =  " OnClick="Calc.Input.value = eval(Calc.Input.value)"></td> -->
+		<td style="height: 143.8px;"><input type="button" class="math" name="div" value="  %  " onclick="$('input[name=Input]').val($('input[name=Input]').val()+'%')">
+			
+			<input type="hidden" name="flag_focused"/>
+		</td>
+			</tr>
+		</tbody></table>
+
+		</div>
+  </div>
+  		</div>
+		</div>
+			<input type="hidden" name="flag_focusedk"/>
+	</div>

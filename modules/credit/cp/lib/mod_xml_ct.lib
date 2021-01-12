@@ -1,0 +1,408 @@
+<?
+	class CModXMLCTTranslator
+	{
+		var $xtTree;
+		var $sCode;
+		var $sXMLCode;
+		var $nCounter = 0;
+		var $sErrors = array();
+
+		function mxtSaveAsXML($sFileName)
+		{
+			$pHandle = @fopen($sFileName, "w");
+			if(!$pHandle)
+			{
+				echo "<font color=C00000><b>FS Error:</b> Unable to save parameters to $sFileName</font>";
+				return;
+			}
+			else
+			{
+				$this->sXMLCode = "";
+				$this->mxtSaveTreeAsXML(0);
+
+				fputs($pHandle, $this->sXMLCode, strlen($this->sXMLCode));
+				fclose($pHandle);
+			}
+
+		}  //  mxtSaveAsXML
+
+		function mxtSaveTreeAsXML($xtParent)
+		{
+			for($i = 0; $i < sizeof($this->xtTree);$i++)
+			{
+				if($this->xtTree[ $i ]->xtParent->nId == $xtParent->nId)
+				{
+					for($j = 0; $j < $this->xtTree[ $i ]->nDepth - 1; $j++)
+					{
+						$this->sXMLCode .= "\t";
+					}
+
+					$this->sXMLCode .= "<".strtolower($this->xtTree[ $i ]->sName);
+					$sTmp = $this->xtTree[ $i ]->sAttr;
+					$nCount = 0;
+
+					while(list($sName, $sValue) = each($sTmp))
+					{
+
+						$this->sXMLCode .= " ".strtolower($sName)."=\"$sValue\"";
+						$nCount++;
+					}
+					$this->sXMLCode .= ">";
+
+					$sName = $this->xtTree[ $i ]->sName;
+
+					@eval("global \$in_".$this->xtTree[ $i ]->sAttr[ name ].";");
+					@eval("\$sTmp = \$in_".$this->xtTree[ $i ]->sAttr[ name ].";");
+					@eval("global \$in_".strtolower($this->xtTree[ $i ]->sName).";");
+					@eval("\$sTmp_1 = \$in_".strtolower($this->xtTree[ $i ]->sName).";");
+
+					if($this->xtTree[ $i ]->sName == XML || $this->xtTree[ $i ]->sName == SECTION)
+					{
+						$this->sXMLCode .= "\n";
+					}
+					else
+					{
+						if($sName != FIELD_TOPIC)
+						{
+							$sTmp = ereg_replace('\\\"','"',$sTmp);
+							$sTmp = ereg_replace('\\\\','\\',$sTmp);
+							$sTmp = ereg_replace("\\\'","'",$sTmp);
+
+							if($sTmp != "")
+							{
+								if($this->xtTree[ $i ]->sAttr[ type ] == password)
+								{
+									$sTmp = sysCrypt($sTmp);
+								}
+
+								$this->sXMLCode .= $sTmp;
+							}
+							else
+							{
+								@eval("global \$in_".$this->xtTree[ $i ]->xtParent->sAttr[ name ].";");
+								@eval("\$sTmp = \$in_".$this->xtTree[ $i ]->xtParent->sAttr[ name ].";");
+
+								if($sTmp == $this->xtTree[ $i ]->sAttr[ val ] && $sTmp != "")
+								{
+									$sTmp = "1";
+								}
+								else
+								{
+									if($this->xtTree[ $i ]->sAttr[ type ] == password)
+									{
+										$sTmp = $this->xtTree[ $i ]->sData;
+									}
+									else
+									{
+										if($this->xtTree[ $i ]->sAttr[ type ] == checkbox || $this->xtTree[ $i ]->sName == ENUM)
+										{
+											$sTmp = "0";
+										}
+									}
+								}
+
+								if($sTmp != "")
+								{
+									$this->sXMLCode .= $sTmp;
+								}
+
+								if($sTmp_1 != "")
+								{
+									$sTmp_1 = ereg_replace('\\\"','"',$sTmp_1);
+									$sTmp_1 = ereg_replace('\\\\','\\',$sTmp_1);
+									$sTmp_1 = ereg_replace("\\\'","'",$sTmp_1);
+
+									$this->sXMLCode .= $sTmp_1;
+								}
+							}
+						}
+						else
+						{
+							$this->sXMLCode .= $this->xtTree[ $i ]->sData;
+						}
+					}
+
+					$this->mxtSaveTreeAsXML($this->xtTree[ $i ]);
+
+					if($this->xtTree[ $i ]->sData == "" && ($this->xtTree[ $i ]->sName == XML || $this->xtTree[ $i ]->sName == SECTION))
+					{
+						for($j = 0; $j < $this->xtTree[ $i ]->nDepth - 1; $j++)
+						{
+							$this->sXMLCode .= "\t";
+						}
+					}
+
+					$this->sXMLCode .= "</".strtolower($this->xtTree[ $i ]->sName).">\n";
+				}
+			}
+
+		}  //  mxtSaveTreeToFileAsXML
+
+		function mxtValidateFields($xtParent)
+		{
+			for($i = 0; $i < sizeof($this->xtTree);$i++)
+			{
+				if($this->xtTree[ $i ]->xtParent->nId == $xtParent->nId)
+				{
+					if($this->xtTree[ $i ]->sAttr[ required ] == 1)
+					{
+						@eval("global \$in_".$this->xtTree[ $i ]->sAttr[ name ].";");
+						@eval("\$sTmp = \$in_".$this->xtTree[ $i ]->sAttr[ name ].";");
+
+						if($sTmp == "")
+						{
+							$this->sErrors[] = $this->xtTree[ $i ]->sAttr[ text ]." field is required!";
+						}
+					}
+
+					$this->mxtValidateFields($this->xtTree[ $i ]);
+				}
+			}
+
+		}  //  mxtValidateFields
+
+		function mxtTranslateCode($xtParent)
+		{
+			for($i = 0; $i < sizeof($this->xtTree);$i++)
+			{
+				if($this->xtTree[ $i ]->xtParent->nId == $xtParent->nId)
+				{
+					$this->mxtGetTranslation($this->xtTree[ $i ], 0,$xtParent);
+					$this->mxtTranslateCode($this->xtTree[ $i ]);
+					$this->mxtGetTranslation($this->xtTree[ $i ], 1);
+				}
+			}
+
+		}  //  mxtTranslateCode
+
+		function mxtCleanCode()
+		{
+			$this->sCode = ereg_replace(",)", ")", $this->sCode);
+			$this->sCode = ereg_replace(", )", ")", $this->sCode);
+		}  //  mxtCleanCode
+
+		function CModXMLCTTranslator($xtTree, $nStart = 1)
+		{
+			$this->xtTree = $xtTree;
+
+			if($nStart)
+			{
+				$this->mxtTranslateCode(0);
+				$this->mxtCleanCode();
+			}
+		}  //  CModXMLTranslator
+
+		function mxtGetTreeAsVariables()
+		{
+			$this->mxtTranslateCodeEx(0);
+		}  //  mxtGetTreeAsVariables
+
+		function mxtGetTranslation($xtObj, $sFlag, $xtParent=false)
+		{
+			$s = "";
+
+			switch($xtObj->sName)
+			{
+				case XML:
+					if(!$sFlag)
+					{
+						$s = "";
+					}
+					else
+					{
+						$s = "";
+					}
+					break;
+
+				case ENUM:
+
+					if(!$sFlag)
+					{
+						$s .= '<option value="'.$xtObj->sAttr[ val ].'"'.((trim($xtParent->sData) == trim($xtObj->sAttr[ val ]))? "selected" : " ").'>'.$xtObj->sAttr[ val ].'</option>'."\n";
+					}
+					break;
+
+				case FIELD_TOPIC:
+					if(!$sFlag)
+					{
+						$s = '<tr><td colspan=2 class="text"><b>'.$xtObj->sData.'</td></tr>';
+					}
+					break;
+
+				case FIELD:
+					if(!$sFlag)
+					{
+						$s = '<tr height=20><td class="text"><u>'.$xtObj->sAttr[ text ].'</u>:</td><td align="right" class="text">';
+
+						$xtObj->sAttr[ type ] = strtoupper($xtObj->sAttr[ type ]);
+						switch($xtObj->sAttr[ type ])
+						{
+							case SELECT:
+								$s .= '<select name="in_'.$xtObj->sAttr[ name ].'" style="width:150px">';
+								break;
+
+							case PASSWORD:
+							case EDIT:
+								if($xtObj->sAttr[ type ] == PASSWORD)
+								{
+								   	$sData = "";
+								}
+								else
+								{
+								   	$sData = $xtObj->sData;
+								}
+
+								$s .= '<input type="text" name="in_'.$xtObj->sAttr[ name ].'" value="'.$sData.'" style="width:'.($xtObj->sAttr[ width ] == "" ? "150" : $xtObj->sAttr[ width ]).'px">';
+								break;
+
+							case CHECKBOX:
+								$s .= '<input type="checkbox" name="in_'.$xtObj->sAttr[ name ].'"'.(!$xtObj->sData ? "" : " checked").'>';
+								break;
+						}
+					}
+					else
+					{
+						$xtObj->sAttr[ type ] = strtoupper($xtObj->sAttr[ type ]);
+						switch($xtObj->sAttr[ type ])
+						{
+							case SELECT:
+								$s .= '</select>';
+								break;
+						}
+
+						$s .= '</td></tr>';
+					}
+					break;
+
+				case SECTION:
+					if(!$sFlag)
+					{
+						$s = '<tr><td colspan=2 class=text>&nbsp;</td></tr><tr>'.
+    	  					 '<td class="small" width=440><b>'.$xtObj->sAttr[ name ].'</td><td width=10 bgcolor=A0A0A0><spacer type=block height=100% width=10></td>'.
+    						 '</tr><tr><td class="small" bgcolor=A0A0A0 height=4 colspan=2><spacer type=block height=4 width=100%></td></tr><tr><td colspan=2><br><table width="100%" border="0" cellspacing="3" cellpadding="3">';
+					}
+					else
+					{
+						$s = '</table></td></tr>'.
+						     '';
+					}
+					break;
+
+				case NAME:
+					if(!$sFlag)
+					{
+						$s = '$xsName = "'.$xtObj->sData.'";';
+					}
+					break;
+
+				default:
+					if(!$sFlag)
+					{
+						$sTmp = strtolower($xtObj->sName);
+						$sTmp[ 0 ] = strtoupper($xtObj->sName[ 0 ]);
+
+						$s = '$xs'.$sTmp.' = ';
+
+						if($xtObj->sData != "")
+						{
+							$s .= '"'.$xtObj->sData.'";';
+						}
+						else
+						{
+							$s .= '0;';
+						}
+					}
+			}
+			$this->sCode .= $s;
+		}  //  mxtGetTranslation
+
+		function mxtTranslateCodeEx($xtParent)
+		{
+  			for($i = 0; $i < sizeof($this->xtTree);$i++)
+			{
+				if($this->xtTree[ $i ]->xtParent->nId == $xtParent->nId)
+				{
+					if($this->xtTree[ $i ]->sName == FIELD)
+					{
+						$sData = $this->xtTree[ $i ]->sData;
+
+						$sData = ereg_replace("\t\t\t\t", "", $sData);
+						$sData = ereg_replace("\t\t\t", "", $sData);
+						$sData = ereg_replace("\t\t", "", $sData);
+						$sData = ereg_replace("\t", "", $sData);
+						$sData = ereg_replace("\n", "", $sData);
+
+
+						@eval("global \$".$this->xtTree[ $i ]->sAttr[ name ].";");
+						@eval("\$".$this->xtTree[ $i ]->sAttr[ name ]."=\"".$sData."\";");
+					}
+
+					$this->mxtTranslateCodeEx($this->xtTree[ $i ]);
+				}
+			}
+
+		}  //  mxtTranslateCodeEx
+
+		function mxtTranslateAsForm($xtParent)
+		{
+   			for($i = 0; $i < sizeof($this->xtTree);$i++)
+			{
+				if($this->xtTree[ $i ]->xtParent->nId == $xtParent->nId)
+				{
+					$xtObj = $this->xtTree[ $i ];
+
+					if($xtObj->sAttr[ type ] == "")
+					{
+						$xtObj->sAttr[ type ] = edit;
+					}
+
+					if($xtObj->sAttr[ name ] == "")
+					{
+						$xtObj->sAttr[ name ] = strtolower($xtObj->sName);
+					}
+
+					if($xtObj->sName == XML)
+					{
+						$xtObj->sName = SECTION;
+						$xtObj->sAttr[ name ] = "PLUG-IN OPTIONS";
+					}
+					else
+					{
+						$xtObj->sName = FIELD;
+					}
+
+					if($xtObj->sAttr[ text ] == "")
+					{
+						switch($xtObj->sAttr[ name ])
+						{
+							case name:
+								$xtObj->sAttr[ text ] = "Plug-in name";
+								break;
+
+							case disabled:
+								$xtObj->sAttr[ text ] = "Disabled (for running)";
+								$xtObj->sAttr[ type ] = checkbox;
+								break;
+
+							case visible:
+								$xtObj->sAttr[ text ] = "Visible (or not visible in the plug-ins menu)";
+								$xtObj->sAttr[ type ] = checkbox;
+								break;
+
+							case root:
+								$xtObj->sAttr[ text ] = "This plug-in can be only run under administrator's profile";
+								$xtObj->sAttr[ type ] = checkbox;
+								break;
+						}
+					}
+
+					$this->mxtGetTranslation($xtObj, 0);
+					$this->mxtTranslateAsForm($this->xtTree[ $i ]);
+					$this->mxtGetTranslation($xtObj, 1);
+				}
+			}
+
+		}  //  mxtTranslateAsForm
+
+	}
+?>

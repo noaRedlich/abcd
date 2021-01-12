@@ -1,0 +1,260 @@
+<?php
+
+
+	$simple=1;
+	$page_subtitle = "דו\"ח המחאות";
+	$xlsfilename = "cheques";
+	
+	if ($id && $deposit!=""){
+		$noheader=1;
+	}
+	
+	if (!$mode){
+		include("include/common.php");
+		if (!loginCheck('User'))exit;
+		global $action, $id, $cur_page, $lang, $conn, $config;
+	}
+
+	if ($id && $deposit!=""){
+		$sql="update transactionpayments set deposited=$deposit where id=$id";
+		$stocks = $conn->Execute($sql);
+		if ($stocks === false){die("ERROR");}
+		die("OK");
+	}
+	
+	include("$config[template_path]/admin_top.html");
+	
+	if (($_GET["sDate"] || $_GET["ids"] || $mode) && $saction != "sendreport"){
+		$saction="go";
+	}
+	
+	if ($ids){
+		$sDate = date("d/m/Y");
+		$eDate = $sDate;
+	}
+	
+	if (!$sDate){
+		$firstday = mktime(0,0,0,date("m"),1,date("Y"));
+		$sDate = date("d/m/Y",strtotime("+0 day",$firstday));
+		$eDate = date("d/m/Y",strtotime("-1 day",strtotime("+ 1 month",$firstday)));
+	}
+	
+	$asDate = explode("/",$sDate);
+	$aeDate = explode("/",$eDate);
+	
+	$startdate = mktime(23,59,59,$asDate[1],$asDate[0],$asDate[2]);
+	$enddate = mktime(23,59,59,$aeDate[1],$aeDate[0],$aeDate[2]);
+	$startDay = date("Y/m/d",$startdate);
+	$endDay = date("Y/m/d",$enddate);
+	
+	
+	?>
+	
+	<?if(!$mode){
+		$stocks = $conn->Execute("select * from listingsStocks where Status=1 and user_id = $userID order by binary StockName");
+		if ($stocks === false){log_error($sql);}
+	?>
+		<script>
+		function PrintReport(){
+			document.getElementById("Query").style.display = "none";
+			window.print();
+			document.getElementById("Query").style.display = "";
+		}
+		
+		function openReport1(url){
+			var ss="";
+			s = window.open(url+'&simple=1','','top='+(window.screenTop+5)+',left='+(window.screenLeft+20)+',height=500,width=800,resizable=yes,scrollbars=yes,status=yes');
+			s.focus();
+		}	
+		
+		function deposit(id,el){
+			var url = "rep_cheque.php?id="+id+"&deposit="+((el.checked)?1:0);
+			xmlhttp = new ActiveXObject("Microsoft.XMLHTTP")
+		    xmlhttp.open("GET",url,false)
+			xmlhttp.send();
+			if(xmlhttp.ResponseText!="OK"){
+				alert("ישנה בעיה בעדכון נתונים");
+				el.checked=!el.checked;
+			}
+		} 
+		</script>
+		<style>
+		.z {color:gray}
+		.b {font-weight:bold}
+		th {background-color:silver}
+		</style>
+		<body>
+		<table cellpadding=5 border=0 width=100%>
+		<tr>
+		<form name=F method=post>
+		<input type=hidden name=usr value=<?=$usr?>>
+		<?$reporttitle = $lang["report_cheque"];?>
+		<?if ($usr){$reporttitle.="<br>".$username;}?>
+		<td nowrap>
+		<strong style='font-size:12pt'><?=$reporttitle?></strong>
+		</td><td width=99% style='border:inset 1'>
+		
+		<?if (!$ids){?>
+		
+		<?=$lang["from"]?> <input size=6 name=sDate id=sDate value="<?=$sDate?>">
+<img align=absmiddle style="cursor:hand" src='images/calendar.gif' onclick='ShowCalendar("F.sDate")
+'>
+ <?=$lang["to"]?> <input size=6 name=eDate id=eDate value="<?=$eDate?>">
+<img align=absmiddle style="cursor:hand" src='images/calendar.gif' onclick='ShowCalendar("F.eDate")
+'>
+ 
+		
+	
+		<!--select name=stock>
+		<option value=""><?=$lang["all_points"]?>
+		<?while(!$stocks->EOF){?>
+			<option value="<?=$stocks->fields["ID"]?>" <?=($stock==$stocks->fields["ID"])?"selected":""?>><?=$stocks->fields["StockName"]?>
+			<?$stocks->MoveNext();
+		}?>
+		</select-->
+		
+		<?=$language["search_by_number"]?> <input name=number size=8 maxlength=10 value="<?=$number?>">
+		<?=$language["search_by_cheque"]?> <input name=cheque size=8 maxlength=10 value="<?=$cheque?>">	
+		<input type=submit value=" <?=$lang["show"]?> " style=";cursor:hand;padding:0 0 0 10;background:url(images/refresh.gif);background-repeat:no-repeat;background-position:left top" >
+		<br>
+		שקים לפי הפקדות 
+		<select name=deposited>
+		<option value=""  <?=($deposited=="")?"selected":""?>>כל השקים
+		<option value="1" <?=($deposited=="1")?"selected":""?>>שקים שהופקדו
+		<option value="0" <?=($deposited=="0")?"selected":""?>>שקים שטרם הופקדו
+		</select>
+		<?}?>
+		
+		<?if ($saction=="go" || $saction=="sendreport"){
+			require("sendreport.php");
+		}?>
+		<input type=hidden name=saction value=go>
+		<input type=hidden name=reportbody value="">
+		<input type=hidden name=sendmode value="">
+		</td>
+		</form>
+		</tr>
+		</table>
+	<?}?>
+	<?	
+	if ($saction=="sendreport"){
+		$rbody = strip_tags(stripslashes($reportbody),"<table><tr><td><th><b>");
+		sendReport($reporttitle,$rbody,$sendmode);
+		echo "<center><strong style='color:green'>".$lang["report_sent"]."</strong></center>";
+		echo stripslashes($reportbody);
+	}
+	elseif ($saction=="go"){
+	
+	$worksheet->set_column('A:H', 13);
+	
+	$headings = array('חשבונית','תאריך קניה',"מס' שיק",'סכום','תאריך פרעון',"מס' בנק","מס' סניף","מס' חשבון");
+	$worksheet->write_row('A'.($rrow++), $headings, $heading);
+	;
+	
+	echo "<div ><br><table id=REPORTTABLE dir=$dir  width=100% border=1  bordercolor=gray style='border-collapse:collapse'  bgcolor=white cellpadding=3 cellspacing=1>";
+	echo "
+	<tr align=center bgcolor=#efefef>
+	<td>חשבונית</td>
+	<td>תאריך קניה</td>
+	<td>מס' שיק</td>
+	<td>סכום</td>
+	<td>תאריך פרעון</td>
+	<td>מס' בנק</td>
+	<td>מס' סניף</td>
+	<td>מס' חשבון</td>
+	<td>הופקד</td>
+	</tr>
+	
+	";
+	
+	
+	
+	$day = $startdate;
+	if ($number||$cheque){
+		$day=$enddate;
+	}
+	
+	while ($day <= $enddate){
+
+		$sqldate = date("Y-m-d",$day);
+		$opdate = date("d/m/Y",$day);
+		$qq ="";
+		
+		if ($number){
+			$qq .= " and journalNum * 10000 + tranNum = ".intval($number);
+		}
+		elseif ($cheque){
+			$qq .= " and p.ChequeNumber+0 = ".intval($cheque);
+		}
+		else{
+			$qq = " and  trandate = '$sqldate' ";
+			if ($stock){
+				$qq.="and t.stock_id=$stock";
+			}
+		}
+		
+		if($deposited!=""){
+			$qq .= " and deposited = $deposited ";
+		}
+		
+		$sql = "select 
+			t.TranNum,t.id,p.id as paymentid, t.TranDate, j.journalNum,p.ChequeSum,p.deposited,p.FullData,p.ChequeNumber,p.PayDate,p.BankNo,p.BankDeptNo,p.BankCntNo from
+			 transactions t inner join transactionpackages j on j.id = t.package_id
+			 inner join transactionpayments p on p.trans_id = t.id
+			where 
+				p.paymID = 2 and 
+				t.user_id = $userID
+				$qq
+				order by t.id
+			";
+			
+		$payments = $conn->Execute($sql);
+		if ($payments === false){log_error($sql);}
+
+		while (!$payments->EOF){
+			$transid = $payments->fields["ID"];
+			$chn_num = str_pad( ($payments->fields["journalNum"])*10000 +  $payments->fields["TranNum"] , 8,"0",STR_PAD_LEFT);
+	
+			echo "<tr valign=top>";
+					echo "<td><a href='javascript:openReport1(\"rep_cheshbonit.php?ids=".$payments->fields["id"]."\")'>".$chn_num."</a></td>";
+					echo "<td>".date("d/m/Y",strtotime($payments->fields["TranDate"]))."</td>";
+					echo "<td><strong>".$payments->fields["ChequeNumber"]."</strong></td>";
+					echo "<td><strong>".number_format($payments->fields["ChequeSum"],2)."</strong></td>";
+					echo "<td>".date("d/m/Y",strtotime(substr($payments->fields["PayDate"],0,10)))."</td>";
+					echo "<td>".((intval($payments->fields["BankNo"])==0)?"":$payments->fields["BankNo"])."</td>";
+					echo "<td>".((intval($payments->fields["BankDeptNo"])==0)?"":$payments->fields["BankDeptNo"])."</td>";
+					echo "<td>".((intval($payments->fields["BankCntNo"])==0)?"":$payments->fields["BankCntNo"])."</td>";
+					echo "<td align=center><input type=checkbox onclick='deposit(".$payments->fields["paymentid"].",this)' value=1 ".(($payments->fields["deposited"]==0)?"":"checked")."></td>";
+			echo "</tr>";
+			
+			$b=$body;
+			$worksheet->write("A".($rrow),$chn_num,$b);
+			$worksheet->write("B".($rrow),date("d/m/Y",strtotime($payments->fields["TranDate"])),$b);
+			$worksheet->write("C".($rrow),intval($payments->fields["ChequeNumber"]),$b);
+			$worksheet->write("D".($rrow),$payments->fields["ChequeSum"],$b);
+			$worksheet->write("E".($rrow),date("d/m/Y",strtotime(substr($payments->fields["PayDate"],0,10))),$b);
+			$worksheet->write("F".($rrow),((intval($payments->fields["BankNo"])==0)?"":intval($payments->fields["BankNo"])),$b);
+			$worksheet->write("G".($rrow),((intval($payments->fields["BankDeptNo"])==0)?"":intval($payments->fields["BankDeptNo"])),$b);
+			$worksheet->write("H".($rrow),((intval($payments->fields["BankCntNo"])==0)?"":intval($payments->fields["BankCntNo"])),$b);
+			$rrow++;
+						
+			$payments->MoveNext();
+		}
+
+		
+		 //$day += (60*60*24);
+         $day= strtotime("+1 day",$day);
+	}
+	
+	echo "</table></div>";
+	
+	}
+	
+	$workbook->close();
+	copy($fname,"../../tmp/".$xlsfilename."_".$userID.".xls");
+	
+	if (!$mode){
+		include("$config[template_path]/admin_bottom.html");
+		$conn->Close(); // close the db connection
+	}
+?>

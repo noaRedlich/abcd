@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xml>
+	<main_table>creditorpayments</main_table>
+	<name>#payments#</name>
+	<options>
+		<opt name="create_record" type="always"></opt>
+		<opt name="search" type="none"></opt> 
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="Day" type="date">#payment_date#</vcol>
+		<vcol name="Amount">#payment_amt#</vcol>
+		<vcol name="hov" type="yes_no">#hiuv#</vcol>
+		<vcol name="status" type="yes_no">#admin_listings_editor_active#</vcol>
+	</view>
+	<edit>
+		<ecol name="creditor_id" type="cross" cross="listingsSuppliers" cross_field="ID" lookup_field="SupplierName">#admin_listings_editor_contact1#</ecol>
+		<ecol name="Day" type="date">#payment_date#</ecol>
+		<ecol name="Amount" type="string">#payment_amt#</ecol>
+		<ecol name="PaymentType" type="enum">#payment_mid#
+			<enum val="0">#chq#</enum>
+			<enum val="1">#cash#</enum>
+			<enum val="2">#cc_credit#</enum>
+			<enum val="3">#invoice#</enum>
+		</ecol>
+		<ecol name="hov" type="enum">#paymnet_type#
+			<enum val="1">#hiuv#</enum>
+			<enum val="0">#refund1#</enum>
+		</ecol>
+		<ecol name="checknumber" type="string">#number_cheque#</ecol>
+		<ecol name="checkdate" type="date">#date_first_payment#</ecol>
+		<ecol name="checkbank" type="string">#number_bank#</ecol>
+		<ecol name="checksnif" type="string">#number_branch#</ecol>
+		<ecol name="checkaccount" type="string">#number_account#</ecol>
+		<ecol name="comment" type="string">#strComments#</ecol>
+		<ecol name="status" type="yes_no">#admin_listings_editor_active#</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="Day desc"></opt>
+		<opt name="search_by" type="Day"></opt>
+	</sql_actions>
+</xml>

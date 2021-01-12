@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<language>
+    <button>
+        <search>"Search"</search>
+        <add>"Add"</add>
+        <reset>"Reset"</reset>
+        <createCard>"Create Card"</createCard>
+    </button>
+    <field>
+        <cardId>"CardId"</cardid>
+        <balanceCreate>"Balance Create"</balanceCreate>
+        <dateCreate>"Date Create"</dateCreate>
+    </field>
+</language>

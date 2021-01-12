@@ -1,0 +1,27 @@
+<xml>
+	<main_table>webDate_bd_access</main_table>
+	<name>Users access</name>
+	<options>
+		<opt name="create_record" type="none"></opt>
+		<opt name="edit_record" type="always"></opt>
+		<opt name="view" type="none"></opt>
+	</options>
+	<edit>
+		<ecol name="uid" type="cross" cross="webDate_bd_users" cross_field="id" lookup_field="login">Username</ecol>
+		<ecol name="sid" type="cross_child" master_cross="webDate_bd_users"
+			 master_cross_id="id" master_field="uid"
+			 cross="webDate_bd_services" cross_field="id" lookup_field="name"
+			 list_name="edit_fields">Service name
+
+					<ecol name="r" type="check_yes_no">Read</ecol>
+					<ecol name="w" type="check_yes_no">Write</ecol>
+					<ecol name="d" type="check_yes_no">Delete</ecol>
+					<ecol name="adds" type="check_yes_no">Additional</ecol>
+
+		</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="uid"></opt>
+		<opt name="group" val="uid"></opt>
+	</sql_actions>
+</xml>

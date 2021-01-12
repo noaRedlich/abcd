@@ -1,0 +1,11 @@
+<?
+  	if(isset($bd3Auth) && $bd3Auth != "")
+	{
+	 	$nRes = sysIsTrustedId($bd3Auth);
+
+		if($nRes == 1)
+		{
+		 	header("Location: main.php");
+		}
+	}
+?>

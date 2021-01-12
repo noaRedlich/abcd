@@ -1,0 +1,25 @@
+<xml>
+	<main_table>webDate_bd_services</main_table>
+	<name>Services list</name>
+	<options>
+		<opt name="create_record" type="always"></opt>
+		<opt name="search" type="sometimes"></opt>
+		<opt name="main_view" type="always"></opt>
+	</options>
+	<view>
+		<vcol name="bd_counter">#</vcol>
+		<vcol name="name">Service name</vcol>
+		<vcol name="link">Link</vcol>
+		<vcol name="admin_only" type="yes_no">Adm. rights</vcol>
+	</view>
+	<edit>
+		<ecol name="name" type="string">Service name</ecol>
+		<ecol name="link" type="string">Link</ecol>
+		<ecol name="admin_only" type="yes_no">Adm. rights</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="admin_only"></opt>
+		<opt name="order_type" val="desc"></opt>
+		<opt name="search_by" val="admin_only,name"></opt>
+	</sql_actions>
+</xml>

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xml>
+	<main_table>workers</main_table>
+	<name>#workers#</name>
+	<options>
+		<opt name="create_record" type="sometimes"></opt>
+		<opt name="search" type="sometimes"></opt>
+		<opt name="main_view" type="always"></opt>
+		<opt name="delete_record" type="none"></opt>
+	</options>
+	<view>
+		<vcol name="WorkerNum" >#worker_num#</vcol>
+		<vcol name="WorkerName">#firstname#</vcol>
+		<vcol name="WorkerSurName">#lastname#</vcol>
+		<vcol name="TeudatZehut">#identification#</vcol>
+		<vcol name="Status" type="yes_no">#admin_listings_editor_active#</vcol>
+	</view>
+	<edit>
+		<!--sk 03/01/16 numworker-->
+		<!--<ecol name="WorkerNum" type="string">#worker_num#</ecol>-->
+	
+		<ecol name="WorkerNum" type="text" style="height: 40% !important;">#worker_num#</ecol><!--lc 03/05/2016 change height????-->  
+		<ecol name="WorkerName"  type="string">#firstname#</ecol>
+		<ecol name="WorkerSurName"  type="string">#lastname#</ecol>
+		<ecol name="TeudatZehut" type="string">#identification#</ecol>
+		<ecol name="Birthday" type="date">#birthday#</ecol>
+		<ecol name="Address"  type="string">#address#</ecol>
+		<ecol name="HomePhone" type="string">#home_phone#</ecol>
+		<ecol name="CellPhone"  type="string">#cell_phone#</ecol>
+		<ecol name="StartDate"  type="date">#t.thilt_work#</ecol>
+		<ecol name="EndDate" type="date">#termination_ddmmyyy#</ecol>
+		<ecol name="HourSalary" type="string">#hourly_wage#</ecol>
+		<ecol name="Status" type="yes_no">#admin_listings_editor_active#</ecol>
+		<ecol name="show_always" type="yes_no">הצג תמיד במכירות</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="WorkerNum"></opt>
+		<opt name="search_by" type="WorkerNum"></opt>
+	</sql_actions>
+</xml>

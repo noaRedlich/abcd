@@ -1,0 +1,121 @@
+<style type="text/css" media="screen">
+	.pop_peulot.keyboard{
+		width:96%;
+	}
+	.keyboard_tbl tr{
+		height:72px;
+	}
+	.keyboard_tbl input{
+		height:100%;
+		width: 100%;
+	}
+	.keyboard_tbl{
+		 border-collapse: separate;
+    border-spacing: 12px;
+	}
+	.keyboard_tbl td.special input.erase{
+		  background: url('images/erase.png')no-repeat 51% 50% #e6e9ee!important;
+	}
+	.keyboard_tbl .result{
+		position: absolute!important;
+		height: 97%;
+		width:100%;
+	}
+	.keyboard_tbl td input{
+		font-size: 255%;
+	  border: 1px solid #cacfd5;
+	  padding: 0px;
+    color: rgb(67,74,84);
+    border-radius: 3px;
+    background: white;
+	}
+	.keyboard_tbl td.special input{
+		background: #e6e9ee!important;
+	}
+	.popup.keyboard .container_pop{
+		height:auto!important;
+		position: absolute;
+ 		bottom: 2%;
+	}
+</style>
+<div class="popup pop_peulot  keyboard" style="display:none" ng-controller="KeyboardController">
+			
+		<div class="container_pop" ng-controller="ProductController"><!--sk 14/10 calc price whith/out vat-->
+			<table  style="width:100%" class="keyboard_tbl " >
+				<tr >
+					<td colspan="11">
+						<input type="text" value="" class="keyboard_result" placeholder="הקלד כאן" style="  border: 1px solid #cfe7b7; background: #ddeccd;font-size: 251%;  border: 1px solid #cfe7b7; background: #ddeccd;font-size: 251%;"/>
+					</td>
+				</tr>
+				<tr>
+					<td class=" special"><input class="erase" type="button" name="one" value="   " ng-click="erase()"></td>
+					<td><input type="button" name="one" value=" 0 " ng-click="keyboard_type('0')"></td>
+					<td><input type="button" name="one" value="  9  " ng-click="keyboard_type('9')"></td>
+					<td><input type="button" name="one" value="  8  " ng-click="keyboard_type('8')"></td>
+					<td><input type="button" name="one" value="  7  " ng-click="keyboard_type('7')"></td>
+					<td><input type="button" name="one" value="  6  " ng-click="keyboard_type('6')"></td>
+					<td><input type="button" name="one" value="  5  " ng-click="keyboard_type('5')"></td>
+					<td><input type="button" name="one" value="  4  " ng-click="keyboard_type('4')"></td>
+					<td><input type="button" name="one" value="  3  " ng-click="keyboard_type('3')"></td>
+					<td><input type="button" name="one" value="  2  " ng-click="keyboard_type('2')"></td>
+					<td><input type="button" name="one" value="  1  " ng-click="keyboard_type('1')"></td>
+				</tr>
+				<tr>	
+					<!--sk 09/11 fix large button in keyboard update_input_val() -->
+					<!--sk 14/10 calc price whith/out vat-->
+					<td rowspan="4" style="position: relative; height: 90.2px;"><div name="DoIt" class="result" onclick="iskeyboard=1;$('.wrap').click();doit();update_input_val();" ><i class="fa fa-check-circle"></i></div>
+						<div name="DoIt" class="result2 display" ><i class="fa fa-check-circle"></i></div>
+					</td>			
+					<td><input type="button" name="one" value=" {{lang[0]}}  " ng-click="keyboard_type(lang[0])"></td>
+					<td><input type="button" name="one" value="  {{lang[1]}}  " ng-click="keyboard_type(lang[1])"></td>
+					<td><input type="button" name="one" value="  {{lang[2]}}  " ng-click="keyboard_type(lang[2])"></td>
+					<td><input type="button" name="one" value="  {{lang[3]}}  " ng-click="keyboard_type(lang[3])"></td>
+					<td><input type="button" name="one" value="  {{lang[4]}}  " ng-click="keyboard_type(lang[4])"></td>
+					<td><input type="button" name="one" value="  {{lang[5]}}  " ng-click="keyboard_type(lang[5])"></td>
+					<td><input type="button" name="one" value="  {{lang[6]}}  " ng-click="keyboard_type(lang[6])"></td>
+					<td><input type="button" name="one" value="  {{lang[7]}}  " ng-click="keyboard_type(lang[7])"></td>
+					<td><input type="button" name="one" value="  {{lang[8]}}   " ng-click="keyboard_type(lang[8])"></td>
+					<td><input type="button" name="one" value="  ?  " ng-click="keyboard_type('?')"></td>
+				</tr>
+				<tr>
+					
+					<td><input type="button" name="one" value="  ;  " ng-click="keyboard_type(';')"></td>
+					<td><input type="button" name="one" value="  {{lang[9]}}   "ng-click="keyboard_type(lang[9])"></td>
+					<td><input type="button" name="one" value="  {{lang[10]}}  " ng-click="keyboard_type(lang[10])"></td>
+					<td><input type="button" name="one" value="  {{lang[11]}}  " ng-click="keyboard_type(lang[11])"></td>
+					<td><input type="button" name="one" value="  {{lang[12]}}   " ng-click="keyboard_type(lang[12])"></td>
+					<td><input type="button" name="one" value="  {{lang[13]}} " ng-click="keyboard_type(lang[13])"></td>
+					<td><input type="button" name="one" value="  {{lang[14]}}  " ng-click="keyboard_type(lang[14])"></td>
+					<td><input type="button" name="one" value="  {{lang[15]}}  " ng-click="keyboard_type(lang[15])"></td>
+					<td><input type="button" name="one" value=" {{lang[16]}}   " ng-click="keyboard_type(lang[16])"></td>
+					<td><input type="button" name="one" value=" {{lang[17]}}   " ng-click="keyboard_type(lang[17])"></td>
+				</tr>
+				<tr>
+					<td><input type="button" name="one" value="  .  " ng-click="keyboard_type('.')"></td>
+					<td><input type="button" name="one" value="  {{lang[18]}}   " ng-click="keyboard_type(lang[18])"></td>
+					<td><input type="button" name="one" value=" {{lang[19]}}   " ng-click="keyboard_type(lang[19])"></td>
+					<td><input type="button" name="one" value=" {{lang[20]}}   " ng-click="keyboard_type(lang[20])"></td>
+					<td><input type="button" name="one" value="  {{lang[21]}}   " ng-click="keyboard_type(lang[21])"></td>
+					<td><input type="button" name="one" value="  {{lang[22]}}  " ng-click="keyboard_type(lang[22])"></td>
+					<td><input type="button" name="one" value="  {{lang[23]}}   " ng-click="keyboard_type(lang[23])"></td>
+					<td><input type="button" name="one" value="  {{lang[24]}}   " ng-click="keyboard_type(lang[24])"></td>
+					<td><input type="button" name="one" value="  {{lang[25]}}   " ng-click="keyboard_type(lang[25])"></td>
+					<td><input type="button" name="one" value="  {{lang[26]}}   " ng-click="keyboard_type(lang[26])"></td>
+				</tr>
+				<tr>
+					
+					<td><input type="button" name="one" value="  ,  " ng-click="keyboard_type(',')"></td>
+					
+					<td><input type="button" name="one" value="  -  " ng-click="keyboard_type('-')"></td>
+					
+					<td colspan="4" class="special"><input type="button" name="one" value="  רווח  " ng-click="keyboard_type(' ')"></td>
+					<td><input type="button" name="one" value="  /  " ng-click="keyboard_type('/')"></td>
+					<td><input class="shiftc" type="button" name="one" value="shft" ng-click="shft()"></td>
+					<td><input type="button" name="one" value="{{lang[27]}}" ng-click="change_lang(lang[27])"></td>
+					<td><input type="button" name="one" value="ysm" ng-click="change_lang('ysm')"></td>
+				</tr>
+				
+			</table>
+		</div>
+			<input type="hidden" name="flag_focusedk"/>
+	</div>

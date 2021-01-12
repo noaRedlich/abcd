@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<language>
+    <cardId>מספר כרטיס מתנה</cardId>
+    <charge>נטען</charge>
+    <paid>שולם</paid>
+    <cancel>ביטול</cancel>
+    <add>הסף</add>
+    <balanceCurrent>יתרה</balanceCurrent>
+    <dateCreate>תאריך יצירה</dateCreate>
+	<search>חפש</search>
+    <reset>איפוס</reset>
+    <date>תאריך</date>
+    <platform>בסיס פעולה</platform>    
+	<createCard>להוסיף כרטיס</createCard>
+    <balance>יתרה</balance>	    
+	<ID>מספר מבצע</ID>
+    <Active>פעיל</Active>
+    <DateStart>תאריך התחלה</DateStart>
+    <DateExpire>תאריך סיום</DateExpire>
+    <Desc>תיאור</Desc>
+    <Type>סוג</Type>
+    <Quantity>כמות</Quantity>
+    <Percent>אחוז</Percent>
+    <Total>סה"כ</Total>
+    <ClubType>סוג מועדון</ClubType>
+    <NewSale>מבצע חדשה</NewSale>
+    <Next>Next</Next>
+    <Back>Back</Back>
+    <Barcode>ברקוד</Barcode>
+    <Title>שם פריט</Title>
+    <Finish>Finish</Finish>
+    <Bye>קנה</Bye>
+    <Get>קבל</Get>
+	<Close>סגור</Close>
+    <Save>שמור</Save>
+    <RemoveConfirm>Remove Confirmation</RemoveConfirm>
+    <All>All</All>
+	
+</language>

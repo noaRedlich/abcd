@@ -1,0 +1,56 @@
+	<div class="popup pop_peulot  pop_hachlafa" ng-controller="CashProdController  as cash_prd">
+		
+		<!--<img src="images/box_large.png" class="img_wrap"/>	-->	
+		<div class="container_pop an" ng-controller="AchlafaController as achlafaC">
+			<table id="achlafa_pritim" style="width: 100%;font-size:150%;line-height: 45px;" ng-show="showprod">
+	  			<tr class="details_title">
+	  				<th>שם פריט</th>
+	  				<th>מחיר</th><th style="">כמות</th>
+	  				<th>הנחה</th>
+	  				<th class="border_table">סה"כ</th>
+	  				<th class="border_table" style="width: 50px;"></th>
+	  			</tr>
+	  		</table>
+	  	<div style="height: 81%;overflow: scroll;" ng-show="showprod">
+	  		<table id="achlafa_pritim" style="width: 100%;font-size:150%;line-height: 45px;" >
+	  			<tr ng-repeat="cash_prd in repeatin" ng-click="hachlafa_barcode(cash_prd.BarCode)" data-id="{{cash_prd.BarCode}}">
+	  				<td>{{cash_prd.Title}}</td>
+	  				<td>{{cash_prd.SalePrice}}</td>
+	  				<td>{{cash_prd.Amount}}</td>
+	  				<td>{{}}</td>
+	  				<td>{{(cash_prd.SalePrice-cash_prd.Discount)*cash_prd.Amount|fix2}}</td>
+	  				<td><i class="fa fa-check-circle"></i></td>
+	  			</tr>	 
+	
+  			</table>
+  		</div>
+  			<table ng-hide="showprod" style="width: 100%;font-size:150%;line-height: 45px;" ng-show="showprod">
+  				<tr class='details_title'>
+  					<th style="width: 90px!important;">שם לקוח</th>
+  					<th>מספר עסקה</th>
+  					<th  style=''>תאריך</th>
+  					<th>שעה</th>
+  					<th class='border_table'>סכום</th>
+  					<th class='border_table' style='width: 50px;min-width: 60px!important;'></th>
+  				</tr>  				
+  			</table>
+  		<div ng-hide="showprod" style="  height: 83%;overflow: scroll;" >
+  			<table style="width: 100%;font-size:150%;line-height: 45px;">
+  				<tr ng-repeat="achlafa in achlafaC.cashes |customFunction0| orderObjectBy:'cash_num':true"  ng-click="set_tab(true,achlafa.cash_num)">
+  					<td style="width:23%">{{achlafa.SearchClient.SupplierName}}</td>
+  					<td style="width:60%">{{achlafa.cash_kupanum|fill_num}}</td>
+  					<td style="">{{achlafa.date}}</td>
+  					<td style="">{{achlaf.time}}</td>
+  					<td style="">{{achlafa.finalamount}}</td>
+  					<td style="">{{}}</td>
+  				</tr>
+  			</table>
+  		</div>	
+  			<input class="mybtn btnblue rightbottom" type="button" value="בחר עיסקה" ng-click="set_tab(false,-1)" ng-show="showprod">
+  			<input class="mybtn btnblue rightbottom2" type="button" value="ביטול"   ng-show="showprod" ng-click="set_tab(false,-1)">
+			<input class="mybtn btnblue leftbottom2" ng-click="choose_all_comp()" type="button" value="עסקה שלמה" ng-show="showprod">
+			<input class="mybtn btnblue leftbottom"  type="button" value="הדפס" ng-show="showprod" ng-click="printfff()">
+			<input class="mybtn btngray rightbottom" type="button" value="ביטול"  ng-hide="showprod" onclick="$('.wrap').click();" >
+			<!--<input class="mybtn btngray rightbottom" type="button" value="ביטול"  ng-hide="showprod" onclick="$('.wrap').click();" ng-click="set_tab(false,-1)">-->
+		</div>
+	</div>	

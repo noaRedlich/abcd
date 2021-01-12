@@ -1,0 +1,36 @@
+				</td>
+				</tr>
+				</table>
+<?		
+//require the footer file
+if ($simple)
+	require($GO_THEME->theme_path."simple_footer.inc");
+else
+	require($GO_THEME->theme_path."footer.inc");
+
+?>
+<?
+if (!$simple)
+{
+    $sql = "select n.*,nu.read,nu.id as nuid 
+        from $TABLE_NEWS_USERS nu, $TABLE_NEWS n where 
+        language = '".$GO_LANGUAGE->language."' 
+        and  n.id = nu.news_id and n.newtype = 'ALERT' 
+        and user_id = $userID and n.posted <= unix_timestamp() 
+        and n.visible = 1  
+        order by n.id desc";
+
+    $alertRS = $conn->Execute($sql);
+    if (!$alertRS->EOF)
+    {
+        ?>
+        <div class="alert" id="ALERT">
+        <?=$alertRS->fields["content"]?>
+        </div>    
+        <script>
+        document.all.ALERT.style.left = (document.body.clientWidth-500)/2;
+        </script>
+        <?
+    }
+}
+?>

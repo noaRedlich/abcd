@@ -1,0 +1,15 @@
+<?
+	$auth_str = sysIsTrustedUser($login, $pswd);
+
+	if($auth_str == "")
+	{
+	 	setcookie("bd3Auth");
+		//sysH100Error($login);
+	}
+	else
+	{
+
+	 	sysTrustThisUser($auth_str);
+		include "services/BD3ForwardRoutines.service";
+	}
+?>

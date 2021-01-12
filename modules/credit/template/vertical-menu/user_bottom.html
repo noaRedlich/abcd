@@ -1,0 +1,70 @@
+				</td>
+				</tr>
+				</table>
+
+				<?php
+					if ($printer_friendly != "yes")
+					{
+				?>
+									</td>
+												</tr>
+												<tr>
+													<td width="100%" style="border-style: none; border-width: medium; font-family:arial, helvetica; font-size:11px; color:#c3c3c3; line-height:20px">
+														&nbsp;
+													</td>
+												</tr>
+											</table>
+										</td>
+									</tr>
+								</table>
+							</td>
+						</tr>
+					</table>
+					
+					<table width="100%" cellpadding="0" cellspacing="0" border="0">
+			<tr>
+				<td colspan="2" class = "form_main">
+					&nbsp;
+				</td>
+			</tr>
+			<tr>
+				<td colspan="2" class = "color2_layout">
+					&nbsp;
+					</td>
+			</tr>
+			<tr>
+				<td>
+				&nbsp;
+				</td>
+				<td width="100%">
+					&nbsp;
+				</td>
+			</tr>
+		</table>
+		<p align="center" style="line-height: 100%; margin-top: 0; margin-bottom: 0"><br>
+		<table border="0" cellspacing="0" cellpadding="2" width="590" align="center">
+			<tr>
+				<td align="left">
+					<p class="small" align="left">powered by Open-Realty<br><a href="http://open-realty.org" target="author">Open-Realty.org</a><br>Forest City, PA</p>
+				</td>
+				<td>
+					<p class="small" align="left">
+					©2002 Open-Realty&nbsp; All Rights Reserved<br>
+					Use of this website and information available from it is subject
+					to our <a href="legal.php">Legal Notice and Disclaimer</a></p>
+				</td>
+			</tr>
+		</table>
+	</body>
+	<?php
+		} // end if ($printer_friendly != "yes")
+	?>
+</html>
+
+
+<?php
+$end_time = microtime();
+$render_time = $end_time - $start_time;
+echo "<!-- This page was generated in $render_time microseconds -->";
+
+?>

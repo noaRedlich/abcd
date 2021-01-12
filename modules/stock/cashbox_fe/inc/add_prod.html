@@ -1,0 +1,71 @@
+	<div class="popup  pop_add_prod  poptype1 mainarea2"  style="display: none" ng-controller="AddProductController">
+		<h2>הוספת פריט חדש</h2>
+		<div class="container_pop an" style="background: none;border:none;">
+			
+			<div class="part">
+			<label>שם פריט*</label>
+			<input type="text" id="p_name"/>
+			<label>ברקוד*</label>
+			<input type="text" id="p_barcode"/>
+			<div class="half right">
+				<label>מחיר מכירה לפני מע"מ*</label>
+				<!--sk 14/10 calc price whit/out vat-->
+				<input type="text" id="p_beforervat"  class="right" onblur="onblur0()" ng-blur="on_blur()"/>
+				<!--<label>מחיר עלות לפני מע"מ*</label>
+				<input type="text" id="p_alut_beforervat"  class="right"/>-->
+			</div>
+			<div class="half left">
+				<label>מחיר מכירה אחרי מע"מ*</label>
+				<!--sk 14/10 calc price whit/out vat-->
+				<input type="text" id="p_SalePrice"  class="right" onblur="onblur1()" ng-blur="on_blur1()"/>
+				<!--<label>מחיר עלות אחרי מע"מ*</label>
+				<input type="text" id="p_alut_beforevat"  class="right"/>-->
+			</div>
+			<label class="clear">מחיר ל:*</label>
+			<select id="p_Unit" ng-model="p_Unit" ng-options="name.name for name in  unit track by name.ID"></select>
+				<!--sk 21/09/2015 add cost to product-->
+			<!--<label>עלות</label>
+			<input type="text" id="p_cost"/>-->
+			<div class="half right">
+					<label>עלות לפני מע"מ</label>
+					<input type="text" id="p_cost"  class="right" onblur="onblur3()" ng-blur="on_blur3()"/>
+				</div>
+				<!--sk 09/11 onblur="onblur4(),onblur3,onblur2,onblur1 fix large button in keyboard-->
+				<div class="half left">
+					<label>עלות אחרי מע"מ</label>
+					<input type="text" id="p_cost_whith_vat"  class="right" onblur="onblur4()" ng-blur="on_blur4()"/>
+				</div>
+			</div>
+			<div class="part">
+				<label class="clear">מחלקה:</label>
+				<select id="p_ProductGroup" ng-model="p_ProductGroup" ng-options="CategoryName.CategoryName for CategoryName in  category track by CategoryName.ID"></select>
+				<label class="clear">ספק</label>
+				<select  id="p_Sapak" ng-model="p_Sapak" ng-options="SupplierName.SupplierName for SupplierName in  sapak track by SupplierName.ID">
+				</select>
+
+				<label>תאור</label>
+				<input type="text" id="p_description" style="height: 125px;margin: 0;margin-bottom: 4%;"/>
+				<label>דגם</label>
+				<input type="text" id="MisparZar"/>
+			</div>
+			<div class="part">
+				<label>מספר סידורי</label>
+				<input type="text" id="p_MisparSiduri"/>
+				<label>מספר חליפי</label>
+				<input type="text" id="p_chalifinum"/>
+				<div class="half right">
+					<label>כמות מינימלית</label>
+					<input type="text" id="p_StockMin"  class="right"/>
+				</div>
+				<div class="half left">
+					<label>כמות מקסימלית</label>
+					<input type="text" id="p_StockMax"  class="right"/>
+				</div>
+				<label class="clear">מיקום</label>				
+				<input type="text" id="p_Mikum"/>
+				<input class="mybtn btngray   leftbottom" type="button" value="ביטול" onclick="$( '.wrap' ).click();">
+				<input class="mybtn btnblue  leftbottom2 " type="button" value="שמירה" ng-click="add_product();">
+			</div>
+
+		</div>
+	</div>

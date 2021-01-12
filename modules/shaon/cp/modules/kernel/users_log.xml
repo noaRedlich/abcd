@@ -1,0 +1,26 @@
+<xml>
+	<main_table>webDate_bd_log</main_table>
+	<name>Users events</name>
+	<options>
+		<opt name="create_record" type="none"></opt>
+		<opt name="edit_record" type="always"></opt>
+		<opt name="view" type="none"></opt>
+		<opt name="type" type="master_detail"></opt>
+		<opt name="master_field" type="uid"></opt>
+	</options>
+	<edit>
+		<ecol name="uid" type="cross" cross="webDate_bd_users" cross_field="id" lookup_field="login">Username</ecol>
+		<ecol type="special_link" param="log_user">Look at the user's log file</ecol>
+		<ecol name="on_login" type="yes_no">On Loging in</ecol>
+		<ecol name="on_create" type="yes_no">On Creating record</ecol>
+		<ecol name="on_edit" type="yes_no">On Modifying record</ecol>
+		<ecol name="on_search" type="yes_no">On Searching</ecol>
+		<ecol name="on_delete" type="yes_no">On Deleting</ecol>
+		<ecol name="on_loading_module" type="yes_no">On Executing the service</ecol>
+		<ecol name="on_error" type="yes_no">On Error</ecol>
+	</edit>
+	<sql_actions>
+		<opt name="order" val="uid"></opt>
+		<opt name="group" val="uid"></opt>
+	</sql_actions>
+</xml>

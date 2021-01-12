@@ -1,0 +1,6 @@
+
+<link rel="stylesheet" href="../style.css" type="text/css">
+<span class=big>Execution failed</span> <br>
+<br>
+You do not have access on execution of module named "<? echo $current_service ?>".<br>
+For more information about this error, please contact our <a href="mailto:<? echo $admin_mail."?subject=BD3: Error from [".$REMOTE_ADDR."]:  Access denied - $current_service" ?>">system administrator</a>.

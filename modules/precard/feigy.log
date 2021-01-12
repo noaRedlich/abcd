@@ -1,0 +1,1 @@
+ INSERT INTO card_prepaid (`ID`, `DateCreate`,`username`) VALUES ('1234567',NOW(),'adfad' )

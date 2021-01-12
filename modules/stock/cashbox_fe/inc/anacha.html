@@ -1,0 +1,42 @@
+	<div class="popup pop_anacha" ng-controller="AnachaController as anachaC" >
+		<!--<img src="images/box_small.png" class="img_wrap"/>	-->	
+		<div class="container_pop an" style="display:none">
+			<div class="anacha_half right">
+				<input class="mybtn anacha_btn" name="shch" style="width:17%;position: absolute;top: 0;right:0" type="button" value="₪" ng-click="anacha_btn('.container_pop.an input[name=shch]');calc_anacha()">
+				<input  type="text" class="text anacha_txt anacha_txt2" name="anacha_all" style="width:59%" value="{{anacha}}"  ng-blur="calc_anacha()"/>
+				<input class="mybtn btnorange" name="achuz" style="width:17%;position: absolute;top: 0;left:0" type="button" value="%"  ng-click="anacha_btn('.container_pop.an input[name=achuz]');calc_anacha()">
+			</div>
+			<div class="anacha_half left">
+				<div style="width:49%;margin-right: 2%;float:right">
+					<p class="forty" style="  font-size: 117%;">ס. ביניים מקורי:</p>
+					<p class="forty " style="color: #e65844; font-size: 117%;">ס. ביניים חדש:</p>
+					<input class="mybtn btngray  zerofloat2" type="button" value="ביטול" onclick="$( '.wrap' ).click();">
+				</div>
+				<div style="width:49%;float:left">
+					<input  class="text s_original  zerofloat2" value="{{original_afterprod}}">
+					<input  class="text s_new  zerofloat2" value="{{new1}}" style="color: #e65844;background: #fdeeec;border:1px solid #e65844"/>
+					<input class="mybtn btnblue  " type="button" value="הוסף הנחה"  ng-click="end_anacha()">
+				</div>	
+			</div>
+		</div>
+		<div class="container_pop an_prod"  style="display:none">
+			<div class="anacha_half right">
+				<input type="hidden" name="BarCode"/>
+				<input type="hidden" name="s_new2"/>
+				<input type="hidden" name="type"/>
+				<input class="mybtn anacha_btn" name="shch" style="width:17%;position: absolute;top: 0;right:0" type="button" value="₪" ng-click="anacha_btn('.container_pop.an_prod input[name=shch]');calc_anacha_prod()">
+				<input  type="text" class="text anacha_txt anacha_txt3" name="anacha_parit" style="width:59%" ng-blur="calc_anacha_prod()"/>
+				<input class="mybtn btnorange" name="achuz" style="width:17%;position: absolute;top: 0;left:0" type="button" value="%"  ng-click="anacha_btn('.container_pop.an_prod input[name=achuz]');calc_anacha_prod()">
+			</div>
+			<div class="anacha_half left" style="position: static;">
+				<div style="width:49%;margin-right: 2%;float:right;position: static;">
+					<p class="forty" style="  font-size: 102%;">מחיר לאחר הנחה:</p>
+					<input class="mybtn btngray  zerofloat2 leftbottom2" type="button" value="ביטול" onclick="$( '.wrap' ).click();">
+				</div>
+				<div style="width:49%;float:left;position: static;">
+					<input  class="text s_new1 zerofloat2" >
+					<input class="mybtn btnblue  leftbottom" type="button" value="הוסף הנחה" ng-click="end_anach_prod()" >
+				</div>	
+			</div>
+		</div>
+	</div>

@@ -1,0 +1,11 @@
+<xml>
+  <section name="SYSTEM CONFIGURATION">
+    <field required="1" type="edit" name="template_dir" text="Path to templates">theme/</field>
+    <field required="1" type="edit" name="mail_template_dir" text="Path to e-mail templates">theme/mail/</field>
+    <field required="1" type="edit" name="system_services_path" text="Path to services folder">modules/</field>
+    <field required="1" type="edit" name="system_kernel_services_path" text="Path to kernel services">modules/kernel/</field>
+    <field required="1" type="edit" name="system_log_path" text="Path to log files">logs/</field>
+    <field required="1" type="edit" name="system_log_file" text="System log file name">system</field>
+    <field type="edit" name="system_log_file_extension" text="System log files extension">.log</field>
+  </section>
+</xml>

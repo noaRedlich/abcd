@@ -1,0 +1,82 @@
+
+<div class="container_pop akafa display" ng-controller="Client as clnt">
+			<h2 class="relative">תשלום בהקפה</h2>
+			<h5>לתשלום:<span style="font-size: 100%;color: #fa6f58;">₪</span><span class="span_sum zerofloat"  style="color: #fa6f58;">{{itra}}</span></h5>
+			<form class="amchaa_frm" style="width: 64%;margin: 0 auto;">
+				<input type="text" value="0.00" class="text akafa_text zerofloat akafa_sum input_sum" />					
+			</form>
+			<p style="font-size: 224%;margin-top: 20px;margin-bottom: 10px;">העבר כרטיס לקוח</p>		
+			<input class="mybtn btnorange " type="button" value="חיפוש לקוח" style="width: 64%;"onclick="get_val('.akafa_sum','.akafa2_sum');openwrap2('','.cust_search.container_pop');$('.akafa_c').show();"> 
+			<div class="exitclient" style=" font-size: 184%; margin-top: 15px;" ng-show="exitClient()">
+				<p><span style="margin-left: 20px;">לקוח: {{SearchClient.SupplierName}}</span><span>מספר: {{SearchClient.ClientNum}}</span></p>
+				<p><span class="change_clr" style="margin-left: 20px;color: #fa6f58;">יתרת חוב: {{SearchClient.CreditBalance}}</span><span>יתרת חוב מותרת: <span class="itra_free">{{itra1(SearchClient.Obligo,SearchClient.CreditBalance)}}</span></p>
+			</div>
+			<input class="mybtn btnlightgray rightbottom" type="button" value="ביטול" onclick="openwrap2('','.type_pay.container_pop')">
+			<input class="mybtn btnblue leftbottom"  type="button" value="אישור" ng-click="payment.akafa_checking('.akafa_sum',itra1(SearchClient.Obligo,SearchClient.CreditBalance));checkend();"  >
+		</div>
+		<div class="display akafa_c" ng-controller="Client as clnt" style="height: 100%;">
+		<div class="container_pop cust_search display" >
+			<h2 class="relative">תשלום בהקפה</h2>
+			<h5>הקלד שם לקוח:</h5>
+			 <!--<div angucomplete-alt id="cust_search" placeholder="חיפוש לקוחות" focus-in="focusIn()" focus-out="focusOut()" pause="100" selected-object="selectedClient" local-data="clients" search-fields="SupplierName,sortorder" title-field="SupplierName"  minlength="1" input-class="form-control form-control-small  my_search_auto" match-class="highlight" clear-selected="true" >
+			 </div>-->
+			 <input type="text" class="search_input my_search_auto cust_search_value c1" style="width: 86%;" placeholder="חיפוש לקוחות">
+			<!--<div class="newrow2 find_cust_container" ng-repeat="cust in filterc=(search_cc  | limitTo:5) " ng-click="choose_client(cust)" style="cursor: pointer"><label class="lbl1 name">שם: {{cust.SupplierName}}</label><span>|</span></span><label class="lbl2 border num">מספר: {{cust.ClientNum}}</label>
+					  				<span>|</span><i class="fa fa-calendar" style="color: black;padding-right: 12px;"></i>
+					  				<label class="lbl1">25.06.2014</label>
+					  				<span>|</span><i class="fa fa-phone" style="color: black;padding-right: 12px;"></i>
+					  				<label class="lbl1">{{cust.CellPhone}}</label>
+					  				<i  class="fa fa-info-circle" style="margin-right: 18px;  color: #e65844;  color: #e65844;"></i></span><label class="lbl2 border yitrat_hov" style="padding-right: 5px;">יתרה:{{cust.Obligo-cust.CreditBalance}} </label>
+			</div> 	-->
+			<table class="workers_tb akafa_client_tb akafa_client_tb1" style="  margin-top: 20px;" >	
+				<tr>
+					<th>שם</th>
+					<th>מספר</th>
+					<!--<th>תאריך</th>-->
+					<th>טלפון</th>
+					<th>יתרה</th>
+				</tr>											
+				<tr  ng-repeat="cust in filterc=(search_cc  | limitTo:5) " ng-click="choose_client(cust)" style="cursor: pointer">
+					<td>{{cust.SupplierName}}</td>
+					<td>{{cust.ClientNum}}</td>
+					<!--<td>25.06.2014</td>-->
+					<td>{{cust.CellPhone}}</td>
+					<td><i color-case condition="cust.CreditBalance" class="fa fa-info-circle" style="margin-right: 18px; "></i></span><label class="lbl2 border yitrat_hov" style="padding-right: 5px;">{{cust.CreditBalance}}</label></td>
+				<tr>
+			</table>
+			<div class="exitclient" style=" font-size: 184%; margin-top: 15px;" ng-show="exitClient()">
+				<p><span style="margin-left: 20px;">לקוח: {{SearchClient.SupplierName}}</span><span>מספר: {{SearchClient.ClientNum}}</span></p>
+				<p><span  class="change_clr" style="margin-left: 20px;color: #fa6f58;">יתרת חוב: {{SearchClient.CreditBalance}}
+					</span><span>יתרת חוב מותרת: <span class="itra_free">{{itra1(SearchClient.Obligo,SearchClient.CreditBalance)}}</span></p>
+			</div>
+			<input class="mybtn btngray rightbottom" type="button" value="ביטול"  onclick="openwrap2('','.akafa.container_pop')">
+			<input class="mybtn btnblue leftbottom" onclick="if($('.akafa_client_tb.akafa_client_tb1 tr').length==3){openwrap2('.add_worker.container_pop','.akafa2.container_pop')}" type="button" value="אישור">
+		</div>
+		
+		<div class="container_pop akafa2 display" >
+			<h2 class="relative">תשלום בהקפה</h2>
+			<h5>לתשלום:<span style="font-size: 100%;color: #fa6f58;">₪</span><span class="span_sum zerofloat"  style="color: #fa6f58;">{{itra}}</span></h5>
+			<form class="amchaa_frm" style="width: 64%;margin: 0 auto;">
+				<input type="text" value="0.00" class="text zerofloat akafa2_sum input_sum" />					
+			</form>
+			<div class="exitclient" style=" font-size: 184%; margin-top: 15px;" ng-show="exitClient()">
+				<p><span style="margin-left: 20px;">לקוח: {{SearchClient.SupplierName}}</span><span>מספר: {{SearchClient.ClientNum}}</span></p>
+				<p><span  class="change_clr" style="margin-left: 20px;color: #fa6f58;">יתרת חוב:<span class="itra55">{{SearchClient.CreditBalance}}</span> </span><span>יתרת חוב מותרת: <span class="itra_free">{{itra1(SearchClient.Obligo,SearchClient.CreditBalance)}}</span></p>
+			</div>
+			<input class="mybtn btnlightgray rightbottom" type="button" value="ביטול" onclick="openwrap2('','.cust_search.container_pop')">
+			<input class="mybtn btnblue leftbottom" onclick="akafa_checking('.akafa2_sum')" type="button" value="לתשלום" ng-click="payment.akafa_checking('.akafa2_sum',itra1(SearchClient.Obligo,SearchClient.CreditBalance));checkend();">
+		</div>
+	
+		<div class="container_pop akafa3 display">
+			<h2 class="relative">תשלום בהקפה</h2>
+			<h5>לתשלום:<span style="font-size: 100%;color: #fa6f58;">₪</span><span class="span_sum zerofloat"  style="color: #fa6f58;">{{itra}}</span></h5>
+			<form class="amchaa_frm" style="width: 64%;margin: 0 auto;">
+				<input type="text" class="text zerofloat over_akafa input_sum" />					
+			</form>
+			<p style="font-size: 224%;width: 300px;margin: 0 auto;">סכום חורג מהמסגרת המותרת ללקוח.</p>
+			<p style="font-size: 224%;margin-top: 20px;margin-bottom: 10px;">תשלום לא בוצע.</p>
+			<input class="mybtn btnorange " type="button" value="אלץ עיסקה" style="width: 64%;" ng-click="force();checkend();" > 
+			<input class="mybtn rightbottom btnlightgray " type="button" value="ביטול" onclick="openwrap2('','.akafa.container_pop')">
+			<input class="mybtn btnblue leftbottom"  type="button" value="אישור" onclick="openwrap2('','.type_pay.container_pop')">
+		</div>
+	</div>
